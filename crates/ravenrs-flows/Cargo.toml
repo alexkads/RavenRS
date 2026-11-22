@@ -1,0 +1,39 @@
+[package]
+name = "ravenrs-flows"
+description = "Runs flows drawn on a RavenRS FlowCanvas: a versioned definition, a catalog of node kinds, a checked plan, and runs that pass items from node to node, whole, from a node or one node alone."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-flows"
+keywords = ["workflow", "automation", "flow", "nodes", "dataflow"]
+categories = ["gui", "data-structures"]
+
+[features]
+default = ["canvas"]
+# The bridge to the FlowCanvas (to_graph, from_graph, Catalog::run_rules, card, port_name), over the
+# drawing model of ravenrs-graphics. Off, the crate runs flows with no drawing in its tree: what a
+# server or a plugin of Raven CI built on its own needs.
+canvas = ["dep:ravenrs-graphics"]
+
+[dependencies]
+ravenrs-graphics = { workspace = true, optional = true }
+# The conditions and values of the built-in nodes, over each item's JSON.
+ravenrs-criteria = { workspace = true, features = ["json"] }
+serde.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# The machine's clock in a browser, where std has none.
+js-sys.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+ravenrs-graphics.workspace = true
+serde_json.workspace = true

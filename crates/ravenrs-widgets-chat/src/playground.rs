@@ -586,6 +586,7 @@ impl View for Playground {
         let name = self.file_name.clone().unwrap_or_else(|| file_name_of(&source.get(), self.language));
         let language = match self.language {
             CodeLanguage::Rust => "Rust".to_owned(),
+            CodeLanguage::Toml => "TOML".to_owned(),
             _ => labels.playground_plain_text.clone(),
         };
         let file_tab = HStack::new((

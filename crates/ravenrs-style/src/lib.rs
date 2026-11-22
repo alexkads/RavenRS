@@ -23,8 +23,11 @@ pub enum Semantic {
     SurfaceElevated,
     /// `bg-300`: control fills.
     Control,
-    /// `border`: hairlines and control outlines.
+    /// `border`: hairlines, dividers and the outline of cards.
     Border,
+    /// `control-border`: the outline of a field or control at rest, at least 3:1 against
+    /// `bg-000`, `bg-100` and `bg-200`, so it can be found without hovering or focusing it.
+    ControlBorder,
     /// `ink`: primary text and icons.
     Ink,
     /// `ink-muted`: secondary text, captions and placeholders.
@@ -59,6 +62,9 @@ pub enum Semantic {
     Chart5,
     /// `chart-grid`: the gridlines of a chart.
     ChartGrid,
+    /// `guide`: the lines a dragged shape snaps to, kept apart from the accent of the
+    /// selection.
+    Guide,
 }
 
 /// The color tokens of one theme.
@@ -73,8 +79,11 @@ pub struct Palette {
     pub bg_200: Color,
     /// `bg-300`: control fills.
     pub bg_300: Color,
-    /// `border`: hairlines and control outlines.
+    /// `border`: hairlines, dividers and the outline of cards.
     pub border: Color,
+    /// `control-border`: the outline of a field or control at rest, at least 3:1 against the
+    /// backgrounds.
+    pub control_border: Color,
     /// `ink`: primary text and icons.
     pub ink: Color,
     /// `ink-muted`: secondary text, captions and placeholders.
@@ -107,6 +116,7 @@ impl Palette {
             Semantic::SurfaceElevated => self.bg_200,
             Semantic::Control => self.bg_300,
             Semantic::Border => self.border,
+            Semantic::ControlBorder => self.control_border,
             Semantic::Ink => self.ink,
             Semantic::InkMuted => self.ink_muted,
             Semantic::Accent => self.accent,
@@ -124,6 +134,8 @@ impl Palette {
             Semantic::Chart4 => self.chart_color(0xe08a00, 0xfbbf24),
             Semantic::Chart5 => self.chart_color(0xdb2777, 0xf472b6),
             Semantic::ChartGrid => self.border,
+            // Magenta on any ground, unlike the blues of the accent and the focus ring.
+            Semantic::Guide => self.chart_color(0xdb2777, 0xf472b6),
         }
     }
 
@@ -428,6 +440,7 @@ impl Theme {
                 bg_200: Color::hex(0x181c25),
                 bg_300: Color::hex(0x222734),
                 border: Color::hex(0x2a3040),
+                control_border: Color::hex(0x646e86),
                 ink: Color::hex(0xeef1f7),
                 ink_muted: Color::hex(0x9aa3b5),
                 accent: Color::hex(0x4c66ee),
@@ -464,6 +477,7 @@ impl Theme {
                 bg_200: Color::hex(0xffffff),
                 bg_300: Color::hex(0xebedf2),
                 border: Color::hex(0xdadde5),
+                control_border: Color::hex(0x7d8597),
                 ink: Color::hex(0x12151c),
                 ink_muted: Color::hex(0x5a6375),
                 accent: Color::hex(0x3f57db),
@@ -501,6 +515,7 @@ impl Theme {
                 bg_200: Color::hex_alpha(0xffffff1a),
                 bg_300: Color::hex_alpha(0xffffff24),
                 border: Color::hex_alpha(0xffffff2e),
+                control_border: Color::hex_alpha(0xffffff70),
                 ink: Color::hex(0xf5f7ff),
                 ink_muted: Color::hex(0xb4bdd3),
                 accent: Color::hex(0x4c66ee),

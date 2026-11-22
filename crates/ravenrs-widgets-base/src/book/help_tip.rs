@@ -1,0 +1,43 @@
+//! The stories of `HelpTip`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #758: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `HelpTip`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let arg_how = args.text("how");
+
+        HStack::new((Text::new("Recurring"), {
+            let mut it = HelpTip::new("Recurring", "It comes back on the same day of each month.");
+            it = it.how(arg_how.clone());
+            it
+        }))
+        .spacing(8.0)
+    })
+}
+
+impl ComponentBook for HelpTip {
+    fn book() -> Meta {
+        Meta::new("Overlays/HelpTip", render)
+            .summary("A small question mark that explains something.")
+            .arg(ArgType::text("how", "Choose it when you save."))
+            .story("Example", Args::new())
+    }
+}

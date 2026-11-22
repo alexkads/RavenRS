@@ -272,6 +272,29 @@ fn dropdown_menu_is_operable_from_the_keyboard() {
 }
 
 #[test]
+fn a_dropdown_menu_opens_from_code_and_says_when_it_closes() {
+    let open = State::new(false);
+    let mut ui = ui(DropdownMenu::new("Export")
+        .open(open.binding())
+        .item(MenuItem::new("PNG"))
+        .item(MenuItem::new("SVG")));
+    // From the keyboard: Tab reaches the button, and a shortcut elsewhere would open the menu.
+    key(&mut ui, Key::Tab);
+    let trigger = focus_ring(&ui).expect("trigger focused");
+    open.set(true);
+    ui.update();
+    ui.update();
+    let row = focus_ring(&ui).expect("the first item takes the focus");
+    assert!(row.y() > trigger.max_y(), "focus is in the open menu");
+    key(&mut ui, Key::Escape);
+    assert!(!open.get(), "closing writes back");
+    assert_eq!(focus_ring(&ui), Some(trigger), "focus returns to the button");
+    // A click still opens it.
+    key(&mut ui, Key::Enter);
+    assert!(open.get());
+}
+
+#[test]
 fn select_opens_with_arrows_on_the_current_option() {
     let choice = State::new(1usize);
     let mut ui = ui(Select::new(choice.binding(), ["Low", "Medium", "High"]));

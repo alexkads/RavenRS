@@ -1,0 +1,74 @@
+//! The stories of `OverlayBadge`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #761: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_base::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use ravenrs_widgets_base::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `OverlayBadge`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let arg_corner = match args.choice("corner") {
+            "TopLeft" => FloatingCorner::TopLeft,
+            "TopRight" => FloatingCorner::TopRight,
+            "BottomLeft" => FloatingCorner::BottomLeft,
+            _ => FloatingCorner::BottomRight,
+        };
+        let arg_inset = args.number("inset") as f32;
+        let arg_visible = args.bool("visible");
+
+        HStack::new((
+            {
+                let mut it = OverlayBadge::new(
+                    Avatar::new("Ana Lima"),
+                    Dot::new().tone(Tone::Success).size(10.0).label("Online"),
+                );
+                it = it.corner(arg_corner.clone());
+                it = it.inset(arg_inset);
+                it = it.visible(arg_visible);
+                it
+            },
+            OverlayBadge::new(
+                Button::new("Open inbox").style(ButtonStyle::Secondary),
+                Badge::new("3").tone(Tone::Danger),
+            ),
+        ))
+        .spacing(32.0)
+        .align(Align::Center)
+    })
+}
+
+impl ComponentBook for OverlayBadge<AnyView, AnyView> {
+    fn book() -> Meta {
+        Meta::new("Display and feedback/OverlayBadge", render)
+            .summary("A small view on a corner of another.")
+            .arg(ArgType::choice(
+                "corner",
+                &["TopLeft", "TopRight", "BottomLeft", "BottomRight"],
+                "BottomRight",
+            ))
+            .arg(ArgType::number("inset", 5.0, 0.0, 20.0, 0.1))
+            .arg(ArgType::bool("visible", true))
+            .story("Example", Args::new())
+            .story("Hidden", Args::new().with("visible", false))
+            .story("Corner: TopLeft", Args::new().with("corner", ArgValue::choice("TopLeft")))
+            .story("Corner: TopRight", Args::new().with("corner", ArgValue::choice("TopRight")))
+            .story("Corner: BottomLeft", Args::new().with("corner", ArgValue::choice("BottomLeft")))
+    }
+}

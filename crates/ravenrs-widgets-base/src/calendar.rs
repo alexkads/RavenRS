@@ -3,7 +3,7 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Insets, Key, Role};
+use ravenrs_core::{AccessAction, Border, Color, CursorIcon, Insets, Key, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Weight};
@@ -220,8 +220,18 @@ impl View for Day<'_> {
             cx.focusable(node, 9.0);
             cx.on_key(node, self.keys.handler(self.date));
         }
+        // Found by its date, `day:2026-10-31`, whatever month the calendar shows.
+        cx.test_id(node, &format!("day:{}", self.date));
         if enabled {
             let (sel, date, pick) = (c.selected.clone(), self.date, c.on_pick.clone());
+            cx.on_access(node, &[AccessAction::Select], move |_, _| {
+                sel.set(Some(date));
+                if let Some(p) = &pick {
+                    p(date);
+                }
+                true
+            });
+            let (sel, pick) = (c.selected.clone(), c.on_pick.clone());
             cx.on_click(
                 node,
                 Rc::new(move || {
@@ -461,7 +471,7 @@ impl View for DatePicker {
         let border = if is_open {
             Border { width: 1.5, color: theme.color(Semantic::Accent) }
         } else {
-            let base = theme.color(Semantic::Border);
+            let base = theme.color(Semantic::ControlBorder);
             Border {
                 width: 1.0,
                 color: state.ink(if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base }),
@@ -500,6 +510,24 @@ impl View for DatePicker {
         }
         let toggle = open.clone();
         cx.on_click(node, Rc::new(move || toggle.update(|o| *o = !*o)));
+        // Opened and closed as by a click, and given a day as `2026-10-31`.
+        let (shown, value) = (open.clone(), self.value.clone());
+        cx.on_access(
+            node,
+            &[AccessAction::Expand, AccessAction::Collapse, AccessAction::SetValue],
+            move |action, text| match action {
+                AccessAction::SetValue => {
+                    let Some(day) = text.and_then(iso_date) else { return false };
+                    value.set(Some(day));
+                    shown.set(false);
+                    true
+                }
+                _ => {
+                    shown.set(action == AccessAction::Expand);
+                    true
+                }
+            },
+        );
         cx.focusable(node, theme.radii.md);
         cx.cursor(node, CursorIcon::Pointer);
         if is_open {
@@ -738,7 +766,7 @@ impl View for DateRangePicker {
         let border = if is_open {
             Border { width: 1.5, color: theme.color(Semantic::Accent) }
         } else {
-            let base = theme.color(Semantic::Border);
+            let base = theme.color(Semantic::ControlBorder);
             Border {
                 width: 1.0,
                 color: state.ink(if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base }),
@@ -773,6 +801,11 @@ impl View for DateRangePicker {
         if !state.accepts_input() {
             return node;
         }
+        let shown = open.clone();
+        cx.on_access(node, &[AccessAction::Expand, AccessAction::Collapse], move |action, _| {
+            shown.set(action == AccessAction::Expand);
+            true
+        });
         let toggle = open.clone();
         cx.on_click(node, Rc::new(move || toggle.update(|o| *o = !*o)));
         let opener = open.clone();
@@ -802,4 +835,13 @@ impl View for DateRangePicker {
         }
         node
     }
+}
+
+/// The day written as ISO 8601, `2026-10-31`, as the ids of the days are.
+fn iso_date(text: &str) -> Option<Date> {
+    let mut parts = text.trim().splitn(3, '-');
+    let year = parts.next()?.parse().ok()?;
+    let month = parts.next()?.parse().ok()?;
+    let day = parts.next()?.parse().ok()?;
+    Date::new(year, month, day)
 }

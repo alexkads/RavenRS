@@ -1,0 +1,19 @@
+[package]
+name = "raven-ci-plugin-agent-remote"
+description = "The plugin agent-remote of Raven CI: brings a build agent up on another machine through SSH, and the agent connects back to the server."
+version = "0.1.0"
+edition.workspace = true
+# raven-ci-core needs 1.89 (ravenrs-flows-runtime, rusqlite 0.41).
+rust-version = "1.89"
+license.workspace = true
+publish = false
+
+[dependencies]
+raven-ci-core = { path = "../raven-ci-core" }
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
+ravenrs-app.workspace = true
+ravenrs-process.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

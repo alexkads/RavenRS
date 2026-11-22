@@ -1,0 +1,37 @@
+[
+  {
+    "versao": "0.1.1",
+    "data": "2026-11-22",
+    "titulo": "O Centro de Recursos passa a se chamar Raven Feature Center (RFC).",
+    "importante": false,
+    "novidades": [
+      "Novo nome, no padrão das outras ferramentas: Raven Test Studio (RTS), RavenComponentBook (RCB) e Raven Feature Center (RFC).",
+      "A pasta é tools/raven-feature-center e o pacote, raven-feature-center: cargo run -p raven-feature-center abre o centro."
+    ],
+    "por_que_atualizar": "Para achar o centro pelo mesmo nome e sigla nas ferramentas, no MCP e na documentação.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      796
+    ]
+  },
+  {
+    "versao": "0.1.0",
+    "data": "2026-11-22",
+    "titulo": "O Centro de Recursos vira ferramenta, instalada e atualizada como o Raven Test Studio.",
+    "importante": false,
+    "novidades": [
+      "Mudou de examples/ para tools/: instala com o install.cmd e se atualiza como as outras ferramentas do RavenRS.",
+      "Fechar a janela o deixa ao lado do relógio, e abrir de novo traz a cópia que já está aberta.",
+      "--versao diz a versão e --self-test abre cada modo sem janela."
+    ],
+    "por_que_atualizar": "Para ter a vitrine de todos os componentes sempre na versão do master.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      793
+    ]
+  }
+]

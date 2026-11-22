@@ -6,6 +6,10 @@
 
 // The base and the kit, by the names the components use: `crate::Button`, `crate::Tabs`,
 // `crate::context::BuildCx`.
+/// The stories of the components of this crate (feature `book`).
+#[cfg(feature = "book")]
+pub mod book;
+
 #[allow(unused_imports)]
 use ravenrs_widgets_base::*;
 #[allow(unused_imports)]
@@ -17,9 +21,26 @@ pub mod chart;
 #[cfg(feature = "flow")]
 #[doc(hidden)]
 pub mod flow;
+#[cfg(feature = "flow")]
+#[doc(hidden)]
+pub mod flow_inspector;
+#[cfg(feature = "flow")]
+#[doc(hidden)]
+pub mod flow_layers;
+#[cfg(feature = "flow")]
+#[doc(hidden)]
+pub mod flow_library;
+#[cfg(feature = "flow")]
+#[doc(hidden)]
+pub mod flow_notation;
+#[cfg(feature = "flow")]
+#[doc(hidden)]
+pub mod flow_toolbox;
 #[cfg(feature = "charts")]
 #[doc(hidden)]
 pub mod sankey;
+#[cfg(feature = "testing")]
+pub mod testing;
 
 #[cfg(feature = "charts")]
 pub use chart::{
@@ -29,8 +50,22 @@ pub use chart::{
 };
 #[cfg(feature = "flow")]
 pub use flow::{
-    EdgeShape, FlowCanvas, FlowEdge, FlowEndpoint, FlowGraph, FlowKind, FlowNode, FlowNodeStatus, FlowPort,
-    FlowSelection, FlowValidator, FlowViewport, PortDirection, PortSide,
+    EdgeCap, EdgeShape, FLOW_FORMAT, FLOW_NODE_DRAG, FlowCanvas, FlowChange, FlowColors, FlowConnector,
+    FlowContent, FlowDirection, FlowDocument, FlowEdge, FlowEndpoint, FlowExportFormat, FlowExporter,
+    FlowGate, FlowGraph, FlowGuard, FlowHistory, FlowIssue, FlowJsonError, FlowKind, FlowLayout,
+    FlowLayoutKind, FlowNext, FlowNode, FlowNodeRun, FlowNodeStatus, FlowPicture, FlowPort, FlowRun,
+    FlowRunEvent, FlowRunRules, FlowRunView, FlowSelection, FlowShape, FlowShelf, FlowStyle, FlowText,
+    FlowValidator, FlowViewport, NODE_REFS, PortDirection, PortSide,
 };
+#[cfg(feature = "flow")]
+pub use flow_inspector::FlowInspector;
+#[cfg(feature = "flow")]
+pub use flow_layers::FlowLayers;
+#[cfg(feature = "flow")]
+pub use flow_library::FlowLibrary;
+#[cfg(feature = "flow")]
+pub use flow_notation::{FlowChecks, FlowFileFormat, FlowNotation};
+#[cfg(feature = "flow")]
+pub use flow_toolbox::FlowToolbox;
 #[cfg(feature = "charts")]
 pub use sankey::{SankeyAlign, SankeyChart};

@@ -560,14 +560,14 @@ mod tests {
     use super::*;
     use crate::db::Database;
     use crate::seed;
-    use crate::update::Updater;
+    use crate::update;
 
     #[test]
     fn a_move_can_be_undone_and_done_again_and_a_new_one_clears_what_was_undone() {
         let today = Date::new(2026, 11, 15).expect("valid date");
         let db = Database::in_memory().expect("database");
         seed::load_demo(&db, today).expect("seed");
-        let store = Store::new(db, today, None, Updater::idle());
+        let store = Store::new(db, today, None, update::idle());
         let history = MoveHistory::new();
         let bill = store.read(|db| db.open_bills()).into_iter().next().expect("a bill");
         let due = |store: &Store| {

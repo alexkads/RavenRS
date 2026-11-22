@@ -22,6 +22,7 @@ ravenrs-live = { workspace = true, optional = true }
 ravenrs-barcode.workspace = true
 ravenrs-core.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 tiny-skia = { version = "0.12", default-features = false, features = ["std", "simd"] }
 
 [lints]

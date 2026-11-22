@@ -1,0 +1,37 @@
+[package]
+name = "raven-component-book"
+description = "RavenComponentBook: the stories of every RavenRS component, as Storybook keeps them, drawn live with their settings, measured from what RavenRS paints, and exported as JSON and as the design system the design tool reads."
+# The tool's own version, read by its news, as Raven Finanças and Raven Test Studio do: raising
+# it is what announces an update to the copies installed with install.cmd.
+version = "0.1.2"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+# What Raven Test Studio opens: the name its scenarios open and the binary that serves them.
+[package.metadata.ravenrs.e2e]
+app = "RavenComponentBook"
+binary = "raven-component-book"
+
+[dependencies]
+ravenrs = { workspace = true, features = ["tray", "book"] }
+ravenrs-app-update = { workspace = true, features = ["ui"] }
+# The components that do not give their stories yet are shown by their example in the gallery,
+# marked as pending, until each gives its own `ComponentBook`.
+# The window of an application and the film components give their stories too.
+ravenrs-app-ui = { workspace = true, features = ["book"] }
+ravenrs-movie = { workspace = true, features = ["book"] }
+component-gallery = { path = "../../examples/component-gallery" }
+serde_json.workspace = true
+# Reads the fonts of the scene back into letters, weights and families.
+swash.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tracing-subscriber.workspace = true
+# The test channel, closed until the book is opened with --e2e-serve.
+ravenrs-e2e.workspace = true
+ravenrs-e2e-wire = { workspace = true, features = ["serve"] }
+
+[lints]
+workspace = true

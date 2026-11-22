@@ -1,0 +1,2355 @@
+{
+ "tipos": [
+  {
+   "crate": "ravenrs-app",
+   "tipo": "AppearanceRule",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "ApplicationBuilder",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "AuditSettings",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "ChoiceItem",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "Claims",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "DashboardInfo",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "Dispatcher",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "EntityInfo",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "Event",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "ExternalSignIn",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "FieldInfo",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "ListFilter",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "MemoryDatabase",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "Message",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "ModelNode",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "ModuleManifest",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "Object",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "Query",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "RecordAction",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "Reminder",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "Role",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "Rule",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "SecurityContext",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "StateMachine",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "TargetScope",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "ViewVariant",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-a11y",
+   "tipo": "Audit",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-i18n",
+   "tipo": "Catalog",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-library",
+   "tipo": "LibraryModule",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-pos",
+   "tipo": "Caixa",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-app-postgres",
+   "tipo": "PostgresBackend",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-postgres",
+   "tipo": "PostgresOptions",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-postgrest",
+   "tipo": "PostgrestBuilder",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-postgrest",
+   "tipo": "ResourceMap",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-report",
+   "tipo": "AnalyticsPanel",
+   "rts": {
+    "ids": [
+     "point:<série>:<categoria>"
+    ],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-app-report",
+   "tipo": "StoredReportsModule",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-requests",
+   "tipo": "RequestsModule",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-requests",
+   "tipo": "Step",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-server",
+   "tipo": "ApiOptions",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-server",
+   "tipo": "ApiRequest",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-server",
+   "tipo": "ApiService",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-server",
+   "tipo": "Webhook",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-sql",
+   "tipo": "SqlBuilder",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-sql",
+   "tipo": "TableMap",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-sqlite",
+   "tipo": "BackupStamp",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-sqlite",
+   "tipo": "Backups",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-update",
+   "tipo": "NewsDialog",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-app-update",
+   "tipo": "ServiceManager",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-update",
+   "tipo": "ServiceSpec",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-ui",
+   "tipo": "ActionButton",
+   "rts": {
+    "ids": [
+     "action:<id>"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-app-ui",
+   "tipo": "ActionContainer",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-app-ui",
+   "tipo": "App",
+   "rts": {
+    "ids": [
+     "item:<rótulo>"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-app-ui",
+   "tipo": "AppShell",
+   "rts": {
+    "ids": [
+     "item:<rótulo>"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-app-ui",
+   "tipo": "EntityPane",
+   "rts": {
+    "ids": [
+     "field:<campo>"
+    ],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-app-ui",
+   "tipo": "FormText",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-ui",
+   "tipo": "ListView",
+   "rts": {
+    "ids": [
+     "row:<chave>"
+    ],
+    "acoes": [
+     "Click"
+    ],
+    "busy": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-ui",
+   "tipo": "NavigationCount",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-ui",
+   "tipo": "PaneWords",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-ui",
+   "tipo": "SecuredApp",
+   "rts": {
+    "ids": [
+     "login:name",
+     "login:password"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-app-ui",
+   "tipo": "SignInAction",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "CablePlug",
+   "rts": {
+    "sem_tela": true,
+    "motivo": "não é uma view: descreve um cabo que o dono desenha"
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "PatchPanel",
+   "rts": {
+    "ids": [
+     "jack:<id>"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Alert",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Anchor",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "AspectRatio",
+   "rts": {
+    "sem_tela": true,
+    "motivo": "só dá proporção ao filho; o id vai no filho"
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Avatar",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Badge",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Button",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "ButtonGroup",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Calendar",
+   "rts": {
+    "ids": [
+     "day:<aaaa-mm-dd>"
+    ],
+    "acoes": [
+     "Click",
+     "Select"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Canvas",
+   "rts": {
+    "sem_tela": true,
+    "motivo": "um desenho livre, sem nada que um leitor de tela leia; quem o usa descreve o que desenha"
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Card",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Carousel",
+   "rts": {
+    "ids": [
+     "slide:<n>"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Checkbox",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Collapse",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "ColorPair",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "ColorPicker",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse",
+     "SetValue"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "ColorSwatch",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Combobox",
+   "rts": {
+    "ids": [
+     "option:<valor>"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse",
+     "SetValue",
+     "Select"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "CommandPalette",
+   "rts": {
+    "ids": [
+     "option:<rótulo>"
+    ],
+    "acoes": [
+     "Select",
+     "Dismiss"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "ContextMenu",
+   "rts": {
+    "ids": [
+     "item:<rótulo>"
+    ],
+    "acoes": [
+     "ShowMenu",
+     "Dismiss"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "CountUp",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "DatePicker",
+   "rts": {
+    "ids": [
+     "day:<aaaa-mm-dd>"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse",
+     "SetValue",
+     "Select"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "DateRangePicker",
+   "rts": {
+    "ids": [
+     "day:<aaaa-mm-dd>"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse",
+     "Select"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Dialog",
+   "rts": {
+    "ids": [
+     "close"
+    ],
+    "acoes": [
+     "Dismiss"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Divider",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "DropdownMenu",
+   "rts": {
+    "ids": [
+     "item:<rótulo>"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse",
+     "ShowMenu",
+     "Dismiss"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "FavoriteToggle",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Footer",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "FormField",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "GlassCard",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Grid",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "HelpTip",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "HoverCard",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Icon",
+   "rts": {
+    "sem_tela": true,
+    "motivo": "decorativo: o nome fica em quem o contém (IconButton, Button)"
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "IconButton",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Image",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "InputOtp",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "SetValue"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Kbd",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Label",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Link",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Menubar",
+   "rts": {
+    "ids": [
+     "menu:<título>",
+     "item:<rótulo>"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse",
+     "ShowMenu"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "NinePointAnchor",
+   "rts": {
+    "ids": [
+     "option:<nome>"
+    ],
+    "acoes": [
+     "Click",
+     "Select"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "PageHeader",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Pagination",
+   "rts": {
+    "ids": [
+     "page:<n>"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Popover",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Expand",
+     "Collapse"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "ProgressBar",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "PropertyRow",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "QuarterTurn",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "RadioGroup",
+   "rts": {
+    "ids": [
+     "option:<valor>"
+    ],
+    "acoes": [
+     "Select"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "ScrollEdgeArrow",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "ScrollLinked",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "ScrollScene",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "ScrollView",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Section",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "SegmentedControl",
+   "rts": {
+    "ids": [
+     "option:<rótulo>"
+    ],
+    "acoes": [
+     "Select"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Select",
+   "rts": {
+    "ids": [
+     "option:<valor>"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse",
+     "Select"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Sheet",
+   "rts": {
+    "ids": [
+     "close"
+    ],
+    "acoes": [
+     "Dismiss"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Skeleton",
+   "rts": {
+    "sem_tela": true,
+    "motivo": "marca de lugar enquanto carrega, sem conteúdo"
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Slider",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Increment",
+     "Decrement",
+     "SetValue"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Spacer",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Spinner",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "SplashScreen",
+   "rts": {
+    "sem_tela": true,
+    "motivo": "tela de abertura passageira, sem nada operável; fica numa camada própria e some sozinha"
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "SplitHandle",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Increment",
+     "Decrement"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "SplitPanes",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Splitter",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Increment",
+     "Decrement"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Stat",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "StatusBar",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Stepper",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Increment",
+     "Decrement",
+     "SetValue"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Sticky",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "SwatchGrid",
+   "rts": {
+    "ids": [
+     "swatch:<nome>"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Text",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "TextField",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Focus",
+     "SetValue"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "ThemeSwitcher",
+   "rts": {
+    "ids": [
+     "option:<rótulo>"
+    ],
+    "acoes": [
+     "Select"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Ticker",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "TitleBar",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Toaster",
+   "rts": {
+    "ids": [
+     "toast:<id>"
+    ],
+    "acoes": [
+     "Dismiss"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Toggle",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "ToggleButton",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "ToggleGroup",
+   "rts": {
+    "ids": [
+     "option:<rótulo>"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "ToolRail",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "Tooltip",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "ZStack",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-base",
+   "tipo": "ZoomControl",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-charts",
+   "tipo": "AreaChart",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-charts",
+   "tipo": "BarChart",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-charts",
+   "tipo": "Barcode",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-charts",
+   "tipo": "Chart",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-charts",
+   "tipo": "ChartCard",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-charts",
+   "tipo": "FlowCanvas",
+   "rts": {
+    "ids": [
+     "node:<id>",
+     "port:<no>:<porta>"
+    ],
+    "acoes": [
+     "Click"
+    ],
+    "driver": "FlowCanvasDriver"
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-charts",
+   "tipo": "FlowInspector",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-charts",
+   "tipo": "FlowLayers",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-charts",
+   "tipo": "FlowLibrary",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-charts",
+   "tipo": "FlowToolbox",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-charts",
+   "tipo": "SankeyChart",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-chat",
+   "tipo": "AttachmentStrip",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-chat",
+   "tipo": "AudioPlayerButton",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-chat",
+   "tipo": "Chat",
+   "rts": {
+    "ids": [
+     "message:<n>"
+    ],
+    "acoes": [
+     "Click"
+    ],
+    "busy": true
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-chat",
+   "tipo": "CodeEditor",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-chat",
+   "tipo": "FloatingPanel",
+   "rts": {
+    "ids": [
+     "orb"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-chat",
+   "tipo": "Playground",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-chat",
+   "tipo": "RichText",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-chat",
+   "tipo": "SelectionBar",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-dock",
+   "tipo": "DockArea",
+   "rts": {
+    "ids": [
+     "panel:<id>",
+     "floating:<id>",
+     "floating-move:<id>"
+    ],
+    "acoes": [
+     "Click"
+    ],
+    "driver": "DockDriver"
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-dock",
+   "tipo": "Ribbon",
+   "rts": {
+    "ids": [
+     "tab:<título>"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-grid",
+   "tipo": "DataGrid",
+   "rts": {
+    "ids": [
+     "row:<chave>",
+     "cell:<chave>:<coluna>",
+     "column:<coluna>",
+     "filter:<coluna>"
+    ],
+    "acoes": [
+     "Click"
+    ],
+    "driver": "DataGridDriver"
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-imaging",
+   "tipo": "ColorWheel",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "SetValue"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-imaging",
+   "tipo": "CompareView",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-imaging",
+   "tipo": "CropOverlay",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "SetValue"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-imaging",
+   "tipo": "CurveEditor",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-imaging",
+   "tipo": "Eyedropper",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-imaging",
+   "tipo": "Histogram",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-imaging",
+   "tipo": "ImageLightbox",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-imaging",
+   "tipo": "Lottie",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-imaging",
+   "tipo": "Marquee",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-imaging",
+   "tipo": "Minimap",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-imaging",
+   "tipo": "Protractor",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-imaging",
+   "tipo": "RubberBand",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-imaging",
+   "tipo": "RuleOfThirdsGrid",
+   "rts": {
+    "sem_tela": true,
+    "motivo": "linhas-guia de composição sobre uma imagem, escondidas do leitor de tela; quem as mostra é a ferramenta de recorte"
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-imaging",
+   "tipo": "Ruler",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-imaging",
+   "tipo": "TransformHandles",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "SetValue"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-imaging",
+   "tipo": "ZoomPanView",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "Accordion",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "Breadcrumb",
+   "rts": {
+    "ids": [
+     "crumb:<rótulo>"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "CardView",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "CodeBlock",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "ConfirmDialog",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "DateTimePicker",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "DaySeparator",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "Disclosure",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "Dot",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "DropZone",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "EmptyState",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "ExpressionEditor",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "FileUpload",
+   "rts": {
+    "ids": [
+     "file:<nome>"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "FilterBuilder",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "FloatingToolbar",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "FormLayout",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "HeroBanner",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "IconTile",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "ImageField",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "InlineRename",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "KeyBar",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "List",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "LookupField",
+   "rts": {
+    "ids": [
+     "option:<valor>"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse",
+     "Select"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "MaskedField",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "ModelPicker",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "MultiProgress",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "NumberField",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "OverlayBadge",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "QuadField",
+   "rts": {
+    "sem_tela": true,
+    "motivo": "um campo de quadrados animado, decorativo, sem nada que se leia ou opere"
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "Rating",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Increment",
+     "Decrement"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "ReleaseNotes",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "ScanField",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "ShimmerText",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "ShortcutHintBar",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "ShortcutSheet",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "Sidebar",
+   "rts": {
+    "ids": [
+     "item:<rótulo>",
+     "section:<título>"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "SidebarBrand",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "SplitButton",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "StepBadge",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "StepIndicator",
+   "rts": {
+    "ids": [
+     "step:<n>"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "Table",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "Tabs",
+   "rts": {
+    "ids": [
+     "tab:<rótulo>"
+    ],
+    "acoes": [
+     "Click",
+     "Select"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "TagBox",
+   "rts": {
+    "ids": [
+     "remove:<etiqueta>",
+     "option:<valor>"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse",
+     "Select"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "TextArea",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Focus",
+     "SetValue"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "ThemeEditor",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "ThemePicker",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "TileLayout",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "TimePicker",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "Toolbar",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "ValueSlider",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "Wizard",
+   "rts": {
+    "ids": [
+     "step:<n>"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-lists",
+   "tipo": "DocumentTabs",
+   "rts": {
+    "ids": [
+     "tab:<id>"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-lists",
+   "tipo": "FileBrowser",
+   "rts": {
+    "ids": [
+     "row:<chave>"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-lists",
+   "tipo": "Filmstrip",
+   "rts": {
+    "ids": [
+     "row:<chave>"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-lists",
+   "tipo": "PagedDocumentView",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-lists",
+   "tipo": "SortableList",
+   "rts": {
+    "ids": [
+     "item:<chave>"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-lists",
+   "tipo": "TreeView",
+   "rts": {
+    "ids": [
+     "item:<chave>"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-lists",
+   "tipo": "LogView",
+   "rts": {
+    "ids": [
+     "line:<numero>",
+     "number:<numero>",
+     "section:<numero>"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-lists",
+   "tipo": "VirtualList",
+   "rts": {
+    "ids": [
+     "row:<chave>"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-lists",
+   "tipo": "YearView",
+   "rts": {
+    "ids": [
+     "day:<aaaa-mm-dd>"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-scheduler",
+   "tipo": "EventCalendar",
+   "rts": {
+    "ids": [
+     "event:<id>",
+     "day:<aaaa-mm-dd>"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-scheduler",
+   "tipo": "RecurrenceEditor",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-scheduler",
+   "tipo": "Scheduler",
+   "rts": {
+    "ids": [
+     "event:<id>",
+     "resource:<id>"
+    ],
+    "acoes": [
+     "Click"
+    ],
+    "driver": "SchedulerDriver"
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-scheduler",
+   "tipo": "Timeline",
+   "rts": {
+    "ids": [
+     "item:<id>"
+    ],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "ParameterForm",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-lists",
+   "tipo": "DataInspector",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  }
+ ]
+}

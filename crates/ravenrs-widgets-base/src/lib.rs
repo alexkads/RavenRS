@@ -5,8 +5,12 @@
 //! same names. The modules are public only so the crates of the components can reach the parts
 //! they share; they are hidden from the documentation and are not a stable API.
 
+/// The stories of the components, re-exported by `ravenrs_widgets::book`.
+pub mod book;
 #[doc(hidden)]
 pub mod button;
+#[doc(hidden)]
+pub mod cable_plug;
 #[doc(hidden)]
 pub mod calendar;
 #[doc(hidden)]
@@ -27,8 +31,12 @@ pub mod date;
 pub mod display;
 #[doc(hidden)]
 pub mod dock_side;
+
+pub mod drive;
 #[doc(hidden)]
 pub mod extras;
+#[doc(hidden)]
+pub mod field_drag;
 #[doc(hidden)]
 pub mod file_picker;
 #[doc(hidden)]
@@ -72,6 +80,8 @@ pub mod motion_spec;
 pub mod overlay;
 #[doc(hidden)]
 pub mod page_motion;
+/// Panels of jacks joined by cables (#578).
+pub mod patch_panel;
 #[doc(hidden)]
 pub mod recurrence;
 #[doc(hidden)]
@@ -99,6 +109,8 @@ pub mod text_field;
 #[doc(hidden)]
 pub mod time_link;
 #[doc(hidden)]
+pub mod turn;
+#[doc(hidden)]
 pub mod ui;
 #[doc(hidden)]
 pub mod util;
@@ -108,6 +120,7 @@ pub mod view;
 pub mod zoom;
 
 pub use button::{Button, ButtonGroup, ButtonSize, ButtonStyle, IconButton};
+pub use cable_plug::{CableAnchor, CablePlug, CableSide, Cables, distance_to_cable};
 pub use calendar::{Calendar, DatePicker, DateRange, DateRangePicker};
 pub use canvas::Canvas;
 pub use card::{Card, GlassCard};
@@ -118,16 +131,19 @@ pub use choice::{
 pub use clipboard::{Clipboard, ClipboardProvider, MemoryClipboard};
 pub use color_picker::ColorPicker;
 pub use context::{
-    ActivityObserver, BuildCx, Drag, DragHandler, DragPhase, DrawFn, KeyHandler, LiveFn, NodeId, Paint,
-    PaintCx, Placement, QuadPaint, RichFn, Semantics, UiActivity, WidgetId,
+    AccessHandler, ActivityObserver, BuildCx, BusySignal, Carrying, Drag, DragHandler, DragPayload,
+    DragPhase, DrawFn, DropCheck, DropHandler, KeyHandler, LiveFn, NodeId, Paint, PaintCx, Placement,
+    QuadPaint, RichFn, Semantics, UiActivity, WidgetId,
 };
 pub use date::{Date, days_in_month, is_leap_year};
 pub use display::{Alert, AlertAction, Avatar, Badge, Divider, ProgressBar, Section, Skeleton, Stat, Tone};
 pub use dock_side::DockSide;
+pub use drive::{Driving, UiDriver};
 pub use extras::{
     AccessibleControl, Carousel, FormField, InputOtp, Menubar, Rule, Spinner, SplitHandle, SplitPane,
     SplitPanes, Splitter, validate,
 };
+pub use field_drag::{FIELD_DRAG, FieldDrag, field_expression};
 pub use file_picker::{FilePicker, FilePickerProvider, FileRequest, NoFilePicker, PickedFile};
 pub use fill::Fill;
 pub use floating::{
@@ -147,16 +163,17 @@ pub use labels::Labels;
 pub use link_service::{LinkOpener, Links};
 pub use links::Link;
 pub use localized::Localized;
-pub use modifiers::{Faded, Styled, ViewExt};
+pub use modifiers::{Faded, Styled, TestId, ViewExt};
 pub use motion::Collapse;
 pub use motion_spec::Motion;
 pub use overlay::{Dialog, DropdownMenu, HelpTip, MenuItem, Popover, Select, Tooltip};
 pub use page_motion::{Anchor, CountUp, Ticker};
+pub use patch_panel::{Jack, JackFlow, PatchLink, PatchPanel};
 pub use ravenrs_text::TextAlign;
 pub use recurrence::{
     Frequency, RecurrenceEnd, RecurrenceRule, RecurrenceSet, exceptions_text, parse_exceptions,
 };
-pub use remote::UiWaker;
+pub use remote::{UiWaker, WindowCloser};
 pub use scroll_link::{ScrollLink, ScrollRange};
 pub use scroll_scene::{ScrollLinked, ScrollScene, Sticky};
 pub use selection_mode::SelectionMode;
@@ -168,8 +185,9 @@ pub use stack::{
 pub use summary::Summary;
 pub use system_appearance::SystemAppearance;
 pub use text::Text;
-pub use text_field::TextField;
+pub use text_field::{Cursor, TextField, TextHistory};
 pub use time_link::TimeLink;
-pub use ui::{Ui, UiStats};
+pub use turn::{QuarterTurn, Turn};
+pub use ui::{HOLD_TO_CARRY, Ui, UiStats};
 pub use view::{AnyView, Component, FnView, Keyed, Responsive, View, ViewSeq, responsive, view_fn};
 pub use zoom::{ZoomControl, ZoomView};

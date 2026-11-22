@@ -1,0 +1,50 @@
+//! The stories of `ScrollLinked`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #760: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `ScrollLinked`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let card = |text: &'static str| {
+            let mut it = ScrollLinked::new(
+                Card::new(Text::new(text)),
+                ScrollLink::fade_in().range(ScrollRange::Enter),
+            );
+            it
+        };
+        ScrollView::new((
+            card("Each card fades in"),
+            card("and rises into place"),
+            card("as it enters the view,"),
+            card("following the scroll"),
+            card("and not a clock."),
+        ))
+        .spacing(80.0)
+        .height(220.0)
+    })
+}
+
+impl ComponentBook for ScrollLinked<AnyView> {
+    fn book() -> Meta {
+        Meta::new("Layout/ScrollLinked", render)
+            .summary("Fades, moves or scales its content by how far the page has scrolled.")
+            .story("Example", Args::new())
+    }
+}

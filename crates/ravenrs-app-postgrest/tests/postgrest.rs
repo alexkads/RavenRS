@@ -6,6 +6,21 @@
 //!   (`tests/setup.sql` and [`SERVER_SQL`]).
 //! - `RAVENRS_POSTGREST_TOKEN_A` and `RAVENRS_POSTGREST_TOKEN_B`: tokens for the role
 //!   `authenticated`, with a `tenant` claim of `a` and `b`, signed with PostgREST's secret.
+//!
+//! Against a hosted service (Supabase, Neon's Data API), also:
+//!
+//! - `RAVENRS_POSTGREST_SCHEMA`: the schema it serves, `public` unless you exposed another; the
+//!   tables of the tests are dropped and made there, not the schema.
+//! - `RAVENRS_POSTGREST_HOSTED=1`: the service has its roles, so none is created.
+//! - `RAVENRS_POSTGREST_API_KEY`: Supabase's publishable key, sent on every request.
+//! - `RAVENRS_POSTGREST_ANON_ROLE`: the anonymous role when it is not `anon` (`anonymous` on Neon).
+//! - `RAVENRS_POSTGREST_REFRESH_URL` and `RAVENRS_POSTGREST_REFRESH_TOKEN`: where to ask for the
+//!   schema to be read again after making tables, with `PATCH {}`. Neon's Data API does not listen
+//!   to `NOTIFY pgrst` and reads new tables only when asked: its address is
+//!   `https://console.neon.tech/api/v2/projects/{project}/branches/{branch}/data-api/{database}`,
+//!   with a Neon API key.
+//! - The tokens come from the service's sign-in: Supabase Auth with `app_metadata.tenant`, or
+//!   Neon Auth, where each user is a tenant of its own.
 #![allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
 
 use std::rc::Rc;
@@ -17,6 +32,7 @@ use ravenrs_app::{
 };
 use ravenrs_app_postgres::{PostgresBackend, PostgresDatabase, TableMap};
 use ravenrs_app_postgrest::{PostgrestDatabase, ResourceMap, SERVER_SQL};
+use ravenrs_app_sql::SqlBackend;
 use ravenrs_app_testkit::contract::{self, Adapter, Capabilities, Store};
 use ravenrs_criteria::DateTime;
 
@@ -28,6 +44,71 @@ fn url() -> Option<String> {
     var("RAVENRS_POSTGREST_URL")
 }
 
+fn schema() -> String {
+    var("RAVENRS_POSTGREST_SCHEMA").unwrap_or_else(|| "api".to_owned())
+}
+
+/// The service, with the key Supabase asks for and the schema when it is not the default.
+fn builder() -> ravenrs_app_postgrest::PostgrestBuilder {
+    let mut builder = PostgrestDatabase::builder(url().unwrap());
+    if let Some(key) = var("RAVENRS_POSTGREST_API_KEY") {
+        builder = builder.api_key(key);
+    }
+    builder
+}
+
+/// The database as its owner, through the crate, with TLS when the address asks for it.
+fn admin() -> PostgresBackend {
+    let backend = PostgresBackend::connect(&var("RAVENRS_POSTGREST_ADMIN_URL").unwrap()).unwrap();
+    backend.batch(&format!("SET search_path TO {}", schema())).unwrap();
+    backend
+}
+
+/// `tests/setup.sql`, for a hosted service or another schema when the variables say so.
+fn setup_sql() -> String {
+    let mut sql = include_str!("setup.sql").to_owned();
+    if var("RAVENRS_POSTGREST_HOSTED").is_some() {
+        let start = sql.find("DO $roles$").unwrap();
+        let end = sql.find("GRANT anon, authenticated TO authenticator;").unwrap();
+        sql.replace_range(start..end + "GRANT anon, authenticated TO authenticator;".len(), "");
+    }
+    if let Some(anon) = var("RAVENRS_POSTGREST_ANON_ROLE") {
+        sql = sql.replace("TO anon,", &format!("TO {anon},")).replace("FROM anon;", &format!("FROM {anon};"));
+    }
+    let schema = schema();
+    if schema != "api" {
+        sql = sql
+            .replace(
+                "DROP SCHEMA IF EXISTS api CASCADE;\nCREATE SCHEMA api;",
+                "DROP TABLE IF EXISTS plain_q, plain_u, plain_c, rates, notes CASCADE;\n\
+                 DROP FUNCTION IF EXISTS token_tenant();",
+            )
+            .replace(" api ", &format!(" {schema} "))
+            .replace(" api;", &format!(" {schema};"));
+    }
+    sql
+}
+
+/// Asks a hosted service to read the schema again, when it says how; PostgREST hears the NOTIFY.
+fn refresh() {
+    let (Some(url), Some(token)) =
+        (var("RAVENRS_POSTGREST_REFRESH_URL"), var("RAVENRS_POSTGREST_REFRESH_TOKEN"))
+    else {
+        return;
+    };
+    ureq::patch(&url)
+        .header("Authorization", &format!("Bearer {token}"))
+        .header("Content-Type", "application/json")
+        .send("{}")
+        .expect("the schema cache refreshed");
+}
+
+/// How many times, 200 ms apart, to wait for the service to read new tables: a hosted one may
+/// take longer than a local PostgREST (Neon's Data API took more than 10 s at times).
+fn tries() -> usize {
+    if var("RAVENRS_POSTGREST_HOSTED").is_some() { 300 } else { 50 }
+}
+
 fn token(tenant: &str) -> String {
     var(&format!("RAVENRS_POSTGREST_TOKEN_{}", tenant.to_uppercase())).unwrap()
 }
@@ -37,24 +118,21 @@ static SET_UP: Once = Once::new();
 /// Makes the schema, then waits until PostgREST has read it again.
 fn set_up() {
     SET_UP.call_once(|| {
-        let mut admin =
-            postgres::Client::connect(&var("RAVENRS_POSTGREST_ADMIN_URL").unwrap(), postgres::NoTls).unwrap();
-        admin.batch_execute(include_str!("setup.sql")).unwrap();
-        admin.batch_execute("SET search_path TO api").unwrap();
-        admin.batch_execute(SERVER_SQL).unwrap();
+        let admin = admin();
+        admin.batch(&setup_sql()).unwrap();
+        admin.batch(&format!("SET search_path TO {}", schema())).unwrap();
+        admin.batch(SERVER_SQL).unwrap();
         admin
-            .batch_execute(
-                "REVOKE EXECUTE ON FUNCTION api.ravenrs_commit(jsonb) FROM PUBLIC; \
-                 GRANT EXECUTE ON FUNCTION api.ravenrs_commit(jsonb) TO authenticated; \
+            .batch(&format!(
+                "REVOKE EXECUTE ON FUNCTION {0}.ravenrs_commit(jsonb) FROM PUBLIC; \
+                 GRANT EXECUTE ON FUNCTION {0}.ravenrs_commit(jsonb) TO authenticated; \
                  NOTIFY pgrst, 'reload schema'",
-            )
+                schema()
+            ))
             .unwrap();
-        let ready = PostgrestDatabase::builder(url().unwrap())
-            .bearer(token("a"))
-            .resource(note(), ResourceMap::new("notes"))
-            .unwrap()
-            .build();
-        for _ in 0..50 {
+        refresh();
+        let ready = builder().bearer(token("a")).resource(note(), ResourceMap::new("notes")).unwrap().build();
+        for _ in 0..tries() {
             if ready.space().query("Note", &Query::all()).is_ok() {
                 return;
             }
@@ -76,7 +154,7 @@ fn plain() -> EntityInfo {
 }
 
 fn database(resource: &str, tenant: Option<&str>) -> PostgrestDatabase {
-    let mut builder = PostgrestDatabase::builder(url().unwrap()).page_size(2);
+    let mut builder = builder().page_size(2);
     if let Some(tenant) = tenant {
         builder = builder.bearer(token(tenant));
     }
@@ -150,7 +228,7 @@ fn records_are_kept_found_filtered_sorted_and_paged_on_the_server() {
     assert_eq!(names(&database, &Query::all().page(1, 2)), ["Beta", "Gama"]);
     assert_eq!(names(&database, &Query::all().page(3, 10)), ["Delta, (4)"]);
     // Pages of 1000 against a server that cuts at 3 (PGRST_DB_MAX_ROWS): nothing is lost.
-    let wide = PostgrestDatabase::builder(url().unwrap())
+    let wide = builder()
         .bearer(token("a"))
         .resource(plain(), ResourceMap::new("plain_q").column("active", "is_active"))
         .unwrap()
@@ -212,11 +290,7 @@ fn note() -> EntityInfo {
 }
 
 fn notes(tenant: &str) -> PostgrestDatabase {
-    PostgrestDatabase::builder(url().unwrap())
-        .bearer(token(tenant))
-        .resource(note(), ResourceMap::new("notes"))
-        .unwrap()
-        .build()
+    builder().bearer(token(tenant)).resource(note(), ResourceMap::new("notes")).unwrap().build()
 }
 
 fn titles(database: &PostgrestDatabase) -> Vec<String> {
@@ -269,10 +343,7 @@ fn each_tenant_sees_and_changes_only_its_own_records() {
     assert_eq!(titles(&b), ["de B"], "B's record is as it was");
 
     // Without a token: the anonymous role has no grant on the table.
-    let anonymous = PostgrestDatabase::builder(url().unwrap())
-        .resource(note(), ResourceMap::new("notes"))
-        .unwrap()
-        .build();
+    let anonymous = builder().resource(note(), ResourceMap::new("notes")).unwrap().build();
     assert!(matches!(anonymous.space().query("Note", &Query::all()), Err(SpaceError::Denied(_))));
 }
 
@@ -281,11 +352,7 @@ fn a_tenant_written_by_hand_is_refused_by_the_server() {
     let Some(_) = url() else { return };
     set_up();
     let entity = note().field(FieldInfo::new("tenant", FieldKind::Text));
-    let a = PostgrestDatabase::builder(url().unwrap())
-        .bearer(token("a"))
-        .resource(entity, ResourceMap::new("notes"))
-        .unwrap()
-        .build();
+    let a = builder().bearer(token("a")).resource(entity, ResourceMap::new("notes")).unwrap().build();
     let mut space = a.space();
     let mut object = space.new_object("Note").unwrap();
     object.set("id", Value::Number(300.0));
@@ -303,7 +370,7 @@ struct Postgrest;
 
 impl Postgrest {
     fn maker(entities: &[EntityInfo], case: &str) -> Result<SpaceMaker, String> {
-        let mut builder = PostgrestDatabase::builder(url().unwrap()).bearer(token("a")).page_size(2);
+        let mut builder = builder().bearer(token("a")).page_size(2);
         for entity in entities {
             let table = format!("{case}_{}", entity.name.to_lowercase());
             builder = builder.resource(entity.clone(), ResourceMap::new(table)).map_err(|e| e.to_string())?;
@@ -323,33 +390,28 @@ impl Adapter for Postgrest {
     }
 
     fn open(&self, case: &str, entities: &[EntityInfo]) -> Result<Store, String> {
-        let admin = || -> Result<postgres::Client, String> {
-            let mut client =
-                postgres::Client::connect(&var("RAVENRS_POSTGREST_ADMIN_URL").unwrap(), postgres::NoTls)
-                    .map_err(|e| e.to_string())?;
-            client.batch_execute("SET search_path TO api").map_err(|e| e.to_string())?;
-            Ok(client)
-        };
-        let mut client = admin()?;
+        let client = admin();
         for entity in entities {
             let table = format!("{case}_{}", entity.name.to_lowercase());
-            client.batch_execute(&format!("DROP TABLE IF EXISTS api.{table}")).map_err(|e| e.to_string())?;
+            client.batch(&format!("DROP TABLE IF EXISTS {}.{table}", schema())).map_err(|e| e.to_string())?;
         }
-        let mut builder = PostgresDatabase::builder(PostgresBackend::from(client));
+        let mut builder = PostgresDatabase::builder(client);
         for entity in entities {
             let table = format!("{case}_{}", entity.name.to_lowercase());
             builder = builder.managed(entity.clone(), TableMap::new(table)).map_err(|e| e.to_string())?;
         }
         drop(builder.build());
-        admin()?
-            .batch_execute(
-                "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA api TO authenticated; \
+        admin()
+            .batch(&format!(
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA {} TO authenticated; \
                  NOTIFY pgrst, 'reload schema'",
-            )
+                schema()
+            ))
             .map_err(|e| e.to_string())?;
+        refresh();
         let space = Self::maker(entities, case)?;
         let first = entities.first().map(|entity| entity.name.clone()).unwrap_or_default();
-        for _ in 0..50 {
+        for _ in 0..tries() {
             if space().query(&first, &Query::all()).is_ok() {
                 return Ok(Store { space, again: Self::maker(entities, case)? });
             }

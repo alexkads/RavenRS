@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "examples/*"]
+members = ["crates/*", "examples/*", "tools/*", "tools/*/crates/*", "tools/raven-ci/plugins/exemplo-rust"]
 # Applications of their own, opened and built apart: they prove a package works outside this workspace.
 exclude = ["examples/contracts"]
 
@@ -46,6 +46,12 @@ ravenrs-report-export = { version = "27.1.28", path = "crates/ravenrs-report-exp
 ravenrs-report-label = { version = "27.1.28", path = "crates/ravenrs-report-label" }
 ravenrs-perifericos = { version = "27.1.28", path = "crates/ravenrs-perifericos" }
 ravenrs-grid-export = { version = "27.1.28", path = "crates/ravenrs-grid-export" }
+ravenrs-flow-export = { version = "27.1.28", path = "crates/ravenrs-flow-export" }
+ravenrs-flows = { version = "27.1.28", path = "crates/ravenrs-flows" }
+ravenrs-flows-runtime = { version = "27.1.28", path = "crates/ravenrs-flows-runtime" }
+ravenrs-process = { version = "27.1.28", path = "crates/ravenrs-process" }
+ravenrs-agent-cli = { version = "27.1.28", path = "crates/ravenrs-agent-cli" }
+ravenrs-flow-bpmn = { version = "27.1.28", path = "crates/ravenrs-flow-bpmn" }
 ravenrs-app = { version = "27.1.28", path = "crates/ravenrs-app" }
 ravenrs-app-a11y = { version = "27.1.28", path = "crates/ravenrs-app-a11y" }
 ravenrs-app-ui = { version = "27.1.28", path = "crates/ravenrs-app-ui" }
@@ -60,17 +66,26 @@ ravenrs-app-postgrest = { version = "27.1.28", path = "crates/ravenrs-app-postgr
 ravenrs-app-server = { version = "27.1.28", path = "crates/ravenrs-app-server" }
 ravenrs-app-remote = { version = "27.1.28", path = "crates/ravenrs-app-remote" }
 ravenrs-app-testkit = { version = "27.1.28", path = "crates/ravenrs-app-testkit" }
+ravenrs-e2e = { version = "27.1.28", path = "crates/ravenrs-e2e" }
+ravenrs-e2e-wire = { version = "27.1.28", path = "crates/ravenrs-e2e-wire" }
+ravenrs-e2e-runner = { version = "27.1.28", path = "crates/ravenrs-e2e-runner" }
 ravenrs-app-requests = { version = "27.1.28", path = "crates/ravenrs-app-requests" }
 ravenrs-app-library = { version = "27.1.28", path = "crates/ravenrs-app-library" }
 ravenrs-app-nfe = { version = "27.1.28", path = "crates/ravenrs-app-nfe" }
 ravenrs-pos = { version = "27.1.28", path = "crates/ravenrs-pos" }
 ravenrs-app-pos = { version = "27.1.28", path = "crates/ravenrs-app-pos" }
 ravenrs-app-report = { version = "27.1.28", path = "crates/ravenrs-app-report" }
+ravenrs-app-update = { version = "27.1.28", path = "crates/ravenrs-app-update" }
 ravenrs-report-pdf = { version = "27.1.28", path = "crates/ravenrs-report-pdf" }
 ravenrs-report-xlsx = { version = "27.1.28", path = "crates/ravenrs-report-xlsx" }
 ravenrs-sheet = { version = "27.1.28", path = "crates/ravenrs-sheet" }
 ravenrs-spreadsheet = { version = "27.1.28", path = "crates/ravenrs-spreadsheet" }
 ravenrs-report-server = { version = "27.1.28", path = "crates/ravenrs-report-server" }
+ravenrs-metrics = { version = "27.1.28", path = "crates/ravenrs-metrics" }
+ravenrs-git = { version = "27.1.28", path = "crates/ravenrs-git" }
+ravenrs-junit = { version = "27.1.28", path = "crates/ravenrs-junit" }
+ravenrs-schedule = { version = "27.1.28", path = "crates/ravenrs-schedule" }
+ravenrs-secrets = { version = "27.1.28", path = "crates/ravenrs-secrets" }
 ravenrs-report-viewer = { version = "27.1.28", path = "crates/ravenrs-report-viewer" }
 ravenrs-report-designer = { version = "27.1.28", path = "crates/ravenrs-report-designer" }
 ravenrs-criteria = { version = "27.1.28", path = "crates/ravenrs-criteria", default-features = false }

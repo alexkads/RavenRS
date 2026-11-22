@@ -105,6 +105,9 @@ pub struct Quad {
     pub border: Option<Border>,
     /// Optional drop shadow drawn behind the shape.
     pub shadow: Option<Shadow>,
+    /// Turned around the rectangle's center by this many radians, clockwise on screen. The
+    /// shadow turns around its own center, keeping its offset on screen.
+    pub rotation: f32,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -119,7 +122,13 @@ impl Quad {
     /// assert_eq!(scene.len(), 1);
     /// ```
     pub fn new(rect: Rect, fill: impl Into<Brush>) -> Self {
-        Self { rect, corner_radii: [0.0; 4], fill: fill.into(), border: None, shadow: None }
+        Self { rect, corner_radii: [0.0; 4], fill: fill.into(), border: None, shadow: None, rotation: 0.0 }
+    }
+
+    /// Turned around its center by `radians`, clockwise on screen.
+    pub fn rotated(mut self, radians: f32) -> Self {
+        self.rotation = radians;
+        self
     }
 
     /// Sets all four corner radii to `r` logical pixels.
@@ -197,6 +206,10 @@ pub struct GlyphRun {
     pub color: Color,
     /// Glyphs in drawing order.
     pub glyphs: Vec<PositionedGlyph>,
+    /// Each glyph turned around its own origin by this many radians, clockwise on screen, for
+    /// text that runs at an angle (its origins are placed along that angle by whoever lays it
+    /// out, as [`Effect`] does). Turned glyphs lose their snapping to whole pixels.
+    pub rotation: f32,
 }
 
 /// Decoded pixels: RGBA8, straight (not premultiplied) alpha, sRGB, row-major.
@@ -288,13 +301,21 @@ pub struct ImageQuad {
     pub corner_radii: [f32; 4],
     /// Opacity multiplier, `0.0` to `1.0`.
     pub opacity: f32,
+    /// Turned around the rectangle's center by this many radians, clockwise on screen.
+    pub rotation: f32,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ImageQuad {
     /// Draws the whole image stretched into `rect`, opaque and sharp-cornered.
     pub fn new(rect: Rect, image: ImageData) -> Self {
-        Self { rect, image, uv: [0.0, 0.0, 1.0, 1.0], corner_radii: [0.0; 4], opacity: 1.0 }
+        Self { rect, image, uv: [0.0, 0.0, 1.0, 1.0], corner_radii: [0.0; 4], opacity: 1.0, rotation: 0.0 }
+    }
+
+    /// Turned around its center by `radians`, clockwise on screen.
+    pub fn rotated(mut self, radians: f32) -> Self {
+        self.rotation = radians;
+        self
     }
 
     /// Sets all four corner radii to `r` logical pixels.
@@ -442,6 +463,9 @@ pub enum Primitive {
     PushClip(Rect),
     /// Restores the clip active before the matching [`Primitive::PushClip`].
     PopClip,
+    /// A cable that hangs and swings; a [`CableWorld`](crate::cable::CableWorld) places
+    /// its points.
+    Cable(Box<crate::cable::Cable>),
 }
 
 /// A visual change applied to painted content without touching layout: what a
@@ -456,12 +480,14 @@ pub struct Effect {
     pub offset: Point,
     /// Size multiplier around the pivot.
     pub scale: f32,
+    /// Turn around the pivot, in radians, clockwise on screen, after scaling.
+    pub rotation: f32,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Effect {
     /// No change.
-    pub const IDENTITY: Self = Self { opacity: 1.0, offset: Point::new(0.0, 0.0), scale: 1.0 };
+    pub const IDENTITY: Self = Self { opacity: 1.0, offset: Point::new(0.0, 0.0), scale: 1.0, rotation: 0.0 };
 
     /// Fully transparent.
     pub const fn hidden() -> Self {
@@ -476,6 +502,11 @@ impl Effect {
     /// Scaled around the pivot.
     pub const fn scaled(scale: f32) -> Self {
         Self { scale, ..Self::IDENTITY }
+    }
+
+    /// Turned around the pivot by `radians`, clockwise on screen.
+    pub const fn rotated(radians: f32) -> Self {
+        Self { rotation: radians, ..Self::IDENTITY }
     }
 
     /// The same effect with this opacity.
@@ -498,16 +529,19 @@ impl Effect {
             opacity: mix(self.opacity, to.opacity).clamp(0.0, 1.0),
             offset: Point::new(mix(self.offset.x, to.offset.x), mix(self.offset.y, to.offset.y)),
             scale: mix(self.scale, to.scale).max(0.0),
+            rotation: mix(self.rotation, to.rotation),
         }
     }
 
     /// `self` followed by `next`, as one effect: opacities and scales multiply and
-    /// offsets add, the way two nested elements with these effects would look.
+    /// offsets and turns add, the way two nested elements with these effects would look
+    /// around one pivot.
     pub fn then(self, next: Self) -> Self {
         Self {
             opacity: self.opacity * next.opacity,
             offset: Point::new(self.offset.x + next.offset.x, self.offset.y + next.offset.y),
             scale: self.scale * next.scale,
+            rotation: self.rotation + next.rotation,
         }
     }
 
@@ -516,15 +550,35 @@ impl Effect {
         *self == Self::IDENTITY
     }
 
-    fn point(&self, p: Point, pivot: Point) -> Point {
-        Point::new(
-            pivot.x + (p.x - pivot.x) * self.scale + self.offset.x,
-            pivot.y + (p.y - pivot.y) * self.scale + self.offset.y,
-        )
+    /// Where `p` goes: scaled around `pivot`, turned around it, then moved.
+    pub fn point(&self, p: Point, pivot: Point) -> Point {
+        let (sin, cos) = self.rotation.sin_cos();
+        let (x, y) = ((p.x - pivot.x) * self.scale, (p.y - pivot.y) * self.scale);
+        Point::new(pivot.x + x * cos - y * sin + self.offset.x, pivot.y + x * sin + y * cos + self.offset.y)
     }
 
+    /// A rectangle of the scaled size around where its center goes; the turn is the
+    /// primitive's own [`Quad::rotation`].
     fn rect(&self, r: Rect, pivot: Point) -> Rect {
-        Rect::from_origin_size(self.point(r.origin, pivot), r.size.scale(self.scale))
+        let size = r.size.scale(self.scale);
+        let c = self.point(r.center(), pivot);
+        Rect::new(c.x - size.width / 2.0, c.y - size.height / 2.0, size.width, size.height)
+    }
+
+    /// The box around where the corners of `r` go: a clip stays a rectangle on screen.
+    fn bounds(&self, r: Rect, pivot: Point) -> Rect {
+        let corners = [
+            self.point(r.origin, pivot),
+            self.point(Point::new(r.max_x(), r.y()), pivot),
+            self.point(Point::new(r.max_x(), r.max_y()), pivot),
+            self.point(Point::new(r.x(), r.max_y()), pivot),
+        ];
+        let (mut x0, mut y0, mut x1, mut y1) =
+            (f32::INFINITY, f32::INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
+        for c in corners {
+            (x0, y0, x1, y1) = (x0.min(c.x), y0.min(c.y), x1.max(c.x), y1.max(c.y));
+        }
+        Rect::new(x0, y0, x1 - x0, y1 - y0)
     }
 
     fn color(&self, c: Color) -> Color {
@@ -535,6 +589,7 @@ impl Effect {
         match primitive {
             Primitive::Quad(q) => {
                 q.rect = self.rect(q.rect, pivot);
+                q.rotation += self.rotation;
                 q.corner_radii = q.corner_radii.map(|r| r * self.scale);
                 q.fill = match q.fill {
                     Brush::Solid(c) => Brush::Solid(self.color(c)),
@@ -556,6 +611,7 @@ impl Effect {
             }
             Primitive::Glyphs(run) => {
                 run.size *= self.scale;
+                run.rotation += self.rotation;
                 run.color = self.color(run.color);
                 for g in &mut run.glyphs {
                     let p = self.point(Point::new(g.x, g.y), pivot);
@@ -565,23 +621,33 @@ impl Effect {
             Primitive::Path(path) => {
                 path.opacity *= self.opacity;
                 let [a, b, c, d, e, f] = path.transform;
+                let (sin, cos) = self.rotation.sin_cos();
                 let k = self.scale;
-                path.transform = [
-                    a * k,
-                    b * k,
-                    c * k,
-                    d * k,
-                    pivot.x + self.offset.x + (e - pivot.x) * k,
-                    pivot.y + self.offset.y + (f - pivot.y) * k,
-                ];
+                // Scale and turn around the pivot, then move: applied after the path's own.
+                let turn = |x: f32, y: f32| (k * (cos * x - sin * y), k * (sin * x + cos * y));
+                let (na, nb) = turn(a, b);
+                let (nc, nd) = turn(c, d);
+                let (ne, nf) = turn(e - pivot.x, f - pivot.y);
+                path.transform = [na, nb, nc, nd, pivot.x + self.offset.x + ne, pivot.y + self.offset.y + nf];
             }
             Primitive::Image(image) => {
                 image.rect = self.rect(image.rect, pivot);
+                image.rotation += self.rotation;
                 image.corner_radii = image.corner_radii.map(|r| r * self.scale);
                 image.opacity *= self.opacity;
             }
-            Primitive::PushClip(rect) => *rect = self.rect(*rect, pivot),
+            Primitive::PushClip(rect) => *rect = self.bounds(*rect, pivot),
             Primitive::PopClip => {}
+            Primitive::Cable(cable) => {
+                // The cable keeps its own units; the effect goes into its view (a turn is
+                // not carried: cables hang down whatever turns around them).
+                let v = cable.view;
+                cable.view = crate::cable::CableView {
+                    scale: v.scale * self.scale,
+                    offset: self.point(v.offset, pivot),
+                };
+                cable.look.opacity *= self.opacity;
+            }
         }
     }
 }
@@ -650,6 +716,18 @@ impl Scene {
         if !run.glyphs.is_empty() {
             self.primitives.push(Primitive::Glyphs(run));
         }
+    }
+
+    /// Appends a cable.
+    pub fn push_cable(&mut self, cable: crate::cable::Cable) {
+        self.primitives.push(Primitive::Cable(Box::new(cable)));
+    }
+
+    /// Mutable access to the primitives, for the runtime that places cables after the
+    /// paint.
+    #[doc(hidden)]
+    pub fn primitives_mut(&mut self) -> &mut Vec<Primitive> {
+        &mut self.primitives
     }
 
     /// Appends an image.
@@ -725,6 +803,54 @@ mod tests {
         assert_eq!(a, a.clone());
     }
 
+    fn near(a: Point, b: Point) -> bool {
+        (a.x - b.x).abs() < 1e-3 && (a.y - b.y).abs() < 1e-3
+    }
+
+    #[test]
+    fn a_turn_moves_centers_and_origins_around_the_pivot_and_adds_its_angle() {
+        use std::f32::consts::FRAC_PI_2;
+        let mut scene = Scene::new();
+        scene.push_quad(Quad::new(Rect::new(10.0, -5.0, 20.0, 10.0), Color::WHITE).rotated(0.25));
+        scene.push_glyphs(GlyphRun {
+            font: FontRef { id: 1, data: Arc::new(Vec::<u8>::new()), index: 0 },
+            size: 12.0,
+            color: Color::WHITE,
+            glyphs: vec![PositionedGlyph { id: 1, x: 10.0, y: 0.0 }],
+            rotation: 0.0,
+        });
+        scene.push_path(PathFill::solid(vec![PathElement::MoveTo(Point::new(10.0, 0.0))], Color::WHITE));
+        scene.push_clip(Rect::new(0.0, 0.0, 20.0, 10.0));
+        scene.apply_effect(0..4, Effect::rotated(FRAC_PI_2), Point::ZERO);
+        let p = scene.primitives();
+        let Primitive::Quad(q) = &p[0] else { panic!("a quad") };
+        // The center (20, 0) goes to (0, 20); the size stays and the angles add.
+        assert!(near(q.rect.center(), Point::new(0.0, 20.0)), "{:?}", q.rect);
+        assert_eq!(q.rect.size, crate::Size::new(20.0, 10.0));
+        assert!((q.rotation - (0.25 + FRAC_PI_2)).abs() < 1e-6);
+        let Primitive::Glyphs(run) = &p[1] else { panic!("glyphs") };
+        assert!(near(Point::new(run.glyphs[0].x, run.glyphs[0].y), Point::new(0.0, 10.0)));
+        assert!((run.rotation - FRAC_PI_2).abs() < 1e-6);
+        let Primitive::Path(path) = &p[2] else { panic!("a path") };
+        let [a, b, c, d, e, f] = path.transform;
+        let moved = Point::new(a * 10.0 + c * 0.0 + e, b * 10.0 + d * 0.0 + f);
+        assert!(near(moved, Point::new(0.0, 10.0)), "{moved:?}");
+        let Primitive::PushClip(clip) = &p[3] else { panic!("a clip") };
+        assert!(near(clip.origin, Point::new(-10.0, 0.0)) && (clip.width() - 10.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn turns_add_and_ease() {
+        let a = Effect::rotated(0.5).then(Effect::rotated(0.25).with_scale(2.0));
+        assert_eq!((a.rotation, a.scale), (0.75, 2.0));
+        assert_eq!(Effect::IDENTITY.lerp(Effect::rotated(1.0), 0.5).rotation, 0.5);
+        assert!(Effect::rotated(0.0).is_identity());
+        // Scale first, then the turn, then the offset.
+        let e =
+            Effect { offset: Point::new(1.0, 0.0), ..Effect::rotated(std::f32::consts::PI).with_scale(2.0) };
+        assert!(near(e.point(Point::new(3.0, 0.0), Point::new(1.0, 0.0)), Point::new(-2.0, 0.0)));
+    }
+
     #[test]
     fn empty_glyph_runs_are_skipped() {
         let mut scene = Scene::new();
@@ -733,6 +859,7 @@ mod tests {
             size: 12.0,
             color: Color::WHITE,
             glyphs: vec![],
+            rotation: 0.0,
         });
         assert!(scene.is_empty());
         scene.push_quad(Quad::new(Rect::new(0.0, 0.0, 1.0, 1.0), Color::BLACK).radius(4.0));

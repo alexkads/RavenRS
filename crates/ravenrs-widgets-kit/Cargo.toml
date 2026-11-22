@@ -25,11 +25,14 @@ ravenrs-style.workspace = true
 ravenrs-criteria.workspace = true
 tracing.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 
 [features]
 default = ["decode"]
 # `ImageField`, which reads the picture it is given.
 decode = ["ravenrs-widgets-base/decode"]
+# The stories of its components, for RavenComponentBook (`book::stories`).
+book = ["ravenrs-widgets-base/book"]
 # The components exposed to the playground's interpreter.
 live = ["dep:ravenrs-live", "ravenrs-widgets-base/live", "ravenrs-core/live", "ravenrs-style/live", "ravenrs-layout/live"]
 

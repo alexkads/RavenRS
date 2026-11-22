@@ -12,7 +12,7 @@ impl Gallery {
             sample_demos(&[
                 ("ChartReference", "A dashed line at a value that matters, over an axis of fixed ends."),
                 ("SankeyChart", "How much flows from what to what. Walk it with the arrow keys; flows in a circle say so."),
-                ("FlowCanvas", "Nodes joined by connections. Drag a node or the surface, drag from a port to connect, Shift-drag to select; an input that takes something else says so."),
+                ("FlowCanvas", "Nodes joined by connections. Drag a node or the surface, drag from a port to connect, Shift-drag to select; an input that takes something else says so. Cmd+Z undoes, Cmd+C and Cmd+V copy, Arrange in the corner lays it out in layers, the corner of a selected node resizes it, Cmd+G groups what is selected, and Show JSON shows the diagram as it is saved."),
             ]),
             demo(
                 "Area chart",

@@ -1,0 +1,31 @@
+{
+  "name": "Raven Report Designer",
+  "also_called": [
+    "RRD",
+    "report-designer"
+  ],
+  "package": "raven-report-designer",
+  "version": "0.1.0",
+  "summary": "The report designer of RavenRS Reporting for the people who use the reports: bands, fields, expressions, preview and export to PDF and XLSX, on the desktop and in the browser.",
+  "when_to_use": [
+    "To design or change a report of RavenRS Reporting and see it with data.",
+    "To try ravenrs-report-designer in a real app before putting it in your own."
+  ],
+  "commands": [
+    {
+      "command": "raven-report-designer",
+      "does": "Opens the designer with a sample report. Closing the window keeps it beside the clock."
+    },
+    {
+      "command": "raven-report-designer --self-test",
+      "does": "Builds the designer with no window; exit code 0 when it draws."
+    },
+    {
+      "command": "raven-report-designer --versao",
+      "does": "Prints the version."
+    }
+  ],
+  "limits": [
+    "The web build is made with scripts/build-web.sh raven-report-designer."
+  ]
+}

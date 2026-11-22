@@ -3,11 +3,11 @@
 use ravenrs::prelude::*;
 
 samples! {
-    "TreeView" => tree_view, "TileLayout" => tile_layout, "CardView" => card_view, "DataGrid" => data_grid,
+    "TreeView" => tree_view, "DataInspector" => data_inspector, "TileLayout" => tile_layout, "CardView" => card_view, "DataGrid" => data_grid,
     "Table" => table, "List" => list, "Stat" => stat, "Chart" => chart, "ChartReference" => chart_reference,
-    "SankeyChart" => sankey_chart, "FlowCanvas" => flow_canvas, "ChartCard" => chart_card, "BarChart" => bar_chart,
+    "SankeyChart" => sankey_chart, "FlowCanvas" => flow_canvas, "PatchPanel" => patch_panel, "ChartCard" => chart_card, "BarChart" => bar_chart,
     "AreaChart" => area_chart, "Barcode" => barcode, "Timeline" => timeline, "PropertyRow" => property_row,
-    "VirtualList" => virtual_list, "PagedDocumentView" => paged_document_view,
+    "VirtualList" => virtual_list, "LogView" => log_view, "PagedDocumentView" => paged_document_view,
     "FileBrowser" => file_browser, "SortableList" => sortable_list,
 }
 
@@ -158,7 +158,25 @@ fn sankey_chart() -> impl View {
 }
 // end
 
-// sample: FlowCanvas, 460
+// sample: PatchPanel, 320
+fn patch_panel() -> impl View {
+    let links = State::new(vec![PatchLink::new("left", "in-1")]);
+    PatchPanel::new(
+        vec![
+            Jack::output("left", "Left out").signal("audio").at(60.0, 50.0),
+            Jack::output("right", "Right out").signal("audio").at(180.0, 50.0),
+            Jack::output("tap", "Tap").signal("control").at(320.0, 50.0),
+            Jack::input("in-1", "Input 1").signal("audio").at(60.0, 210.0),
+            Jack::input("in-2", "Input 2").signal("audio").at(180.0, 210.0),
+            Jack::input("pedal", "Pedal").signal("control").at(320.0, 210.0),
+        ],
+        links.binding(),
+    )
+    .size(400.0, 280.0)
+}
+// end
+
+// sample: FlowCanvas, 520
 fn flow_canvas() -> impl View {
     let graph = State::new(
         FlowGraph::new()
@@ -203,7 +221,12 @@ fn flow_canvas() -> impl View {
                     .label("No"),
             ),
     );
-    FlowCanvas::new(graph.binding())
+    let history = State::new(FlowHistory::new());
+    let json = State::new(false);
+    let (undo, redo) = (history.clone(), history.clone());
+    let (shown, written) = (json.clone(), graph.clone());
+    let canvas = FlowCanvas::new(graph.binding())
+        .history(history.binding())
         .kind("trigger", FlowKind::new(IconName::Zap, "Trigger").tone(Semantic::Warning))
         .kind("action", FlowKind::new(IconName::Package, "Action"))
         .kind("condition", FlowKind::new(IconName::GitBranch, "Condition").tone(Semantic::Success))
@@ -215,7 +238,52 @@ fn flow_canvas() -> impl View {
                 Err(String::from("This input takes something else"))
             }
         })
-        .size(880.0, 440.0)
+        .size(880.0, 368.0);
+    VStack::new((
+        view_fn(move || {
+            // Undo and redo here go through the same history as Cmd+Z in the canvas.
+            let (back, again) = (undo.clone(), redo.clone());
+            let (g1, g2) = (written.clone(), written.clone());
+            let toggle = shown.clone();
+            HStack::new((
+                Button::new("Undo")
+                    .style(ButtonStyle::Secondary)
+                    .icon(IconName::Undo2)
+                    .disabled(!undo.get().can_undo())
+                    .on_click(move || {
+                        let mut h = back.get();
+                        if let Some(before) = h.undo(g1.get()) {
+                            back.set(h);
+                            g1.set(before);
+                        }
+                    }),
+                Button::new("Redo")
+                    .style(ButtonStyle::Secondary)
+                    .icon(IconName::Redo2)
+                    .disabled(!redo.get().can_redo())
+                    .on_click(move || {
+                        let mut h = again.get();
+                        if let Some(after) = h.redo(g2.get()) {
+                            again.set(h);
+                            g2.set(after);
+                        }
+                    }),
+                Button::new("Show JSON")
+                    .style(ButtonStyle::Ghost)
+                    .icon(IconName::Code)
+                    .selected(shown.get())
+                    .on_click(move || toggle.update(|on| *on = !*on)),
+            ))
+            .spacing(8.0)
+        }),
+        // The diagram as it is now, as the app would save it; `FlowGraph::from_json` reads it back.
+        view_fn(move || {
+            json.get().then(|| ScrollView::new((CodeBlock::new(graph.get().to_json()),)).height(200.0))
+        }),
+        canvas,
+    ))
+    .spacing(12.0)
+    .align(Align::Stretch)
 }
 // end
 
@@ -298,6 +366,20 @@ fn virtual_list() -> impl View {
 }
 // end
 
+// sample: LogView, 300
+fn log_view() -> impl View {
+    // A build as it runs: the colors the test runner writes, a stage that folds, the search.
+    let log = LogBuffer::new();
+    log.section("Testes");
+    log.push("$ cargo nextest run");
+    for n in 0..200 {
+        let mark = if n % 37 == 0 { "\u{1b}[31mFAIL\u{1b}[0m" } else { "\u{1b}[32mPASS\u{1b}[0m" };
+        log.push(&format!("    {mark} [0.0{}s] suite::test_{n}", n % 10));
+    }
+    LogView::new(log).height(240.0)
+}
+// end
+
 // sample: PagedDocumentView, 420
 fn paged_document_view() -> impl View {
     let sheet = ImageData::from_fn(120, 170, |x, y| {
@@ -355,5 +437,15 @@ fn property_row() -> impl View {
     ))
     .spacing(8.0)
     .align(Align::Stretch)
+}
+// end
+
+// sample: DataInspector, 360
+fn data_inspector() -> impl View {
+    DataInspector::new(
+        r#"[{ "order": 101, "customer": { "name": "Ana" }, "discount": null },
+            { "order": 102, "customer": { "name": "Bia" } }]"#,
+    )
+    .label("Orders")
 }
 // end

@@ -255,3 +255,47 @@ fn date_time_picker_keeps_both_parts() {
     typed(&mut ui, "45");
     assert_eq!(at.get().map(|v| (v.date, v.time)), Some((month, Time::new(8, 45).expect("a real time"))));
 }
+
+#[test]
+fn a_text_field_undoes_and_redoes_with_the_keyboard() {
+    let value = State::new(String::new());
+    let mut ui = ui(TextField::new(value.binding()));
+    focus_field(&mut ui);
+    typed(&mut ui, "olá mundo");
+    let ctrl = Modifiers { ctrl: true, ..Modifiers::default() };
+    let press = |ui: &mut Ui, c: &str, modifiers: Modifiers| {
+        ui.handle_event(&Event::KeyDown { key: Key::Character(c.into()), modifiers });
+        ui.update();
+    };
+    press(&mut ui, "z", ctrl);
+    assert_eq!(value.get(), "olá ");
+    press(&mut ui, "z", ctrl);
+    press(&mut ui, "z", ctrl);
+    assert_eq!(value.get(), "");
+    press(&mut ui, "y", ctrl);
+    assert_eq!(value.get(), "olá");
+    assert_eq!(field_value(&mut ui), "olá");
+}
+
+#[test]
+fn a_field_recalls_what_was_sent_with_the_arrows() {
+    let (value, sent) = (State::new(String::new()), State::new(Vec::<String>::new()));
+    let mut ui = ui(TextField::new(value.binding()).recall(sent.clone()));
+    focus_field(&mut ui);
+    for line in ["one", "two", "two"] {
+        typed(&mut ui, line);
+        key(&mut ui, Key::Enter);
+        value.set(String::new());
+        ui.update();
+    }
+    assert_eq!(sent.get(), ["one", "two"], "twice in a row is kept once");
+    key(&mut ui, Key::ArrowUp);
+    assert_eq!(value.get(), "two");
+    key(&mut ui, Key::ArrowUp);
+    key(&mut ui, Key::ArrowUp);
+    assert_eq!(value.get(), "one", "it stops at the first");
+    key(&mut ui, Key::ArrowDown);
+    assert_eq!(value.get(), "two");
+    key(&mut ui, Key::ArrowDown);
+    assert_eq!(value.get(), "", "past the last, empty again");
+}

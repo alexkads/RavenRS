@@ -476,6 +476,7 @@ impl TextLayout {
                     size: run.font_size(),
                     color,
                     glyphs,
+                    rotation: 0.0,
                 });
             }
         }

@@ -77,7 +77,8 @@ impl FakeTelegram {
     }
 
     /// Sends what the person does (a message or a tap) and returns the bot's answer, or
-    /// `None` after `wait`.
+    /// `None` after `wait`. The answer is the first message after it: notices the bot sends
+    /// right behind, such as the Monday summary a chat hears as it pairs, come later.
     fn say_within(&self, update: Value, wait: Duration, mut tick: impl FnMut()) -> Option<String> {
         let before = self.sent().len();
         self.push(update);
@@ -86,7 +87,7 @@ impl FakeTelegram {
             tick();
             let sent = self.sent();
             if sent.len() > before {
-                return sent.last().and_then(|m| m["text"].as_str()).map(str::to_owned);
+                return sent.get(before).and_then(|m| m["text"].as_str()).map(str::to_owned);
             }
             std::thread::sleep(Duration::from_millis(50));
         }
@@ -768,18 +769,13 @@ fn the_card_pairs_without_holding_up_the_window() {
     let output = command.output().expect("the window's test");
     let _ = std::fs::remove_dir_all(&home);
     let said = String::from_utf8_lossy(&output.stdout);
-    assert!(said.contains("1 passed"), "the window's side did not run: {said}");
-    assert!(
-        output.status.success(),
-        "{}\n{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
+    let complained = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "the window's side failed:\n{said}\n{complained}");
+    assert!(said.contains("1 passed"), "the window's side did not run:\n{said}\n{complained}");
 }
 
 fn window_side() {
     use family_finance::ui::App;
-    use family_finance::update::Updater;
     use ravenrs::prelude::*;
 
     let home = PathBuf::from(std::env::var_os("FF_TELEGRAM_WINDOW").expect("home"));
@@ -788,7 +784,8 @@ fn window_side() {
     let db = Database::open(&path).expect("database");
     db.add_account("Banco", AccountKind::Checking, 0).expect("account");
     let today = Date::new(2026, 11, 6).expect("date");
-    let mut ui = Ui::new(App::new(db, today, Some(path), Updater::idle()), Theme::raven_light());
+    let mut ui =
+        Ui::new(App::new(db, today, Some(path), family_finance::update::idle()), Theme::raven_light());
     ui.set_viewport(Size::new(1360.0, 3200.0), 1.0);
     ui.update();
 
@@ -830,7 +827,10 @@ fn window_side() {
     };
     let answer =
         fake.say_within(text(CHAT, &format!("/start rf1_{code}")), Duration::from_secs(20), &mut tick);
-    assert!(answer.is_some_and(|a| a.contains("Telegram conectado")), "the bot inside the window answered");
+    assert!(
+        answer.as_deref().is_some_and(|a| a.contains("Telegram conectado")),
+        "the bot inside the window answered {answer:?} to /start rf1_{code}, not \"Telegram conectado\""
+    );
     wait_for(&mut ui, "Telegram conectado");
     assert!(find(&mut ui, "Gerar novo QR").is_none(), "the QR was used: no QR left on screen");
     assert!(find(&mut ui, "Conectar outro chat").is_some(), "another person can pair a chat of their own");

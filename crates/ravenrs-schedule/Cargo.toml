@@ -1,0 +1,20 @@
+[package]
+name = "ravenrs-schedule"
+description = "Scheduling for RavenRS apps and servers: cron and interval triggers in a time zone, what to do with a run the program missed while it was down, and a guard so one job never runs twice at once."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-schedule"
+keywords = ["cron", "schedule", "timezone", "jobs", "timer"]
+categories = ["date-and-time"]
+
+[dependencies]
+jiff = "0.2"
+
+[lints]
+workspace = true

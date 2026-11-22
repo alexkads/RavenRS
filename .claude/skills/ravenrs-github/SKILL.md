@@ -24,6 +24,7 @@ O corpo diz **o que** e **por quê**, e lista o que fazer como caixas de marcar 
 - Um branch por issue, a partir do `master` atualizado. Os agentes usam o prefixo `claude/`.
 - Commits no padrão da casa: `<tempo> - <tipo>(<escopo>): <descrição>`, em pt-BR.
 - A descrição do PR segue `.github/PULL_REQUEST_TEMPLATE.md`: o que muda e por quê, como foi testado e as limitações. Ela cita `Closes #N` para o GitHub fechar a issue no merge.
+- Componente criado ou alterado (widget, motor com tela, tipo de `ravenrs-app*`) entra no `tools/raven-feature-center` com todos os recursos no mesmo PR, e o PR cita a saída do `scripts/feature-center-coverage.py`. A regra está na skill `ravenrs-feature-center`.
 - Explique o motivo de cada dependência nova ou atualizada (falha de segurança, plataforma, licença). Quem revisa precisa entender sem perguntar.
 
 ```bash

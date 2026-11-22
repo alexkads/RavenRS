@@ -1696,6 +1696,7 @@ impl View for HeaderCell<'_> {
             });
         }
         cx.semantics(label, semantics);
+        cx.test_id(label, &format!("column:{}", column_id(col)));
         let dragged = s.h.dragged.clone();
         if col.sortable {
             let q = s.h.query.clone();
@@ -1867,6 +1868,7 @@ impl View for FilterCell<'_> {
             }
             let field = cx.child(&field);
             cx.label_control(field, &format!("{} {}", labels.grid_filter_column, col.title), Some(hint));
+            cx.test_id(field, &format!("filter:{}", column_id(col)));
             children.push(field);
         }
         let mut style = cell_style(s.widths[c], HEADER_HEIGHT, CellAlign::Start);
@@ -2307,17 +2309,33 @@ impl View for DataRow<'_> {
                 Paint::None
             };
             let cell = cx.container(LayoutStyle { align: Align::Center, ..style }, &[content], paint);
-            if s.editing != Some((row, c)) {
-                cx.semantics(cell, Semantics::new(Role::Cell));
-            }
-            let result = s.result.clone();
-            let h = s.h.clone();
-            cx.on_click(cell, Rc::new(move || click_row(&result, &h, mode, row, index)));
             let (editable, h2, activate) = (
                 col.editable && (s.grid.remote.is_none() || s.grid.on_cell_edit.is_some()),
                 s.h.clone(),
                 s.grid.on_row_activate.clone(),
             );
+            if s.editing != Some((row, c)) {
+                // A cell that does not open an editor says so, and a test that fills it is told.
+                let semantics = Semantics::new(Role::Cell).read_only(!editable);
+                // A cell drawn by a template, with a text of its own, is called by that text, not
+                // by the names of what the template puts in it (a switch, a badge).
+                let semantics = if col.template.is_some() && col.format.is_some() {
+                    semantics.name(col.display(&value))
+                } else {
+                    semantics
+                };
+                cx.semantics(cell, semantics);
+            }
+            // With a key column, a test finds a cell by the row's key and the column, and the
+            // id passes to the editor while the cell is being edited.
+            if let Some(key) = s.grid.key_column
+                && let (Some(column), Some(id)) = (s.grid.columns.get(key), self.values.get(key))
+            {
+                cx.test_id(cell, &format!("cell:{}:{}", column.display(id), column_id(col)));
+            }
+            let result = s.result.clone();
+            let h = s.h.clone();
+            cx.on_click(cell, Rc::new(move || click_row(&result, &h, mode, row, index)));
             let rows_value = col.display(&value);
             cx.on_double_click(
                 cell,
@@ -2420,6 +2438,13 @@ impl View for DataRow<'_> {
             semantics = semantics.selected(selected);
         }
         cx.semantics(node, semantics);
+        // With a key column, tests find a row by its key, which stays with the data when the
+        // grid sorts, filters or scrolls.
+        if let Some(key) = s.grid.key_column
+            && let (Some(column), Some(value)) = (s.grid.columns.get(key), self.values.get(key))
+        {
+            cx.test_id(node, &format!("row:{}", column.display(value)));
+        }
         node
     }
 }
@@ -3889,6 +3914,8 @@ impl View for DataGrid {
                 .name(cx.labels().grid_name.clone())
                 .description(format!("{total} {}", cx.labels().grid_rows)),
         );
+        // Busy while rows are on their way from the server (`DataGrid::remote`).
+        cx.busy(body, self.remote.as_ref().is_some_and(RemoteRows::is_loading));
         cx.focusable(body, 0.0);
         let clipboard = cx.clipboard();
         let keys = if self.remote.is_some() {
@@ -4116,6 +4143,12 @@ impl View for DataGrid {
         }
         root
     }
+}
+
+/// How tests name a column in its ids (`column:`, `filter:`, `cell:<key>:`): its field, or its
+/// title when it has none.
+fn column_id(col: &GridColumn) -> &str {
+    col.field.as_deref().unwrap_or(&col.title)
 }
 
 #[cfg(test)]

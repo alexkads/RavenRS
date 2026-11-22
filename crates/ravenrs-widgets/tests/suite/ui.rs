@@ -224,3 +224,365 @@ fn theme_switch_repaints_with_new_tokens() {
     ui.update();
     assert_eq!(ui.scene().clear_color(), Theme::raven_light().color(Semantic::Canvas));
 }
+
+/// An 80 by 20 box at (100, 100), turned a quarter, with a 20 by 20 box at its right end.
+struct Turned {
+    hits: Rc<Cell<(u32, u32)>>,
+}
+
+impl View for Turned {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        use ravenrs_layout::LayoutStyle;
+        let at = |x: f32, y: f32, w: f32, h: f32| LayoutStyle {
+            absolute: Some((x, y)),
+            width: Some(w),
+            height: Some(h),
+            ..LayoutStyle::leaf()
+        };
+        let inner =
+            cx.container(at(60.0, 0.0, 20.0, 20.0), &[], Paint::Quad(QuadPaint::new(Color::hex(0x00ff00))));
+        let hits = self.hits.clone();
+        cx.on_click(inner, Rc::new(move || hits.set((hits.get().0, hits.get().1 + 1))));
+        cx.semantics(inner, ravenrs_widgets::Semantics::new(ravenrs_core::Role::Button).name("inner"));
+        let outer = cx.container(
+            at(100.0, 100.0, 80.0, 20.0),
+            &[inner],
+            Paint::Quad(QuadPaint::new(Color::hex(0xff0000))),
+        );
+        let hits = self.hits.clone();
+        cx.on_click(outer, Rc::new(move || hits.set((hits.get().0 + 1, hits.get().1))));
+        cx.semantics(outer, ravenrs_widgets::Semantics::new(ravenrs_core::Role::Group).name("outer"));
+        cx.rotate(outer, std::f32::consts::FRAC_PI_2);
+        cx.container(
+            LayoutStyle { width: Some(400.0), height: Some(300.0), ..LayoutStyle::leaf() },
+            &[outer],
+            Paint::None,
+        )
+    }
+}
+
+#[test]
+fn a_turned_node_paints_turned_and_the_pointer_finds_it_where_it_shows() {
+    let hits = Rc::new(Cell::new((0, 0)));
+    let mut ui = Ui::new(Turned { hits: hits.clone() }, Theme::raven_dark());
+    ui.set_viewport(Size::new(400.0, 300.0), 1.0);
+    ui.update();
+    let red = quad_with_fill(&ui, Color::hex(0xff0000)).expect("the turned box");
+    assert!((red.rotation - std::f32::consts::FRAC_PI_2).abs() < 1e-5);
+    // Standing up around its center (140, 110): 130..150 across, 70..150 down; the small box
+    // went to its bottom end.
+    click(&mut ui, Point::new(140.0, 80.0));
+    assert_eq!(hits.get(), (1, 0), "the top of the standing box");
+    click(&mut ui, Point::new(140.0, 140.0));
+    assert_eq!(hits.get(), (1, 1), "the small box, where it turned to");
+    click(&mut ui, Point::new(170.0, 110.0));
+    assert_eq!(hits.get(), (1, 1), "where the lying box was, nothing now");
+    let tree = ui.access_tree();
+    let bounds = |name: &str| {
+        tree.nodes.iter().find(|n| n.name.as_deref() == Some(name)).map(|n| n.bounds).expect("a node")
+    };
+    let near = |r: Rect, x: f32, y: f32, w: f32, h: f32| {
+        (r.x() - x).abs() < 0.01
+            && (r.y() - y).abs() < 0.01
+            && (r.width() - w).abs() < 0.01
+            && (r.height() - h).abs() < 0.01
+    };
+    assert!(near(bounds("outer"), 130.0, 70.0, 20.0, 80.0), "{:?}", bounds("outer"));
+    assert!(near(bounds("inner"), 130.0, 130.0, 20.0, 20.0), "{:?}", bounds("inner"));
+}
+
+/// A box of a fixed size that counts its clicks.
+struct Block {
+    color: Color,
+    hits: Rc<Cell<u32>>,
+}
+
+impl View for Block {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        use ravenrs_layout::LayoutStyle;
+        let style = LayoutStyle { width: Some(80.0), height: Some(20.0), ..LayoutStyle::leaf() };
+        let node = cx.container(style, &[], Paint::Quad(QuadPaint::new(self.color)));
+        let hits = self.hits.clone();
+        cx.on_click(node, Rc::new(move || hits.set(hits.get() + 1)));
+        cx.semantics(node, ravenrs_widgets::Semantics::new(ravenrs_core::Role::Button).name("block"));
+        node
+    }
+}
+
+/// A quarter turn with a marker after it in a row, to show how much room the turn takes.
+struct TurnedRow {
+    turn: ravenrs_widgets::Turn,
+    hits: Rc<Cell<u32>>,
+}
+
+impl View for TurnedRow {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        use ravenrs_layout::{Axis, LayoutStyle};
+        let block = Block { color: Color::hex(0x0000ff), hits: self.hits.clone() };
+        let turned = cx.child(&ravenrs_widgets::QuarterTurn::new(block, self.turn));
+        let marker = cx.container(
+            LayoutStyle { width: Some(10.0), height: Some(10.0), ..LayoutStyle::leaf() },
+            &[],
+            Paint::Quad(QuadPaint::new(Color::hex(0x00ff00))),
+        );
+        cx.container(LayoutStyle::stack(Axis::Horizontal), &[turned, marker], Paint::None)
+    }
+}
+
+fn turned_ui(turn: ravenrs_widgets::Turn, hits: &Rc<Cell<u32>>) -> Ui {
+    let mut ui = Ui::new(TurnedRow { turn, hits: hits.clone() }, Theme::raven_dark());
+    ui.set_viewport(Size::new(400.0, 300.0), 1.0);
+    // The first layout measures what it holds, the next gives the box that size.
+    ui.update();
+    ui.update();
+    ui
+}
+
+#[test]
+fn a_quarter_turn_stands_its_content_up_in_a_box_turned_too() {
+    let hits = Rc::new(Cell::new(0));
+    let mut ui = turned_ui(ravenrs_widgets::Turn::Clockwise, &hits);
+    let marker = quad_with_fill(&ui, Color::hex(0x00ff00)).expect("the marker");
+    assert_eq!(marker.rect.x(), 20.0, "the turned box is as wide as the block is tall");
+    let block = quad_with_fill(&ui, Color::hex(0x0000ff)).expect("the block");
+    assert!((block.rotation - std::f32::consts::FRAC_PI_2).abs() < 1e-5);
+    let tree = ui.access_tree();
+    let bounds = tree.nodes.iter().find(|n| n.name.as_deref() == Some("block")).expect("the block").bounds;
+    let near = |a: f32, b: f32| (a - b).abs() < 0.01;
+    assert!(
+        near(bounds.x(), 0.0)
+            && near(bounds.y(), 0.0)
+            && near(bounds.width(), 20.0)
+            && near(bounds.height(), 80.0),
+        "standing in its box: {bounds:?}"
+    );
+    click(&mut ui, Point::new(10.0, 70.0));
+    assert_eq!(hits.get(), 1, "the pointer finds it where it stands");
+    click(&mut ui, Point::new(60.0, 10.0));
+    assert_eq!(hits.get(), 1, "and not where it would lie");
+}
+
+#[test]
+fn a_quarter_turn_goes_the_other_way_when_asked() {
+    let hits = Rc::new(Cell::new(0));
+    let ui = turned_ui(ravenrs_widgets::Turn::CounterClockwise, &hits);
+    let block = quad_with_fill(&ui, Color::hex(0x0000ff)).expect("the block");
+    assert!((block.rotation + std::f32::consts::FRAC_PI_2).abs() < 1e-5);
+    assert_eq!(quad_with_fill(&ui, Color::hex(0x00ff00)).expect("the marker").rect.x(), 20.0);
+}
+
+#[test]
+fn turned_text_reads_the_same_and_its_glyphs_turn() {
+    let view = ravenrs_widgets::QuarterTurn::new(Text::new("Files"), ravenrs_widgets::Turn::Clockwise);
+    let mut ui = Ui::new(view, Theme::raven_dark());
+    ui.set_viewport(Size::new(400.0, 300.0), 1.0);
+    ui.update();
+    ui.update();
+    let run = ui
+        .scene()
+        .primitives()
+        .iter()
+        .find_map(|p| if let Primitive::Glyphs(run) = p { Some(run.clone()) } else { None })
+        .expect("the text");
+    assert!((run.rotation - std::f32::consts::FRAC_PI_2).abs() < 1e-5, "{}", run.rotation);
+    let tree = ui.access_tree();
+    let files = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Files")).expect("still read");
+    assert!(files.bounds.height() > files.bounds.width(), "taller than wide: {:?}", files.bounds);
+}
+
+/// An "Apple" source at (20, 20), a basket for fruit at (200, 20) and one for vegetables at
+/// (200, 200), each 100 by 100; drops and clicks are written down.
+struct Market {
+    log: Rc<std::cell::RefCell<Vec<String>>>,
+}
+
+impl View for Market {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        use ravenrs_layout::LayoutStyle;
+        use ravenrs_widgets::{DragPayload, Semantics};
+        let at = |x: f32, y: f32| LayoutStyle {
+            absolute: Some((x, y)),
+            width: Some(100.0),
+            height: Some(100.0),
+            ..LayoutStyle::leaf()
+        };
+        let apple = cx.container(at(20.0, 20.0), &[], Paint::None);
+        cx.focusable(apple, 4.0);
+        cx.semantics(apple, Semantics::new(ravenrs_core::Role::Button).name("Apple"));
+        cx.drag_source(apple, DragPayload::new("fruit", "Apple", 3_u32));
+        let log = self.log.clone();
+        cx.on_click(apple, Rc::new(move || log.borrow_mut().push("clicked".into())));
+        let mut baskets = vec![apple];
+        for (name, y, takes) in [("Fruit", 20.0, "fruit"), ("Vegetables", 200.0, "vegetable")] {
+            let basket = cx.container(at(200.0, y), &[], Paint::None);
+            // A preview of its own while something it would take is over it.
+            let over = cx.carrying().filter(|c| c.over).map(|c| c.verdict.is_some_and(|v| v.is_ok()));
+            let shown = match over {
+                Some(true) => format!("{name}: drop here"),
+                _ => name.to_owned(),
+            };
+            cx.semantics(basket, Semantics::new(ravenrs_core::Role::Group).name(shown));
+            let log = self.log.clone();
+            cx.drop_target(
+                basket,
+                move |p| if p.kind() == takes { Ok(()) } else { Err(format!("Only {takes}s here")) },
+                move |p, at| {
+                    log.borrow_mut().push(format!(
+                        "{} x{} at {},{}",
+                        p.label(),
+                        p.data::<u32>().copied().unwrap_or(0),
+                        at.x,
+                        at.y
+                    ))
+                },
+            );
+            baskets.push(basket);
+        }
+        cx.container(
+            LayoutStyle { width: Some(400.0), height: Some(400.0), ..LayoutStyle::leaf() },
+            &baskets,
+            Paint::None,
+        )
+    }
+}
+
+fn market() -> (Ui, Rc<std::cell::RefCell<Vec<String>>>) {
+    let log = Rc::new(std::cell::RefCell::new(Vec::new()));
+    let mut ui = Ui::new(Market { log: log.clone() }, Theme::raven_dark());
+    ui.set_viewport(Size::new(400.0, 400.0), 1.0);
+    ui.update();
+    (ui, log)
+}
+
+fn status(ui: &mut Ui) -> Option<String> {
+    ui.access_tree().nodes.iter().find(|n| n.role == ravenrs_core::Role::Status).and_then(|n| n.name.clone())
+}
+
+fn named_exists(ui: &mut Ui, name: &str) -> bool {
+    ui.access_tree().nodes.iter().any(|n| n.name.as_deref() == Some(name))
+}
+
+#[test]
+fn something_carried_with_the_pointer_lands_on_the_target_that_takes_it() {
+    let (mut ui, log) = market();
+    ui.handle_event(&Event::PointerMove { position: Point::new(70.0, 70.0) });
+    ui.handle_event(&Event::PointerDown { position: Point::new(70.0, 70.0), button: PointerButton::Primary });
+    ui.handle_event(&Event::PointerMove { position: Point::new(150.0, 70.0) });
+    ui.update();
+    assert_eq!(status(&mut ui).as_deref(), Some("Apple"), "the tag follows, and is heard");
+    ui.handle_event(&Event::PointerMove { position: Point::new(230.0, 60.0) });
+    ui.update();
+    assert!(named_exists(&mut ui, "Fruit: drop here"), "the target shows its own preview");
+    ui.handle_event(&Event::PointerUp { position: Point::new(230.0, 60.0), button: PointerButton::Primary });
+    ui.update();
+    assert_eq!(*log.borrow(), vec!["Apple x3 at 30,40".to_owned()], "dropped, not clicked");
+    assert_eq!(status(&mut ui), None);
+}
+
+#[test]
+fn a_target_that_refuses_says_why_and_takes_nothing() {
+    let (mut ui, log) = market();
+    ui.handle_event(&Event::PointerMove { position: Point::new(70.0, 70.0) });
+    ui.handle_event(&Event::PointerDown { position: Point::new(70.0, 70.0), button: PointerButton::Primary });
+    ui.handle_event(&Event::PointerMove { position: Point::new(250.0, 250.0) });
+    ui.update();
+    assert_eq!(status(&mut ui).as_deref(), Some("Only vegetables here"));
+    ui.handle_event(&Event::PointerUp { position: Point::new(250.0, 250.0), button: PointerButton::Primary });
+    ui.update();
+    assert!(log.borrow().is_empty());
+}
+
+#[test]
+fn a_press_without_a_drag_clicks_and_escape_gives_a_drag_up() {
+    let (mut ui, log) = market();
+    click(&mut ui, Point::new(70.0, 70.0));
+    assert_eq!(*log.borrow(), vec!["clicked".to_owned()]);
+    ui.handle_event(&Event::PointerDown { position: Point::new(70.0, 70.0), button: PointerButton::Primary });
+    ui.handle_event(&Event::PointerMove { position: Point::new(230.0, 60.0) });
+    key(&mut ui, Key::Escape);
+    ui.update();
+    assert_eq!(status(&mut ui), None, "given up");
+    ui.handle_event(&Event::PointerUp { position: Point::new(230.0, 60.0), button: PointerButton::Primary });
+    ui.update();
+    assert_eq!(log.borrow().len(), 1, "nothing dropped");
+}
+
+#[test]
+fn the_keys_pick_up_carry_and_drop() {
+    let (mut ui, log) = market();
+    key(&mut ui, Key::Tab);
+    ui.update();
+    key(&mut ui, Key::Space);
+    ui.update();
+    assert_eq!(status(&mut ui).as_deref(), Some("Apple"), "picked up");
+    // From the middle of the apple (70, 70), ten steps of 16 to the right reach the fruit basket.
+    for _ in 0..10 {
+        key(&mut ui, Key::ArrowRight);
+    }
+    ui.update();
+    assert!(named_exists(&mut ui, "Fruit: drop here"));
+    key(&mut ui, Key::Enter);
+    ui.update();
+    assert_eq!(*log.borrow(), vec!["Apple x3 at 30,50".to_owned()]);
+}
+
+/// Two buttons that say whether the focus is among them.
+struct FocusGroup;
+
+impl View for FocusGroup {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        use ravenrs_layout::{Axis, LayoutStyle};
+        let words = if cx.is_focus_within() { "inside" } else { "outside" };
+        let first = cx.child(&Button::new("First"));
+        let second = cx.child(&Button::new("Second"));
+        let said = cx.child(&Text::new(words));
+        cx.container(LayoutStyle::stack(Axis::Vertical), &[first, second, said], Paint::None)
+    }
+}
+
+#[test]
+fn a_view_knows_when_the_focus_is_inside_it() {
+    let mut ui = Ui::new(VStack::new((FocusGroup, Button::new("Elsewhere"))), Theme::raven_dark());
+    ui.set_viewport(Size::new(400.0, 300.0), 1.0);
+    ui.update();
+    let says =
+        |ui: &mut Ui, word: &str| ui.access_tree().nodes.iter().any(|n| n.name.as_deref() == Some(word));
+    assert!(says(&mut ui, "outside"));
+    key(&mut ui, Key::Tab);
+    ui.update();
+    assert!(says(&mut ui, "inside"), "on the first button");
+    key(&mut ui, Key::Tab);
+    ui.update();
+    assert!(says(&mut ui, "inside"), "on the second");
+    key(&mut ui, Key::Tab);
+    ui.update();
+    assert!(says(&mut ui, "outside"), "on the button after it");
+}
+
+#[test]
+fn turned_text_in_a_narrow_strip_stays_on_one_line() {
+    use ravenrs_layout::{Axis, LayoutStyle};
+    struct Strip;
+    impl View for Strip {
+        fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+            let turned = cx.child(&ravenrs_widgets::QuarterTurn::new(
+                Text::new("Server Explorer"),
+                ravenrs_widgets::Turn::Clockwise,
+            ));
+            cx.container(
+                LayoutStyle { width: Some(28.0), ..LayoutStyle::stack(Axis::Vertical) },
+                &[turned],
+                Paint::None,
+            )
+        }
+    }
+    let mut ui = Ui::new(Strip, Theme::raven_dark());
+    ui.set_viewport(Size::new(400.0, 300.0), 1.0);
+    for _ in 0..3 {
+        ui.update();
+    }
+    let tree = ui.access_tree();
+    let text = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Server Explorer")).expect("read");
+    assert!(text.bounds.width() < 28.0, "one line, turned, fits the strip: {:?}", text.bounds);
+    assert!(text.bounds.height() > 90.0, "the whole name down the strip: {:?}", text.bounds);
+}

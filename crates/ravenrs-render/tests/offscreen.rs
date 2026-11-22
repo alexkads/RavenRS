@@ -31,6 +31,16 @@ fn gpu() -> Option<GpuContext> {
 
 /// Renders at `scale` and returns RGBA8 pixels of a `W*scale x H*scale` image.
 fn render(gpu: &GpuContext, renderer: &mut Renderer, scene: &Scene, scale: f32) -> (u32, u32, Vec<u8>) {
+    render_counted(gpu, renderer, scene, scale).0
+}
+
+/// The pixels, and what the renderer counted drawing them.
+fn render_counted(
+    gpu: &GpuContext,
+    renderer: &mut Renderer,
+    scene: &Scene,
+    scale: f32,
+) -> ((u32, u32, Vec<u8>), ravenrs_render::RenderStats) {
     let (w, h) = ((W as f32 * scale) as u32, (H as f32 * scale) as u32);
     let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
         label: Some("offscreen"),
@@ -43,7 +53,7 @@ fn render(gpu: &GpuContext, renderer: &mut Renderer, scene: &Scene, scale: f32) 
         view_formats: &[],
     });
     let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-    renderer.render(scene, &view, (w, h), scale);
+    let stats = renderer.render(scene, &view, (w, h), scale);
 
     let padded = (w * 4).div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT) * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
     let buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
@@ -75,7 +85,7 @@ fn render(gpu: &GpuContext, renderer: &mut Renderer, scene: &Scene, scale: f32) 
         let start = (row * padded) as usize;
         pixels.extend_from_slice(&data[start..start + (w * 4) as usize]);
     }
-    (w, h, pixels)
+    ((w, h, pixels), stats)
 }
 
 fn pixel(img: &(u32, u32, Vec<u8>), x: u32, y: u32) -> [u8; 4] {
@@ -491,4 +501,210 @@ fn more_shapes_than_the_coverage_atlas_holds_are_all_drawn_in_order() {
     assert_eq!(pixel(&img, 40, 300), [0, 0, 255, 255], "the quad, over the first shapes");
     assert_eq!(pixel(&img, 600, 300), [255, 255, 255, 255], "the first shapes, past the quad");
     assert_eq!(pixel(&img, 300, 40), [255, 255, 255, 255], "the second shapes, over the quad");
+}
+
+/// The box around the pixels brighter than half on the red channel.
+fn lit_box(img: &(u32, u32, Vec<u8>)) -> Option<(u32, u32, u32, u32)> {
+    let mut found: Option<(u32, u32, u32, u32)> = None;
+    for y in 0..img.1 {
+        for x in 0..img.0 {
+            if pixel(img, x, y)[0] > 128 {
+                found =
+                    Some(found.map_or((x, y, x, y), |(x0, y0, x1, y1)| {
+                        (x0.min(x), y0.min(y), x1.max(x), y1.max(y))
+                    }));
+            }
+        }
+    }
+    found
+}
+
+#[test]
+fn a_turned_quad_and_image_cover_the_turned_box() {
+    let Some(gpu) = gpu() else { return };
+    let mut renderer = Renderer::new(&gpu.device, &gpu.queue, FORMAT);
+    let turn = std::f32::consts::FRAC_PI_2;
+    let image = ImageData::from_fn(4, 4, |_, _| Color::hex(0xff0000)).expect("an image");
+    for kind in ["quad", "image"] {
+        let mut scene = Scene::new();
+        scene.set_clear_color(Color::BLACK);
+        // 40 by 10 around (100, 50): turned a quarter, it stands 10 wide and 40 tall.
+        let rect = Rect::new(80.0, 45.0, 40.0, 10.0);
+        if kind == "quad" {
+            scene.push_quad(Quad::new(rect, Color::hex(0xff0000)).rotated(turn));
+        } else {
+            scene.push_image(ravenrs_core::ImageQuad::new(rect, image.clone()).rotated(turn));
+        }
+        let img = render(&gpu, &mut renderer, &scene, 1.0);
+        assert!(pixel(&img, 100, 33)[0] > 200, "{kind}: the top of the standing strip");
+        assert!(pixel(&img, 100, 67)[0] > 200, "{kind}: its bottom");
+        assert!(pixel(&img, 85, 50)[0] < 30, "{kind}: where the lying strip was");
+        assert!(pixel(&img, 115, 50)[0] < 30, "{kind}: and its other end");
+        let (x0, y0, x1, y1) = lit_box(&img).expect("something drawn");
+        assert!((94..=96).contains(&x0) && (104..=106).contains(&x1), "{kind}: {x0}..{x1}");
+        assert!((29..=31).contains(&y0) && (69..=71).contains(&y1), "{kind}: {y0}..{y1}");
+    }
+}
+
+#[test]
+fn turned_text_runs_down_a_column() {
+    let Some(gpu) = gpu() else { return };
+    let mut renderer = Renderer::new(&gpu.device, &gpu.queue, FORMAT);
+    let mut text = TextSystem::new();
+    let mut layout = text
+        .layout("Raven", &TextAttrs { size: 16.0, line_height: 20.0, weight: 600.0, ..Default::default() });
+    layout.measure(None);
+    let mut scene = Scene::new();
+    scene.set_clear_color(Color::BLACK);
+    layout.paint(Point::new(100.0, 10.0), Color::WHITE, &mut scene);
+    let flat = lit_box(&render(&gpu, &mut renderer, &scene, 1.0)).expect("flat text");
+    assert!(flat.2 - flat.0 > flat.3 - flat.1, "flat text is wider than tall: {flat:?}");
+    let end = scene.len();
+    scene.apply_effect(
+        0..end,
+        ravenrs_core::Effect::rotated(std::f32::consts::FRAC_PI_2),
+        Point::new(100.0, 10.0),
+    );
+    let (x0, y0, x1, y1) = lit_box(&render(&gpu, &mut renderer, &scene, 1.0)).expect("turned text");
+    assert!(y1 - y0 > (x1 - x0) * 2, "turned text is taller than wide: {:?}", (x0, y0, x1, y1));
+    assert!(x1 <= 101 && y0 >= 9, "it turned around its start, to the left and down: {:?}", (x0, y0, x1, y1));
+}
+
+mod cables {
+    use ravenrs_core::cable::{Cable, CableEnd, CableWorld, CpuCables};
+    use ravenrs_core::{Color, Point, Rect, Scene};
+    use ravenrs_render::{GpuCables, Renderer};
+
+    use super::{FORMAT, close, gpu, pixel, render, render_counted};
+
+    fn cable() -> Cable {
+        let mut c = Cable::new(
+            7,
+            CableEnd::at(Point::new(20.0, 20.0)).toward(1.0, 0.0),
+            CableEnd::at(Point::new(180.0, 20.0)).toward(-1.0, 0.0),
+        );
+        c.grow = true;
+        c.look.color = Color::rgb(1.0, 0.0, 0.0);
+        c.look.shine = 0.0;
+        c.look.thickness = 6.0;
+        c
+    }
+
+    fn view() -> Rect {
+        Rect::new(0.0, 0.0, 200.0, 100.0)
+    }
+
+    #[test]
+    fn the_gpu_world_moves_cables_as_the_cpu_world_does() {
+        let Some(gpu) = gpu() else { return };
+        let Some(mut on_gpu) = GpuCables::new(&gpu.device, &gpu.queue) else {
+            eprintln!("skipping: no compute on this device");
+            return;
+        };
+        let mut on_cpu = CpuCables::new();
+        let c = cable();
+        for _ in 0..45 {
+            for world in [&mut on_gpu as &mut dyn CableWorld, &mut on_cpu] {
+                world.sync(std::slice::from_ref(&c), view(), false);
+                world.step(1.0 / 60.0);
+            }
+            on_gpu.finish();
+        }
+        assert!(on_gpu.dispatches() >= 45);
+        let (a, b) = (on_gpu.shape(7).expect("gpu"), on_cpu.shape(7).expect("cpu"));
+        let lowest = b.iter().map(|p| p.y).fold(f32::MIN, f32::max);
+        assert!(lowest > 30.0, "it hangs: {lowest}");
+        for (p, q) in a.iter().zip(b.iter()) {
+            assert!((p.x - q.x).abs() < 0.5 && (p.y - q.y).abs() < 0.5, "gpu {p:?} vs cpu {q:?}");
+        }
+    }
+
+    #[test]
+    fn the_renderer_draws_a_cable_from_the_gpu_buffer() {
+        let Some(gpu) = gpu() else { return };
+        let Some(mut world) = GpuCables::new(&gpu.device, &gpu.queue) else { return };
+        let mut c = cable();
+        c.grow = false;
+        world.sync(std::slice::from_ref(&c), view(), false);
+        world.step(1.0 / 60.0);
+        world.finish();
+        let shape = world.shape(7).expect("placed");
+        let mut renderer = Renderer::new(&gpu.device, &gpu.queue, FORMAT);
+        renderer.set_cables(Some(world.drawer()));
+        let mut scene = Scene::new();
+        scene.set_clear_color(Color::WHITE);
+        scene.push_cable(c.placed(shape.clone()));
+        let img = render(&gpu, &mut renderer, &scene, 1.0);
+        let middle = shape[shape.len() / 2];
+        let at = pixel(&img, middle.x.round() as u32, middle.y.round() as u32);
+        assert!(close(at, [255, 0, 0, 255], 40), "red at the middle of the cable: {at:?}");
+        assert!(close(pixel(&img, 100, 5), [255, 255, 255, 255], 2), "white above it");
+    }
+
+    #[test]
+    fn a_picture_on_a_cable_is_drawn_by_the_gpu_as_the_shapes_draw_it() {
+        use ravenrs_core::ImageData;
+        use ravenrs_core::cable::{CableTexture, cable_primitives};
+        let Some(gpu) = gpu() else { return };
+        let Some(mut world) = GpuCables::new(&gpu.device, &gpu.queue) else { return };
+        // Blue on the side the cable's left hand points to, green on the other.
+        let image = ImageData::from_fn(4, 8, |_, y| {
+            if y < 4 { Color::rgb(0.0, 0.0, 1.0) } else { Color::rgb(0.0, 1.0, 0.0) }
+        })
+        .expect("picture");
+        let mut c = cable();
+        c.grow = false;
+        c.look.thickness = 12.0;
+        c.look.texture = CableTexture::Image { image, repeat: 24.0 };
+        world.sync(std::slice::from_ref(&c), view(), false);
+        world.step(1.0 / 60.0);
+        world.finish();
+        let shape = world.shape(7).expect("placed");
+        let placed = c.placed(shape.clone());
+        let middle = shape[shape.len() / 2];
+        let (x, y) = (middle.x.round() as u32, middle.y.round() as u32);
+
+        let mut renderer = Renderer::new(&gpu.device, &gpu.queue, FORMAT);
+        renderer.set_cables(Some(world.drawer()));
+        let mut scene = Scene::new();
+        scene.set_clear_color(Color::WHITE);
+        scene.push_cable(placed.clone());
+        let (on_gpu, stats) = render_counted(&gpu, &mut renderer, &scene, 1.0);
+        assert_eq!(stats.paths, 0, "no shapes: the picture went to the GPU");
+
+        let mut shapes = Scene::new();
+        shapes.set_clear_color(Color::WHITE);
+        shapes.extend_from_slice(&cable_primitives(&placed, &shape));
+        let mut plain = Renderer::new(&gpu.device, &gpu.queue, FORMAT);
+        let by_shapes = render(&gpu, &mut plain, &shapes, 1.0);
+        for (dy, color) in [(-3_i32, [0, 0, 255, 255]), (3, [0, 255, 0, 255])] {
+            let row = (y as i32 + dy) as u32;
+            let (a, b) = (pixel(&on_gpu, x, row), pixel(&by_shapes, x, row));
+            assert!(close(a, color, 40), "gpu at {dy}: {a:?}");
+            assert!(close(a, b, 40), "gpu {a:?} and shapes {b:?} at {dy}");
+        }
+    }
+
+    #[test]
+    fn a_frame_with_no_step_due_does_not_stop_the_gpu_cables() {
+        let Some(gpu) = gpu() else { return };
+        let Some(mut on_gpu) = GpuCables::new(&gpu.device, &gpu.queue) else { return };
+        let mut on_cpu = CpuCables::new();
+        // A new cable drops from its start: it is moving for a good while.
+        let c = cable();
+        for _ in 0..10 {
+            for world in [&mut on_gpu as &mut dyn CableWorld, &mut on_cpu] {
+                world.sync(std::slice::from_ref(&c), view(), false);
+                world.step(1.0 / 120.0);
+                // Frames come faster than the steps: this one runs none.
+                world.step(0.0);
+            }
+            on_gpu.finish();
+        }
+        assert!(on_cpu.moving(), "the cpu world still swings");
+        assert!(
+            on_gpu.moving(),
+            "and so does the gpu one: a frame with no step moved nothing, it did not stop"
+        );
+    }
 }

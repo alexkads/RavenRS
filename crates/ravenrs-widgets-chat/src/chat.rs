@@ -268,6 +268,32 @@ pub struct ChatMessage {
     card: Option<Rc<dyn Fn() -> AnyView>>,
     media: Option<ChatMedia>,
     formatted: bool,
+    /// What to do once a message being written is over, and whether it was done.
+    finished: Option<Finished>,
+}
+
+/// The end of a message being written: the flag its writer sets, and what runs once then.
+#[derive(Clone)]
+struct Finished {
+    done: Arc<std::sync::atomic::AtomicBool>,
+    ran: Rc<std::cell::Cell<bool>>,
+    then: Rc<dyn Fn(String)>,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl ChatMessage {
+    /// Whether it is still being written.
+    pub fn is_writing(&self) -> bool {
+        self.finished.as_ref().is_some_and(|f| !f.done.load(std::sync::atomic::Ordering::Acquire))
+    }
+
+    /// Runs what waits for the end of the message, once, if it is over.
+    fn settle(&self) {
+        let Some(f) = &self.finished else { return };
+        if f.done.load(std::sync::atomic::Ordering::Acquire) && !f.ran.replace(true) {
+            (f.then)(self.text());
+        }
+    }
 }
 
 impl fmt::Debug for ChatMessage {
@@ -279,7 +305,7 @@ impl fmt::Debug for ChatMessage {
     }
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl ChatMessage {
     /// What the person wrote.
     pub fn person(text: impl Into<String>) -> Self {
@@ -299,7 +325,21 @@ impl ChatMessage {
     }
 
     fn of(author: ChatAuthor, text: Arc<Mutex<String>>) -> Self {
-        Self { author, text, card: None, media: None, formatted: false }
+        Self { author, text, card: None, media: None, formatted: false, finished: None }
+    }
+
+    /// For a message being written: once its writer sets `done`, `then` gets the whole text,
+    /// once, on the UI thread, in the next build of the [`Chat`] showing it (the writer's
+    /// [`UiWaker`](crate::UiWaker) asks for it). Until then the chat counts as busy.
+    #[must_use]
+    pub fn when_done(
+        mut self,
+        done: Arc<std::sync::atomic::AtomicBool>,
+        then: impl Fn(String) + 'static,
+    ) -> Self {
+        self.finished =
+            Some(Finished { done, ran: Rc::new(std::cell::Cell::new(false)), then: Rc::new(then) });
+        self
     }
 
     /// A photo, a document or a recording in the bubble, above the text, which may be empty.
@@ -478,10 +518,13 @@ impl View for Conversation {
             children.push(cx.child(empty.as_ref()));
         }
         for (i, message) in self.messages.iter().enumerate() {
-            children.push(cx.keyed_child(
+            let bubble = cx.keyed_child(
                 i as u64,
                 &Bubble(message.clone(), self.on_listen.clone(), self.on_link.clone()),
-            ));
+            );
+            // A conversation only grows at its end: the number of a message is its key.
+            cx.test_id(bubble, &format!("message:{}", i + 1));
+            children.push(bubble);
         }
         let node = cx.container(
             LayoutStyle {
@@ -596,13 +639,20 @@ impl View for Chat {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let draft: State<String> = cx.use_state(String::new);
+        let messages = self.messages.get();
+        // Answers that ended since the last build hand their text over, once.
+        for message in &messages {
+            message.settle();
+        }
+        let messages = self.messages.get();
+        let writing = messages.iter().any(ChatMessage::is_writing);
+        let waiting = self.busy || writing;
         let send = Send {
             messages: self.messages.clone(),
             draft: draft.clone(),
             on_send: self.on_send.clone(),
-            busy: self.busy,
+            busy: self.busy || writing,
         };
-        let messages = self.messages.get();
         let empty = messages.is_empty().then(|| -> AnyView {
             let examples: Vec<Button> = self
                 .examples
@@ -642,13 +692,13 @@ impl View for Chat {
             IconButton::new(IconName::Send)
                 .label(cx.labels().send.clone())
                 .style(ButtonStyle::Primary)
-                .disabled(self.busy)
+                .disabled(self.busy || writing)
                 .on_click(move || on_button.text(&written.get())),
         ))
         .spacing(theme.spacing.s2)
         .align(Align::Center);
         let writing = cx.child(&writing);
-        cx.container(
+        let root = cx.container(
             LayoutStyle {
                 spacing: theme.spacing.s3,
                 grow: 1.0,
@@ -658,7 +708,11 @@ impl View for Chat {
             },
             &[conversation, writing],
             Paint::None,
-        )
+        );
+        // Busy while it waits for an answer: screen readers say so, and tests wait for it.
+        cx.semantics(root, Semantics::new(Role::Group));
+        cx.busy(root, waiting);
+        root
     }
 }
 
@@ -995,6 +1049,17 @@ impl View for Orb {
             paint,
         );
         cx.semantics(node, Semantics::new(Role::Button).name(self.title.clone()).expanded(self.open.get()));
+        // The panel lives in a layer of its own: the sphere is how a test finds it.
+        cx.test_id(node, "orb");
+        let shown = self.open.clone();
+        cx.on_access(
+            node,
+            &[ravenrs_core::AccessAction::Expand, ravenrs_core::AccessAction::Collapse],
+            move |action, _| {
+                shown.set(action == ravenrs_core::AccessAction::Expand);
+                true
+            },
+        );
         // A drag starts with the press, and the sphere is still under the pointer at
         // the release: only moving away from where it was pressed makes it a drag.
         let pressed = cx.use_state(|| Rc::new(Cell::new(None::<Point>))).get();

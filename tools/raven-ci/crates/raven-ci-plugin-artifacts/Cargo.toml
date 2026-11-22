@@ -1,0 +1,26 @@
+[package]
+name = "raven-ci-plugin-artifacts"
+description = "The plugin artifacts of Raven CI: keeps the files of a build that its patterns find, says which patterns found nothing, and gives them back over the API to list and download."
+version = "0.1.0"
+edition.workspace = true
+# raven-ci-core, which the tests use, needs 1.89 (ravenrs-flows-runtime, rusqlite 0.41).
+rust-version = "1.89"
+license.workspace = true
+publish = false
+
+[dependencies]
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
+ravenrs-app.workspace = true
+serde_json.workspace = true
+# Patterns with *, ** and ?, as Jenkins' archiveArtifacts takes them.
+glob = "0.3"
+
+[dev-dependencies]
+raven-ci-core = { path = "../raven-ci-core" }
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api", features = ["testing"] }
+raven-ci-plugin-format-toml = { path = "../raven-ci-plugin-format-toml" }
+raven-ci-plugin-shell = { path = "../raven-ci-plugin-shell" }
+serde_json.workspace = true
+
+[lints]
+workspace = true

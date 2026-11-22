@@ -2,6 +2,7 @@
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<(), ravenrs::native::PlatformError> {
+    quick_app::e2e::serve_if_asked();
     ravenrs::native::run(
         quick_app::app(),
         ravenrs::native::WindowOptions::new("Raven Contas").size(1100.0, 720.0),

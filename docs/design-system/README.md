@@ -22,6 +22,7 @@ A generated application has a theme menu in the footer of its navigation, unless
 ## Color
 
 - `bg-000` is the canvas. `bg-100` holds panels and sidebars, `bg-200` cards, `bg-300` controls.
+- `border` is the hairline of dividers and cards, and may be faint. The outline of a field or control at rest (text field, select, checkbox, radio, toggle, stepper) takes `control-border` instead, at 3:1 or more against `bg-000` to `bg-200`, so a field can be found before it is hovered or focused. A theme whose `control-border` falls under that is refused like one whose text is unreadable.
 - `ink` for content, `ink-muted` for labels and metadata. Never put `ink-muted` on `bg-300` for body text.
 - `accent` fills the primary button and marks selection. Text on it is always `on-accent`. Hover and press shift lightness (`accent-hover`, `accent-pressed`), not hue.
 - `success`, `warning` and `danger` signal state only and always come with a label or icon.
@@ -67,13 +68,13 @@ Rules for components:
 | Data | `DataGrid`, `Table`, `List`, `Stat`, `Chart`, `AreaChart`, `BarChart`, `Barcode`, `Avatar`, `Image`, `Carousel` |
 | Feedback | `Alert`, `ProgressBar`, `Skeleton`, `Spinner` |
 
-Charts take their series from `chart-1` to `chart-5`, which each theme defines to read on its background. They mean nothing on their own, unlike `success` and `danger`, so a series never looks like a warning. Use a status color for a value only when it says that status, such as a budget over its limit. Their gridlines take `chart-grid`, which follows `border`.
+Charts take their series from `chart-1` to `chart-5`, which each theme defines to read on its background. They mean nothing on their own, unlike `success` and `danger`, so a series never looks like a warning. Use a status color for a value only when it says that status, such as a budget over its limit. Their gridlines take `chart-grid`, which follows `border`. Alignment guides, the lines a dragged shape snaps to in editors such as `FlowCanvas`, take `guide`: magenta in every theme, so they are never taken for the selection (accent) or the keyboard focus (focus ring).
 
 Modules of RavenRS itself, such as the report designer, follow the same rule as any app: they use these components and tokens, and what is missing joins the library first. Printed paper is the one surface that stays light in every theme, drawn with Raven Light tokens.
 
 ## Screens
 
-These rules came out of reviewing `examples/feature-center` screen by screen, and they hold for every component and application.
+These rules came out of reviewing `tools/raven-feature-center` screen by screen, and they hold for every component and application.
 
 - **One action stands out.** A window accents the one action that matters most: Save on a form, New on a list. Everything else in the bar stays a ghost button.
 - **One page margin.** Title, commands, description and content all start on the same line, `space-4` from the page's edge.

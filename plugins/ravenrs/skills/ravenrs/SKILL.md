@@ -19,6 +19,7 @@ Builder method names vary by component, so confirm them before writing a view. I
 | Which component fits? | `list_components` |
 | What are its methods and states? | `component_api`, which also accepts `ViewExt`, `State`, `Semantic`, `BuildCx` and any other public item |
 | How is it used in real code? | `component_examples` |
+| Where can I see it working, with every feature? | `feature_center`: the page of `tools/raven-feature-center` and the command that opens it alone |
 | Which color or text style is this? | `design_tokens` |
 | Which type does this? I do not know its name. | `search_api`, over every crate |
 | How does this part work? What does it not do yet? | `guides`, over the repository's documents |
@@ -26,6 +27,8 @@ Builder method names vary by component, so confirm them before writing a view. I
 | What does a reusable module have to honor, and which issue follows a capability? | `app_contracts` |
 | Is this expression valid? Which functions exist? | `validate_expression`, `expression_functions` |
 | How do I make a report? | `report_layout_format`, then `create_report_layout` or `report_layout_templates`; confirm with `check_report_layout` and save the JSON as a `.rvreport.json` file |
+| Which RavenRS tools can I run, and what does each offer? | `ravenrs_tools`; with name `raven-test-studio`, the end-to-end test tool's commands, scenarios, report fields and error codes |
+| Is there a written way to do this task? | `skills`: the instructions the repository keeps for coding agents, the whole text by name |
 
 Without the server, use the [API docs](https://alexkads.github.io/RavenRS/api/ravenrs/) and the [gallery source](https://github.com/alexkads/RavenRS/blob/master/examples/component-gallery/src/lib.rs). Check `parity_status` or [docs/PARITY.md](https://github.com/alexkads/RavenRS/blob/master/docs/PARITY.md) before promising a feature, because some are still planned. When a feature is missing, say so and propose composing it from what exists.
 
@@ -123,6 +126,15 @@ let tree = ui.access_tree(); // What a screen reader sees.
 
 Send input with `ui.handle_event(...)`, then call `ui.update()` and check the state, the access tree or the scene. The tests in [`crates/ravenrs-widgets/tests`](https://github.com/alexkads/RavenRS/tree/master/crates/ravenrs-widgets/tests) show the helpers for clicks and keys.
 
+To test a screen from the outside, as a person uses it, use [`ravenrs-e2e`](https://github.com/alexkads/RavenRS/tree/master/crates/ravenrs-e2e): find a part by its `test_id`, role or text, click and type with real events, and check what it shows; every failure has a stable `E2E_*` code and the screen. Give the parts a test reaches `.test_id("...")` as the last call of their builder chain. [Raven Test Studio](https://github.com/alexkads/RavenRS/tree/master/tools/raven-test-studio), RTS for short, runs such scenarios as a flow of blocks, tests itself, and gives an AI a JSON report with the code, the meaning, the fix and the screen of each failure; It also opens a real app apart, in a child process over the test channel ([`ravenrs-e2e-wire`](https://github.com/alexkads/RavenRS/tree/master/crates/ravenrs-e2e-wire)): Raven Finanças is the first. Scenarios are `.raventest` files, one block per line, kept in the app's `tests/e2e/` (embedded and handed to the Studio) or in a QA folder run by path; the Studio itself brings none. Pointed at a Rust project (`--project <folder>`, tool `scan_project`), it says which apps and views made with RavenRS can be tested, runs their scenarios, and has an AI (local by default) suggest new ones, which it runs. `ravenrs_tools` with name `raven-test-studio` or `RTS` says everything it offers. Without the Studio, `cargo ravenrs e2e run` runs the same scenarios in the terminal or a build (`--format json|jsonl|junit`, exit code 0, 1 or 2, each run kept in `target/e2e/`), and `cargo ravenrs e2e list` says what the project has to test; both use [`ravenrs-e2e-runner`](https://github.com/alexkads/RavenRS/tree/master/crates/ravenrs-e2e-runner), the Studio's engine. Rust tests get drivers for `DataGrid`, `FlowCanvas`, `Scheduler` and `DockArea` with the feature `testing` (`ravenrs_widgets::testing`). To watch a scenario run, both take `--headed`: the app shows its real window on its test data and the same blocks act on it (`--slow-mo <ms>` to follow, `--step` to go one block per Enter, `--keep-open on-failure` to look at where it failed); no window stays the default. An app serves it by answering `--e2e-serve --e2e-window` with `ravenrs::native::run_driven(view, options, ravenrs_e2e_wire::Headed::new(hello))`.
+
+New apps from `cargo ravenrs new` / `create-ravenrs` already include a native test channel and
+an initial scenario. For an older generated app, `cargo ravenrs e2e install --project <folder>`
+adds the same artifacts without compiling or starting the app. It preserves existing scenarios
+and configuration, and refuses custom startup for manual integration before writing files.
+`cargo ravenrs doctor` reports static e2e configuration problems, including in `--no-ai` projects;
+run the scenarios to verify the actual channel.
+
 ## Running on the web
 
 Put the UI in `src/lib.rs`, shared by both targets, and add `#[wasm_bindgen(start)]`, as [getting started](https://github.com/alexkads/RavenRS/blob/master/docs/GETTING_STARTED.md) shows. `wasm-bindgen` must be pinned to the version RavenRS uses (`=0.2.130`), and the CLI must match it.
@@ -138,7 +150,7 @@ Serve the folder over HTTP with a page that has `<canvas id="raven-canvas">`. It
 
 ## Working inside the RavenRS repository
 
-- `scripts/build-web.sh <example>` builds `hello-world`, `component-gallery` or `report-designer` for the browser, into `examples/<name>/web/pkg`.
+- `scripts/build-web.sh <example>` builds `hello-world`, `component-gallery` or `raven-report-designer` for the browser, into `examples/<name>/web/pkg`.
 - `scripts/check.sh` is the gate, because the project has no hosted CI. It runs formatting, clippy on native and wasm32, all tests, MSRV, `cargo deny`, docs and the web builds. For a quick pass use `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings` and `cargo test -p <crate>`.
 - A new worktree does not have to compile again what another one compiled. `scripts/check.sh` uses a compiler cache that worktrees share: the repository's own [`ravenrs-xcache`](https://github.com/alexkads/RavenRS/tree/master/crates/ravenrs-xcache), on by default (`RAVENRS_XCACHE=0 scripts/check.sh` turns it off and uses [Kache](https://github.com/kunobi-ninja/kache) when it is installed). Keep one build directory per worktree; never point two worktrees at the same `CARGO_TARGET_DIR`. `ravenrs-xcache stats` and `ravenrs-xcache explain <crate>` say what came from the cache and why something did not.
 - A new component needs rustdoc with an example, semantics, keyboard support, a behavior test through `Ui` and a section in `examples/component-gallery`. Update `docs/PARITY.md` and `CHANGELOG.md` under `[Unreleased]`.

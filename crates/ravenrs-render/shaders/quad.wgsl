@@ -21,6 +21,7 @@ struct Instance {
     @location(4) gradient: vec4<f32>,      // start.xy, end.xy relative to rect
     @location(5) border_color: vec4<f32>,
     @location(6) params: vec4<f32>,        // border width, shadow sigma, kind (0 shape, 1 shadow), gradient on
+    @location(7) turn: vec4<f32>,          // cos, sin of the turn around the rect center
 };
 
 struct VsOut {
@@ -47,10 +48,17 @@ fn vs_main(@builtin(vertex_index) vi: u32, inst: Instance) -> VsOut {
     let p = min_p + corner * size;
 
     var out: VsOut;
-    let ndc = p / globals.viewport * 2.0 - 1.0;
-    out.position = vec4<f32>(ndc.x, -ndc.y, 0.0, 1.0);
     out.half_size = inst.rect.zw * 0.5;
-    out.local = p - (inst.rect.xy + out.half_size);
+    let center = inst.rect.xy + out.half_size;
+    // The shape is worked out in its own unturned coordinates; only where its corners land
+    // on screen turns, so borders, gradients and shadows turn with it.
+    out.local = p - center;
+    let turned = center + vec2<f32>(
+        out.local.x * inst.turn.x - out.local.y * inst.turn.y,
+        out.local.x * inst.turn.y + out.local.y * inst.turn.x,
+    );
+    let ndc = turned / globals.viewport * 2.0 - 1.0;
+    out.position = vec4<f32>(ndc.x, -ndc.y, 0.0, 1.0);
     out.uv = (p - inst.rect.xy) / max(inst.rect.zw, vec2<f32>(1e-4));
     let max_r = min(out.half_size.x, out.half_size.y);
     out.radii = min(inst.radii, vec4<f32>(max_r));

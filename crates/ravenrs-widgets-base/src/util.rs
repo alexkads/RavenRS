@@ -101,6 +101,45 @@ pub fn icon(cx: &mut BuildCx<'_>, name: IconName, size: f32, color: Color) -> No
     cx.text(s, &icon_attrs(size), color, style)
 }
 
+/// A few words in a box whose corner is at `at`, outlined in `tone`, which screen readers
+/// announce as a status: why a change was refused, or what to do next. `ink` is the color of the
+/// words and `fill` the color of the box, so each component keeps its own palette.
+#[doc(hidden)]
+#[allow(clippy::too_many_arguments, reason = "the parts of one box, each chosen by the caller")]
+pub fn bubble(
+    cx: &mut BuildCx<'_>,
+    icon_name: IconName,
+    tone: Color,
+    text: &str,
+    at: Point,
+    ink: Color,
+    fill: Color,
+) -> NodeId {
+    let theme = *cx.theme();
+    let words_attrs = attrs(&theme, TextStyle::Callout, None);
+    let glyph = icon(cx, icon_name, 16.0, tone);
+    let words =
+        cx.text(text, &words_attrs, ink, LayoutStyle { max_width: Some(280.0), ..LayoutStyle::leaf() });
+    let node = cx.container(
+        LayoutStyle {
+            absolute: Some((at.x, at.y)),
+            padding: ravenrs_core::Insets::symmetric(theme.spacing.s2, theme.spacing.s3),
+            spacing: theme.spacing.s2,
+            align: ravenrs_layout::Align::Start,
+            ..LayoutStyle::stack(ravenrs_layout::Axis::Horizontal)
+        },
+        &[glyph, words],
+        Paint::Quad(crate::context::QuadPaint {
+            corner_radius: theme.radii.md,
+            border: Some(ravenrs_core::Border { width: 1.0, color: tone }),
+            shadow: Some(theme.elevation.raised),
+            ..crate::context::QuadPaint::new(fill)
+        }),
+    );
+    cx.semantics(node, Semantics::new(ravenrs_core::Role::Status).name(text.to_owned()));
+    node
+}
+
 /// A pending focus move inside a group: which item takes focus on its next
 /// build. Requesting one also bumps a reactive tick, so the group rebuilds even
 /// when nothing else changed (arrow keys in a toolbar only move focus).

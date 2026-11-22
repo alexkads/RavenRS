@@ -1,0 +1,10 @@
+scenario: Rodar passo a passo
+open Raven Test Studio                                       | Abrir o Studio testado
+click #next                                                  | Próximo passo
+click #next                                                  | Próximo passo de novo
+check #summary = 2 de 5 passos até agora                      | Dois passos até agora
+mention #node:description = Concluído                        | O segundo bloco concluiu
+click #next                                                  | Terceiro passo
+click #next                                                  | Quarto passo
+click #next                                                  | Último passo
+check #summary = 5 de 5 passos passaram                       | Terminou passando

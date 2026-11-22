@@ -1,0 +1,23 @@
+[package]
+name = "raven-ci-plugin-format-jenkinsfile"
+description = "The plugin format-jenkinsfile of Raven CI: reads a declarative Jenkinsfile, or converts it into .raven-ci.toml with raven-ci converter, listing on its line every part it does not convert."
+version = "0.1.0"
+edition.workspace = true
+# raven-ci-plugin-format-toml needs 1.89.
+rust-version = "1.89"
+license.workspace = true
+publish = false
+
+[dependencies]
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
+# Makes the flow from the converted TOML, so both formats run a pipeline the same way.
+raven-ci-plugin-format-toml = { path = "../raven-ci-plugin-format-toml" }
+ravenrs-app.workspace = true
+
+[dev-dependencies]
+raven-ci-core = { path = "../raven-ci-core" }
+raven-ci-plugin-shell = { path = "../raven-ci-plugin-shell" }
+serde_json.workspace = true
+
+[lints]
+workspace = true

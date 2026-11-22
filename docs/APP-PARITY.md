@@ -2,6 +2,11 @@
 
 What exists of the behavior documented for model-driven application frameworks, and the step that brings the rest. ✅ works, 🟡 in part, ⬜ planned. See [APP-FRAMEWORK.md](APP-FRAMEWORK.md), and [APP-CONTRACTS.md](APP-CONTRACTS.md) for what reusable modules have to honor and the scenarios that prove it.
 
+The [ravenrs-app coverage assessment](APP-COVERAGE.md) examines recurring business
+workflows, capability scores, remaining integration work, and consumption through
+the existing MCP and CLI. Its scores apply to the stated audit revision and do not
+replace the API statuses and adapter guarantees below.
+
 | Area | State | Step |
 |---|---|---|
 | Records declared by attributes, or at run time | ✅ `BusinessObject`, `EntityInfo` | |
@@ -47,28 +52,28 @@ What exists of the behavior documented for model-driven application frameworks, 
 | Conditional appearance: font, back, bold, enabled, visible; on items, layout and actions; by criteria or function; by priority | 🟡 `AppearanceRule`. On a form, a font color reaches the caption, not the value inside the editor; a group's caption takes no color | |
 | Reports of a list | ✅ `ravenrs-app-report`: an action that lays out the list and shows it in the viewer | |
 | Reports kept as records, designed inside the application, over entities, with parameters and permissions | ✅ `StoredReportsModule`, `Designer::embedded`, `ShowInReport` | |
-| Scheduled delivery of stored reports | ⬜ the report server cannot read entities until there is an API, and has to run as someone | F12 |
-| Mail merge templates | ⬜ takes the rich text editor of Wave C | |
+| Scheduled delivery of stored reports | ⬜ the web API is there now; what is left is running as someone on a schedule | #50–#53, #66 |
+| Mail merge templates | ⬜ `ravenrs-word` already keeps `MERGEFIELD` codes, and nothing fills them; editing the template in the app takes the `DocumentEditor` (#405) | #618 |
 | Analytical panels people create, kept as records | 🟡 `AnalyticsModule`: tiles of numbers and charts, edited on generated forms. No canvas designer, and tile sizes are not kept | |
 | Analytical panels declared in code | ✅ `AnalyticsPanel` with `AnalyticsApp::analytics_panel`: numbers, bars, lines, pies and doughnuts over a struct, with filter and date interval per tile, read under the person's permissions | |
 | Roles, policies and permissions on entities, records, fields, navigation and actions; several roles in any or in all | ✅ `Role`, `Permissions`, enforced in `SecuredObjectSpace`, also with no screen | |
 | Policy changed while running, by administrators on generated screens | ✅ `security_entities`; losing a role takes effect at once | |
 | Permissions that follow associations | 🟡 aggregated collections go with their owner; everything else asks for permission on both sides, as the documented manual mode does | |
-| Signing in with passwords, lockout, password changes, other ways in | ✅ `SecuredApp`, `UserDirectory`, `Authenticator`. No Active Directory or OAuth 2 provider built in: `Authenticator` is where one goes | |
+| Signing in with passwords, lockout, password changes, other ways in | ✅ `SecuredApp`, `UserDirectory`, `Authenticator`. No OpenID Connect, LDAP or second factor built in: `Authenticator` and `IdentityProvider` are where they go | #615 |
 | Audit trail: author, old and new values, modes, settings, collections, custom data | ✅ `AuditedObjectSpace`, `AuditSettings`, `AuditTrail::custom`. Only what goes through it is seen | |
 | A list as a chart | 🟡 `Chart` editor: bars, lines, areas and pies, summed by argument, money in whole units. Not exported or printed with the list | |
-| A list on a calendar, and on a timeline of resources | 🟡 `Calendar` shows a month, and `Scheduler` a row per resource where records move, resize and get created. No recurring events or day and week views of hours | |
-| A list as a tree | 🟡 `Tree` editor over a reference to itself. Columns take the tree list of Wave C | |
-| A pivot grid over a list | ⬜ takes the pivot grid of Wave C | |
-| State machines: states, transitions, actions and appearance by state | 🟡 `StateMachine`, refused in the object space. Declared in code; defining them at run time is not there | |
-| Reminders of records: come up when due, put off, dismiss | 🟡 `Reminder`, for the application only: no channels outside it, and a change made by someone else shows on the next read | |
-| PDF viewer for files, rich text and spreadsheet editors | ⬜ `DocumentViewer` shows the engine's documents, and does not read PDF files; the rest takes Wave C | |
+| A list on a calendar, and on a timeline of resources | 🟡 `Calendar` shows a month, and `Scheduler` a row per resource where records move, resize and get created. No recurring events or day and week views of hours | #227, #568 |
+| A list as a tree | 🟡 `Tree` editor over a reference to itself. Columns take the `TreeGrid` | #401 |
+| A pivot grid over a list | ⬜ takes the `PivotGrid` | #403 |
+| State machines: states, transitions, actions and appearance by state | 🟡 `StateMachine`, refused in the object space. Declared in code; defining them at run time is not there | #616 |
+| Reminders of records: come up when due, put off, dismiss | 🟡 `Reminder`, for the application only: no channels outside it, and a change made by someone else shows on the next read | #617 |
+| PDF viewer for files, rich text and spreadsheet editors | ⬜ `DocumentViewer` shows the engine's documents, and does not read PDF files. The engines are there (`ravenrs-pdf`, `ravenrs-word`, `ravenrs-sheet`); the editors on top of them are not | #404, #405 |
 | Replaceable list editors | ✅ `register_list_editor`, picked by `EditorType` or `DefaultListEditor` in the model | |
 | Filters in the model, a list's own criteria, filtered link window, functions of the application | ✅ `ListFilter`, `list_criteria`, `lookup_filter` on a collection, `register_function` | |
 | Migrations of a managed schema, entities from an existing database, model differences in a database | ✅ `migration`, added columns, `entities_from_schema`, `SqliteModelStore` | |
 | Translated captions and options, rules in the model | ✅ `translation`, `set_language`, `Rules` under an entity | |
 | Records no storage keeps, services, initial records | ✅ `transient`, `ListView::source`, `service`, `Module::initial_records` | |
-| Concurrent changes | ✅ `merge_changes`: different fields both stand, the same field asks. Read and write are not one transaction yet | |
+| Concurrent changes | 🟡 `merge_changes`: different fields both stand, the same field asks. Read and write are not one transaction yet, and records carry no version | #241 |
 | Custom fields in the model, stored or calculated | ✅ `$new` under `Members`, `App::administrator_settings`, `App::storage_for`; plain values only | |
 | Keys: number, text, GUID | ✅ `FieldKind::Guid` | |
 | More editors: criteria, tags, predefined values, masks, progress, display formats, titled groups | ✅ `criteria_of`, `FieldKind::Tags`, `predefined`, `edit_mask`, `Progress`, `display_format`, `group`. A Rust struct does not expand into a group by itself | |
@@ -78,19 +83,21 @@ What exists of the behavior documented for model-driven application frameworks, 
 | Ready-made records | ✅ `ravenrs-app-library`: person, organization, address, country, task, event, note and file | |
 | Clone object | ✅ `CloneModule`: only what says it can be, with `non_cloneable` and `aggregated` | |
 | File attachments | ✅ `AttachmentStore`, out of the record, with a button to save the file | |
-| Chart and scheduler list editors | ⬜ | F9 |
-| Tree and pivot list editors | ⬜ needs the tree list and the pivot grid | F9 |
-| Report designer and definitions in a database, dashboards people create | ⬜ | F10 |
+| Deleted records kept in a recycle bin, restored or purged | ⬜ `delete` removes the record; the audit trail keeps what it held, and nothing brings it back | #613 |
+| Search across every entity, with a text index and permissions on the result | ⬜ each list searches its own text fields with `Contains`; no index in any adapter | #614 |
+| Notifications by criteria: in the app, by e-mail and by webhook | ⬜ the outbox and `Dispatcher` are there to carry them; no rule or channel yet | #617 |
+| Importing records from CSV and XLSX through the model | ⬜ | #228 |
 | Web API: protected CRUD, filters, pages, deep updates, batches, own endpoints, OpenAPI | ✅ `ravenrs-app-server`, on a contract of its own rather than OData | F12 |
 | PostgreSQL | ✅ `ravenrs-app-postgres`, over what SQL databases share in `ravenrs-app-sql`; schema reading, model and attachment storage only in SQLite for now | F12 |
-| Hosted PostgreSQL (Supabase, Neon, Nhost) by address | 🟡 `PostgresBackend::connect`: TLS that checks the certificate, poolers in transaction mode, a connection that dropped opened again. Tested against PostgreSQL 17 and PgBouncer 1.26 in containers; not yet against the services themselves | #324 |
-| PostgreSQL through PostgREST (your own, Supabase, Neon's Data API) | 🟡 `ravenrs-app-postgrest`: filters on the server, a commit in one transaction as the person signed in, so row level security holds. Desktop only; tested against PostgREST in containers, not yet against Supabase or Neon | #330 |
+| Hosted PostgreSQL (Supabase, Neon, Nhost) by address | 🟡 `PostgresBackend::connect`: TLS that checks the certificate, poolers in transaction mode, a connection that dropped opened again. Tested against PostgreSQL 17 and PgBouncer 1.26 in containers, and against Neon (direct, `-pooler`, after a suspension) and Supabase (direct and session, without TLS). Supabase with its own authority and Supavisor on 6543, and Nhost, not yet | #325 |
+| PostgreSQL through PostgREST (your own, Supabase, Neon's Data API) | 🟡 `ravenrs-app-postgrest`: filters on the server, a commit in one transaction as the person signed in, so row level security holds. Desktop only; tested against PostgREST in containers, Neon's Data API (all, with the contract) and Supabase (all but a filter its firewall refuses, #388) | #330 |
 | PostgreSQL over GraphQL (Hasura, Nhost) | ⬜ | #335 |
+| A GraphQL API generated from the model, with the permissions of the web API | ⬜ the web API with OpenAPI stays the main contract | #619 |
 | Remote object space, so the web has real storage | ✅ `ravenrs-app-remote`: a copy in memory of what the person can see, written back in batches | F12 |
 | API keys for other systems; settings kept by scope | ✅ `/api/auth/keys`, `SettingsStore` and `/api/settings/{name}`; the theme someone chose comes back | F12 |
-| Background jobs, scheduled tasks that run once, an event bus | ⬜ | F12.5 |
-| Multi-tenancy | ⬜ | F13, #225 |
-| AI: natural language filters, writing help, smart paste | ⬜ local models only, so not on the web | F14 |
+| Scheduled tasks that run once across processes, and a worker in a process of its own | ⬜ work in the background and events in the same commit are above; what runs on a schedule is not | #66 |
+| Multi-tenancy | 🟡 events, webhooks and the test kit keep an organization; resolving the tenant, a database per tenant and moving one between databases are not there | #225, #243 |
+| AI: natural language filters, writing help, smart paste | ⬜ local by default; a paid provider with the person's own key, account or cloud credentials only by an explicit choice | #28, #549 |
 | A command-line tool that creates projects step by step from templates; deployment and diagnostics guides | ⬜ | F15 |
 | An installer with Zed as the editor for projects, its extension and skills, and a graphical viewer of a project | ⬜ | F16 |
 | Modules that declare version, targets, databases, permissions, migrations, jobs and providers, and turn off without losing data | 🟡 `ModuleManifest`, checked by `ApplicationBuilder::build`; `switch_off` and `Application::guard`. The generated screens do not use the guard yet (#242); not listed by the CLI or MCP yet (#81) | #271 |

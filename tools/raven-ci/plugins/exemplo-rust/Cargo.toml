@@ -1,0 +1,26 @@
+[package]
+name = "raven-ci-exemplo-rust"
+description = "The example of a plugin of Raven CI written in Rust with the standard traits, built and installed by raven-ci plugins compilar: a step, a publisher, a trigger and a pipeline format."
+version = "0.1.0"
+# Nothing comes from the workspace: the crate is what a plugin of someone else is, and it compiles
+# the same copied out of the repository, once the paths below point to a checkout of RavenRS (or
+# become `git = "https://github.com/alexkads/RavenRS"`). It is a member of the workspace only so
+# its build reuses what the workspace already compiled.
+edition = "2024"
+rust-version = "1.89"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+# The version is what `raven-ci plugins compilar` checks against the raven-ci-plugin-api of the
+# server before it builds; the feature serve is the main of an external plugin.
+raven-ci-plugin-api = { path = "../../crates/raven-ci-plugin-api", version = "0.1", features = ["serve"] }
+ravenrs-app = { path = "../../../../crates/ravenrs-app" }
+# Without the bridge to the FlowCanvas, as the API: no drawing in the tree of the plugin.
+ravenrs-flows = { path = "../../../../crates/ravenrs-flows", default-features = false }
+serde_json = "1"
+
+# Lints of its own, as a plugin of someone else has, rather than the workspace's.
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"

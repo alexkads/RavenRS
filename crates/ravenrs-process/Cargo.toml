@@ -1,0 +1,24 @@
+[package]
+name = "ravenrs-process"
+description = "Runs a child program for RavenRS apps: arguments with no shell, an environment of allowed variables only, input lines, output and error lines as events, a time limit, and stopping it with everything it started."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-process"
+keywords = ["process", "subprocess", "timeout", "child", "spawn"]
+categories = ["os"]
+
+# The program the tests run, the same on every system.
+[[bin]]
+name = "ravenrs-process-fake"
+path = "fake/main.rs"
+test = false
+doc = false
+
+[lints]
+workspace = true

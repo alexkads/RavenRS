@@ -1,0 +1,9 @@
+scenario: Chat automation builder: salvar a conversa
+// A conversa de exemplo começa pela palavra-chave; com um nome e salva, ela entra na lista.
+open Chat automation builder                   | Abrir o construtor de conversas
+check #node:start = Palavra-chave              | A conversa começa pela palavra-chave
+check #node:menu = Boas-vindas                 | E segue para as boas-vindas
+fill Nome do fluxo = Atendimento               | Dar um nome à conversa
+click Salvar                                   | Salvar
+check Salvo = Salvo                            | Ela fica salva
+check Atendimento 7 nós = Atendimento 7 nós    | E entra na lista, com os sete blocos

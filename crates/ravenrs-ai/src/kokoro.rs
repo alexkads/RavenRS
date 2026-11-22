@@ -1,6 +1,29 @@
 //! Speech from Kokoro 82M, following its published code: a small BERT reads the
 //! phonemes, a predictor says how long each one lasts and how high and loud it is, and a
 //! decoder turns that into the spectrum of 24 kHz sound.
+//!
+//! Nothing here is public. Apps reach it through `SpeechEngine` (`src/speech.rs`), whose
+//! `KokoroSpeech` writes the phonemes with `phonemes_pt_br`, cuts them into pieces, picks
+//! the voice by `SpeechSettings::speaker` and calls [`Kokoro::speak`]. The README, under
+//! "How Kokoro speaks", walks through the stages in order.
+//!
+//! | Stage | Here | Published code (hexgrad/kokoro) |
+//! |---|---|---|
+//! | Weights, `weight_g`/`weight_v` folded | [`Weights`] | `model.pth`, `torch.nn.utils.weight_norm` |
+//! | Phonemes to ids | [`Kokoro::ids`] | `KModel.forward`, `config.json` `vocab` |
+//! | Style for the length of text, `(1, 256)` | [`Voice::style`] | `pack[len(phonemes) - 1]` |
+//! | BERT, `(phonemes, 768)` then `(1, 512, phonemes)` | `Albert`, `bert_encoder` | `CustomAlbert`, `bert_encoder` |
+//! | Durations in frames | `Predictor::encode`, `durations` | `ProsodyPredictor`, `DurationEncoder` |
+//! | Pitch and loudness, `(1, 1, 2 * frames)` | `Predictor::pitch_and_loudness` | `ProsodyPredictor.F0Ntrain` |
+//! | Text for the sound, `(1, 512, frames)` | `TextEncoder` | `TextEncoder` |
+//! | Harmonic source and generator | `Decoder::harmonics`, `Decoder::forward` | `istftnet.Decoder`, `Generator`, `SourceModuleHnNSF` |
+//! | Spectrum to samples | `crate::spectrum::inverse_stft` | `TorchSTFT.inverse` |
+//!
+//! The first 128 numbers of a style are the timbre, read by the decoder; the last 128
+//! are the prosody, read by the predictor. A frame of the predictor is 600 samples, 25 ms.
+//! [`Noise`] stands for PyTorch's random draws, so the same seed sounds the same anywhere.
+//! The test `kokoro_matches_the_published_code` checks each stage against numbers the
+//! published code wrote.
 
 use std::collections::HashMap;
 use std::io::Read;

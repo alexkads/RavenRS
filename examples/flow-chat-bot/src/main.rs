@@ -1,0 +1,31 @@
+//! `cargo run -p flow-chat-bot`
+fn main() -> Result<(), ravenrs::native::PlatformError> {
+    // A test tool such as Raven Test Studio drives the app with no window (`--e2e-serve`), on
+    // data in memory: nothing on disk is opened.
+    if std::env::args().skip(1).any(|arg| arg == ravenrs_e2e_wire::SERVE_FLAG) {
+        let session = ravenrs_e2e::E2e::new(flow_chat_bot::app(), ravenrs::prelude::Theme::raven_dark())
+            .viewport(ravenrs::prelude::Size::new(1280.0, 800.0), 1.0);
+        let hello =
+            ravenrs_e2e_wire::Hello::of("Chat automation builder").scenarios(flow_chat_bot::SCENARIOS);
+        if let Err(error) =
+            ravenrs_e2e_wire::serve_filmed(hello, session, ravenrs::movie::ChannelFilm::default())
+        {
+            eprintln!("o canal de teste parou: {error}");
+            std::process::exit(1);
+        }
+        return Ok(());
+    }
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "info,wgpu=warn,naga=warn".into()),
+        )
+        .init();
+    let options =
+        ravenrs::native::WindowOptions::new("RavenRS · Chat automation builder").size(1280.0, 800.0);
+    // The diagrams are kept in a folder of the person's, between runs.
+    let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).unwrap_or_default();
+    let folder = std::path::PathBuf::from(home).join(".ravenrs").join("flow-chat-bot");
+    let storage = std::rc::Rc::new(ravenrs::core::FileStorage::new(folder));
+    ravenrs::native::run(flow_chat_bot::app_kept_in(storage), options)
+}

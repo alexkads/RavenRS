@@ -1,0 +1,70 @@
+//! The stories of `CurveEditor`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #762: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_base::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use ravenrs_widgets_base::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_kit::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `CurveEditor`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let arg_height = args.number("height") as f32;
+        let arg_label = args.text("label");
+        let arg_baseline = args.bool("baseline");
+        let arg_disabled = args.bool("disabled");
+        let arg_grid = args.number("grid") as u32;
+
+        let points = State::new(vec![
+            Point::new(0.0, 0.0),
+            Point::new(0.3, 0.2),
+            Point::new(0.7, 0.85),
+            Point::new(1.0, 1.0),
+        ]);
+        let hill: Vec<f32> = (0..128).map(|i| 50.0 * (-((i as f32 - 60.0) / 30.0).powi(2)).exp()).collect();
+        {
+            let mut it = CurveEditor::new(points.binding()).histogram(
+                [HistogramChannel::new("Light", Color::rgb(0.6, 0.6, 0.6), hill)],
+                HistogramScale::Linear,
+            );
+            it = it.height(arg_height);
+            it = it.label(arg_label.clone());
+            it = it.baseline(arg_baseline);
+            it = it.disabled(arg_disabled);
+            it = it.grid(arg_grid);
+            it
+        }
+    })
+}
+
+impl ComponentBook for CurveEditor {
+    fn book() -> Meta {
+        Meta::new("Media/CurveEditor", render)
+            .summary("Points you drag over a smooth curve, with an optional histogram behind.")
+            .arg(ArgType::number("height", 190.0, 0.0, 760.0, 1.0))
+            .arg(ArgType::text("label", "Tone curve"))
+            .arg(ArgType::bool("baseline", true))
+            .arg(ArgType::bool("disabled", false))
+            .arg(ArgType::number("grid", 4.0, 0.0, 16.0, 1.0))
+            .story("Example", Args::new())
+            .story("Without baseline", Args::new().with("baseline", false))
+            .story("Disabled", Args::new().with("disabled", true))
+    }
+}

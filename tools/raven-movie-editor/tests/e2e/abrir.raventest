@@ -1,0 +1,7 @@
+scenario: Raven Movie Editor: marcar um capítulo e salvar
+// Num filme feito na hora, de um segundo: põe um capítulo e um cartão de título na agulha e salva.
+open Raven Movie Editor                      | Abrir o editor de filmes
+check 0:00 / 0:01 = 0:00 / 0:01             | O filme tem um segundo
+click Capítulo                               | Pôr um capítulo na agulha
+click Cartão de título                       | Pôr um cartão de título
+click Salvar filme                           | Salvar o filme

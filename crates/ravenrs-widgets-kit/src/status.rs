@@ -858,6 +858,7 @@ fn paint_shimmer(glyphs: &ShimmerGlyphs, origin: Point, time: f64, light: Color,
                 size: run.size,
                 color: light.with_alpha(light.a * strength),
                 glyphs: vec![lit],
+                rotation: run.rotation,
             });
         }
     }

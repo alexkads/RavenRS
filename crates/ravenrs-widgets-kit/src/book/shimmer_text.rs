@@ -1,0 +1,45 @@
+//! The stories of `ShimmerText`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #761: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_base::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use ravenrs_widgets_base::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `ShimmerText`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let arg_active = args.bool("active");
+
+        {
+            let mut it = ShimmerText::new("Looking for updates");
+            it = it.active(arg_active);
+            it
+        }
+    })
+}
+
+impl ComponentBook for ShimmerText {
+    fn book() -> Meta {
+        Meta::new("Display and feedback/ShimmerText", render)
+            .summary("Text with a light passing over it, still when motion is reduced.")
+            .arg(ArgType::bool("active", true))
+            .story("Example", Args::new())
+            .story("Still", Args::new().with("active", false))
+    }
+}

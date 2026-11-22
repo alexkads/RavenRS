@@ -68,9 +68,21 @@ impl SaveDialog {
 /// }
 /// # Ok::<(), std::io::Error>(())
 /// ```
+///
+/// With [`folders`](Self::folders) it chooses a folder instead, as an editor does to open a
+/// project:
+///
+/// ```no_run
+/// use ravenrs_platform_native::OpenDialog;
+///
+/// if let Some(project) = OpenDialog::new().title("Open Folder").folders().ask() {
+///     println!("{}", project.display());
+/// }
+/// ```
 #[derive(Debug, Default)]
 pub struct OpenDialog {
     dialog: rfd::FileDialog,
+    folders: bool,
 }
 
 impl OpenDialog {
@@ -97,9 +109,15 @@ impl OpenDialog {
         self
     }
 
+    /// Chooses a folder instead of a file; filters do not apply then.
+    pub fn folders(mut self) -> Self {
+        self.folders = true;
+        self
+    }
+
     /// Shows the dialog; `None` when the user cancels.
     pub fn ask(self) -> Option<PathBuf> {
-        self.dialog.pick_file()
+        if self.folders { self.dialog.pick_folder() } else { self.dialog.pick_file() }
     }
 }
 

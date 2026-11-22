@@ -15,6 +15,7 @@ Declare what a record is, and get the screens: navigation, a list, a form, comma
 | `ravenrs-app-sqlite` | `SqliteDatabase`, `TableMap`: on tables it creates or tables that exist, on a connection the app shares |
 | `ravenrs-app-report` | `ReportModule`: an action that lays out a list as a report and shows it in the viewer |
 | `ravenrs-app-library` | `LibraryModule`: people, organizations, addresses, tasks, events, notes and files, to use or extend, with `PT_BR` for their words |
+| `ravenrs-app-update` | No GUI. `InstalledApp`, `Updater`, `News` and `Notice`: installing and updating an app by compiling it on the user's machine, with one installer template for the three systems and `assert_release_files_agree` for the release files |
 | `ravenrs-grid-export` | What a `DataGrid` shows, as Excel, PDF or CSV |
 
 ## In five minutes
@@ -197,7 +198,7 @@ EntityInfo::new("Order")
 
 ## Trying everything
 
-[`examples/feature-center`](../examples/feature-center) has every feature, one small demonstration each, with what to try on each list. Sign in as `ana`, `bia` or `caio`, with the password `raven-demo`, and compare. Its `tests/tour.rs` goes through it all, in memory and in SQLite, so a new feature gets a demonstration there and a place in that tour.
+[`tools/raven-feature-center`](../tools/raven-feature-center) has every feature, one small demonstration each, with what to try on each list. Sign in as `ana`, `bia` or `caio`, with the password `raven-demo`, and compare. Its `tests/suite/tour.rs` goes through it all, in memory and in SQLite, so a new feature gets a demonstration there and a place in that tour.
 
 ## Showing a list other ways
 
@@ -295,7 +296,7 @@ A record with a time in its reminder field comes up when that is due, for whoeve
 
 ## At a counter
 
-An application used all day from the keyboard needs little of its own. These come with the framework, and `feature-center` shows them in "Caixa de exemplo", or alone with `cargo run -p feature-center -- caixa`.
+An application used all day from the keyboard needs little of its own. These come with the framework, and `raven-feature-center` shows them in "Caixa de exemplo", or alone with `cargo run -p raven-feature-center -- caixa`.
 
 ```rust
 App::new("Caixa")
@@ -457,7 +458,7 @@ ui.set_viewport(Size::new(1200.0, 800.0), 1.0);
 Audit::new().theme(Theme::raven_light()).open("Novo").app(&mut ui).assert_clean();
 ```
 
-`Audit::app` walks the application with no window: the screen it opens on, every item of the navigation, and on each, the buttons given to `open`. On every screen it reports a control with no name, an id that appears twice, focus on a node that is not there, Tab that does not move or goes round some controls and never reaches the others, a window over the screen that Escape does not close, and two commands on the same keys. On the theme on screen and on every theme given, it checks text and the focus ring against the WCAG AA contrast. `Audit::screen` looks at one screen. `Audit::items` lists the items of the navigation, and `Audit::item` opens one by its name and looks at it as `app` would, or reports `NoSuchItem` when the navigation no longer has it. `feature-center` audits each demonstration in a test of its own that way, so the 37 screens run in parallel, and one more test fails when a demonstration has no test. As before, `check_tree`, `check_focus`, `check_theme` and `check_shortcuts` are there one by one. `quick-app`, `quick-plan` and `feature-center` run it in their tests, and any example can.
+`Audit::app` walks the application with no window: the screen it opens on, every item of the navigation, and on each, the buttons given to `open`. On every screen it reports a control with no name, an id that appears twice, focus on a node that is not there, Tab that does not move or goes round some controls and never reaches the others, a window over the screen that Escape does not close, and two commands on the same keys. On the theme on screen and on every theme given, it checks text and the focus ring against the WCAG AA contrast. `Audit::screen` looks at one screen. `Audit::items` lists the items of the navigation, and `Audit::item` opens one by its name and looks at it as `app` would, or reports `NoSuchItem` when the navigation no longer has it. `raven-feature-center` audits each demonstration in a test of its own that way, so its screens run in parallel. One more test fails when a demonstration has no audit test, and another when it has no step in `tests/suite/tour.rs`. As before, `check_tree`, `check_focus`, `check_theme` and `check_shortcuts` are there one by one. `quick-app`, `quick-plan` and `raven-feature-center` run it in their tests, and any example can.
 
 ## PostgreSQL
 
@@ -474,11 +475,11 @@ let database = PostgresDatabase::builder(backend).managed(order, TableMap::new("
 - **Poolers.** A pooler in transaction mode hands each transaction to whichever server connection is free, so a statement prepared on one is missing on the next. Supavisor on port 6543, Neon's `-pooler` hosts and an address with `pgbouncer=true` are recognised, and statements then go unprepared: one round trip each, nothing left on the server, values as text that the server reads as it would in the statement. `PostgresOptions::statements` says it outright, and `PostgresBackend::with_statements` does it for a `Client` you opened. Behind a pooler, `SET`, `LISTEN` and session locks do not last past the transaction.
 - **A connection that drops.** Neon puts a database to sleep after a while with nothing to do, and the connection goes with it. Outside a transaction the backend opens the connection again before the next statement, and a read that met the drop goes once more. Inside one it never does: the commit fails, nothing of it stays, and the next unit of work starts on a new connection. With no `connect_timeout` in the address it waits 15 seconds, time for a database to wake up.
 
-| Service | Address to use | What to know |
-|---|---|---|
-| Supabase, direct | `db.<project>.supabase.co:5432`, `sslmode=require&sslrootcert=…` | IPv6 only unless the IPv4 add-on is on |
-| Supabase, Supavisor | `aws-0-<region>.pooler.supabase.com`: 5432 is a session, 6543 transactions | 6543 goes unprepared by itself; if the certificate check fails, add the project's authority with `sslrootcert` as for the direct connection |
-| Neon | the host with `-pooler` for many short connections, without it for one long one | the first statement after a sleep waits for it to wake |
+| Service | Address to use | What to know | Checked against the service |
+|---|---|---|---|
+| Supabase, direct | `db.<project>.supabase.co:5432`, `sslmode=require&sslrootcert=…` | IPv6 only unless the IPv4 add-on is on: the name has no IPv4 address | Records, migrations, the web API and the contract, prepared and unprepared, without TLS (14/11/2026). TLS with the project's authority not yet |
+| Supabase, Supavisor | `aws-0-<region>.pooler.supabase.com`: 5432 is a session, 6543 transactions | 6543 goes unprepared by itself. Supavisor's certificate is signed by Supabase's own authority, so `connect` refuses it (`UnknownIssuer`) until the project's authority is given with `sslrootcert`. On 6543, `SET search_path` and other session settings do not last: keep the tables in `public` or name the schema | Session (5432): the same as the direct connection, both ways. Transactions (6543): refused by the certificate check without the authority |
+| Neon | the host with `-pooler` for many short connections, without it for one long one; the address the console gives (`sslmode=require&channel_binding=require`) works as it is | the first statement after a sleep waits for it to wake. Neon's pooler keeps prepared statements across server connections; statements still go unprepared there, which works the same | Direct with TLS and channel binding: records, migrations, the web API and the contract, both ways. `-pooler`: unprepared by itself, records kept whole. First query after a suspension: 2 s (14/11/2026, PostgreSQL 18) |
 | Nhost | the Postgres address of the project, when its plan lets one in | Hasura's GraphQL is another way in, not this one |
 
 `PostgresBackend::from(client)` still takes a connection you opened yourself, with the TLS and credentials you chose; it is not opened again when it drops.
@@ -544,11 +545,11 @@ CREATE POLICY own_tenant ON orders
   WITH CHECK (tenant = current_setting('request.jwt.claims', true)::json ->> 'tenant');
 ```
 
-| Service | Address | Token |
-|---|---|---|
-| Your own PostgREST | where it listens; `.schema()` when it serves more than one | signed with its `jwt-secret` |
-| Supabase | `https://<project>.supabase.co/rest/v1`, with `.api_key(anon key)` | the session's access token from Supabase Auth; the anon key alone is the `anon` role |
-| Neon Data API | the endpoint the console shows for the branch | from Neon Auth, or your own provider through its JWKS |
+| Service | Address | Token | What to know |
+|---|---|---|---|
+| Your own PostgREST | where it listens; `.schema()` when it serves more than one | signed with its `jwt-secret` | `NOTIFY pgrst, 'reload schema'` after making tables |
+| Supabase | `https://<project>.supabase.co/rest/v1`, with `.api_key(publishable key)` | the session's access token from Supabase Auth (an hour); the publishable key alone is the `anon` role. A claim of the application's own goes in `app_metadata` | Every new table of `public` is granted to `anon` by default: revoke it where only those signed in may read. The firewall in front of the API answers 403 with a page of its own to a filter whose text looks like SQL injection (`B'; DROP TABLE …`), before the database sees it; writes in the body pass (#388) |
+| Neon Data API | the endpoint the console shows for the branch | from Neon Auth, or your own provider through its JWKS. Neon Auth's tokens last 15 minutes: give `token_source` a function that returns the current one | The anonymous role is `anonymous`. It does not hear `NOTIFY pgrst`: after making tables, press Refresh schema cache under Data API, or `PATCH {}` to `/projects/{project}/branches/{branch}/data-api/{database}` of Neon's API |
 
 Limits to know:
 - Desktop only: a space answers at once, and a browser cannot wait for HTTP.
@@ -556,7 +557,7 @@ Limits to know:
 - State machines are checked against what was read before the commit, not inside its transaction.
 - A table without row level security is open to every role that has grants on it: the function adds no rule of its own.
 
-Its tests run against a real PostgREST when `RAVENRS_POSTGREST_URL`, `RAVENRS_POSTGREST_ADMIN_URL` and `RAVENRS_POSTGREST_TOKEN_A`/`_B` say where; `tests/postgrest.rs` says what each must be.
+Its tests run against a real PostgREST when `RAVENRS_POSTGREST_URL`, `RAVENRS_POSTGREST_ADMIN_URL` and `RAVENRS_POSTGREST_TOKEN_A`/`_B` say where; `tests/postgrest.rs` says what each must be, and which variables point them at Supabase or Neon. On 14/11/2026 they passed against Neon's Data API, all five with the contract, and against Supabase but for the contract's case of a filter that looks like SQL injection, which Supabase's firewall refuses.
 
 ## A web API
 
@@ -564,7 +565,7 @@ Its tests run against a real PostgREST when `RAVENRS_POSTGREST_URL`, `RAVENRS_PO
 
 ```rust,ignore
 ravenrs_app_server::serve(listener, || {
-    // On the thread that serves requests: storage and permissions belong to one thread.
+    // On each thread that serves requests: storage and permissions belong to one thread.
     ApiService::new(space, roles).map(|service| service.audit(settings)).map_err(|e| e.to_string())
 })
 ```
@@ -579,7 +580,9 @@ ravenrs_app_server::serve(listener, || {
 | `POST /api/batch` | Several writes that stay or go together |
 | `POST /api/validate/{entity}` | What the rules would say, with nothing kept |
 | `POST /api/run/{name}` | Something of the application's own, from `ApiService::endpoint`, with the permissions of who calls |
+| any path its `ApiService::fallback` answers | Routes of the application that change while it runs (the plugins of a CI), asked before the others, knowing who called (`Caller`); a raw body with its own type through `ApiResponse::raw`, and paths with no token through `ApiOptions::open` |
 | `GET /api/openapi.json`, `GET /api/me` | The description of what this person can reach; who they are |
+| `GET /api/live/{topic}` | The events of a topic as they happen, as Server-Sent Events, with `ApiOptions::live` (below) |
 | `GET /health` | The only route that needs no token |
 
 Answers: `400` what was asked does not fit, including any field that cannot be written; `401` no valid token; `403` not allowed; `404` no such record, or one this person cannot see; `409` someone got there first; `422` rules or states refuse it, with `violations`; `429` too many tries to sign in; `503` busy.
@@ -594,8 +597,13 @@ The top of the navigation can carry the application's brand: `App::brand(IconTil
 
 It is not OData: the query options are its own, which is the difference to keep in mind for clients made for OData. Money travels in cents, as it is stored, and dates as text. Users, roles and the audit trail are not exposed, whatever the permissions say.
 
+**The live channel** sends events as they happen: a build that changed, a line of log. The application keeps a `LiveChannels`, opens its topics with `open("builds")`, gives a clone to the server with `ApiOptions::live`, and publishes from any thread with `publish("builds", "state", json)`. Whoever may read `/api/me` listens at `GET /api/live/builds`, as Server-Sent Events with an `id`, an `event` and JSON `data`.
+- Each topic keeps its last 256 events. Coming back with `Last-Event-ID` (or `?after=`) gets what came after, and a `gap` event when some are no longer kept, to load again.
+- The streams live on the async side and take none of the threads that answer. Every 15 s (`LiveChannels::checked_every`) a stream checks its token again, through those threads, and ends when it was signed out, ran out or its person was turned off. The same tick keeps proxies from closing it.
+- On the client, `RemoteClient::listen(topic, after, waker)` gives a `LiveFeed`: `drain()` while building takes what came, and the feed asks for that build itself. It comes back after losing the stream, waiting 1 s and up to 30 s, from the last event; refused (401, 403, 404), it stops. In the browser it reads the stream with `fetch`, since an `EventSource` cannot send the token.
+
 Limits to know:
-- One thread answers everything, one request at a time, as storage belongs to one thread. No throughput has been measured, so none is promised.
+- One thread answers, one request at a time, unless `ApiOptions::workers(n)` asks for more: then `n` threads answer at once, each with its own service made by the same function, and they share who is signed in. That function has to open the same storage each time (a database file or server); records in a `MemoryDatabase` belong to one thread. No throughput has been measured, so none is promised.
 - Tokens live in memory, so a restart asks everyone to sign in again.
 - Plain HTTP only: outside the machine it belongs behind something that does TLS.
 - Tries to sign in are limited by address, and behind a proxy everyone is one address.
@@ -605,7 +613,7 @@ Limits to know:
 - A key's expiry goes by the server's clock, in its local time, so a change of time zone moves it.
 - Two people changing the same field: the last one stays, since `PATCH` carries no version. Different fields do not get in each other's way.
 
-Try it with `cargo run -p feature-center --bin api`.
+Try it with `cargo run -p raven-feature-center --bin api`.
 
 ## An application over a server
 
@@ -627,11 +635,11 @@ The server decides everything: the copy only holds what the person can see, so t
 
 Limits to know:
 - Everything the person can see is read when they sign in, so this is for what fits in memory. `DataGrid::remote` over the API, for larger lists, is not done.
-- What someone else changes shows only when this person's own write reads that entity again, or on signing in again.
+- What someone else changes shows only when this person's own write reads that entity again, or on signing in again. `RemoteClient::listen` hears the server's live channel, but `RemoteApp` does not use it yet to read again on its own.
 - A record that refers to another one created in the same commit does not work, since the server gives the key. Keep them in two commits.
 - An address comes from the build (`RAVEN_API_URL` in the center), and never from the page's own address, so a link cannot make a page send a password somewhere else.
 
-Try it: `RAVEN_API_ORIGIN=http://localhost:8099 cargo run -p feature-center --bin api`, and `RAVEN_API_URL=http://127.0.0.1:8090 scripts/build-web.sh feature-center`, served on that port.
+Try it: `RAVEN_API_ORIGIN=http://localhost:8099 cargo run -p raven-feature-center --bin api`, and `RAVEN_API_URL=http://127.0.0.1:8090 scripts/build-web.sh raven-feature-center`, served on that port.
 
 ## Known gaps
 

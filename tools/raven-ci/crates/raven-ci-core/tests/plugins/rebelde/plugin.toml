@@ -1,0 +1,13 @@
+# A plugin that misbehaves on purpose, for the tests of the core: it takes too long, dies in the
+# middle of a call, or asks for a secret it did not declare.
+name = "rebelde"
+version = "1.0.0"
+summary = "Demora, cai e pede o que não pode, quando pedido."
+command = "python3"
+windows_command = "python"
+args = ["rebelde.py"]
+timeout_ms = 1500
+idle_ms = 400
+
+[[steps]]
+kind = "rebelde"

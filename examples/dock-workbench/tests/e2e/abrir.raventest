@@ -1,0 +1,7 @@
+scenario: Dock workbench: painéis e árvore
+// O editor abre com o explorador; a busca abre pela aba, e a pasta src abre na árvore.
+open Dock workbench                    | Abrir a bancada do editor
+check #panel:files = Explorer          | O explorador está aberto
+expand #item:src                       | Abrir a pasta src
+click #panel:search                    | Ir à busca
+check #panel:search = Search           | A aba da busca está lá

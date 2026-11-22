@@ -25,6 +25,10 @@ type Waker = Rc<RefCell<Option<Rc<dyn Fn()>>>>;
 
 /// Lines scrolled per wheel notch are converted to pixels by the platform; this
 /// is the width of the overlay scrollbar.
+/// How long a press held still on a drag source waits before it starts carrying it, in
+/// seconds: on touch, a finger that moves sooner scrolls instead.
+pub const HOLD_TO_CARRY: f64 = 0.4;
+
 const SCROLLBAR_WIDTH: f32 = 4.0;
 /// How long a scrollbar stays after the last scroll, and how long it takes to go.
 const SCROLLBAR_HOLD: f64 = 0.9;
@@ -46,6 +50,65 @@ const LIVE_FRAME: f64 = 1.0 / 60.0;
 const PAINT_MARGIN: f32 = 64.0;
 
 /// Whether anything `frame` draws, with its margin, can land inside `clip`.
+/// An affine map of points, `[a, b, c, d, e, f]` taking `(x, y)` to
+/// `(a x + c y + e, b x + d y + f)`, as [`ravenrs_core::PathFill::transform`].
+type Turn = [f32; 6];
+
+/// Turning by `radians` around `center`, clockwise on screen.
+fn turn_around(center: Point, radians: f32) -> Turn {
+    let (sin, cos) = radians.sin_cos();
+    [
+        cos,
+        sin,
+        -sin,
+        cos,
+        center.x - cos * center.x + sin * center.y,
+        center.y - sin * center.x - cos * center.y,
+    ]
+}
+
+/// Whether `p` is inside the closed polygon `outline` (crossings counted, even-odd).
+fn inside(outline: &[Point], p: Point) -> bool {
+    let mut odd = false;
+    for (i, &a) in outline.iter().enumerate() {
+        let b = outline[(i + 1) % outline.len()];
+        if (a.y > p.y) != (b.y > p.y) && p.x < a.x + (p.y - a.y) / (b.y - a.y) * (b.x - a.x) {
+            odd = !odd;
+        }
+    }
+    odd
+}
+
+/// Scaling by `k` away from `origin`.
+fn scale_from(origin: Point, k: f32) -> Turn {
+    [k, 0.0, 0.0, k, origin.x - k * origin.x, origin.y - k * origin.y]
+}
+
+/// `inner` first, then `outer`.
+fn compose(outer: Turn, inner: Turn) -> Turn {
+    let [a, b, c, d, e, f] = outer;
+    let [p, q, r, s, t, u] = inner;
+    [a * p + c * q, b * p + d * q, a * r + c * s, b * r + d * s, a * t + c * u + e, b * t + d * u + f]
+}
+
+fn apply(m: Turn, p: Point) -> Point {
+    Point::new(m[0] * p.x + m[2] * p.y + m[4], m[1] * p.x + m[3] * p.y + m[5])
+}
+
+/// The smallest rectangle holding `rect` once taken through `m`.
+fn bounds_of(m: Turn, rect: Rect) -> Rect {
+    let corners = [
+        rect.origin,
+        Point::new(rect.max_x(), rect.y()),
+        Point::new(rect.x(), rect.max_y()),
+        Point::new(rect.max_x(), rect.max_y()),
+    ]
+    .map(|p| apply(m, p));
+    let (x0, y0) = corners.iter().fold((f32::MAX, f32::MAX), |(x, y), p| (x.min(p.x), y.min(p.y)));
+    let (x1, y1) = corners.iter().fold((f32::MIN, f32::MIN), |(x, y), p| (x.max(p.x), y.max(p.y)));
+    Rect::new(x0, y0, x1 - x0, y1 - y0)
+}
+
 fn touches(frame: Rect, clip: Rect) -> bool {
     frame.max_x() + PAINT_MARGIN > clip.x()
         && frame.x() - PAINT_MARGIN < clip.max_x()
@@ -153,8 +216,13 @@ pub struct Ui {
     content: Vec<Size>,
     /// Elements in painting (back-to-front) order; hit testing walks it backwards.
     paint_order: Vec<NodeId>,
+    /// For each element under a turn ([`BuildCx::rotate`]), from its own coordinates to the
+    /// screen and back; none for the rest. Worked out with the paint.
+    turns: Vec<Option<(Turn, Turn)>>,
     scroll: ScrollState,
     modifiers: Rc<Cell<Modifiers>>,
+    /// Whether the last build read the keys held, so a change of them builds again.
+    modifiers_read: Rc<Cell<bool>>,
     /// Parent of each element, for hover-within.
     parents: Vec<Option<NodeId>>,
     /// The hovered element and its ancestors.
@@ -174,6 +242,8 @@ pub struct Ui {
     /// or code moved focus; a click never asks for this).
     reveal_focus: bool,
     dragging: Option<WidgetId>,
+    /// A drag between components in progress ([`BuildCx::drag_source`]).
+    carry: Option<crate::context::Carry>,
     /// When each scroll container last moved: its scrollbar shows only around that.
     scrolled_at: HashMap<WidgetId, f64>,
     /// A scrollbar was on the last frame, so another one has to follow.
@@ -181,12 +251,16 @@ pub struct Ui {
     /// Seconds since start, set by the platform.
     time: f64,
     shortcuts: Vec<Shortcut>,
+    close_guards: Vec<Rc<dyn Fn() -> bool>>,
+    closer: crate::WindowCloser,
     /// Where the focus was before this build moved it.
     moved_focus_from: Option<Option<WidgetId>>,
     activity: Option<crate::context::ActivityObserver>,
     access_tree_asked: bool,
     /// Earliest time a widget asked to be rebuilt at.
     wake: Option<f64>,
+    /// When a press held still on a drag source starts carrying it.
+    hold_at: Option<f64>,
     pointer: Option<Point>,
     cursor: CursorIcon,
     scene: Scene,
@@ -235,6 +309,12 @@ pub struct Ui {
     frame_start: (PhaseTimes, u64),
     view_profile: Option<Rc<RefCell<ViewProfile>>>,
     hover_readers: Rc<RefCell<std::collections::HashSet<WidgetId>>>,
+    /// Cables built with `CablePlug`, placed after each layout.
+    cable_requests: Vec<crate::cable_plug::CableRequest>,
+    /// Simulates the window's cables: on the CPU unless the platform gives a GPU one.
+    cable_world: crate::Cables,
+    /// When the cables last stepped.
+    cable_time: Option<f64>,
 }
 
 impl fmt::Debug for Ui {
@@ -246,7 +326,7 @@ impl fmt::Debug for Ui {
     }
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part2"))]
 impl Ui {
     /// A runtime for `root` under `theme`, with an 800×600 viewport at scale 1.
     pub fn new(root: impl View + 'static, theme: Theme) -> Self {
@@ -273,8 +353,10 @@ impl Ui {
             clips: Vec::new(),
             content: Vec::new(),
             paint_order: Vec::new(),
+            turns: Vec::new(),
             scroll: ScrollState::default(),
             modifiers: Rc::new(Cell::new(Modifiers::default())),
+            modifiers_read: Rc::default(),
             parents: Vec::new(),
             hover_chain: Vec::new(),
             local: LocalStore::default(),
@@ -289,14 +371,18 @@ impl Ui {
             interaction: Interaction::default(),
             reveal_focus: false,
             dragging: None,
+            carry: None,
             scrolled_at: HashMap::new(),
             scrollbar_showing: false,
             time: 0.0,
             shortcuts: Vec::new(),
+            close_guards: Vec::new(),
+            closer: crate::WindowCloser::default(),
             moved_focus_from: None,
             activity: None,
             access_tree_asked: false,
             wake: None,
+            hold_at: None,
             pointer: None,
             cursor: CursorIcon::Default,
             scene: Scene::new(),
@@ -330,7 +416,24 @@ impl Ui {
             frame_start: (PhaseTimes::default(), 0),
             view_profile: None,
             hover_readers: Rc::default(),
+            cable_requests: Vec::new(),
+            cable_world: crate::Cables(Rc::new(RefCell::new(
+                Box::new(ravenrs_core::cable::CpuCables::new()),
+            ))),
+            cable_time: None,
         }
+    }
+
+    /// Hands the window's cables to `world`: the platform gives one that runs on the
+    /// GPU when it can. The cables start over in it.
+    pub fn set_cable_world(&mut self, world: Box<dyn ravenrs_core::cable::CableWorld>) {
+        *self.cable_world.0.borrow_mut() = world;
+        self.ask_build(BuildCause::System);
+    }
+
+    /// The window's cables, as components and tests read them.
+    pub fn cables(&self) -> crate::Cables {
+        self.cable_world.clone()
     }
 
     fn ask_build(&mut self, cause: BuildCause) {
@@ -627,19 +730,36 @@ impl Ui {
         }
     }
 
+    /// Whether the window may close now: false when a view holds it with
+    /// [`BuildCx::on_close_request`](crate::context::BuildCx::on_close_request), to ask
+    /// first. The platform asks before closing the window.
+    pub fn may_close(&self) -> bool {
+        // Every view is asked, even after one says no, so each can raise its own question.
+        let mut all = true;
+        for may in &self.close_guards {
+            all &= may();
+        }
+        all
+    }
+
+    /// Whether a view asked to close the window with a
+    /// [`WindowCloser`](crate::WindowCloser) since the last call; the platform closes it then.
+    pub fn take_close(&self) -> bool {
+        self.closer.take()
+    }
+
     /// When the UI wants its next frame even without input (seconds, same clock
     /// as [`Ui::set_time`]). Platforms schedule a timer for it.
     pub fn next_wake(&self) -> Option<f64> {
-        match (self.wake, self.next_live) {
-            (Some(a), Some(b)) => Some(a.min(b)),
-            (a, b) => a.or(b),
-        }
+        [self.wake, self.next_live, self.hold_at].into_iter().flatten().reduce(f64::min)
     }
 
     /// True while a pointer drag that started on a draggable element (a slider,
-    /// a splitter) is in progress. Touch platforms use it to tell drags from scrolls.
+    /// a splitter) or a drag between components is in progress. Touch platforms use it to
+    /// tell drags from scrolls: a finger held still on a drag source for
+    /// [`HOLD_TO_CARRY`] seconds starts carrying it, and from then on it moves it.
     pub fn is_dragging(&self) -> bool {
-        self.dragging.is_some()
+        self.dragging.is_some() || self.carry.as_ref().is_some_and(|c| c.started && !c.keyboard)
     }
 
     /// The cursor the platform should show.
@@ -649,6 +769,7 @@ impl Ui {
 
     /// Rebuilds, lays out and paints as needed, then returns the current scene.
     pub fn update(&mut self) -> &Scene {
+        self.hold_carry();
         let anchor = self.links.take_anchor();
         if self.needs_rebuild() {
             self.rebuild();
@@ -746,6 +867,27 @@ impl Ui {
         }
     }
 
+    /// Calls the click handler of the cable under `p`, if one has one. True if it did.
+    fn click_cable(&mut self, p: Point) -> bool {
+        use crate::cable_plug::{cable_id, distance_to_cable};
+        let world = self.cable_world.clone();
+        for request in self.cable_requests.iter().rev() {
+            let Some(handler) = request.plug.on_click.clone() else { continue };
+            let node_widget = |a: crate::CableAnchor| match a {
+                crate::CableAnchor::Node(n, _) => self.elements.get(n.0 as usize).map(|e| e.widget.raw()),
+                _ => None,
+            };
+            let id = cable_id(request, node_widget(request.plug.from), node_widget(request.plug.to));
+            let Some(shape) = world.shape(id) else { continue };
+            let reach = request.plug.look.thickness / 2.0 + 4.0;
+            if distance_to_cable(&shape, p) <= reach {
+                handler();
+                return true;
+            }
+        }
+        false
+    }
+
     /// The last painted scene.
     pub fn scene(&self) -> &Scene {
         &self.scene
@@ -774,9 +916,15 @@ impl Ui {
         match event {
             Event::PointerMove { position } => {
                 self.pointer = Some(*position);
+                if self.cable_requests.iter().any(|r| r.plug.to == crate::CableAnchor::Pointer) {
+                    self.next_live = Some(self.time);
+                }
                 self.tell_activity(crate::context::UiActivity::PointerMoved(*position));
                 if let Some(widget) = self.dragging {
                     self.drag(widget, DragPhase::Move, *position);
+                }
+                if self.carry.as_ref().is_some_and(|c| !c.keyboard) {
+                    self.carry_to(*position);
                 }
                 self.refresh_hover();
                 if let Some(node) = self.hit_test(*position) {
@@ -796,6 +944,7 @@ impl Ui {
                 let element = target.map(|n| &self.elements[n.0 as usize]);
                 let widget = element.map(|e| e.widget);
                 let draggable = element.is_some_and(|e| e.on_drag.is_some());
+                let source = element.and_then(|e| e.drag_source.clone().map(|p| (p, e.widget)));
                 if self.interaction.pressed != widget {
                     self.interaction.pressed = widget;
                     self.ask_build(BuildCause::Press);
@@ -819,11 +968,47 @@ impl Ui {
                 if let (true, Some(w)) = (draggable, widget) {
                     self.dragging = Some(w);
                     self.drag(w, DragPhase::Start, *position);
+                } else if let Some((payload, w)) = source {
+                    self.carry = Some(crate::context::Carry {
+                        payload,
+                        source: w,
+                        at: *position,
+                        pressed: *position,
+                        started: false,
+                        keyboard: false,
+                        over: None,
+                        verdict: None,
+                    });
+                    self.hold_at = Some(self.time + HOLD_TO_CARRY);
                 }
             }
             Event::PointerUp { position, button: PointerButton::Primary } => {
                 if let Some(w) = self.dragging.take() {
                     self.drag(w, DragPhase::End, *position);
+                }
+                let drops: Vec<_> = self
+                    .cable_requests
+                    .iter()
+                    .filter(|r| r.plug.to == crate::CableAnchor::Pointer)
+                    .filter_map(|r| r.plug.on_drop.clone())
+                    .collect();
+                for drop in drops {
+                    drop(*position);
+                }
+                if let Some(carry) = self.carry.take_if(|c| !c.keyboard)
+                    && carry.started
+                {
+                    // A drag, not a click: the press does not click what it started on.
+                    self.drop_carried(carry);
+                    self.interaction.pressed = None;
+                    self.ask_build(BuildCause::Press);
+                    return self.needs_redraw();
+                }
+                // A click on a cable that has a handler is the cable's, not what is under it.
+                if self.click_cable(*position) {
+                    self.interaction.pressed = None;
+                    self.ask_build(BuildCause::Press);
+                    return self.needs_redraw();
                 }
                 let pressed = self.interaction.pressed.take();
                 if pressed.is_some() {
@@ -841,6 +1026,11 @@ impl Ui {
             }
             Event::PointerLeave => {
                 self.pointer = None;
+                // A press that became a scroll (on touch) carries nothing.
+                if self.carry.as_ref().is_some_and(|c| !c.started && !c.keyboard) {
+                    self.carry = None;
+                    self.hold_at = None;
+                }
                 self.refresh_hover();
                 if self.dragging.is_none() && self.interaction.pressed.take().is_some() {
                     self.ask_build(BuildCause::Press);
@@ -882,9 +1072,9 @@ impl Ui {
                     }
                 }
             }
-            Event::KeyUp { modifiers, .. } => self.modifiers.set(*modifiers),
+            Event::KeyUp { modifiers, .. } => self.set_modifiers(*modifiers),
             Event::KeyDown { key, modifiers } => {
-                self.modifiers.set(*modifiers);
+                self.set_modifiers(*modifiers);
                 if modifiers.alt {
                     let base = modifiers.base_key.map(|c| Key::Character(c.to_string()));
                     let shortcut = self.shortcuts.iter().find(|s| {
@@ -894,6 +1084,9 @@ impl Ui {
                         s();
                         return self.needs_redraw();
                     }
+                }
+                if self.carry_key(key, *modifiers) {
+                    return self.needs_redraw();
                 }
                 let handler = self.focused_element().and_then(|e| e.on_key.clone());
                 if let Some(handler) = handler
@@ -937,6 +1130,7 @@ impl Ui {
             }
             Event::FocusLost => {
                 self.dragging = None;
+                self.carry = None;
                 if self.interaction.pressed.take().is_some() {
                     self.ask_build(BuildCause::Press);
                 }
@@ -944,6 +1138,16 @@ impl Ui {
             _ => {}
         }
         self.needs_redraw()
+    }
+
+    /// Keeps the keys held, and builds again when they change and a view looked at them.
+    fn set_modifiers(&mut self, modifiers: Modifiers) {
+        let before = self.modifiers.get();
+        self.modifiers.set(modifiers);
+        let held = |m: Modifiers| (m.ctrl, m.shift, m.alt, m.meta);
+        if held(before) != held(modifiers) && self.modifiers_read.get() {
+            self.ask_build(BuildCause::Press);
+        }
     }
 
     fn focused_element(&self) -> Option<&Element> {
@@ -1026,6 +1230,157 @@ impl Ui {
         }
     }
 
+    /// Starts carrying what a press held still on a drag source holds, once it was held for
+    /// [`HOLD_TO_CARRY`]: on touch, the way to pick something up instead of scrolling.
+    fn hold_carry(&mut self) {
+        let Some(at) = self.hold_at else { return };
+        if self.time < at {
+            return;
+        }
+        self.hold_at = None;
+        let still = self.carry.as_ref().is_some_and(|c| {
+            !c.started && !c.keyboard && (c.at.x - c.pressed.x).hypot(c.at.y - c.pressed.y) <= 4.0
+        });
+        if still && let Some(carry) = self.carry.as_mut() {
+            carry.started = true;
+            let at = carry.at;
+            self.carry_to(at);
+        }
+    }
+
+    /// Moves what is carried to `at` (on screen): past a few pixels a press becomes a drag, and
+    /// the drop target under it is asked whether it takes it.
+    fn carry_to(&mut self, at: Point) {
+        let Some(mut carry) = self.carry.take() else { return };
+        carry.at = at;
+        if !carry.started && (at.x - carry.pressed.x).hypot(at.y - carry.pressed.y) > 4.0 {
+            carry.started = true;
+        }
+        if carry.started {
+            let target = self.paint_order.iter().rev().copied().find_map(|node| {
+                let i = node.0 as usize;
+                let e = &self.elements[i];
+                let (check, _) = e.drop_target.as_ref()?;
+                self.reaches(i, at).then(|| (e.widget, check(&carry.payload)))
+            });
+            (carry.over, carry.verdict) = match target {
+                Some((w, verdict)) => (Some(w), Some(verdict)),
+                None => (None, None),
+            };
+            self.ask_build(BuildCause::Press);
+        }
+        self.carry = Some(carry);
+    }
+
+    /// Gives what was carried to the target under it, when that target takes it.
+    fn drop_carried(&mut self, carry: crate::context::Carry) {
+        let (Some(over), Some(Ok(()))) = (carry.over, &carry.verdict) else { return };
+        let found = self.elements.iter().enumerate().find_map(|(i, e)| {
+            let (_, on_drop) = e.drop_target.as_ref().filter(|_| e.widget == over)?;
+            Some((i, on_drop.clone()))
+        });
+        let Some((i, on_drop)) = found else { return };
+        let back = self.turns.get(i).copied().flatten().map_or(carry.at, |(_, back)| apply(back, carry.at));
+        let frame = self.frames[i];
+        on_drop(&carry.payload, Point::new(back.x - frame.x(), back.y - frame.y()));
+    }
+
+    /// The keys of a drag between components: Space on a focused source picks it up; while it
+    /// is carried with the keys, the arrows move it, Enter drops it and Escape gives it up.
+    /// Escape also gives up a drag of the pointer. Says whether it took the key.
+    fn carry_key(&mut self, key: &Key, modifiers: Modifiers) -> bool {
+        match (&self.carry, key) {
+            (Some(c), Key::Escape) if c.started => {
+                self.carry = None;
+                self.ask_build(BuildCause::Press);
+                true
+            }
+            (Some(c), _) if c.keyboard => {
+                let step = if modifiers.shift { 64.0 } else { 16.0 };
+                let at = c.at;
+                match key {
+                    Key::ArrowLeft => self.carry_to(Point::new(at.x - step, at.y)),
+                    Key::ArrowRight => self.carry_to(Point::new(at.x + step, at.y)),
+                    Key::ArrowUp => self.carry_to(Point::new(at.x, at.y - step)),
+                    Key::ArrowDown => self.carry_to(Point::new(at.x, at.y + step)),
+                    Key::Enter | Key::Space => {
+                        if let Some(carry) = self.carry.take() {
+                            self.drop_carried(carry);
+                        }
+                        self.ask_build(BuildCause::Press);
+                    }
+                    // Other keys wait until the drag ends.
+                    _ => {}
+                }
+                true
+            }
+            (None, Key::Space) => {
+                let Some((i, payload, widget)) = self.elements.iter().enumerate().find_map(|(i, e)| {
+                    let focused = Some(e.widget) == self.interaction.focused && e.focus_radius.is_some();
+                    let payload = e.drag_source.clone().filter(|_| focused)?;
+                    Some((i, payload, e.widget))
+                }) else {
+                    return false;
+                };
+                let at = self.screen_frame(i).center();
+                self.carry = Some(crate::context::Carry {
+                    payload,
+                    source: widget,
+                    at,
+                    pressed: at,
+                    started: true,
+                    keyboard: true,
+                    over: None,
+                    verdict: None,
+                });
+                self.carry_to(at);
+                self.ask_build(BuildCause::Press);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// The tag that follows what is carried: its label, or why the target under it refuses.
+    fn paint_carry(&mut self, theme: &Theme) {
+        let Some(carry) = self.carry.as_ref().filter(|c| c.started) else { return };
+        let (words, edge) = match &carry.verdict {
+            Some(Err(why)) => (why.clone(), theme.color(Semantic::Danger)),
+            Some(Ok(())) => (carry.payload.label().to_owned(), theme.color(Semantic::Accent)),
+            None => (carry.payload.label().to_owned(), theme.color(Semantic::Border)),
+        };
+        let attrs = crate::util::attrs(theme, ravenrs_style::TextStyle::Callout, None);
+        let mut layout = self.text.layout(&words, &attrs);
+        let size = layout.measure(Some(280.0));
+        let pad = Size::new(theme.spacing.s3, theme.spacing.s2);
+        let tag = Rect::new(
+            carry.at.x + 14.0,
+            carry.at.y + 14.0,
+            size.width + pad.width * 2.0,
+            size.height + pad.height * 2.0,
+        );
+        self.scene.push_quad(
+            Quad::new(tag, theme.color(Semantic::SurfaceElevated))
+                .radius(theme.radii.md)
+                .border(1.0, edge)
+                .shadow(theme.elevation.raised),
+        );
+        layout.paint(
+            Point::new(tag.x() + pad.width, tag.y() + pad.height),
+            theme.color(Semantic::Ink),
+            &mut self.scene,
+        );
+    }
+
+    /// What screen readers hear while something is carried.
+    pub(crate) fn carry_status(&self) -> Option<String> {
+        let carry = self.carry.as_ref().filter(|c| c.started)?;
+        Some(match &carry.verdict {
+            Some(Err(why)) => why.clone(),
+            _ => carry.payload.label().to_owned(),
+        })
+    }
+
     fn drag(&mut self, widget: WidgetId, phase: DragPhase, position: Point) {
         let found = self
             .elements
@@ -1069,7 +1424,7 @@ impl Ui {
             let i = node.0 as usize;
             let e = &self.elements[i];
             let reachable = layers.as_ref().is_none_or(|l| l.iter().any(|root| self.is_inside(node, *root)));
-            let inside = self.frames[i].intersect(&self.clips[i]).contains(p);
+            let inside = self.reaches(i, p);
             if reachable && inside { e.on_pinch.clone() } else { None }
         });
         if let Some(handler) = handler {
@@ -1086,9 +1441,7 @@ impl Ui {
             let i = node.0 as usize;
             let e = &self.elements[i];
             let wheel = e.on_wheel.clone();
-            if !(e.scroll || e.scrolls_with_widget || wheel.is_some())
-                || !self.frames[i].intersect(&self.clips[i]).contains(p)
-            {
+            if !(e.scroll || e.scrolls_with_widget || wheel.is_some()) || !self.reaches(i, p) {
                 continue;
             }
             if !layers.as_ref().is_none_or(|l| l.iter().any(|root| self.is_inside(node, *root))) {
@@ -1168,6 +1521,19 @@ impl Ui {
         self.ask_build(BuildCause::Focus);
     }
 
+    /// The focused widget and every widget around it, as the last frame laid them out. A change of
+    /// focus builds everything again, so a view reading this always sees the focus it shows.
+    fn focus_chain(&self) -> Rc<[WidgetId]> {
+        let Some(focused) = self.interaction.focused else { return Rc::from([]) };
+        let mut node = self.elements.iter().position(|e| e.widget == focused).map(|i| NodeId(i as u32));
+        let mut chain = Vec::new();
+        while let Some(n) = node {
+            chain.push(self.elements[n.0 as usize].widget);
+            node = self.parents.get(n.0 as usize).copied().flatten();
+        }
+        chain.into()
+    }
+
     /// Recomputes the hovered widget and cursor; returns true if hover changed.
     fn refresh_hover(&mut self) -> bool {
         let target = self.pointer.and_then(|p| self.hit_test(p));
@@ -1199,11 +1565,42 @@ impl Ui {
         false
     }
 
+    /// Whether the point of the screen `p` falls on element `i` and inside its clip, in the
+    /// element's own coordinates when it is under a turn.
+    fn reaches(&self, i: usize, p: Point) -> bool {
+        let q = self.turns.get(i).copied().flatten().map_or(p, |(_, back)| apply(back, p));
+        let in_box =
+            self.frames.get(i).zip(self.clips.get(i)).is_some_and(|(f, c)| f.intersect(c).contains(q));
+        match (&self.elements[i].hit_outline, self.frames.get(i)) {
+            (Some(outline), Some(frame)) if in_box => {
+                inside(outline, Point::new(q.x - frame.x(), q.y - frame.y()))
+            }
+            _ => in_box,
+        }
+    }
+
+    /// Where element `i` shows on screen: its frame, or the box around it when it is turned.
+    pub(crate) fn screen_frame(&self, i: usize) -> Rect {
+        let frame = self.frames.get(i).copied().unwrap_or(Rect::ZERO);
+        let Some((to, _)) = self.turns.get(i).copied().flatten() else { return frame };
+        let corners = [
+            frame.origin,
+            Point::new(frame.max_x(), frame.y()),
+            Point::new(frame.max_x(), frame.max_y()),
+            Point::new(frame.x(), frame.max_y()),
+        ]
+        .map(|c| apply(to, c));
+        let (x0, y0) =
+            corners.iter().fold((f32::INFINITY, f32::INFINITY), |(x, y), c| (x.min(c.x), y.min(c.y)));
+        let (x1, y1) =
+            corners.iter().fold((f32::NEG_INFINITY, f32::NEG_INFINITY), |(x, y), c| (x.max(c.x), y.max(c.y)));
+        Rect::new(x0, y0, x1 - x0, y1 - y0)
+    }
+
     fn hit_test(&self, p: Point) -> Option<NodeId> {
         self.paint_order.iter().rev().copied().find(|n| {
             let i = n.0 as usize;
-            self.elements[i].is_interactive()
-                && self.frames.get(i).zip(self.clips.get(i)).is_some_and(|(f, c)| f.intersect(c).contains(p))
+            self.elements[i].is_interactive() && self.reaches(i, p)
         })
     }
 
@@ -1257,6 +1654,10 @@ impl Ui {
     }
 
     fn build_views(&mut self) -> Result<(), ravenrs_layout::LayoutError> {
+        // From the frame before, which the build is about to clear.
+        let focus_chain = self.focus_chain();
+        self.modifiers_read.set(false);
+        let modifiers_read = self.modifiers_read.clone();
         self.layout.clear();
         self.elements.clear();
         self.root_node = None;
@@ -1272,11 +1673,13 @@ impl Ui {
         let full_screen = self.full_screen.clone();
         let file_picker = self.file_picker.clone();
         let files_over = self.files_over.clone();
+        let carry = self.carry.clone();
         let appearance = self.appearance.clone();
         let ui_waker = self.ui_waker.clone();
         let view_profile = self.view_profile.clone();
         self.hover_readers.borrow_mut().clear();
         let hover_readers = self.hover_readers.clone();
+        let cable_world = self.cable_world.clone();
         let Self { root, text, layout, elements, interaction, observer, hover_chain, local, scroll, .. } =
             self;
         let now = self.time;
@@ -1284,58 +1687,81 @@ impl Ui {
         let motion_enabled = self.motion.enabled;
         let reduced_motion = self.system_reduced_motion || theme.peek().interaction.reduced_motion;
         self.motion.reduced = reduced_motion;
-        let (node, overlays, requests, focus, wake, shortcuts, activity, asked, error, motions, moving) =
-            observer.track(|| {
-                let mut cx = BuildCx::new(
-                    theme,
-                    viewport,
-                    text,
-                    layout,
-                    elements,
-                    *interaction,
-                    hover_chain,
-                    scroll,
-                    modifiers,
-                    local,
-                    placeholder,
-                    clipboard,
-                    ui_waker,
-                );
-                cx.now = now;
-                cx.sound = sound;
-                cx.links = links;
-                cx.full_screen = full_screen;
-                cx.file_picker = file_picker;
-                cx.files_over = files_over;
-                cx.appearance = appearance;
-                cx.motion_clock = motion_clock;
-                cx.motion_enabled = motion_enabled;
-                cx.reduced_motion = reduced_motion;
-                cx.view_profile = view_profile.map(|p| p as Rc<RefCell<dyn BuildTiming>>);
-                cx.hover_readers = hover_readers;
-                let content = cx.child(&**root);
-                let style = LayoutStyle {
-                    width: Some(viewport.width),
-                    height: Some(viewport.height),
-                    align: Align::Stretch,
-                    overflow_hidden: true,
-                    ..LayoutStyle::stack(Axis::Vertical)
-                };
-                let node = cx.container(style, &[content], Paint::None);
-                (
-                    node,
-                    std::mem::take(&mut cx.overlays),
-                    std::mem::take(&mut cx.scroll_requests),
-                    cx.focus_request.take(),
-                    cx.wake.take(),
-                    std::mem::take(&mut cx.shortcuts),
-                    cx.activity.take(),
-                    cx.access_tree_asked,
-                    cx.error.take(),
-                    std::mem::take(&mut cx.motions),
-                    cx.value_moving,
-                )
-            });
+        let closer = self.closer.clone();
+        let (
+            node,
+            overlays,
+            requests,
+            focus,
+            wake,
+            shortcuts,
+            activity,
+            asked,
+            error,
+            motions,
+            moving,
+            guards,
+            cables,
+        ) = observer.track(|| {
+            let mut cx = BuildCx::new(
+                theme,
+                viewport,
+                text,
+                layout,
+                elements,
+                *interaction,
+                hover_chain,
+                scroll,
+                modifiers,
+                local,
+                placeholder,
+                clipboard,
+                ui_waker,
+            );
+            cx.now = now;
+            cx.sound = sound;
+            cx.links = links;
+            cx.full_screen = full_screen;
+            cx.file_picker = file_picker;
+            cx.files_over = files_over;
+            cx.carry = carry;
+            cx.appearance = appearance;
+            cx.motion_clock = motion_clock;
+            cx.motion_enabled = motion_enabled;
+            cx.reduced_motion = reduced_motion;
+            cx.view_profile = view_profile.map(|p| p as Rc<RefCell<dyn BuildTiming>>);
+            cx.hover_readers = hover_readers;
+            cx.focus_chain = focus_chain;
+            cx.modifiers_read = modifiers_read;
+            cx.closer = closer;
+            cx.cable_world = Some(cable_world);
+            let content = cx.child(&**root);
+            let style = LayoutStyle {
+                width: Some(viewport.width),
+                height: Some(viewport.height),
+                align: Align::Stretch,
+                overflow_hidden: true,
+                ..LayoutStyle::stack(Axis::Vertical)
+            };
+            let node = cx.container(style, &[content], Paint::None);
+            (
+                node,
+                std::mem::take(&mut cx.overlays),
+                std::mem::take(&mut cx.scroll_requests),
+                cx.focus_request.take(),
+                cx.wake.take(),
+                std::mem::take(&mut cx.shortcuts),
+                cx.activity.take(),
+                cx.access_tree_asked,
+                cx.error.take(),
+                std::mem::take(&mut cx.motions),
+                cx.value_moving,
+                std::mem::take(&mut cx.close_guards),
+                std::mem::take(&mut cx.cables),
+            )
+        });
+        self.close_guards = guards;
+        self.cable_requests = cables;
         self.wake = wake;
         self.value_moving = moving;
         self.shortcuts = shortcuts;
@@ -1473,7 +1899,8 @@ impl Ui {
             let size = self.layout.frame(self.elements[overlay.root.0 as usize].layout).map(|f| f.size);
             let size = size.unwrap_or(Size::ZERO);
             let anchor = self.frames.get(overlay.anchor.0 as usize).copied().unwrap_or(Rect::ZERO);
-            let origin = overlay_origin(overlay.placement, anchor, size, overlay.gap, self.viewport);
+            let origin =
+                overlay_origin(overlay.placement, anchor, size, overlay.gap, overlay.margin, self.viewport);
             self.place(overlay.root, origin);
         }
         self.overlays = overlays;
@@ -1589,6 +2016,114 @@ impl Ui {
         self.phases.paint += self.phase_elapsed(started);
     }
 
+    /// Puts the cables built with `CablePlug` in the scene, their ends on the frames of
+    /// what they tie.
+    fn paint_cable_plugs(&mut self) {
+        use crate::cable_plug::{CableAnchor, cable_id, place};
+        use ravenrs_core::cable::CableEnd;
+        let pointer = self.pointer;
+        for request in &self.cable_requests {
+            // A widget's end is where it shows: under a scale or a turn around it, its frame
+            // goes through the same map as its paint and the pointer. The cable still hangs
+            // down, and is as much thinner as the widget is smaller.
+            let end = |anchor: CableAnchor| -> Option<(CableEnd, Option<u64>, f32)> {
+                match anchor {
+                    CableAnchor::Node(node, side) => {
+                        let i = node.0 as usize;
+                        let mut frame = *self.frames.get(i)?;
+                        let mut k = 1.0;
+                        if let Some(Some((to, _))) = self.turns.get(i) {
+                            frame = bounds_of(*to, frame);
+                            k = (to[0] * to[3] - to[1] * to[2]).abs().sqrt();
+                        }
+                        Some((side.end(frame), self.elements.get(i).map(|e| e.widget.raw()), k))
+                    }
+                    CableAnchor::Point(end) => Some((end, None, 1.0)),
+                    CableAnchor::Pointer => pointer.map(|p| (CableEnd::at(p), None, 1.0)),
+                }
+            };
+            let (Some((from, a, ka)), Some((to, b, kb))) = (end(request.plug.from), end(request.plug.to))
+            else {
+                continue;
+            };
+            let id = cable_id(request, a, b);
+            let mut cable = place(request, id, from, to);
+            let k = if a.is_some() { ka } else { kb };
+            if k != 1.0 {
+                cable.look.thickness *= k;
+            }
+            self.scene.push_cable(cable);
+        }
+    }
+
+    /// Hands the cables of the scene to the world, runs the steps due and puts their
+    /// points in the scene (or leaves them to the GPU). True while one still moves.
+    fn place_cables(&mut self) -> bool {
+        use ravenrs_core::Primitive;
+        use ravenrs_core::cable::{cable_body, cable_plugs};
+        let cables: Vec<_> = self
+            .scene
+            .primitives()
+            .iter()
+            .filter_map(|p| if let Primitive::Cable(c) = p { Some((**c).clone()) } else { None })
+            .collect();
+        let had_world = self.cable_time.is_some();
+        if cables.is_empty() && !had_world {
+            return false;
+        }
+        let reduced = self.reduced_motion();
+        let dt = self.cable_time.map_or(0.0, |t| (self.time - t).max(0.0) as f32);
+        self.cable_time = Some(self.time);
+        let viewport = Rect::from_origin_size(Point::ZERO, self.viewport);
+        let world = self.cable_world.clone();
+        let mut world = world.0.borrow_mut();
+        world.sync(&cables, viewport, reduced);
+        world.step(dt);
+        let on_gpu = world.on_gpu();
+        let leaving = world.leaving();
+        let primitives = self.scene.primitives_mut();
+        if on_gpu {
+            for p in primitives.iter_mut() {
+                if let Primitive::Cable(c) = p {
+                    c.points = world.shape(c.id);
+                }
+            }
+            primitives.extend(leaving.into_iter().map(|c| Primitive::Cable(Box::new(c))));
+        } else if !cables.is_empty() || !leaving.is_empty() {
+            let old = std::mem::take(primitives);
+            // In a run of cables the bodies go first and the plugs after, so each kind is
+            // drawn together: two draws for the run, not two a cable.
+            let mut plugs = Vec::new();
+            for p in old {
+                match p {
+                    Primitive::Cable(c) => {
+                        if let Some(points) = world.shape(c.id) {
+                            let placed = c.placed(points.clone());
+                            primitives.extend(cable_body(&placed, &points));
+                            plugs.extend(cable_plugs(&placed, &points));
+                        }
+                    }
+                    other => {
+                        primitives.append(&mut plugs);
+                        primitives.push(other);
+                    }
+                }
+            }
+            for c in leaving {
+                if let Some(points) = c.points.clone() {
+                    primitives.extend(cable_body(&c, &points));
+                    plugs.extend(cable_plugs(&c, &points));
+                }
+            }
+            primitives.append(&mut plugs);
+        }
+        let moving = world.moving();
+        if cables.is_empty() && !moving {
+            self.cable_time = None;
+        }
+        moving
+    }
+
     fn paint_scene(&mut self) {
         let theme = self.theme();
         self.scrollbar_showing = false;
@@ -1606,21 +2141,26 @@ impl Ui {
         self.paint_order.clear();
         self.clips.clear();
         self.clips.resize(self.elements.len(), Rect::ZERO);
+        self.turns.clear();
+        self.turns.resize(self.elements.len(), None);
         self.motion.active = false;
         self.has_live = false;
         self.painting_overlays = false;
         if let Some(root) = self.root_node {
-            self.paint_node(root, viewport, &theme);
+            self.paint_node(root, viewport, &theme, None);
         }
         self.motion.paint_ghosts(GhostLayer::Main, &mut self.scene);
+        self.paint_cable_plugs();
         self.painting_overlays = true;
         for i in 0..self.overlays.len() {
             let root = self.overlays[i].root;
-            self.paint_node(root, viewport, &theme);
+            self.paint_node(root, viewport, &theme, None);
         }
         self.motion.paint_ghosts(GhostLayer::Overlay, &mut self.scene);
         self.motion.paint_ghosts(GhostLayer::Top, &mut self.scene);
-        let live = self.has_live && !self.reduced_motion();
+        self.paint_carry(&theme);
+        let cables_moving = self.place_cables();
+        let live = (self.has_live || cables_moving) && !self.reduced_motion();
         self.next_live = (live || self.scrollbar_showing).then_some(self.time + LIVE_FRAME);
         self.tell_activity(crate::context::UiActivity::Painted(&self.scene));
         if std::mem::take(&mut self.access_tree_asked) {
@@ -1712,11 +2252,30 @@ impl Ui {
         self.frames.get(overlay.anchor.0 as usize).copied()
     }
 
-    fn paint_node(&mut self, node: NodeId, clip: Rect, theme: &Theme) {
+    fn paint_node(&mut self, node: NodeId, clip: Rect, theme: &Theme, turn: Option<(Turn, Turn)>) {
         let i = node.0 as usize;
         self.paint_order.push(node);
         self.clips[i] = clip;
         let frame = self.frames[i];
+        // Its own scale, then its turn, after the ones around it: to the screen, the outer last;
+        // back, the outer first.
+        let (rotation, scale) = (self.elements[i].rotation, self.elements[i].scale);
+        let turn = if rotation == 0.0 && scale == 1.0 {
+            turn
+        } else {
+            let k = scale.max(f32::EPSILON);
+            let middle =
+                Point::new(frame.x() + frame.width() * k / 2.0, frame.y() + frame.height() * k / 2.0);
+            let to = compose(turn_around(middle, rotation), scale_from(frame.origin, k));
+            let back = compose(scale_from(frame.origin, 1.0 / k), turn_around(middle, -rotation));
+            Some(match turn {
+                Some((outer_to, outer_back)) => (compose(outer_to, to), compose(back, outer_back)),
+                None => (to, back),
+            })
+        };
+        if let Some(slot) = self.turns.get_mut(i) {
+            *slot = turn;
+        }
         let start = self.scene.len();
         let sampled = self.sample_motion(i);
         let motion = sampled.as_ref().map(|(entry, _)| *entry);
@@ -1739,6 +2298,8 @@ impl Ui {
         // effect may land elsewhere, one leaving is captured for its way out, and one
         // without a size may draw around itself.
         let shown = effect != Effect::IDENTITY
+            || rotation != 0.0
+            || scale != 1.0
             || motion.is_some_and(|m| m.motion.exit.is_some())
             || frame.is_empty()
             || touches(visual, clip);
@@ -1767,7 +2328,17 @@ impl Ui {
             }
         }
         let clips_children = self.elements[i].clip;
-        let child_clip = if clips_children { clip.intersect(&frame) } else { clip };
+        let mut child_clip = if clips_children { clip.intersect(&frame) } else { clip };
+        // Under its own scale or turn, its children are laid out where they do not show: what
+        // the clip lets through is taken back to where they are laid out, or children painted
+        // inside the clip would be skipped as if they were outside it.
+        if rotation != 0.0 || scale != 1.0 {
+            let k = scale.max(f32::EPSILON);
+            let middle =
+                Point::new(frame.x() + frame.width() * k / 2.0, frame.y() + frame.height() * k / 2.0);
+            let back = compose(scale_from(frame.origin, 1.0 / k), turn_around(middle, -rotation));
+            child_clip = bounds_of(back, child_clip);
+        }
         let pushes_clip = clips_children && shown;
         if pushes_clip {
             self.scene.push_clip(frame);
@@ -1784,7 +2355,7 @@ impl Ui {
             }
         }
         for child in children {
-            self.paint_node(child, child_clip, theme);
+            self.paint_node(child, child_clip, theme, turn);
         }
         let outside = self.elements[i].scrollbar_outside;
         if shown && self.elements[i].scroll && outside == 0.0 {
@@ -1808,6 +2379,14 @@ impl Ui {
                 .radius(radius + grow)
                 .border(ix.focus_ring_width, theme.color(Semantic::FocusRing));
             self.scene.push_quad(ring);
+        }
+        if scale != 1.0 {
+            self.scene.apply_effect(start..self.scene.len(), Effect::scaled(scale), frame.origin);
+        }
+        if rotation != 0.0 {
+            let middle =
+                Point::new(frame.x() + frame.width() * scale / 2.0, frame.y() + frame.height() * scale / 2.0);
+            self.scene.apply_effect(start..self.scene.len(), Effect::rotated(rotation), middle);
         }
         let Some(entry) = motion else {
             self.scene.apply_effect(start..self.scene.len(), linked, frame.center());
@@ -1894,7 +2473,14 @@ fn reveal_offset(offset: f32, target: (f32, f32), view: (f32, f32), max: f32) ->
 /// How far a layer in a corner of the window keeps from its edges.
 const VIEWPORT_MARGIN: f32 = 16.0;
 
-fn overlay_origin(placement: Placement, anchor: Rect, size: Size, gap: f32, viewport: Size) -> Point {
+fn overlay_origin(
+    placement: Placement,
+    anchor: Rect,
+    size: Size,
+    gap: f32,
+    margin: f32,
+    viewport: Size,
+) -> Point {
     let mut p = match placement {
         Placement::Below => Point::new(anchor.x(), anchor.max_y() + gap),
         Placement::Above => Point::new(anchor.x(), anchor.y() - gap - size.height),
@@ -1936,8 +2522,8 @@ fn overlay_origin(placement: Placement, anchor: Rect, size: Size, gap: f32, view
     if matches!(placement, Placement::Above | Placement::AboveCenter) && p.y < 0.0 {
         p.y = anchor.max_y() + gap;
     }
-    p.x = p.x.clamp(4.0, (viewport.width - size.width - 4.0).max(4.0));
-    p.y = p.y.clamp(4.0, (viewport.height - size.height - 4.0).max(4.0));
+    p.x = p.x.clamp(margin, (viewport.width - size.width - margin).max(margin));
+    p.y = p.y.clamp(margin, (viewport.height - size.height - margin).max(margin));
     p
 }
 

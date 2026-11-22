@@ -112,24 +112,41 @@ fn differences(current: &Table, saved: &Table) -> Vec<String> {
     found
 }
 
-fn gate(bench: &Bench, bless: bool) -> Result<(), String> {
-    let first = run(bench, None);
-    let second = run(bench, None);
+/// Compares every scene with the baseline, or only those `filter` names. Blessing with a
+/// filter writes only their entries and keeps the others as they were: a new scene goes in
+/// without taking along changes in other scenes that nobody reviewed.
+fn gate(bench: &Bench, bless: bool, filter: Option<&str>) -> Result<(), String> {
+    let first = run(bench, filter);
+    let second = run(bench, filter);
     let mut problems = not_repeatable(&first, &second);
     problems.extend(over_ceilings(&first));
     let current: Table = first.iter().map(|o| (o.name.clone(), compared(&o.name, &o.counters))).collect();
+    let saved = || -> Result<Table, String> {
+        let saved = std::fs::read_to_string(Path::new(BASELINE))
+            .map_err(|e| format!("{BASELINE}: {e}; create it with `gate --bless`"))?;
+        serde_json::from_str(&saved).map_err(|e| e.to_string())
+    };
     if bless {
         if !problems.is_empty() {
             return Err(problems.join("\n"));
         }
-        let text = serde_json::to_string_pretty(&current).map_err(|e| e.to_string())?;
+        let table = match filter {
+            Some(_) => {
+                let mut table = saved()?;
+                table.extend(current);
+                table
+            }
+            None => current,
+        };
+        let text = serde_json::to_string_pretty(&table).map_err(|e| e.to_string())?;
         std::fs::write(BASELINE, text + "\n").map_err(|e| e.to_string())?;
         println!("baseline written; review its diff");
         return Ok(());
     }
-    let saved = std::fs::read_to_string(Path::new(BASELINE))
-        .map_err(|e| format!("{BASELINE}: {e}; create it with `gate --bless`"))?;
-    let saved: Table = serde_json::from_str(&saved).map_err(|e| e.to_string())?;
+    let mut saved = saved()?;
+    if filter.is_some() {
+        saved.retain(|name, _| current.contains_key(name));
+    }
     let found = differences(&current, &saved);
     if cfg!(target_os = "macos") {
         problems.extend(found);
@@ -334,14 +351,14 @@ fn main() -> ExitCode {
         };
     }
     let bench = match Bench::new(allocations) {
-        Ok(bench) => bench,
+        Ok(bench) => bench.cables_on_cpu(flag("--cpu-cables")),
         Err(why) => {
             eprintln!("the gate needs a GPU, and found none: {why}");
             return ExitCode::FAILURE;
         }
     };
     let result = match args.first().map(String::as_str) {
-        Some("gate") => gate(&bench, flag("--bless")),
+        Some("gate") => gate(&bench, flag("--bless"), filter),
         Some("report") => {
             report(&bench, filter);
             Ok(())
@@ -358,7 +375,7 @@ fn main() -> ExitCode {
             cold(&bench);
             Ok(())
         }
-        _ => Err("use: ravenrs-perf gate [--bless] | report [filter] | time [filter] | cold | capacity [--curve] | diff before.json after.json".to_owned()),
+        _ => Err("use: ravenrs-perf gate [--bless] [filter] | report [filter] | time [filter] [--cpu-cables] | cold | capacity [--curve] | diff before.json after.json".to_owned()),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

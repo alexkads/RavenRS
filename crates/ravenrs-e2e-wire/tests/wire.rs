@@ -1,0 +1,278 @@
+//! The channel end to end: the protocol, the app's side in process, and a real child process.
+#![allow(clippy::expect_used, clippy::unwrap_used, reason = "test helpers fail loudly")]
+
+use std::io::Cursor;
+use std::process::Command as Process;
+use std::time::Duration;
+
+use ravenrs_e2e::E2e;
+use ravenrs_e2e_wire::{Client, Command, Failure, Hello, Reply, codes, serve, serve_on};
+use ravenrs_reactive::State;
+use ravenrs_style::Theme;
+use ravenrs_widgets::{BuildCx, Button, NodeId, Text, TextField, VStack, View, ViewExt};
+
+/// The variable that turns this test binary into the app under test.
+const CHILD: &str = "RAVENRS_E2E_WIRE_CHILD";
+
+/// A small form: a field, a button that saves and a line that says what was saved.
+struct Form {
+    name: State<String>,
+    saved: State<String>,
+}
+
+impl View for Form {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let (n, s) = (self.name.clone(), self.saved.clone());
+        cx.child(&VStack::new((
+            TextField::new(self.name.binding()).placeholder("Nome").test_id("nome"),
+            Button::new("Salvar").on_click(move || s.set(format!("Salvo: {}", n.get()))).test_id("salvar"),
+            Text::new(if self.saved.get().is_empty() { "Nada salvo".to_owned() } else { self.saved.get() })
+                .test_id("resultado"),
+        )))
+    }
+}
+
+fn session() -> E2e {
+    E2e::new(Form { name: State::new(String::new()), saved: State::new(String::new()) }, Theme::raven_light())
+}
+
+#[test]
+fn commands_and_replies_read_back_as_written() {
+    for command in [
+        Command::Click { target: "#salvar".into() },
+        Command::Type { target: "Nome".into(), text: "Ana".into() },
+        Command::Check { target: "#resultado".into(), text: "Salvo: Ana".into() },
+        Command::Mention { target: "#resultado".into(), text: "Ana".into() },
+        Command::Snapshot,
+        Command::Frame,
+        Command::Source { target: "#save".into() },
+        Command::Bye,
+    ] {
+        let line = serde_json::to_string(&command).unwrap();
+        assert!(!line.contains('\n'), "one line per command: {line}");
+        assert_eq!(serde_json::from_str::<Command>(&line).unwrap(), command);
+    }
+    assert_eq!(serde_json::to_string(&Command::Snapshot).unwrap(), r#"{"op":"snapshot"}"#);
+    let failed = Reply::of(Err(Failure::of(codes::TIMEOUT, "slow")));
+    let back: Reply = serde_json::from_str(&serde_json::to_string(&failed).unwrap()).unwrap();
+    assert_eq!(back.into_result().unwrap_err().code, "E2E_TIMEOUT");
+    let old: Reply = serde_json::from_str(r#"{"ok":true,"snapshot":"screen"}"#).unwrap();
+    assert_eq!(old.frame, None, "old peers need not send a frame field");
+    assert_eq!(old.source, None, "old peers need not send source metadata");
+    assert_eq!(old.into_result().unwrap().as_deref(), Some("screen"));
+    let frame = Reply::frame(vec![1, 2, 3]);
+    let back: Reply = serde_json::from_str(&serde_json::to_string(&frame).unwrap()).unwrap();
+    assert_eq!(back.into_frame().unwrap(), [1, 2, 3]);
+    assert_eq!(
+        frame.into_result().unwrap_err().code,
+        codes::WIRE,
+        "a generic result must not discard a frame"
+    );
+    assert_eq!(Reply::of(Ok(None)).into_frame().unwrap_err().code, codes::WIRE);
+    let source = ravenrs_e2e_wire::Source { file: "src/app.rs".into(), line: 42, column: 7 };
+    let reply = Reply::source(source.clone());
+    let back: Reply = serde_json::from_str(&serde_json::to_string(&reply).unwrap()).unwrap();
+    assert_eq!(back.into_source().unwrap(), source);
+    assert_eq!(reply.into_result().unwrap_err().code, codes::WIRE);
+    assert_eq!(Reply::of(Ok(None)).into_source().unwrap_err().code, codes::WIRE);
+}
+
+#[test]
+fn an_existing_film_only_adapter_refuses_frames_with_a_stable_code() {
+    struct FilmOnly;
+    impl ravenrs_e2e_wire::Filming for FilmOnly {
+        fn start(&mut self, _: &mut E2e, _: &std::path::Path) {}
+        fn stop(&mut self, _: &mut E2e) -> Result<std::path::PathBuf, String> {
+            Err("not filming".into())
+        }
+    }
+    let mut output = Vec::new();
+    ravenrs_e2e_wire::serve_with(
+        Hello::of("Film only"),
+        session(),
+        Cursor::new("{\"op\":\"frame\"}\n{\"op\":\"bye\"}\n"),
+        &mut output,
+        Some(&mut FilmOnly),
+    )
+    .unwrap();
+    let answer: Reply =
+        serde_json::from_str(std::str::from_utf8(&output).unwrap().lines().nth(1).unwrap()).unwrap();
+    assert_eq!(answer.into_frame().unwrap_err().code, codes::NO_FRAME);
+}
+
+#[test]
+fn a_command_runs_on_a_session_in_this_process_too() {
+    let mut e2e = session();
+    Command::Type { target: "#nome".into(), text: "Ana".into() }.apply(&mut e2e).unwrap();
+    Command::Click { target: "Salvar".into() }.apply(&mut e2e).unwrap();
+    Command::Check { target: "#resultado".into(), text: "Salvo: Ana".into() }.apply(&mut e2e).unwrap();
+    let missing = Command::Click { target: "#apagar".into() }.apply(&mut e2e).unwrap_err();
+    assert_eq!(missing.code, "E2E_NOT_FOUND");
+    assert!(missing.screen.contains("salvar"), "the failure brings the screen: {}", missing.screen);
+}
+
+#[test]
+fn the_app_says_hello_answers_in_order_and_leaves_on_bye() {
+    let input = [
+        r##"{"op":"type","target":"#nome","text":"Bia"}"##,
+        "",
+        r##"{"op":"click","target":"#salvar"}"##,
+        r##"{"op":"check","target":"#resultado","text":"Salvo: Bia"}"##,
+        "isto não é json",
+        r##"{"op":"bye"}"##,
+        r##"{"op":"click","target":"#salvar"}"##,
+    ]
+    .join("\n");
+    let mut output = Vec::new();
+    serve_on(Hello::of("Formulário"), session(), Cursor::new(input), &mut output).unwrap();
+    let lines: Vec<&str> = std::str::from_utf8(&output).unwrap().lines().collect();
+    let hello: Hello = serde_json::from_str(lines[0]).unwrap();
+    assert_eq!(hello, Hello::of("Formulário"));
+    let replies: Vec<Reply> = lines[1..].iter().map(|l| serde_json::from_str(l).unwrap()).collect();
+    assert_eq!(replies.len(), 5, "nothing is answered after bye: {lines:?}");
+    assert!(replies[..3].iter().all(|r| r.ok));
+    assert_eq!(replies[3].failure.as_ref().unwrap().code, codes::WIRE);
+    assert!(replies[4].ok, "bye is answered");
+}
+
+/// The app's side when this binary runs as the child: it serves the form and exits.
+#[test]
+fn child_app() {
+    let Some(kind) = std::env::var_os(CHILD) else {
+        return;
+    };
+    if kind == "stuck" {
+        // Says hello, then never answers.
+        println!("\n{}", serde_json::to_string(&Hello::of("Parado")).unwrap());
+        std::thread::sleep(Duration::from_secs(60));
+        std::process::exit(0);
+    }
+    // The test runner leaves "test child_app ... " on the line: the channel starts on a new one.
+    println!();
+    serve(Hello::of("Formulário"), session()).unwrap();
+    std::process::exit(0);
+}
+
+fn child_as(kind: &str) -> Process {
+    let mut process = Process::new(std::env::current_exe().unwrap());
+    process.args(["--exact", "child_app", "--nocapture", "--test-threads", "1"]).env(CHILD, kind);
+    process
+}
+
+fn child() -> Process {
+    child_as("form")
+}
+
+#[test]
+fn a_tool_drives_the_app_in_a_child_process() {
+    let mut app = Client::spawn(child(), Duration::from_secs(60)).unwrap();
+    assert_eq!(app.app(), "Formulário");
+    #[cfg(feature = "e2e-source")]
+    {
+        let source = app.source("#nome").unwrap();
+        assert!(source.file.ends_with("wire.rs"));
+        let line = include_str!("wire.rs").lines().nth(source.line as usize - 1).unwrap();
+        assert!(line.contains("test_id(\"nome\")"), "{source:?}: {line}");
+    }
+    #[cfg(not(feature = "e2e-source"))]
+    assert_eq!(app.source("#nome").unwrap_err().code, "E2E_NO_SOURCE");
+    assert_eq!(app.frame().unwrap_err().code, codes::NO_FRAME, "this child has no frame adapter");
+    app.send(&Command::Type { target: "#nome".into(), text: "Caio".into() }).unwrap();
+    app.send(&Command::Click { target: "#salvar".into() }).unwrap();
+    app.send(&Command::Check { target: "#resultado".into(), text: "Salvo: Caio".into() }).unwrap();
+    let screen = app.send(&Command::Snapshot).unwrap().unwrap();
+    assert!(screen.contains("Salvo: Caio"), "{screen}");
+    let wrong =
+        app.send(&Command::Check { target: "#resultado".into(), text: "Salvo: Ana".into() }).unwrap_err();
+    assert_eq!(wrong.code, "E2E_EXPECTATION");
+    assert!(wrong.screen.contains("Salvo: Caio"), "the child's screen crossed the channel: {wrong:?}");
+}
+
+#[test]
+fn an_app_that_never_says_hello_fails_to_start_and_is_ended() {
+    // A child that runs no test and so says nothing on the channel, then exits.
+    let mut quiet = Process::new(std::env::current_exe().unwrap());
+    quiet.args(["--exact", "no_such_test"]);
+    let failure = Client::spawn(quiet, Duration::from_secs(60)).unwrap_err();
+    assert_eq!(failure.code, codes::APP_START, "{failure:?}");
+
+    let missing = Client::spawn(Process::new("/no/such/app"), Duration::from_secs(1)).unwrap_err();
+    assert_eq!(missing.code, codes::APP_START);
+    assert!(missing.message.contains("could not start"), "{missing:?}");
+}
+
+#[test]
+fn a_stuck_app_is_ended_after_its_time() {
+    let mut app = Client::spawn(child_as("stuck"), Duration::from_secs(60))
+        .unwrap()
+        .step_time(Duration::from_millis(300));
+    assert_eq!(app.app(), "Parado");
+    let started = std::time::Instant::now();
+    let late = app.send(&Command::Snapshot).unwrap_err();
+    assert_eq!(late.code, codes::TIMEOUT, "{late:?}");
+    assert!(started.elapsed() < Duration::from_secs(10), "it did not wait for the child's 60 s");
+    // Ended: the next step finds no app.
+    assert_eq!(app.send(&Command::Snapshot).unwrap_err().code, codes::APP_START);
+}
+
+#[test]
+fn a_scenario_file_reads_in_english_or_portuguese_and_writes_in_english() {
+    use ravenrs_e2e_wire::{Kind, Scenario};
+    let english = "scenario: Salvar um nome\n// comentário\nopen Formulário | Abrir\ntype #nome = Ana | Digitar o nome\nclick #salvar | Salvar\ncheck #resultado = Salvo: Ana | Conferir\n";
+    let portuguese = "cenário: Salvar um nome\nabrir Formulário | Abrir\ndigitar #nome = Ana | Digitar o nome\nclicar #salvar | Salvar\nconferir #resultado = Salvo: Ana | Conferir\n";
+    let read = Scenario::parse(english).unwrap();
+    assert_eq!(Scenario::parse(portuguese).unwrap(), read);
+    assert_eq!(read.name, "Salvar um nome");
+    assert_eq!(read.app(), "Formulário");
+    assert_eq!(read.blocks[1].kind, Kind::Type);
+    assert_eq!(read.blocks[1].line(), "#nome = Ana");
+    assert_eq!(Scenario::parse(&read.write()).unwrap(), read, "what it writes reads back");
+    assert!(read.write().contains("type #nome = Ana | Digitar o nome"), "{}", read.write());
+
+    // The blocks drive the app as written.
+    let mut e2e = session();
+    for block in &read.blocks[1..] {
+        block.command().unwrap().apply(&mut e2e).unwrap();
+    }
+}
+
+#[test]
+fn a_wrong_scenario_line_says_which_and_why() {
+    use ravenrs_e2e_wire::Scenario;
+    let unknown = Scenario::parse("scenario: x\nopen App\npular #a\n").unwrap_err();
+    assert_eq!(unknown.line, 3);
+    assert!(unknown.message.contains("pular") && unknown.message.contains("clicar"), "{unknown}");
+    let no_text = Scenario::parse("scenario: x\nopen App\ntype #a\n").unwrap_err();
+    assert_eq!(no_text.line, 3);
+    assert!(Scenario::parse("open App\n").unwrap_err().message.contains("nome do cenário"));
+    assert!(Scenario::parse("scenario: x\nclick #a\n").unwrap_err().message.contains("open"));
+}
+
+#[test]
+fn the_hello_carries_the_scenarios_the_app_brings() {
+    let hello = Hello::of("Formulário").scenarios(["scenario: x\nopen Formulário\n"]);
+    let mut output = Vec::new();
+    serve_on(hello, session(), Cursor::new(""), &mut output).unwrap();
+    let back: Hello =
+        serde_json::from_str(std::str::from_utf8(&output).unwrap().lines().next().unwrap()).unwrap();
+    assert_eq!(back.scenarios.len(), 1);
+    // An app with none says nothing about them, as before.
+    assert!(!serde_json::to_string(&Hello::of("x")).unwrap().contains("scenarios"));
+}
+
+#[test]
+fn the_scenario_folder_and_what_the_app_embeds_stay_the_same() {
+    let folder = std::env::temp_dir().join(format!("ravenrs-e2e-wire-pasta-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&folder);
+    std::fs::create_dir_all(&folder).unwrap();
+    assert!(ravenrs_e2e_wire::check_folder(&folder, &[]).unwrap_err().contains(".raventest"));
+    let text = "scenario: x\nopen App\nclick #a\n";
+    std::fs::write(folder.join("a.raventest"), text).unwrap();
+    assert!(ravenrs_e2e_wire::check_folder(&folder, &[]).unwrap_err().contains("include_str"));
+    assert_eq!(ravenrs_e2e_wire::check_folder(&folder, &[text]).unwrap().len(), 1);
+    std::fs::write(folder.join("b.raventest"), "scenario: y\nopen App\npular\n").unwrap();
+    let broken =
+        ravenrs_e2e_wire::check_folder(&folder, &[text, "scenario: y\nopen App\npular\n"]).unwrap_err();
+    assert!(broken.contains("b.raventest: linha 3"), "{broken}");
+    let _ = std::fs::remove_dir_all(&folder);
+}

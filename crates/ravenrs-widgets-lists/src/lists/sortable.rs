@@ -238,7 +238,12 @@ impl View for SortableList {
                 apply: apply.clone(),
             };
             let key = self.key.as_ref().map_or(index as u64, |key| key(index));
-            nodes.push(cx.keyed_child(key, &row));
+            let node = cx.keyed_child(key, &row);
+            if self.key.is_some() {
+                // Found by its key, which stays with it while it is dragged to another place.
+                cx.test_id(node, &format!("item:{key}"));
+            }
+            nodes.push(node);
         }
         let announcement = spoken.get();
         nodes.push(reorder::announcer(cx, announcement));

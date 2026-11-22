@@ -165,6 +165,9 @@ pub struct Words {
     pub date_format: String,
     /// How a date with a time shows in lists, such as `dd/MM/yyyy HH:mm`.
     pub date_time_format: String,
+    /// What a screen reader hears when a record is saved or a list is shown, in the same
+    /// language, so a session made with these words never speaks another one.
+    pub access: ravenrs_app_a11y::AccessWords,
 }
 
 impl Default for Words {
@@ -256,6 +259,7 @@ impl Words {
             decimal: texts.char("format.decimal", '.'),
             date_format: texts.get("format.date"),
             date_time_format: texts.get("format.date_time"),
+            access: ravenrs_app_a11y::AccessWords::for_language(texts.language()),
         }
     }
 

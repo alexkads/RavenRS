@@ -1898,6 +1898,36 @@ impl Chart {
         parts.join("; ")
     }
 
+    /// One node per point, named with its series, its category and its value. They take no
+    /// room and paint nothing; the chart's drawing is what shows them.
+    fn point_nodes(&self, cx: &mut BuildCx<'_>) -> Vec<NodeId> {
+        let named = self.series.len() > 1;
+        let mut out = Vec::new();
+        for (s, series) in self.series.iter().enumerate() {
+            let series_key = if series.name.is_empty() { (s + 1).to_string() } else { series.name.clone() };
+            for (i, value) in series.values.iter().enumerate() {
+                let category = self.categories.get(i).cloned().unwrap_or_else(|| (i + 1).to_string());
+                let number = (self.format)(*value);
+                let name = if named {
+                    format!("{}: {category}: {number}", series.name)
+                } else {
+                    format!("{category}: {number}")
+                };
+                let style = LayoutStyle {
+                    absolute: Some((0.0, 0.0)),
+                    width: Some(0.0),
+                    height: Some(0.0),
+                    ..LayoutStyle::leaf()
+                };
+                let node = cx.container(style, &[], Paint::None);
+                cx.semantics(node, Semantics::new(Role::ListItem).name(name).value(number));
+                cx.test_id(node, &format!("point:{series_key}:{category}"));
+                out.push(node);
+            }
+        }
+        out
+    }
+
     fn candle_names(labels: &crate::Labels) -> [&str; 4] {
         [&labels.candle_open, &labels.candle_high, &labels.candle_low, &labels.candle_close]
     }
@@ -2302,6 +2332,11 @@ impl Chart {
         } else {
             Rc::new(move |rect, _, measure| plot::draw_measured(&data, rect, &style, measure))
         };
+        // Each point as a node of its own, with no size and drawn by nobody: a screen reader
+        // reads the data one by one, and a test finds a value by `point:<series>:<category>`.
+        if self.kind != ChartKind::Candlestick {
+            children.extend(self.point_nodes(cx));
+        }
         let node_style = LayoutStyle { grow: 1.0, align_self: Some(Align::Stretch), ..LayoutStyle::leaf() };
         let node = plot_node(
             cx,

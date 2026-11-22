@@ -1,0 +1,47 @@
+[
+  {
+    "versao": "0.1.1",
+    "data": "2026-11-17",
+    "titulo": "As novidades e o aviso de versão nova, como no Raven Finanças.",
+    "importante": false,
+    "novidades": [
+      "Clicar na versão, na barra de baixo, abre as novidades da versão em uso.",
+      "Cada versão mostra por que atualizar, quem contribuiu, as issues com link e, numa versão nova, como atualizar.",
+      "Os botões do aviso de versão nova abrem as novidades e os detalhes de uma atualização que falhou."
+    ],
+    "por_que_atualizar": "Para ver o que cada versão trouxe e atualizar com a mesma tela dos outros apps.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      744
+    ]
+  },
+  {
+    "versao": "0.1.0",
+    "data": "2026-11-15",
+    "titulo": "Primeira versão: desenhe um fluxo, rode e veja o que cada nó fez.",
+    "importante": false,
+    "novidades": [
+      "Fluxos guardados como arquivos em ~/.raven-flows/fluxos, com um exemplo na primeira abertura.",
+      "Editor com caixa de nós, desfazer, salvar e parâmetros em JSON.",
+      "Executar marca cada nó com o que aconteceu e cada conexão com o número de itens.",
+      "Execuções guardadas em SQLite, que continuam do último passo depois de fechar o app.",
+      "Execuções paradas numa aprovação continuam com Aprovar e continuar; qualquer uma pode ser repetida.",
+      "Instala e se atualiza como o Raven Finanças: o install.cmd compila o master neste computador, e o app avisa quando há versão nova."
+    ],
+    "por_que_atualizar": "Para desenhar e rodar automações neste computador, vendo o que cada nó fez.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      525,
+      529,
+      534,
+      535,
+      536,
+      589,
+      590
+    ]
+  }
+]
