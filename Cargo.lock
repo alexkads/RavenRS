@@ -6043,6 +6043,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "raven-ci-plugin-shell"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-flows",
+ "ravenrs-process",
+ "serde_json",
+]
+
+[[package]]
 name = "raven-code"
 version = "0.1.0"
 dependencies = [
