@@ -59,6 +59,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- Lists, scheduler, dock and charts are in the testability contract of the RTS (#740): document tabs are `tab:<id>`, the tabs of a `Ribbon` `tab:<title>`, the items of a `SortableList` with a key `item:<key>`, the days of a `YearView` and an `EventCalendar` `day:<yyyy-mm-dd>`, calendar events `event:<id>` and timeline items `item:<id>`. `FileBrowser` and `Filmstrip` keep the `row:<key>` of their list.
+
 - The components of `ravenrs-widgets-kit` are in the testability contract of the RTS (#738): tabs are `tab:<label>` and take `Select`; the items and sections of a `Sidebar` are `item:<label>` and `section:<title>` (sections open and close with `Expand` and `Collapse`); breadcrumbs are `crumb:<label>`, wizard steps `step:<n>`, uploaded files `file:<name>` and the remove buttons of a `TagBox` `remove:<tag>`; `Disclosure`, `TagBox` and `LookupField` open and close with `Expand` and `Collapse`; `TextArea` takes `SetValue`. `IconTile` gets a story with a label; `QuadField` has no screen.
 
 - Every type of `ravenrs-widgets-base` is in the testability contract of the RTS (#737, last lot): `Stepper` and `ColorPicker` take `SetValue` (a whole number, a color as `#3B82F6`); `ColorPicker` and `DateRangePicker` open and close with `Expand` and `Collapse`; the jacks of a `PatchPanel` are `jack:<id>`, the dots of a `Carousel` `slide:<n>`, the colors of a `SwatchGrid` `swatch:<name>`, and the points of a `NinePointAnchor` `option:<name>` and take `Select`.

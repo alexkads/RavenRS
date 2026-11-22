@@ -410,6 +410,8 @@ impl View for Block<'_> {
             }),
         );
         cx.clip(node);
+        // Found by its id, wherever the timeline has it.
+        cx.test_id(node, &format!("item:{}", item.id));
         let mut semantics = Semantics::new(Role::Button).name(item.label.clone());
         if item.selected {
             semantics = semantics.selected(true);

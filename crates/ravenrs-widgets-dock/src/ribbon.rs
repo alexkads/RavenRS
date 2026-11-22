@@ -739,6 +739,7 @@ impl View for Ribbon {
                     popup: popup.clone(),
                 },
             );
+            cx.test_id(tab, &format!("tab:{}", page.title));
             if let Some((name, tone)) = &page.category {
                 let color = tone_color(&theme, *tone);
                 let cap = util::label(cx, &name.to_uppercase(), TextStyle::Caption, None, color);
