@@ -59,6 +59,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- RavenComponentBook: `--replay` takes any icon of the `Icon` card in an `icon` setting, not only the sample the cards offer; `DropdownMenu` gets the `label` and `icon` settings, `Select` gets `fill`, and the books of `Sidebar` (items with a state and an action) and `FlowCanvas` (cables; nodes with their own content and a selection) get new stories. The workspace screen of the Fermata UX is a replay fixture that RavenRS builds as drawn. ([#831](https://github.com/alexkads/RavenRS/issues/831))
 - `flow-chat-bot`, `flow-design-board`, `flow-whiteboard`, `bpmn-editor` and `dock-workbench` have scenarios of the Raven Test Studio in `tests/e2e/`, served with `--e2e-serve` on data in memory (#702, third lot).
 
 - `grid-poc`, `quick-plan`, `spreadsheet`, `site-home` and `component-gallery` have scenarios of the Raven Test Studio in `tests/e2e/` (#702, second lot). `Scenario::play_served` in `ravenrs-e2e-wire` plays a scenario on an app opened with `--e2e-serve` in a process of its own, for an app that is only a binary, as `grid-poc`. The click counter of the home page is `clicks`.
