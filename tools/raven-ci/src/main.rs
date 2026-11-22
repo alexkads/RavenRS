@@ -9,6 +9,10 @@
 //! raven-ci plugins compilar PASTA
 //! raven-ci servir [--endereco HOST:PORTA] [--executores N]
 //! echo SENHA | raven-ci usuario criar NOME [--papel PAPEL]
+//! raven-ci rodar JOB [--param NOME=VALOR]... [--esperar]
+//! raven-ci status JOB [NUMERO] | log JOB NUMERO [--seguir] | resumo | evidencia JOB NUMERO PASTA
+//! raven-ci aplicar ARQUIVO [--remover] [--servidor URL]
+//! raven-ci servico instalar|remover|estado [--memoria 1G] [--endereco HOST:PORTA]
 //! raven-ci <comando de um plugin> ...
 //! raven-ci --self-test
 //! raven-ci --versao
@@ -18,11 +22,14 @@
 //! its `plugins/` folder and in each `--plugins PASTA`.
 #![allow(clippy::print_stdout, clippy::print_stderr, reason = "a tool run from the terminal")]
 
+mod apply;
 mod cli;
 mod compilar;
 mod plugins;
+mod remote;
 mod self_test;
 mod server;
+mod service;
 mod versao;
 
 fn main() {

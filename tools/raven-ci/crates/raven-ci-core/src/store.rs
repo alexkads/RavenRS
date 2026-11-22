@@ -27,6 +27,10 @@ CREATE TABLE IF NOT EXISTS ci_audit (
     granted INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ci_audit_by_plugin ON ci_audit (plugin, id);
+CREATE TABLE IF NOT EXISTS ci_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 ";
 
 /// What the administrator set for a plugin.
@@ -95,6 +99,25 @@ impl Store {
     /// The connection, for the modules of the core.
     pub(crate) fn db(&self) -> MutexGuard<'_, Connection> {
         self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    /// A setting of the server, such as its `url`, when it was set.
+    pub fn setting(&self, key: &str) -> Result<Option<String>, CiError> {
+        self.db()
+            .query_row("SELECT value FROM ci_settings WHERE key = ?1", params![key], |row| row.get(0))
+            .optional()
+            .map_err(db)
+    }
+
+    /// Sets the setting `key` of the server to `value`.
+    pub fn set_setting(&self, key: &str, value: &str) -> Result<(), CiError> {
+        self.db()
+            .execute(
+                "INSERT INTO ci_settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                params![key, value],
+            )
+            .map(|_| ())
+            .map_err(db)
     }
 
     /// Now, on the core's clock.

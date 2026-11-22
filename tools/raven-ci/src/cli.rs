@@ -24,6 +24,21 @@ pub const USAGE: &str = "uso: raven-ci [--dados PASTA] [--plugins PASTA]… [--f
                           guarda no cofre; os campos vêm em JSON na entrada
   credencial listar       as credenciais, sem os valores
   credencial apagar NOME  revoga e apaga
+  rodar JOB [--param NOME=VALOR]... [--prioridade N] [--esperar]
+                          pede um build ao servidor; --esperar segue o log até o fim
+  status JOB [NUMERO]     o build (o último, sem número): estado, etapas e anexos
+  log JOB NUMERO [--seguir]
+                          o log do build; --seguir até ele acabar
+  resumo                  cada job com o último build, e a fila
+  evidencia JOB NUMERO PASTA
+                          baixa os artefatos e o log do build para PASTA
+                          (estes cinco falam com --servidor URL ou RAVEN_CI_SERVIDOR,
+                          com a chave em RAVEN_CI_TOKEN)
+  aplicar ARQUIVO [--remover] [--servidor URL]
+                          a configuração como código: jobs, pastas e plugins do arquivo
+  servir --config ARQUIVO aplica o arquivo ao subir
+  servico instalar|remover|estado [--memoria 1G] [--endereco HOST:PORTA] [--executores N] [--sistema]
+                          o servidor como serviço do sistema (systemd, launchd ou Windows)
   <comando> ...           um comando que um plugin ligado traz
   --self-test             confere o núcleo com um plugin falso de cada ponto
   --versao                a versão";
@@ -72,6 +87,16 @@ impl Invocation {
 
     /// Runs it, writing to `out`; the exit code.
     pub fn run(&self, out: &mut dyn Write) -> Result<i32, CiError> {
+        // The commands that speak to a server open no core on this disk.
+        if let Some(said) = crate::remote::run(&self.words, self.json, out) {
+            return said;
+        }
+        if let [first, rest @ ..] = self.words.as_slice()
+            && first == "servico"
+        {
+            let rest: Vec<&str> = rest.iter().map(String::as_str).collect();
+            return crate::service::run(&self.data, &rest, self.json, out);
+        }
         let ci = Ci::open(&self.data)?;
         for plugin in crate::plugins::builtin() {
             ci.add_plugin(plugin);
@@ -144,6 +169,7 @@ impl Invocation {
                 Ok(2)
             }
             ["servir", args @ ..] => crate::server::serve(ci, &self.data, args, out),
+            ["aplicar", args @ ..] => crate::apply::local(&ci, args, self.json, out),
             ["usuario", "criar", name, args @ ..] => {
                 let stdin = std::io::stdin();
                 crate::server::create_user(&self.data, name, args, &mut stdin.lock(), out)

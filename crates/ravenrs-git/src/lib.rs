@@ -120,6 +120,12 @@ impl Credential {
     pub fn bearer(token: &str) -> Self {
         Self { header: format!("Authorization: Bearer {token}") }
     }
+
+    /// The value of the `Authorization` header git sends (`Basic …`, `Bearer …`): for a client
+    /// of the same provider's HTTP API that signs in as the clone does, with no second encoding.
+    pub fn http_authorization(&self) -> &str {
+        self.header.trim_start_matches("Authorization: ")
+    }
 }
 
 /// Standard base64, with padding.
@@ -293,9 +299,10 @@ impl Git {
         self.run(&args).map(|_| ())
     }
 
-    /// The refspec of pull request `number` on GitHub (and Azure DevOps, which keeps the same
-    /// `refs/pull/N/head`), into [`pull_request_head`](Self::pull_request_head). That ref lives
-    /// apart from the remote's branches, so a repository with a branch named `pr` or `pull`, which
+    /// The refspec of pull request `number` on GitHub, `refs/pull/N/head`, into
+    /// [`pull_request_head`](Self::pull_request_head). Azure DevOps publishes only
+    /// `refs/pull/N/merge`; there the source branch is fetched to the same place with
+    /// [`fetch`](Self::fetch). That ref lives apart from the remote's branches, so a repository with a branch named `pr` or `pull`, which
     /// would hold `refs/remotes/<remote>/pr`, does not stop it.
     pub fn pull_request_ref(remote: &str, number: u64) -> String {
         format!("+refs/pull/{number}/head:{}", Self::pull_request_head(remote, number))
@@ -369,6 +376,12 @@ mod tests {
         assert_eq!(base64(b"fo"), "Zm8=");
         assert_eq!(base64(b"foo"), "Zm9v");
         assert_eq!(base64(b"x-access-token:ghp_abc"), "eC1hY2Nlc3MtdG9rZW46Z2hwX2FiYw==");
+    }
+
+    #[test]
+    fn the_api_gets_the_header_git_sends() {
+        assert_eq!(Credential::basic("x", "y").http_authorization(), "Basic eDp5");
+        assert_eq!(Credential::bearer("t").http_authorization(), "Bearer t");
     }
 
     #[test]

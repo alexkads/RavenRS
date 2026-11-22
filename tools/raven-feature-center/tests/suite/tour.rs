@@ -1573,6 +1573,58 @@ fn the_news_of_each_version_open_on_the_version_running_the_newest_and_a_failure
 }
 
 #[test]
+fn the_service_page_writes_the_file_of_each_system_and_plans_with_no_command_run() {
+    let mut c = Center::memory("ana");
+    c.press("Serviço do sistema");
+    assert!(c.says("Gerenciador deste computador:"), "{:?}", c.texts());
+    // systemd, with the limit: the unit of the app's own name, its command and MemoryMax.
+    for said in [
+        "Conferido: o serviço pode ser instalado",
+        "raven-exemplo.service",
+        "MemoryMax=1G",
+        "Restart=on-failure",
+        "\"servir\"",
+    ] {
+        assert!(c.says(said), "{said}: {:?}", c.texts());
+    }
+    c.press("Limite de 1G: sim");
+    assert!(!c.says("MemoryMax"), "with no limit, no MemoryMax: {:?}", c.texts());
+    c.press("Do sistema todo: não");
+    // For the whole system; the file stays in the folder of the dry run, never in /etc.
+    assert!(
+        c.says("WantedBy=multi-user.target") && c.says("raven-feature-center-servico"),
+        "{:?}",
+        c.texts()
+    );
+    c.press("Planejar a instalação");
+    assert!(c.says("systemctl enable --now raven-exemplo"), "{:?}", c.texts());
+    c.press("Ver o estado");
+    assert!(c.says("Estado: instalado") && c.says("systemctl is-active raven-exemplo"), "{:?}", c.texts());
+    c.press("Remover");
+    assert!(c.says("Removido · systemctl disable --now raven-exemplo"), "{:?}", c.texts());
+    c.press("Do sistema todo: sim");
+    c.press("Limite de 1G: não");
+    // launchd: the plist by the bundle id, kept alive, and the limit macOS does not enforce.
+    c.press("launchd");
+    for said in
+        ["dev.ravenrs.raven-exemplo.plist", "<key>RunAtLoad</key><true/>", "O macOS não o aplica", "RUST_LOG"]
+    {
+        assert!(c.says(said), "{said}: {:?}", c.texts());
+    }
+    c.press("Planejar a instalação");
+    assert!(c.says("launchctl bootstrap gui/UID") && c.says("aviso: o macOS não aplica"), "{:?}", c.texts());
+    // Windows: a task at logon, again when it falls.
+    c.press("Windows");
+    assert!(c.says("<LogonTrigger>") && c.says("<RestartOnFailure>"), "{:?}", c.texts());
+    c.press("Planejar a instalação");
+    assert!(c.says("schtasks /Create /TN raven-exemplo"), "{:?}", c.texts());
+    c.press("Remover");
+    // A name by hand, with ServiceSpec::new.
+    c.press("Nome à mão: não");
+    assert!(c.says("raven-exemplo-servidor-tarefa.xml"), "{:?}", c.texts());
+}
+
+#[test]
 fn the_web_api_page_builds_the_options_the_server_gets() {
     let mut c = Center::memory("ana");
     c.press("API web");

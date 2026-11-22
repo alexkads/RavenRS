@@ -113,6 +113,13 @@ pub const PAGES: &[Page] = &[
         icon: IconName::Download,
         make: || Box::new(atualizacao::novidades::NewsPage),
     },
+    Page {
+        id: atualizacao::servico::ID,
+        caption: atualizacao::servico::PAGE,
+        group: "Atualização",
+        icon: IconName::Server,
+        make: || Box::new(atualizacao::servico::ServicePage),
+    },
 ];
 
 /// The page with this id.

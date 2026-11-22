@@ -15,6 +15,8 @@
 //!   `/api/ci/build?job=&number=` (with its stages and attachments), `/api/ci/log?job=&number=&after=`
 //!   (the lines after `after`, for a reader that follows) and `/api/ci/queue`.
 //! - For administrators: `GET /api/ci/credentials`, the credentials with no value.
+//! - For administrators: `POST /api/ci/jobs`, a job made or changed, and `POST /api/ci/config`, a
+//!   whole configuration applied (#898); the triggers of what changed are watched again at once.
 //! - The [`Route`](raven_ci_plugin_api::Route)s of the plugins on: a public one with no one signed
 //!   in (under `/hooks/`, the only paths the server lets in with no token), any other only for
 //!   someone signed in, told their name and roles.
@@ -152,6 +154,11 @@ fn to_json(value: &impl serde::Serialize) -> Json {
 /// What the core answers `request`, or `None` for a path that is not its own.
 fn answer(ci: &Ci, request: &ApiRequest, who: &mut dyn FnMut() -> Option<Caller>) -> Option<ApiResponse> {
     let path: Vec<&str> = request.path.iter().map(String::as_str).collect();
+    if request.method == "POST"
+        && let ["api", "ci", what @ ("jobs" | "config")] = path.as_slice()
+    {
+        return Some(write(ci, what, request, who));
+    }
     if path.as_slice() == ["api", "ci", "credentials"] && request.method == "GET" {
         return Some(match who() {
             None => unauthorized(),
@@ -171,6 +178,41 @@ fn answer(ci: &Ci, request: &ApiRequest, who: &mut dyn FnMut() -> Option<Caller>
         return Some(read(ci, what, &request.query).unwrap_or_else(|e| from_error(&e)));
     }
     plugin_route(ci, request, &path, who)
+}
+
+/// `POST /api/ci/jobs` (one job, as a [`JobConfig`](crate::config::JobConfig) in JSON, with its
+/// pipeline in it) and `POST /api/ci/config[?remover=1]` (a whole
+/// [`ServerConfig`](crate::config::ServerConfig), its files already read): only for
+/// administrators. The triggers of what changed are watched again at once.
+fn write(ci: &Ci, what: &str, request: &ApiRequest, who: &mut dyn FnMut() -> Option<Caller>) -> ApiResponse {
+    match who() {
+        None => return unauthorized(),
+        Some(caller) if !caller.administrator => {
+            return json(
+                403,
+                &json!({ "error": "denied", "message": "só administradores mudam os jobs e a configuração" }),
+            );
+        }
+        Some(_) => {}
+    }
+    let bad = |e: serde_json::Error| CiError::settings("corpo", format!("não deu para ler o JSON: {e}"));
+    let done = if what == "jobs" {
+        serde_json::from_slice::<crate::config::JobConfig>(&request.body).map_err(bad).and_then(|job| {
+            let spec = job.spec()?;
+            let made = ci.job(&spec.name).is_err();
+            let name = spec.name.clone();
+            ci.save_job(spec)?;
+            let warnings = ci.watch_job(&name);
+            Ok(json!({ "job": name, "created": made, "warnings": warnings }))
+        })
+    } else {
+        let remove = request.query.get("remover").is_some_and(|v| v == "1" || v == "true");
+        serde_json::from_slice::<crate::config::ServerConfig>(&request.body)
+            .map_err(bad)
+            .and_then(|config| ci.apply_config(&config, remove))
+            .map(|changes| json!({ "changes": changes }))
+    };
+    done.map_or_else(|e| from_error(&e), |body| json(200, &body))
 }
 
 /// What the core reads at `GET /api/ci/{what}`; any other path under `/api/ci/` is a plugin's,

@@ -13,12 +13,15 @@ raven-ci-core = { path = "crates/raven-ci-core" }
 # The fake plugins: the self-test plugs one of each extension point in.
 raven-ci-plugin-api = { path = "crates/raven-ci-plugin-api", features = ["testing"] }
 raven-ci-plugin-api-trigger = { path = "crates/raven-ci-plugin-api-trigger" }
+raven-ci-plugin-artifacts = { path = "crates/raven-ci-plugin-artifacts" }
+raven-ci-plugin-azure-devops = { path = "crates/raven-ci-plugin-azure-devops" }
 raven-ci-plugin-cron = { path = "crates/raven-ci-plugin-cron" }
 raven-ci-plugin-credentials = { path = "crates/raven-ci-plugin-credentials" }
 raven-ci-plugin-docker = { path = "crates/raven-ci-plugin-docker" }
 raven-ci-plugin-format-toml = { path = "crates/raven-ci-plugin-format-toml" }
 raven-ci-plugin-git = { path = "crates/raven-ci-plugin-git" }
 raven-ci-plugin-github = { path = "crates/raven-ci-plugin-github" }
+raven-ci-plugin-junit = { path = "crates/raven-ci-plugin-junit" }
 raven-ci-plugin-kubernetes = { path = "crates/raven-ci-plugin-kubernetes" }
 raven-ci-plugin-lock = { path = "crates/raven-ci-plugin-lock" }
 raven-ci-plugin-shell = { path = "crates/raven-ci-plugin-shell" }
@@ -33,6 +36,8 @@ toml = { version = "1", default-features = false, features = ["parse", "serde", 
 tokio = { workspace = true, features = ["rt-multi-thread", "net", "signal", "macros"] }
 serde.workspace = true
 serde_json.workspace = true
+# The commands that speak to a server (src/remote.rs).
+ureq = { version = "3.5", default-features = false, features = ["rustls"] }
 
 [dev-dependencies]
 ravenrs-process.workspace = true

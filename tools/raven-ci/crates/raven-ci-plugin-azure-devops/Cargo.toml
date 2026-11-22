@@ -1,0 +1,31 @@
+[package]
+name = "raven-ci-plugin-azure-devops"
+description = "The plugin azure-devops of Raven CI: fetches a repository of Azure DevOps with the PAT of a credential, a pull request merged onto its target included, and sends the status of the build to the pull request or the commit."
+version = "0.1.0"
+edition.workspace = true
+# raven-ci-core, which the tests use, needs 1.89 (ravenrs-flows-runtime, rusqlite 0.41).
+rust-version = "1.89"
+license.workspace = true
+publish = false
+
+[dependencies]
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
+# The checkout is the one of the plugin git, with the source of a pull request said apart.
+raven-ci-plugin-git = { path = "../raven-ci-plugin-git" }
+ravenrs-app.workspace = true
+ravenrs-git.workspace = true
+serde_json.workspace = true
+# The REST API of Azure DevOps, over HTTPS.
+ureq = { version = "3.5", default-features = false, features = ["rustls"] }
+
+[dev-dependencies]
+raven-ci-core = { path = "../raven-ci-core" }
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api", features = ["testing"] }
+raven-ci-plugin-credentials = { path = "../raven-ci-plugin-credentials" }
+raven-ci-plugin-format-toml = { path = "../raven-ci-plugin-format-toml" }
+raven-ci-plugin-shell = { path = "../raven-ci-plugin-shell" }
+ravenrs-git.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

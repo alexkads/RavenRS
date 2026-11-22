@@ -59,7 +59,7 @@ fn stopping() -> Result<impl std::future::Future<Output = ()>, CiError> {
     }
 }
 
-/// `raven-ci servir [--endereco HOST:PORTA] [--executores N]`.
+/// `raven-ci servir [--endereco HOST:PORTA] [--executores N] [--config ARQUIVO]`.
 pub fn serve(ci: Ci, data: &Path, args: &[&str], out: &mut dyn Write) -> Result<i32, CiError> {
     let address = flag(args, "--endereco")?.unwrap_or(DEFAULT_ADDRESS).to_owned();
     let executors: usize = match flag(args, "--executores")? {
@@ -67,6 +67,16 @@ pub fn serve(ci: Ci, data: &Path, args: &[&str], out: &mut dyn Write) -> Result<
         None => 1,
     };
     let ci = Arc::new(ci);
+    // The routes of the plugins read what the builds left through the core.
+    ci.share();
+    // The configuration as code (#898), applied before the triggers are watched.
+    if let Some(file) = flag(args, "--config")? {
+        let config = raven_ci_core::config::ServerConfig::read(Path::new(file))?;
+        // To stderr: whoever starts it reads where it listens on the first line of stdout.
+        for change in ci.apply_config(&config, false)? {
+            eprintln!("config: {change}");
+        }
+    }
     for problem in ci.watch_triggers() {
         writeln!(out, "aviso: {problem}").map_err(failed)?;
     }

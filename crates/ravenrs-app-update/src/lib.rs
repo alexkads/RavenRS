@@ -28,6 +28,11 @@
 //! here knows any app. The README says how an app adopts it. With no features the
 //! crate draws nothing; the feature `ui` adds [`ui`], the news and the notice drawn the same
 //! way in every app.
+//!
+//! An app that is a server runs as a service of the system: [`ServiceSpec`] says what to run and
+//! [`ServiceManager`] writes the unit of systemd, the plist of launchd or the task of Windows and
+//! starts it. The installer installs it at the end when `<PREFIXO>_SERVICO=1`, with the app's own
+//! `servico instalar`.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -39,6 +44,7 @@ mod app;
 mod installer;
 mod news;
 mod release;
+mod service;
 mod template;
 mod tray;
 #[cfg(feature = "ui")]
@@ -54,6 +60,7 @@ pub use news::{
     News, Notice, NoticeAction, UpdateStatus, is_newer, join_history, notice, parse_history, parse_news,
 };
 pub use release::{assert_release_files_agree, check_release_files};
+pub use service::{Installed, ServiceManager, ServiceSpec, ServiceStatus, ServiceSystem};
 pub use template::{INSTALLER_TEMPLATE, WRITE_INSTALLER_ENV, assert_installer_is_current, check_installer};
 pub use tray::{TRAY_NEWS, TRAY_UPDATE, TrayChoice, tray_choice, tray_entries};
 

@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use raven_ci_plugin_api::{BuildStatus, CiError, STAGE_KEY};
+use raven_ci_plugin_api::{AttachmentInfo, BuildStatus, CiError, STAGE_KEY};
 use ravenrs_flows::{FlowDefinition, NodeRun, NodeStatus, RunOutcome};
 use ravenrs_flows_runtime::{RunRecord, RunStatus};
 use rusqlite::{Connection, OptionalExtension, Row, params};
@@ -517,6 +517,47 @@ pub(crate) fn attachments(conn: &Connection, job: &str, number: u64) -> Result<V
         })
         .map_err(db)?;
     rows.collect::<Result<_, _>>().map_err(db)
+}
+
+fn attachment_info_of(row: &Row<'_>) -> rusqlite::Result<AttachmentInfo> {
+    let summary: String = row.get(7)?;
+    Ok(AttachmentInfo {
+        id: row.get(0)?,
+        job: row.get(1)?,
+        number: row.get::<_, i64>(2)? as u64,
+        kind: row.get(3)?,
+        name: row.get(4)?,
+        mime: row.get(5)?,
+        size: row.get::<_, i64>(6)? as u64,
+        summary: serde_json::from_str(&summary).unwrap_or(Value::Null),
+    })
+}
+
+const ATTACHMENT_INFO: &str = "SELECT id, job, number, kind, name, mime, size, summary FROM ci_attachments";
+
+/// What the builds of `job` left of `kind`: of the build `number`, or of every build when `None`,
+/// the newest build first and, in a build, in the order they were kept.
+pub(crate) fn attachment_infos(
+    conn: &Connection,
+    job: &str,
+    number: Option<u64>,
+    kind: &str,
+) -> Result<Vec<AttachmentInfo>, CiError> {
+    let sql = format!(
+        "{ATTACHMENT_INFO} WHERE job = ?1 AND kind = ?2 AND (?3 IS NULL OR number = ?3) ORDER BY number DESC, id"
+    );
+    let mut stmt = conn.prepare(&sql).map_err(db)?;
+    let rows =
+        stmt.query_map(params![job, kind, number.map(|n| n as i64)], attachment_info_of).map_err(db)?;
+    rows.collect::<Result<_, _>>().map_err(db)
+}
+
+/// The attachment `id`, all but its bytes.
+pub(crate) fn attachment_info(conn: &Connection, id: i64) -> Result<AttachmentInfo, CiError> {
+    conn.query_row(&format!("{ATTACHMENT_INFO} WHERE id = ?1"), params![id], attachment_info_of)
+        .optional()
+        .map_err(db)?
+        .ok_or_else(|| CiError::unavailable(format!("não há o anexo {id}")))
 }
 
 /// The blob of the attachment `id`, as kept: its type, size and where.

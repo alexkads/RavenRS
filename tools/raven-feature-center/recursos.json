@@ -46,6 +46,8 @@
 {"crate": "ravenrs-app-sqlite", "tipo": "BackupStamp", "pendente": true, "issue": 579, "conhecidos": ["new", "tenant", "version"]},
 {"crate": "ravenrs-app-sqlite", "tipo": "Backups", "pendente": true, "issue": 579, "conhecidos": ["copies", "copies_in", "inspect", "keep", "keep_copy", "restore", "save"]},
 {"crate": "ravenrs-app-update", "tipo": "NewsDialog", "pagina": "Novidades da versão", "recursos": ["at", "details_open", "is_open", "new", "on_open_file", "show_details", "show_installed", "show_latest", "view"]},
+{"crate": "ravenrs-app-update", "tipo": "ServiceManager", "pagina": "Serviço do sistema", "recursos": ["current", "dry_run", "file_of", "install", "new", "status", "system", "uninstall"]},
+{"crate": "ravenrs-app-update", "tipo": "ServiceSpec", "pagina": "Serviço do sistema", "recursos": ["args", "check", "env", "for_app", "launchd_plist", "logs", "memory_max", "new", "system", "systemd_unit", "windows_task_xml"]},
 {"crate": "ravenrs-app-ui", "tipo": "ActionButton", "pendente": true, "issue": 579, "conhecidos": ["hide_when_off", "new", "size", "style"]},
 {"crate": "ravenrs-app-ui", "tipo": "ActionContainer", "pendente": true, "issue": 579, "conhecidos": ["keys_elsewhere", "new"]},
 {"crate": "ravenrs-app-ui", "tipo": "App", "pendente": true, "issue": 579, "conhecidos": ["action", "administrator_settings", "attachment_store", "brand", "brand_subtitle", "build", "collection_of", "counter", "dashboard", "editors", "entity", "entity_info", "into_view", "keep_in", "language", "list_editor", "model_store", "module", "navigation_count", "new", "records_of", "seed", "service", "settings", "signed_in_remotely", "storage", "storage_for", "texts", "theme", "themes", "translation", "with_session"]},

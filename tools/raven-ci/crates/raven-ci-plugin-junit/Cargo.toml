@@ -1,0 +1,27 @@
+[package]
+name = "raven-ci-plugin-junit"
+description = "The plugin junit of Raven CI: reads the JUnit XML of a build, keeps the count and the tests that failed, and gives the trend of a job over the API."
+version = "0.1.0"
+edition.workspace = true
+# raven-ci-core, which the tests use, needs 1.89 (ravenrs-flows-runtime, rusqlite 0.41).
+rust-version = "1.89"
+license.workspace = true
+publish = false
+
+[dependencies]
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
+# The search by patterns, the same artifacts uses.
+raven-ci-plugin-artifacts = { path = "../raven-ci-plugin-artifacts" }
+ravenrs-app.workspace = true
+# The reader of JUnit, the same ravenrs-e2e-runner writes with.
+ravenrs-junit.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+raven-ci-core = { path = "../raven-ci-core" }
+raven-ci-plugin-format-toml = { path = "../raven-ci-plugin-format-toml" }
+raven-ci-plugin-shell = { path = "../raven-ci-plugin-shell" }
+serde_json.workspace = true
+
+[lints]
+workspace = true

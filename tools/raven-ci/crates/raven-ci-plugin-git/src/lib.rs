@@ -41,7 +41,7 @@ use ravenrs_app::{Module, ModuleManifest};
 use ravenrs_git::{CloneOptions, Credential, Git, GitError, Merge};
 
 /// The name and e-mail of the merge commits Raven CI makes.
-const IDENTITY: (&str, &str) = ("Raven CI", "raven-ci@localhost");
+pub const IDENTITY: (&str, &str) = ("Raven CI", "raven-ci@localhost");
 
 /// The plugin `git`.
 #[derive(Default)]
@@ -119,11 +119,7 @@ impl GitScm {
     fn credential(&self, name: &str) -> Result<Credential, CiError> {
         let host = self.host()?;
         host.require(Permission::Network, "buscar código com credencial")?;
-        let value = host.secret(name)?;
-        Ok(match value.split_once(':') {
-            Some((user, token)) => Credential::basic(user, token),
-            None => Credential::basic("raven-ci", &value),
-        })
+        Ok(credential(&host.secret(name)?))
     }
 
     /// A `git` on the build's folder, with the credential the request names.
@@ -143,66 +139,95 @@ impl Scm for GitScm {
 
     fn checkout(&self, request: &CheckoutRequest, log: &dyn Fn(&str)) -> Result<Checkout, CiError> {
         let git = self.git(request)?;
-        let depth_words = request.depth.map_or_else(String::new, |d| format!(", últimos {d} commits"));
-        match &request.reference {
-            Reference::Branch(branch) => {
-                log(&format!("clonando {} na branch {branch}{depth_words}", request.url));
-                let mut options = CloneOptions::new().branch(branch.clone());
-                if let Some(depth) = request.depth {
-                    options = options.depth(depth);
-                }
-                let git = git.clone_with(&request.url, &options).map_err(said)?;
-                let commit = git.head().map_err(said)?;
-                Ok(Checkout { commit, branch: Some(branch.clone()), merged_onto: None })
+        let source = match &request.reference {
+            Reference::PullRequest { number, .. } => format!("refs/pull/{number}/head"),
+            _ => String::new(),
+        };
+        checkout_with(git, request, &source, log)
+    }
+}
+
+/// The credential of git for a secret `value` read through the host: `user:token` as it is, and a
+/// value with no `:` as a token (the user is `raven-ci`, which GitHub and Azure DevOps ignore).
+pub fn credential(value: &str) -> Credential {
+    match value.split_once(':') {
+        Some((user, token)) => Credential::basic(user, token),
+        None => Credential::basic("raven-ci", value),
+    }
+}
+
+/// Puts what `request` says in its workspace with `git`, a [`Git`] on the workspace with the
+/// credential and identity already set: what the `Scm` `git` does, for another `Scm` that only
+/// differs in where a pull request comes from (`raven-ci-plugin-azure-devops`).
+///
+/// `pull_source` is the ref of the remote the pull request is fetched from: `refs/pull/N/head` on
+/// GitHub, the source branch (`refs/heads/feature`) on Azure DevOps, which publishes only
+/// `refs/pull/N/merge`. It is fetched to [`Git::pull_request_head`], apart from the branches.
+/// Unused for a branch or a commit.
+pub fn checkout_with(
+    git: Git,
+    request: &CheckoutRequest,
+    pull_source: &str,
+    log: &dyn Fn(&str),
+) -> Result<Checkout, CiError> {
+    let depth_words = request.depth.map_or_else(String::new, |d| format!(", últimos {d} commits"));
+    match &request.reference {
+        Reference::Branch(branch) => {
+            log(&format!("clonando {} na branch {branch}{depth_words}", request.url));
+            let mut options = CloneOptions::new().branch(branch.clone());
+            if let Some(depth) = request.depth {
+                options = options.depth(depth);
             }
-            Reference::Commit(commit) => {
-                log(&format!("clonando {} no commit {commit}{depth_words}", request.url));
-                let mut options = CloneOptions::new();
-                if let Some(depth) = request.depth {
-                    options = options.depth(depth);
+            let git = git.clone_with(&request.url, &options).map_err(said)?;
+            let commit = git.head().map_err(said)?;
+            Ok(Checkout { commit, branch: Some(branch.clone()), merged_onto: None })
+        }
+        Reference::Commit(commit) => {
+            log(&format!("clonando {} no commit {commit}{depth_words}", request.url));
+            let mut options = CloneOptions::new();
+            if let Some(depth) = request.depth {
+                options = options.depth(depth);
+            }
+            let git = git.clone_with(&request.url, &options).map_err(said)?;
+            if git.checkout(commit).is_err() {
+                log(&format!("o commit {commit} não veio no clone; buscando"));
+                git.fetch("origin", &[commit]).map_err(said)?;
+                git.checkout(commit).map_err(said)?;
+            }
+            let commit = git.head().map_err(said)?;
+            Ok(Checkout { commit, branch: None, merged_onto: None })
+        }
+        Reference::PullRequest { number, target } => {
+            let mut options = CloneOptions::new().branch(target.clone());
+            // A merge needs the commit both sides come from: the target's history comes whole.
+            if let (Some(depth), false) = (request.depth, request.merge_onto_target) {
+                options = options.depth(depth);
+            }
+            log(&format!("clonando {} na branch {target}, destino do PR {number}", request.url));
+            let git = git.clone_with(&request.url, &options).map_err(said)?;
+            log(&format!("buscando o PR {number}"));
+            let refspec = format!("+{pull_source}:{}", Git::pull_request_head("origin", *number));
+            git.fetch("origin", &[&refspec]).map_err(said)?;
+            let head = Git::pull_request_head("origin", *number);
+            if request.merge_onto_target {
+                let onto = git.head().map_err(said)?;
+                log(&format!("mesclando o PR {number} em {target} ({onto})"));
+                match git
+                    .merge(&head, &format!("Merge do PR {number} em {target} (Raven CI)"))
+                    .map_err(said)?
+                {
+                    Merge::Merged(commit) => Ok(Checkout { commit, branch: None, merged_onto: Some(onto) }),
+                    Merge::Conflict(files) => Err(CiError::failed(format!(
+                        "o PR {number} conflita com {target} em: {}",
+                        files.join(", ")
+                    ))),
                 }
-                let git = git.clone_with(&request.url, &options).map_err(said)?;
-                if git.checkout(commit).is_err() {
-                    log(&format!("o commit {commit} não veio no clone; buscando"));
-                    git.fetch("origin", &[commit]).map_err(said)?;
-                    git.checkout(commit).map_err(said)?;
-                }
+            } else {
+                git.checkout(&head).map_err(said)?;
                 let commit = git.head().map_err(said)?;
                 Ok(Checkout { commit, branch: None, merged_onto: None })
             }
-            Reference::PullRequest { number, target } => {
-                let mut options = CloneOptions::new().branch(target.clone());
-                // A merge needs the commit both sides come from: the target's history comes whole.
-                if let (Some(depth), false) = (request.depth, request.merge_onto_target) {
-                    options = options.depth(depth);
-                }
-                log(&format!("clonando {} na branch {target}, destino do PR {number}", request.url));
-                let git = git.clone_with(&request.url, &options).map_err(said)?;
-                log(&format!("buscando o PR {number}"));
-                git.fetch_pull_request("origin", *number).map_err(said)?;
-                let head = Git::pull_request_head("origin", *number);
-                if request.merge_onto_target {
-                    let onto = git.head().map_err(said)?;
-                    log(&format!("mesclando o PR {number} em {target} ({onto})"));
-                    match git
-                        .merge(&head, &format!("Merge do PR {number} em {target} (Raven CI)"))
-                        .map_err(said)?
-                    {
-                        Merge::Merged(commit) => {
-                            Ok(Checkout { commit, branch: None, merged_onto: Some(onto) })
-                        }
-                        Merge::Conflict(files) => Err(CiError::failed(format!(
-                            "o PR {number} conflita com {target} em: {}",
-                            files.join(", ")
-                        ))),
-                    }
-                } else {
-                    git.checkout(&head).map_err(said)?;
-                    let commit = git.head().map_err(said)?;
-                    Ok(Checkout { commit, branch: None, merged_onto: None })
-                }
-            }
-            other => Err(CiError::failed(format!("o git não sabe buscar {other:?}"))),
         }
+        other => Err(CiError::failed(format!("o git não sabe buscar {other:?}"))),
     }
 }

@@ -113,6 +113,7 @@ ravenrs-e2e-wire       ──► ravenrs-e2e (the test channel: a tool drives an
 ravenrs-ai             ──► ravenrs-widgets (models on the machine; desktop only)
 ravenrs-metrics        (leaf, no dependencies: counters, gauges and histograms in the Prometheus text format; the process's memory)
 ravenrs-git            ──► ravenrs-process (git installed on the machine: clone, pull request refs, merge; the credential in the environment)
+ravenrs-junit          ──► quick-xml (JUnit XML both ways: the model, the reader a CI uses, the writer of ravenrs-e2e-runner, the summary)
 ravenrs-secrets        (leaf, no ravenrs crate: the vault, sealing, rights, rotation and the one redactor; used by ravenrs-agent-cli)
 ravenrs-schedule       (leaf, only jiff: cron, triggers, misfire and the running guard; no runtime; used by ravenrs-report-server, and the engine for the app framework's tasks #66, Raven Flows #537 and Raven CI #803)
         ▲

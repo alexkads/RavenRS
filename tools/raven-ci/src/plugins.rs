@@ -5,12 +5,15 @@ use std::sync::Arc;
 
 use raven_ci_plugin_api::CiPlugin;
 use raven_ci_plugin_api_trigger::ApiTriggerPlugin;
+use raven_ci_plugin_artifacts::ArtifactsPlugin;
+use raven_ci_plugin_azure_devops::AzureDevopsPlugin;
 use raven_ci_plugin_credentials::CredentialsPlugin;
 use raven_ci_plugin_cron::CronPlugin;
 use raven_ci_plugin_docker::DockerPlugin;
 use raven_ci_plugin_format_toml::TomlFormatPlugin;
 use raven_ci_plugin_git::GitPlugin;
 use raven_ci_plugin_github::GithubPlugin;
+use raven_ci_plugin_junit::JunitPlugin;
 use raven_ci_plugin_kubernetes::KubernetesPlugin;
 use raven_ci_plugin_lock::LockPlugin;
 use raven_ci_plugin_shell::ShellPlugin;
@@ -30,5 +33,8 @@ pub fn builtin() -> Vec<Arc<dyn CiPlugin>> {
         Arc::new(GithubPlugin::new()),
         Arc::new(DockerPlugin::new()),
         Arc::new(KubernetesPlugin::new()),
+        Arc::new(AzureDevopsPlugin::new()),
+        Arc::new(ArtifactsPlugin::new()),
+        Arc::new(JunitPlugin::new()),
     ]
 }
