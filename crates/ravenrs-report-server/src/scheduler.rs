@@ -1,37 +1,22 @@
 //! Runs jobs: what is due on the schedule, or what is asked for by hand, with
 //! retries, a history of who received what, and retention of the files.
 
-use std::collections::HashSet;
 use std::fmt;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 
 use jiff::tz::TimeZone;
 use jiff::{SignedDuration, Timestamp};
 use ravenrs_report::Report;
+use ravenrs_schedule::{Check, Misfire, Running, Trigger, check};
 use tokio::sync::Semaphore;
 use tokio::task::JoinHandle;
 
 use crate::config::Config;
-use crate::cron::Schedule;
 use crate::deliver::{Mail, Mailer, write_to_folder};
 use crate::job::{Delivery, Job};
 use crate::render::{Rendered, local_date_time, parameter_values, render, resolve_data};
 use crate::store::{Delivered, JobState, RunRecord, RunStatus, Store};
-
-/// Keeps a job from running twice at once.
-struct RunningGuard {
-    running: Arc<Mutex<HashSet<String>>>,
-    id: String,
-}
-
-impl Drop for RunningGuard {
-    fn drop(&mut self) {
-        if let Ok(mut running) = self.running.lock() {
-            running.remove(&self.id);
-        }
-    }
-}
 
 /// A delivery still to be made.
 #[derive(Clone, Debug)]
@@ -80,7 +65,7 @@ pub struct Runner {
     config: Arc<Config>,
     mailer: Option<Arc<dyn Mailer>>,
     permits: Arc<Semaphore>,
-    running: Arc<Mutex<HashSet<String>>>,
+    running: Running,
 }
 
 impl fmt::Debug for Runner {
@@ -93,7 +78,7 @@ impl Runner {
     /// A runner over `store`. Email deliveries fail without a `mailer`.
     pub fn new(store: Store, config: Arc<Config>, mailer: Option<Arc<dyn Mailer>>) -> Self {
         let permits = Arc::new(Semaphore::new(config.max_concurrent_renders.max(1)));
-        Self { store, config, mailer, permits, running: Arc::new(Mutex::new(HashSet::new())) }
+        Self { store, config, mailer, permits, running: Running::new() }
     }
 
     /// The limit on simultaneous renders, shared with on-demand requests.
@@ -137,27 +122,27 @@ impl Runner {
         if !job.enabled {
             return Ok(None);
         }
-        let schedule = Schedule::parse(&job.schedule)?;
-        let zone = TimeZone::get(&job.timezone).map_err(|e| e.to_string())?;
+        let trigger = Trigger::cron(&job.schedule, &job.timezone)?;
         let state = self.store.job_state(id).map_err(|e| e.to_string())?;
-        let next = schedule.next_after(&now.to_zoned(zone)).map(|z| z.timestamp());
-        let Some(due) = state.next_run else {
-            self.store.save_job_state(id, &JobState { next_run: next }).map_err(|e| e.to_string())?;
-            return Ok(None);
-        };
-        if due > now {
-            return Ok(None);
-        }
-        self.store.save_job_state(id, &JobState { next_run: next }).map_err(|e| e.to_string())?;
         let grace = SignedDuration::from_secs(self.config.misfire_grace_minutes.saturating_mul(60) as i64);
-        if now.duration_since(due) > grace {
-            tracing::warn!(job = %id, due = %due, "the run is too late; recording it as missed");
-            self.record_missed(id, due, now, "the server was not running at the scheduled time");
-            return Ok(None);
+        let save =
+            |next| self.store.save_job_state(id, &JobState { next_run: next }).map_err(|e| e.to_string());
+        match check(&trigger, Misfire::Within(grace), state.next_run, now) {
+            Check::Seeded { next } => save(next).map(|()| None),
+            Check::Wait { .. } | Check::Never => Ok(None),
+            Check::Missed { due, next } => {
+                save(next)?;
+                tracing::warn!(job = %id, due = %due, "the run is too late; recording it as missed");
+                self.record_missed(id, due, now, "the server was not running at the scheduled time");
+                Ok(None)
+            }
+            Check::Run { due, next } => {
+                save(next)?;
+                let runner = self.clone();
+                let id = id.to_owned();
+                Ok(Some(tokio::spawn(async move { runner.run(&id, &job, due, false).await })))
+            }
         }
-        let runner = self.clone();
-        let id = id.to_owned();
-        Ok(Some(tokio::spawn(async move { runner.run(&id, &job, due, false).await })))
     }
 
     fn record_missed(&self, id: &str, due: Timestamp, now: Timestamp, why: &str) -> RunRecord {
@@ -190,11 +175,9 @@ impl Runner {
 
     async fn run(&self, id: &str, job: &Job, scheduled_for: Timestamp, manual: bool) -> RunRecord {
         let started_at = Timestamp::now();
-        let free = self.running.lock().is_ok_and(|mut running| running.insert(id.to_owned()));
-        if !free {
+        let Some(guard) = self.running.try_start(id) else {
             return self.record_missed(id, scheduled_for, started_at, "the previous run was still going");
-        }
-        let guard = RunningGuard { running: self.running.clone(), id: id.to_owned() };
+        };
         let mut progress = Progress {
             rendered: None,
             layout_version: None,

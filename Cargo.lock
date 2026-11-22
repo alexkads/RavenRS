@@ -6897,6 +6897,7 @@ dependencies = [
  "lettre",
  "ravenrs-report",
  "ravenrs-report-export",
+ "ravenrs-schedule",
  "serde",
  "serde_json",
  "tempfile",
@@ -6936,6 +6937,13 @@ dependencies = [
  "rust_xlsxwriter",
  "serde_json",
  "zip",
+]
+
+[[package]]
+name = "ravenrs-schedule"
+version = "27.1.28"
+dependencies = [
+ "jiff",
 ]
 
 [[package]]
