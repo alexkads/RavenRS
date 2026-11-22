@@ -132,7 +132,7 @@ mod trigger;
 #[cfg(feature = "testing")]
 pub mod testing;
 
-pub use agent::{AgentLauncher, LaunchRequest, LaunchedAgent};
+pub use agent::{AgentArgs, AgentLauncher, LaunchRequest, LaunchedAgent, TOKEN_VARIABLE};
 pub use build::{BuildContext, BuildLog, BuildScope, MemoryLog, ScopeGuard, enter};
 pub use cli::CliCommand;
 pub use credential::CredentialKind;
