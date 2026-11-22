@@ -171,6 +171,36 @@ impl RemoteClient {
         self.ask("POST", "/api/auth/revoke", None, |_| {});
         *self.0.token.borrow_mut() = None;
     }
+
+    /// Whether someone signed in through this client and has not signed out.
+    pub fn signed_in(&self) -> bool {
+        self.0.token.borrow().is_some()
+    }
+
+    /// Reads `path` of the server (`/api/ci/jobs?x=1`), with the token of whoever signed in, and
+    /// calls `done` with the status and the JSON that came back (`Null` for a body that is not
+    /// JSON), or why nothing came back. It is for the routes of an application that are not
+    /// entities; the records go through [`RemoteDatabase`].
+    pub fn get_json(&self, path: &str, done: impl FnOnce(Result<(u16, Json), String>) + 'static) {
+        self.ask("GET", path, None, done);
+    }
+
+    /// Sends `body` to `path` with `method` (`POST`, `PUT`, `DELETE`), as [`get_json`](Self::get_json)
+    /// reads.
+    pub fn send_json(
+        &self,
+        method: &str,
+        path: &str,
+        body: &Json,
+        done: impl FnOnce(Result<(u16, Json), String>) + 'static,
+    ) {
+        self.ask(method, path, Some(body), done);
+    }
+
+    /// The whole address of `path` on the server, as a link to download a file.
+    pub fn url_of(&self, path: &str) -> String {
+        format!("{}{path}", self.0.base)
+    }
 }
 
 /// Settings on the server, with what was read kept here, since a screen cannot wait for them. The
