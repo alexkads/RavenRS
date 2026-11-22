@@ -17,10 +17,13 @@ fn block(cx: &mut BuildCx<'_>) -> NodeId {
     cx.container(style, &[], Paint::default())
 }
 
+/// Each action a node was asked for, with the text that came with it.
+type Log = Rc<RefCell<Vec<(AccessAction, Option<String>)>>>;
+
 /// A node that declares `actions` and writes down each one it is asked for, with its text.
 struct Takes {
     actions: Vec<AccessAction>,
-    log: Rc<RefCell<Vec<(AccessAction, Option<String>)>>>,
+    log: Log,
     expanded: Option<State<bool>>,
 }
 
@@ -49,7 +52,7 @@ impl View for Takes {
     }
 }
 
-fn taking(actions: &[AccessAction]) -> (E2e, Rc<RefCell<Vec<(AccessAction, Option<String>)>>>) {
+fn taking(actions: &[AccessAction]) -> (E2e, Log) {
     let log = Rc::new(RefCell::new(Vec::new()));
     let view = Takes { actions: actions.to_vec(), log: log.clone(), expanded: None }.test_id("item");
     (E2e::new(VStack::new((view,)), Theme::raven_dark()), log)
