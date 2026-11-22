@@ -10,7 +10,7 @@ use ravenrs::widgets::book::{ArgValue, Control};
 use serde_json::{Value, json};
 
 use crate::index::{self, Entry};
-use crate::measure::{self, Measured};
+use crate::measure::{self, Fit, Interaction, Measured};
 
 /// The design system's guide, which the book puts in front of the index of components.
 const GUIDE: &str = include_str!("../../../docs/design-system/README.md");
@@ -67,33 +67,88 @@ fn arg_types(entry: &Entry) -> Value {
     json!(rows)
 }
 
-/// A story measured in both themes, with its settings.
+/// A story measured in the three themes, with its settings.
 #[derive(Clone, Debug)]
 pub struct MeasuredStory {
     /// The story's name.
     pub name: &'static str,
     /// The settings it was drawn with.
     pub args: Value,
-    /// Raven Dark, then Raven Light.
+    /// Raven Dark, then Raven Light and Raven Glass.
     pub themes: Vec<(&'static str, Measured)>,
+    /// In Raven Dark, in the narrowest parent of [`measure::WIDTHS`].
+    pub narrow: Measured,
+    /// How it sizes, from the parents of [`measure::WIDTHS`].
+    pub fit: Fit,
+    /// For the first story, in Raven Dark: the pointer over its first control, the focus on it
+    /// and the button held down on it. Empty for the other stories and when it has no control.
+    pub interactions: Vec<Reaction>,
+    /// For the first story: the keys of [`measure::KEYS`] its first control handles once focused.
+    pub keys: Vec<&'static str>,
 }
 
-/// Measures every story of `entry` in both themes.
+/// A state of [`Interaction`] measured on a story's first control.
+#[derive(Clone, Debug)]
+pub struct Reaction {
+    /// Which state.
+    pub state: Interaction,
+    /// The control it was brought to, by its accessible name.
+    pub control: String,
+    /// What the stage shows in it.
+    pub measured: Measured,
+    /// What changed against the story at rest; empty when the control does not react.
+    pub changes: Vec<Value>,
+}
+
+/// Measures every story of `entry` in the three themes, and in Raven Dark in the parents of the
+/// other [`measure::WIDTHS`] to tell how it sizes.
 pub fn measure_entry(entry: &Entry) -> Vec<MeasuredStory> {
     entry
         .meta
         .stories
         .iter()
-        .map(|story| {
+        .enumerate()
+        .map(|(i, story)| {
             let args = entry.meta.args_of(story);
-            let themes = measure::themes()
+            let themes: Vec<(&'static str, Measured)> = measure::themes()
                 .into_iter()
                 .map(|(id, theme)| (id, measure::measure(&entry.meta, story, &args, theme)))
                 .collect();
+            let dark = measure::themes()[0].1;
+            let [narrowest, reference, widest] = measure::WIDTHS;
+            let narrow = measure::measure_at(&entry.meta, story, &args, dark, narrowest);
+            let wide = measure::measure_at(&entry.meta, story, &args, dark, widest).main_box();
+            let at_reference = themes.first().map_or((0.0, 0.0), |(_, m)| m.main_box());
+            let stretched =
+                measure::measure_stretched(&entry.meta, story, &args, dark, reference).main_box().0;
+            let fit = measure::fit_of(
+                &entry.meta.sizing,
+                &[(narrowest, narrow.main_box()), (reference, at_reference), (widest, wide)],
+                Some(stretched),
+            );
+            // A pattern's controls are measured on their own cards; its card shows the screen.
+            let screen = entry.meta.family() == "Patterns";
+            let interactions = match (i, themes.first()) {
+                (0, Some((_, rest))) if !screen => Interaction::ALL
+                    .into_iter()
+                    .filter_map(|state| {
+                        let (control, measured) =
+                            measure::measure_interaction(&entry.meta, story, &args, dark, state)?;
+                        let changes = measure::changes(rest, &measured);
+                        Some(Reaction { state, control, measured, changes })
+                    })
+                    .collect(),
+                _ => Vec::new(),
+            };
+            let keys = if i == 0 && !screen {
+                measure::keys_handled(&entry.meta, story, &args, dark)
+            } else {
+                Vec::new()
+            };
             let args = json!(
                 args.iter().map(|(k, v)| (k.to_owned(), arg_value(v))).collect::<serde_json::Map<_, _>>()
             );
-            MeasuredStory { name: story.name, args, themes }
+            MeasuredStory { name: story.name, args, themes, narrow, fit, interactions, keys }
         })
         .collect()
 }
@@ -103,7 +158,7 @@ fn id_of(title: &str) -> String {
 }
 
 /// The JSON of one component: where it sits, its settings, its API, the code of its example and
-/// every story measured in both themes, with the anatomy of the first.
+/// every story measured in the three themes, with the anatomy of the first.
 pub fn component_json(entry: &Entry, stories: &[MeasuredStory]) -> Value {
     let variants: serde_json::Map<String, Value> =
         entry.variants().into_iter().map(|(e, v)| (e.to_owned(), json!(v))).collect();
@@ -119,13 +174,123 @@ pub fn component_json(entry: &Entry, stories: &[MeasuredStory]) -> Value {
         "api": {"methods": entry.methods(), "variants": variants},
         "code": entry.code,
         "anatomy": anatomy,
+        "sizing": stories.first().map(|s| s.fit.json()),
+        "interaction": interaction_json(stories),
+        "behavior": behavior_json(entry, stories),
         "stories": stories.iter().map(|s| json!({
             "id": format!("{}--{}", id_of(entry.meta.title), id_of(s.name)),
             "name": s.name,
             "args": s.args,
+            "sizing": s.fit.json(),
             "themes": s.themes.iter().map(|(id, m)| (id.to_string(), m.json())).collect::<serde_json::Map<_, _>>(),
         })).collect::<Vec<_>>(),
     })
+}
+
+/// How the first story's first control reacts: for each state, the control, what changed and,
+/// when something did, what the stage shows; `reacts_to` and `ignores` name the states.
+fn interaction_json(stories: &[MeasuredStory]) -> Value {
+    let Some(first) = stories.first() else { return Value::Null };
+    if first.interactions.is_empty() {
+        return Value::Null;
+    }
+    let mut out = serde_json::Map::new();
+    let (mut reacts, mut ignores) = (Vec::new(), Vec::new());
+    for r in &first.interactions {
+        if r.changes.is_empty() {
+            ignores.push(r.state.name());
+        } else {
+            reacts.push(r.state.name());
+            out.insert(
+                r.state.name().into(),
+                json!({"control": r.control, "story": first.name, "changes": r.changes, "dark": r.measured.json()}),
+            );
+        }
+    }
+    out.insert("reacts_to".into(), json!(reacts));
+    out.insert("ignores".into(), json!(ignores));
+    Value::Object(out)
+}
+
+/// What a person does with the component, from its first story at rest: the events its builder
+/// offers (`on_*`), the keys its first control handles once focused, the role and name the
+/// accessibility tree gives its first part, and the controls in the order Tab reaches them.
+fn behavior_json(entry: &Entry, stories: &[MeasuredStory]) -> Value {
+    let events: Vec<&str> = entry.methods().into_iter().filter(|m| m.starts_with("on_")).collect();
+    let Some(first) = stories.first() else { return json!({"events": events}) };
+    let parts = first.themes.first().map(|(_, m)| m.parts.as_slice()).unwrap_or_default();
+    let root = parts.first();
+    let focus: Vec<Value> = parts
+        .iter()
+        .filter(|p| p["focusable"] == true)
+        .map(|p| json!({"role": p["role"], "name": p.get("name")}))
+        .collect();
+    json!({
+        "events": events,
+        "keys": first.keys,
+        "role": root.map(|p| p["role"].clone()),
+        "name": root.and_then(|p| p.get("name").cloned()),
+        "focus_order": focus,
+    })
+}
+
+/// One line per state for a person: on which control, and the tokens that change.
+fn interaction_lines(first: &MeasuredStory) -> Vec<String> {
+    first
+        .interactions
+        .iter()
+        .map(|r| {
+            if r.changes.is_empty() {
+                return format!("- **{}**: \"{}\" does not change.", r.state.name(), r.control);
+            }
+            let said: Vec<String> = r
+                .changes
+                .iter()
+                .take(4)
+                .map(|c| {
+                    if let Some(added) = c.get("added") {
+                        let look = added.get("border").map_or_else(
+                            || added.get("fill").cloned().unwrap_or(Value::Null).to_string(),
+                            |b| format!("border {} {}", b["width"], b["color"]),
+                        );
+                        format!(
+                            "adds a {} ({})",
+                            added["kind"].as_str().unwrap_or("shape"),
+                            look.replace('"', "")
+                        )
+                    } else if c.get("removed").is_some() {
+                        "takes a shape away".to_owned()
+                    } else {
+                        let to = c["to"].as_object().cloned().unwrap_or_default();
+                        to.iter()
+                            .map(|(k, v)| {
+                                format!(
+                                    "{k} {} → {}",
+                                    c["from"][k].to_string().replace('"', ""),
+                                    v.to_string().replace('"', "")
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    }
+                })
+                .collect();
+            format!("- **{}** on \"{}\": {}.", r.state.name(), r.control, said.join("; "))
+        })
+        .collect()
+}
+
+/// Every icon by the name the cards use, with its character in the `RavenIcons` font, so a
+/// design draws it as RavenRS does: `<span style="font-family: RavenIcons">&#xe204;</span>`.
+fn icon_table() -> String {
+    use ravenrs::prelude::IconName;
+    let mut t = String::from(
+        "\n## Every icon\n\nEach icon is one character of the `RavenIcons` font (in `fonts/`): write it as `&#x…;` in a span whose `font-family` is `RavenIcons`, sized like text.\n\n| Name | `IconName` | Character |\n|---|---|---|\n",
+    );
+    for icon in IconName::ALL {
+        let _ = writeln!(t, "| `{}` | `{icon:?}` | `&#x{:x};` |", icon.name(), u32::from(icon.glyph()));
+    }
+    t
 }
 
 fn rect_of(v: &Value) -> Option<[f64; 4]> {
@@ -141,7 +306,9 @@ fn named(value: f64, table: &[(f64, &'static str)]) -> Value {
 /// size, the rectangle drawn for it (corners, fill, border, shadow), its text and icon, and the
 /// space from its edge to its text. Parts that measure the same are listed once.
 pub fn anatomy(m: &Measured) -> Vec<Value> {
-    const PIECES: [&str; 18] = [
+    // The pieces a design draws: controls, and the surfaces and texts around them, so the panel
+    // of a dialog, its title and the label over a field have their corner, fill and font too.
+    const PIECES: [&str; 26] = [
         "Button",
         "Link",
         "CheckBox",
@@ -160,6 +327,14 @@ pub fn anatomy(m: &Measured) -> Vec<Value> {
         "ProgressIndicator",
         "Image",
         "Row",
+        "Dialog",
+        "Heading",
+        "Label",
+        "Navigation",
+        "Toolbar",
+        "Menu",
+        "ListBox",
+        "Tooltip",
     ];
     let mut rows: Vec<Value> = Vec::new();
     let mut seen: Vec<String> = Vec::new();
@@ -208,7 +383,10 @@ pub fn anatomy(m: &Measured) -> Vec<Value> {
                 }
             }
         }
-        let start = icon.and_then(|i| i["x"].as_f64()).or_else(|| text.and_then(|t| t["x"][0].as_f64()));
+        // The inner space is to whatever starts first: an icon before a label, or the title of
+        // a dialog before its close button.
+        let starts = [icon.and_then(|i| i["x"].as_f64()), text.and_then(|t| t["x"][0].as_f64())];
+        let start = starts.into_iter().flatten().reduce(f64::min);
         if let Some(x) = start {
             row.insert("padding_left".into(), named((x - bounds[0]).round(), &SPACES));
         }
@@ -269,6 +447,12 @@ fn css_color(v: &Value) -> String {
     if name.starts_with('#') {
         return name.to_owned();
     }
+    if let Some(inner) = name.strip_prefix("mix(").and_then(|m| m.strip_suffix(')')) {
+        let parts: Vec<&str> = inner.split(", ").collect();
+        if let [a, b, share] = parts.as_slice() {
+            return format!("color-mix(in srgb, var(--{a}) {share}%, var(--{b}))");
+        }
+    }
     match name.split_once('@') {
         Some((token, share)) => format!("color-mix(in srgb, var(--{token}) {share}%, transparent)"),
         None => format!("var(--{name})"),
@@ -289,6 +473,11 @@ pub fn svg(m: &Measured) -> String {
     let mut defs = String::new();
     let mut open = 0usize;
     let mut clip = 0usize;
+    // The ids of the clips are unique in a page with several pictures, and the same on every run:
+    // they start with a hash of what the picture draws.
+    let tag = m.paint.iter().fold(0xcbf2_9ce4_8422_2325_u64, |h, p| {
+        p.to_string().bytes().fold(h, |h, b| (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3))
+    }) % 0xff_ffff;
     for p in &m.paint {
         match p["kind"].as_str().unwrap_or_default() {
             "rect" => {
@@ -373,9 +562,9 @@ pub fn svg(m: &Measured) -> String {
                 clip += 1;
                 let _ = write!(
                     defs,
-                    "<clipPath id=\"c{clip}\"><rect x=\"{x}\" y=\"{y}\" width=\"{rw}\" height=\"{rh}\"/></clipPath>"
+                    "<clipPath id=\"c{tag:x}-{clip}\"><rect x=\"{x}\" y=\"{y}\" width=\"{rw}\" height=\"{rh}\"/></clipPath>"
                 );
-                let _ = write!(out, "<g clip-path=\"url(#c{clip})\">");
+                let _ = write!(out, "<g clip-path=\"url(#c{tag:x}-{clip})\">");
                 open += 1;
             }
             "unclip" if open > 0 => {
@@ -430,10 +619,15 @@ fn guide_with_index(entries: &[Entry]) -> String {
         "\n\n## Designing with this system\n\n\
          Every screen designed with this system must be buildable with RavenRS as it is. So:\n\n\
          - **Use only the components listed below**, by their names. Each one has a card with its settings, its stories and its anatomy: the sizes, corners, fills, borders, fonts and inner spaces RavenRS draws, measured from the library itself by RavenComponentBook. Draw them with those numbers.\n\
+         - **Keep the marks.** Each picture in a card carries `data-rcb=\"Component/Story\"`. Put the same attribute on the element that draws that component in a screen, with the story it starts from, the settings you changed in `data-rcb-args` as JSON (`data-rcb-args='{\"label\":\"Cancel\"}'`), and `data-rcb-screen=\"<name>\"` on the screen's root. RavenRS then checks the screen piece by piece (see *Checking a screen*).\n\
+         - **Size them as the card says.** Its *Sizing* tells whether a component fills the width of its parent or hugs its content, with the size it takes in parents of 320, 760 and 1200 pt. A field that fills its column stretches with it; a button that hugs its label keeps its width.\n\
          - **Change a component only through its settings** (the `argTypes` of its card). A variant, size or state that is not there does not exist.\n\
          - **Compose, do not invent.** A piece the screen needs that no component gives goes on a note called *Missing from the library* on the artboard, with what it should do. It joins the library before the screen is built.\n\
          - Colors are tokens (`var(--accent)`), never new colors; spacing follows the 4px grid (`space-*`); corners follow `radius-*`.\n\
          - Icons are RavenRS icons, by the names in the cards (`trash-2`, `search`); the `RavenIcons` font draws them.\n\n\
+         ## Checking a screen\n\n\
+         An artboard that keeps the marks can be checked against RavenRS. Run this script in it: it saves `<screen>.rcb.json` with every marked element, its settings and its box, and `raven-component-book --replay <file>` says which pieces RavenRS would not build at that size (1 pt of tolerance; a little more for the width of a label, which a browser lays out wider).\n\n\
+         ```js\n{script}\n```\n\n\
          ## Changing this system\n\n\
          RavenComponentBook writes every file of this system from the RavenRS code, and the design tool takes them as they are: nothing here is edited by hand. To change a component, change its stories (`ComponentBook`) or the component itself; to change a color, a size, a corner or a font, change the tokens of `ravenrs-style`. Then RavenComponentBook writes the system again.\n\n\
          ## Components\n\n\
@@ -450,10 +644,26 @@ fn guide_with_index(entries: &[Entry]) -> String {
         );
     }
     text.push_str(
-        "\nCharts take their series from `chart-1` to `chart-5`; alignment guides take `guide`.\n\n## ",
+        "\nCharts take their series from `chart-1` to `chart-5`; alignment guides take `guide`.\n\n\
+         ## Patterns\n\n\
+         Small screens made only of the components above, measured like them, under `patterns/`: start a screen from the one closest to it, and keep its spaces and what stretches.\n\n\
+         | Pattern | What it is |\n|---|---|\n",
     );
+    for p in crate::patterns::entries() {
+        let _ = writeln!(text, "| `{}` | {} |", p.name(), p.meta.summary.trim_end_matches('.'));
+    }
+    text.push_str(
+        "\n## Themes of the applications\n\n\
+         Applications made with RavenRS choose their own colors. A screen designed for one of them takes its theme: put `data-theme=\"<id>\"` on the screen's root, and every `var(--token)` follows it. Only the colors and shadows change; sizes, corners and type are the system's.\n\n\
+         | Theme | `data-theme` | Accent |\n|---|---|---|\n",
+    );
+    for (id, name, theme) in crate::tokens::themes().into_iter().skip(3) {
+        let accent = crate::tokens::hex(theme.color(ravenrs::prelude::Semantic::Accent));
+        let _ = writeln!(text, "| {name} | `{id}` | `{accent}` |");
+    }
+    text.push_str("\n## ");
     text.push_str(rest);
-    text.replace("`raven-style`", "`ravenrs-style`")
+    text.replace("`raven-style`", "`ravenrs-style`").replace("{script}", crate::replay::SCRIPT)
 }
 
 fn card_readme(entry: &Entry, stories: &[MeasuredStory]) -> String {
@@ -480,6 +690,61 @@ fn card_readme(entry: &Entry, stories: &[MeasuredStory]) -> String {
     for s in stories {
         let size = s.themes.first().map_or((0.0, 0.0), |(_, m)| m.size);
         let _ = writeln!(t, "- **{}**: {} × {} pt, settings `{}`", s.name, size.0, size.1, s.args);
+    }
+    if let Some(first) = stories.first() {
+        let _ = writeln!(t, "\n## Sizing\n\n{}", first.fit.sentence());
+        // A story that sizes another way is named with its own sentence.
+        let differs = |s: &&MeasuredStory| {
+            (s.fit.width, s.fit.reflows, s.fit.max_width)
+                != (first.fit.width, first.fit.reflows, first.fit.max_width)
+        };
+        let others: Vec<&MeasuredStory> = stories.iter().skip(1).filter(differs).collect();
+        if !others.is_empty() {
+            t.push('\n');
+            for s in others {
+                let _ = writeln!(t, "- **{}**: {}", s.name, s.fit.sentence());
+            }
+        }
+    }
+    if let Some(first) = stories.first().filter(|s| !s.interactions.is_empty()) {
+        let _ = writeln!(
+            t,
+            "\n## Interaction\n\nThe pointer over the first control, the focus brought to it with Tab and the button held down on it, measured in Raven Dark on the story {}:\n",
+            first.name
+        );
+        for line in interaction_lines(first) {
+            let _ = writeln!(t, "{line}");
+        }
+    }
+    let behavior = behavior_json(entry, stories);
+    let list = |v: &Value| {
+        v.as_array().map(|a| {
+            a.iter().filter_map(Value::as_str).map(|x| format!("`{x}`")).collect::<Vec<_>>().join(", ")
+        })
+    };
+    let mut lines = Vec::new();
+    if let Some(events) = list(&behavior["events"]).filter(|e| !e.is_empty()) {
+        lines.push(format!("- **Events**: {events}."));
+    }
+    if let Some(keys) = list(&behavior["keys"]).filter(|k| !k.is_empty()) {
+        lines.push(format!("- **Keys** its first control handles once focused: {keys}."));
+    }
+    if let Some(role) = behavior["role"].as_str() {
+        let name = behavior["name"].as_str().map(|n| format!(" \"{n}\"")).unwrap_or_default();
+        lines.push(format!("- **Accessibility**: role `{role}`{name}."));
+    }
+    if let Some(order) = behavior["focus_order"].as_array().filter(|o| !o.is_empty()) {
+        let said: Vec<String> = order
+            .iter()
+            .map(|p| match p["name"].as_str() {
+                Some(n) => format!("{} \"{n}\"", p["role"].as_str().unwrap_or_default()),
+                None => p["role"].as_str().unwrap_or_default().to_owned(),
+            })
+            .collect();
+        lines.push(format!("- **Focus order** (Tab): {}.", said.join(" → ")));
+    }
+    if !lines.is_empty() {
+        let _ = writeln!(t, "\n## Behavior\n\n{}", lines.join("\n"));
     }
     let rows = anatomy_of(stories);
     if !rows.is_empty() {
@@ -534,8 +799,71 @@ fn card_readme(entry: &Entry, stories: &[MeasuredStory]) -> String {
     if let Some(code) = &entry.code {
         let _ = write!(t, "\n## Example\n\n```rust\n{code}\n```\n");
     }
+    if entry.name() == "Icon" {
+        t.push_str(&icon_table());
+    }
     let _ = write!(t, "\nEvery number above is in `{}.json` beside this card.\n", entry.name());
     t
+}
+
+/// `svg` with every `color-mix` of two tokens written as the color it makes in Raven Dark: shorter,
+/// for a story too large for the design tool with the mixes named.
+fn flatten_mixes(svg: &str) -> String {
+    const START: &str = "color-mix(in srgb, var(--";
+    let theme = measure::themes()[0].1;
+    let color_of = |token: &str| {
+        measure::published_roles().into_iter().find(|r| r.token() == token).map(|r| theme.color(r))
+    };
+    let mut out = String::with_capacity(svg.len());
+    let mut rest = svg;
+    while let Some(at) = rest.find(START) {
+        out.push_str(&rest[..at]);
+        let tail = &rest[at + START.len()..];
+        // `accent) 18%, transparent)`: a token at a share of its opacity.
+        let faded = tail.find(")").and_then(|close| {
+            let (token, more) = (&tail[..close], &tail[close + 2..]);
+            let (share, after) = more.split_once("%, transparent)")?;
+            let c = color_of(token)?;
+            let alpha = c.a * share.parse::<f32>().ok()? / 100.0;
+            Some((measure::hex(ravenrs::prelude::Color::rgba(c.r, c.g, c.b, alpha)), after))
+        });
+        if let Some((color, after)) = faded {
+            out.push_str(&color);
+            rest = after;
+            continue;
+        }
+        let Some(end) = tail.find("))") else { break };
+        // `a) 25%, var(--b`
+        let inner = &tail[..end];
+        let parsed = inner.split_once(") ").and_then(|(a, more)| {
+            let (share, b) = more.split_once("%, var(--")?;
+            Some((a, share.parse::<f32>().ok()? / 100.0, b))
+        });
+        match parsed.and_then(|(a, t, b)| Some((color_of(a)?, t, color_of(b)?))) {
+            Some((ca, t, cb)) if !inner.contains("transparent") => {
+                let mix = |x: f32, y: f32| y + (x - y) * t;
+                out.push_str(&measure::hex(ravenrs::prelude::Color::rgba(
+                    mix(ca.r, cb.r),
+                    mix(ca.g, cb.g),
+                    mix(ca.b, cb.b),
+                    1.0,
+                )));
+                rest = &tail[end + 2..];
+            }
+            _ => {
+                out.push_str(START);
+                rest = tail;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+/// `svg` marked with the component and story it draws, `data-rcb="Button/Primary"`: a design
+/// keeps the mark on what it draws from it, so the screen can be built back from the design.
+fn marked(svg: &str, component: &str, story: &str) -> String {
+    svg.replacen("<svg ", &format!("<svg data-rcb=\"{}/{}\" ", escape(component), escape(story)), 1)
 }
 
 fn preview(entry: &Entry, stories: &[MeasuredStory]) -> String {
@@ -551,6 +879,7 @@ fn preview(entry: &Entry, stories: &[MeasuredStory]) -> String {
         "<style>\n@font-face { font-family: RavenIcons; src: url(../../fonts/RavenIcons.ttf); }\n\
          body { margin: 0; background: var(--bg-000); }\n\
          .book { display: flex; flex-direction: column; gap: 20px; padding: 16px; font-family: var(--font-sans); }\n\
+         .widths { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }\n\
          .more { margin: 0; font: 400 13px/18px var(--font-sans); color: var(--ink-muted); }\n\
          .story h3 { margin: 0 0 8px; font: 600 12px/16px var(--font-sans); letter-spacing: .4px; text-transform: uppercase; color: var(--ink-muted); }\n\
          </style>\n<div class=\"book\">\n",
@@ -560,10 +889,46 @@ fn preview(entry: &Entry, stories: &[MeasuredStory]) -> String {
     let mut left_out = Vec::new();
     for (i, s) in stories.iter().enumerate() {
         if let Some((_, m)) = s.themes.first() {
-            let section =
-                format!("<section class=\"story\"><h3>{}</h3>{}</section>\n", escape(s.name), svg(m));
+            let mut section = format!(
+                "<section class=\"story\"><h3>{}</h3>{}</section>\n",
+                escape(s.name),
+                marked(&svg(m), entry.name(), s.name)
+            );
+            if i == 0 {
+                // The reference beside the narrowest parent, so the design sees how it sizes,
+                // when both fit in what the design tool reads.
+                let beside = format!(
+                    "<div class=\"widths\">{}<section class=\"story\"><h3>{} · {} pt parent</h3>{}</section></div>\n",
+                    section.trim_end(),
+                    escape(s.name),
+                    measure::WIDTHS[0],
+                    marked(&svg(&s.narrow), entry.name(), s.name)
+                );
+                if t.len() + beside.len() <= PREVIEW_BUDGET {
+                    section = beside;
+                }
+            }
+            if i == 0 && t.len() + section.len() > PREVIEW_BUDGET {
+                section = flatten_mixes(&section);
+            }
             if i > 0 && t.len() + section.len() > PREVIEW_BUDGET {
                 left_out.push(escape(s.name));
+                continue;
+            }
+            t.push_str(&section);
+        }
+    }
+    // The states the first control reacts to, while they fit.
+    if let Some(first) = stories.first() {
+        for r in first.interactions.iter().filter(|r| !r.changes.is_empty()) {
+            let section = format!(
+                "<section class=\"story\"><h3>{} · {}</h3>{}</section>\n",
+                escape(first.name),
+                r.state.name(),
+                marked(&svg(&r.measured), entry.name(), &format!("{} · {}", first.name, r.state.name()))
+            );
+            if t.len() + section.len() > PREVIEW_BUDGET {
+                left_out.push(format!("{} · {}", escape(first.name), r.state.name()));
                 continue;
             }
             t.push_str(&section);
@@ -765,6 +1130,18 @@ pub fn write_claude_design(dir: &Path, sha: &str) -> std::io::Result<Vec<String>
         put(
             &format!("{folder}/{}.json", entry.name()),
             serde_json::to_string(&component_json(entry, &stories))?.as_bytes(),
+        )?;
+    }
+    // The patterns: small screens made of components, measured and exported the same way.
+    for pattern in crate::patterns::entries() {
+        let stories = measure_entry(&pattern);
+        let folder = format!("project/patterns/{}", pattern.name());
+        std::fs::create_dir_all(dir.join(&folder))?;
+        put(&format!("{folder}/README.md"), card_readme(&pattern, &stories).as_bytes())?;
+        put(&format!("{folder}/preview.html"), preview(&pattern, &stories).as_bytes())?;
+        put(
+            &format!("{folder}/{}.json", pattern.name()),
+            serde_json::to_string(&component_json(&pattern, &stories))?.as_bytes(),
         )?;
     }
     // The index last, as the design tool asks; then the list of everything, for the publisher.

@@ -1,0 +1,19 @@
+{
+  "base": "Raven Glass",
+  "color": {
+    "accent": "#b2ea3c",
+    "accent-hover": "#c3f25c",
+    "accent-pressed": "#9ad42a",
+    "bg-000": "#2c2f33",
+    "danger": "#ff9c92",
+    "focus-ring": "#d4f57f",
+    "ink": "#f6f8f2",
+    "ink-muted": "#c9cfcc",
+    "on-accent": "#1c2b06",
+    "success": "#5ee08f",
+    "warning": "#ffc94d"
+  },
+  "name": "Raven Finanças Vidro",
+  "radius": {},
+  "type": {}
+}

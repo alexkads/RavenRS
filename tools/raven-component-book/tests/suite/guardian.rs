@@ -32,9 +32,12 @@ fn the_tokens_in_the_docs_are_the_ones_ravenrs_style_draws_with() {
             };
             let (a, b) = (&t["value"], &doc["value"]);
             let same = match (a, b) {
-                (Value::Object(x), Value::Object(y)) => {
-                    x.iter().all(|(k, v)| y.get(k).is_some_and(|w| plain(v) == plain(w)))
-                }
+                // The themes of the applications are theirs, not ravenrs-style's: the docs speak
+                // only of the three of RavenRS.
+                (Value::Object(x), Value::Object(y)) => x
+                    .iter()
+                    .filter(|(k, _)| !tokens::APP_THEMES.iter().any(|(id, _)| id == k))
+                    .all(|(k, v)| y.get(k).is_some_and(|w| plain(v) == plain(w))),
                 _ => plain(a) == plain(b),
             };
             if !same {

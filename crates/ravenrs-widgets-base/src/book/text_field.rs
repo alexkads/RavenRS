@@ -64,7 +64,7 @@ impl ComponentBook for TextField {
                 Args::new()
                     .with("value", "49,90")
                     .with("size", ArgValue::choice("Small"))
-                    .with("prefix", "R$")
+                    .with("prefix", "$")
                     .with("suffix", "per month"),
             )
             .story(
@@ -72,5 +72,8 @@ impl ComponentBook for TextField {
                 Args::new().with("value", "secret").with("secure", true).with("placeholder", "Password"),
             )
             .story("Disabled", Args::new().with("value", "Ana Lima").with("disabled", true))
+            .story("Read only", Args::new().with("value", "Ana Lima").with("read_only", true))
+            .story("Mini", Args::new().with("size", ArgValue::choice("Mini")))
+            .story("Large", Args::new().with("size", ArgValue::choice("Large")))
     }
 }

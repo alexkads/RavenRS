@@ -55,6 +55,7 @@ impl ComponentBook for Checkbox {
             .story("Checked", Args::new())
             .story("Unchecked", Args::new().with("checked", false).with("label", "Send me product news"))
             .story("Disabled", Args::new().with("disabled", true))
+            .story("Read only", Args::new().with("read_only", true))
     }
 }
 
@@ -70,6 +71,8 @@ impl ComponentBook for Toggle {
             .story("On", Args::new())
             .story("Off", Args::new().with("on", false).with("label", "Email digest"))
             .story("Small", Args::new().with("small", true))
+            .story("Disabled", Args::new().with("disabled", true))
+            .story("Read only", Args::new().with("read_only", true))
     }
 }
 
