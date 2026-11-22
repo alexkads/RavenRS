@@ -10,10 +10,20 @@ publish = false
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+# How Raven Test Studio (RTS) finds and opens this app on the test channel (--e2e-serve).
+[package.metadata.ravenrs.e2e]
+app = "Minhas tarefas"
+binary = "tutorial-tasks"
+
 [dependencies]
 ravenrs.workspace = true
 ravenrs-app.workspace = true
 ravenrs-app-ui.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# The test channel, closed until the app is opened with --e2e-serve.
+ravenrs-e2e.workspace = true
+ravenrs-e2e-wire = { workspace = true, features = ["serve"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen.workspace = true
@@ -25,6 +35,8 @@ web-sys = { workspace = true, features = ["console"] }
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 pollster.workspace = true
 image.workspace = true
+
+[dev-dependencies]
 
 [lints]
 workspace = true

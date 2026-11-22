@@ -359,7 +359,9 @@ impl View for YearView {
                 let date = first.add_days(i32::from(day) - 1);
                 let view = YearDay { date, view: self, active: date == active, keys: &keys };
                 // A day before 1970 counts below zero: the key only has to differ from the others.
-                cells.push(cx.keyed_child((date.to_days() as u64).wrapping_add(1 << 32), &view));
+                let cell = cx.keyed_child((date.to_days() as u64).wrapping_add(1 << 32), &view);
+                cx.test_id(cell, &format!("day:{date}"));
+                cells.push(cell);
             }
             let grid = cx.container(
                 LayoutStyle { grid_columns: Some(7), spacing: DAY_GAP, ..LayoutStyle::stack(Axis::Vertical) },

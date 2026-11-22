@@ -3906,6 +3906,8 @@ impl View for DataGrid {
                 .name(cx.labels().grid_name.clone())
                 .description(format!("{total} {}", cx.labels().grid_rows)),
         );
+        // Busy while rows are on their way from the server (`DataGrid::remote`).
+        cx.busy(body, self.remote.as_ref().is_some_and(RemoteRows::is_loading));
         cx.focusable(body, 0.0);
         let clipboard = cx.clipboard();
         let keys = if self.remote.is_some() {

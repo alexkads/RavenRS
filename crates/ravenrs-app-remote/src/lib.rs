@@ -14,6 +14,7 @@
 //! here is a permission, and being taken apart gives nobody anything more.
 
 mod gate;
+mod live;
 mod transport;
 
 use std::cell::{Cell, RefCell};
@@ -21,6 +22,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 pub use gate::RemoteApp;
+pub use live::{LiveEvent, LiveFeed, LiveState, SseParser};
 use ravenrs_app::{
     Change, EntityInfo, FieldInfo, FieldKind, MemoryDatabase, MemoryObjectSpace, ModelError, Object,
     ObjectSpace, Query, SettingScope, SettingsStore, SpaceError, SpaceWatcher, Value, object_from_json,
@@ -105,6 +107,14 @@ impl RemoteClient {
     /// A client of the server at this address, over HTTP.
     pub fn http(base: impl Into<String>) -> Self {
         Self::new(base, HttpTransport)
+    }
+
+    fn base(&self) -> &str {
+        &self.0.base
+    }
+
+    fn token(&self) -> Option<String> {
+        self.0.token.borrow().clone()
     }
 
     fn ask(&self, method: &str, path: &str, body: Option<&Json>, done: impl FnOnce(Answered) + 'static) {
