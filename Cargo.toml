@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "examples/*", "tools/*"]
+members = ["crates/*", "examples/*", "tools/*", "tools/*/crates/*"]
 # Applications of their own, opened and built apart: they prove a package works outside this workspace.
 exclude = ["examples/contracts"]
 
