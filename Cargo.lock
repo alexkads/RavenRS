@@ -6009,6 +6009,7 @@ dependencies = [
  "raven-ci-core",
  "raven-ci-plugin-api",
  "raven-ci-plugin-api-trigger",
+ "raven-ci-plugin-azure-devops",
  "raven-ci-plugin-credentials",
  "raven-ci-plugin-cron",
  "raven-ci-plugin-format-toml",
@@ -6066,6 +6067,22 @@ dependencies = [
  "ravenrs-app",
  "ravenrs-app-server",
  "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-azure-devops"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-credentials",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-git",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-git",
+ "serde_json",
+ "ureq",
 ]
 
 [[package]]
@@ -6760,6 +6777,7 @@ version = "27.1.28"
 dependencies = [
  "ravenrs-e2e",
  "ravenrs-e2e-wire",
+ "ravenrs-junit",
  "ravenrs-process",
  "ravenrs-style",
  "ravenrs-widgets",
@@ -6859,6 +6877,15 @@ dependencies = [
  "ravenrs-report-export",
  "ravenrs-style",
  "ravenrs-widgets",
+ "serde_json",
+]
+
+[[package]]
+name = "ravenrs-junit"
+version = "27.1.28"
+dependencies = [
+ "quick-xml",
+ "serde",
  "serde_json",
 ]
 

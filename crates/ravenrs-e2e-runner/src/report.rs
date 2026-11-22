@@ -341,65 +341,46 @@ impl Report {
     /// `type`, and the fix and the screen of the app in its text; the blocks after it are
     /// `skipped`.
     pub fn junit(reports: &[Report]) -> String {
-        let mut out = String::from("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-        let tests: usize = reports.iter().map(|r| r.outcomes.len() + r.not_run.len()).sum();
-        let failures = reports.iter().filter(|r| r.failure().is_some()).count();
-        let skipped: usize = reports.iter().map(|r| r.not_run.len()).sum();
-        let seconds: u64 = reports.iter().map(|r| r.duration_ms).sum();
-        out.push_str(&format!(
-            "<testsuites name=\"ravenrs-e2e\" tests=\"{tests}\" failures=\"{failures}\" skipped=\"{skipped}\" time=\"{}\">\n",
-            secs(seconds)
-        ));
+        use ravenrs_junit::{Case, Outcome, Problem, Suite, Suites};
+        let mut suites = Suites::named("ravenrs-e2e");
         for report in reports {
-            let suite = xml(&report.scenario);
-            out.push_str(&format!(
-                "  <testsuite name=\"{suite}\" tests=\"{}\" failures=\"{}\" skipped=\"{}\" time=\"{}\">\n",
-                report.outcomes.len() + report.not_run.len(),
-                usize::from(report.failure().is_some()),
-                report.not_run.len(),
-                secs(report.duration_ms)
-            ));
+            let mut suite = Suite::new(report.scenario.clone()).time_ms(report.duration_ms);
             for (i, o) in report.outcomes.iter().enumerate() {
-                let name = xml(&format!("{} {}: {}", i + 1, o.title, o.line));
-                let open =
-                    format!("    <testcase classname=\"{suite}\" name=\"{name}\" time=\"{}\"", secs(o.ms));
-                match &o.error {
-                    None => out.push_str(&format!("{open}/>\n")),
+                let case = Case::new(report.scenario.clone(), format!("{} {}: {}", i + 1, o.title, o.line))
+                    .time_ms(o.ms);
+                suite = suite.case(match &o.error {
+                    None => case,
                     Some(error) => {
-                        let mut body = error.clone();
+                        let mut text = error.clone();
                         if let Some(fix) = &o.fix {
-                            body.push_str(&format!("\ncomo corrigir: {fix}"));
+                            text.push_str(&format!("\ncomo corrigir: {fix}"));
                         }
                         if let Some(screen) = &o.screen {
-                            body.push_str(&format!("\ntela do app testado:\n{screen}"));
+                            text.push_str(&format!("\ntela do app testado:\n{screen}"));
                         }
-                        out.push_str(&format!(
-                            "{open}>\n      <failure type=\"{}\" message=\"{}\">{}</failure>\n    </testcase>\n",
-                            xml(o.code.as_deref().unwrap_or("E2E_FAILED")),
-                            xml(error),
-                            xml(&body)
-                        ));
+                        case.outcome(Outcome::Failure(Problem {
+                            kind: Some(o.code.clone().unwrap_or_else(|| "E2E_FAILED".to_owned())),
+                            message: Some(error.clone()),
+                            text,
+                        }))
                     }
-                }
+                });
             }
             for (i, title) in report.not_run.iter().enumerate() {
-                let name = xml(&format!("{} {title}", report.outcomes.len() + i + 1));
-                out.push_str(&format!(
-                    "    <testcase classname=\"{suite}\" name=\"{name}\" time=\"0\">\n      <skipped message=\"um passo antes falhou\"/>\n    </testcase>\n"
-                ));
+                // Not measured: written with time 0.
+                suite = suite.case(
+                    Case::new(report.scenario.clone(), format!("{} {title}", report.outcomes.len() + i + 1))
+                        .outcome(Outcome::skipped("um passo antes falhou")),
+                );
             }
             // A build server shows the film next to the suite, as JUnit's attachments say.
             if !report.films.is_empty() {
-                out.push_str("    <system-out>");
-                for film in &report.films {
-                    out.push_str(&xml(&format!("[[ATTACHMENT|{film}]]\n")));
-                }
-                out.push_str("</system-out>\n");
+                suite = suite
+                    .system_out(report.films.iter().map(|film| format!("[[ATTACHMENT|{film}]]\n")).collect::<String>());
             }
-            out.push_str("  </testsuite>\n");
+            suites = suites.suite(suite);
         }
-        out.push_str("</testsuites>\n");
-        out
+        suites.to_xml()
     }
 
     /// Keeps the run in `folder`, under a folder named after the scenario: `relatorio.json`,
@@ -436,29 +417,6 @@ pub fn folder_name(scenario: &str) -> String {
     }
     let name = name.trim_matches('-');
     if name.is_empty() { "cenario".to_owned() } else { name.to_owned() }
-}
-
-/// Text that goes inside an XML attribute or element.
-fn xml(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    for c in text.chars() {
-        match c {
-            '&' => out.push_str("&amp;"),
-            '<' => out.push_str("&lt;"),
-            '>' => out.push_str("&gt;"),
-            '"' => out.push_str("&quot;"),
-            '\'' => out.push_str("&apos;"),
-            // Control characters other than tab and line breaks are not allowed in XML 1.0.
-            c if c.is_control() && !matches!(c, '\t' | '\n' | '\r') => {}
-            c => out.push(c),
-        }
-    }
-    out
-}
-
-/// Milliseconds as the seconds JUnit writes.
-fn secs(ms: u64) -> String {
-    format!("{}.{:03}", ms / 1000, ms % 1000)
 }
 
 /// Keeps each report in `out`, when given, and gives them all in `format` (one of [`FORMATS`];
