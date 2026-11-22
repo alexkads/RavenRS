@@ -3,4 +3,6 @@
 
 mod common;
 mod launch;
+mod remote;
+mod resume;
 mod run;

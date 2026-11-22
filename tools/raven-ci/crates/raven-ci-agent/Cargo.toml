@@ -12,6 +12,11 @@ publish = false
 name = "raven-ci-agent"
 path = "src/main.rs"
 
+# An `ssh` for the tests of agent-remote: runs the other machine's command line on this one.
+[[bin]]
+name = "raven-ci-ssh-falso"
+path = "src/bin/raven-ci-ssh-falso.rs"
+
 [dependencies]
 raven-ci-core = { path = "../raven-ci-core" }
 raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
@@ -39,6 +44,7 @@ path = "tests/suite/main.rs"
 
 [dev-dependencies]
 raven-ci-plugin-agent-local = { path = "../raven-ci-plugin-agent-local" }
+raven-ci-plugin-agent-remote = { path = "../raven-ci-plugin-agent-remote" }
 raven-ci-plugin-format-toml = { path = "../raven-ci-plugin-format-toml" }
 ravenrs-app-server.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "net"] }

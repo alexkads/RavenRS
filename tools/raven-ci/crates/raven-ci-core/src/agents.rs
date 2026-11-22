@@ -182,6 +182,10 @@ pub struct Hello {
     /// The runs of the builds it runs now.
     #[serde(default)]
     pub running: Vec<String>,
+    /// The runs of builds whose folders it still has from a life before, and does not run: the
+    /// server says which of them to forget (they ended without it) and gives back the rest.
+    #[serde(default)]
+    pub left: Vec<String>,
     /// The memory it holds with what it runs, in bytes, when it can tell.
     #[serde(default)]
     pub memory_bytes: Option<u64>,
@@ -687,6 +691,15 @@ impl Ci {
                 }
             }
         }
+        for run in &hello.left {
+            let record = runtime.get(run).ok();
+            let ours = record.as_ref().is_some_and(|r| {
+                r.status == RunStatus::Running && r.worker.as_deref() == Some(worker.as_str())
+            });
+            if !ours {
+                answer.forget.push(run.clone());
+            }
+        }
         Ok(answer)
     }
 
@@ -1017,26 +1030,31 @@ impl Ci {
         let runtime = self.runtime();
         let now = self.store.now_ms();
         let grace = i64::try_from(self.agents.grace_ms.load(Ordering::SeqCst)).unwrap_or(i64::MAX);
+        // The builds each agent holds: renewed while it is within its grace, interrupted past it.
+        for name in self.agent_names()? {
+            let worker = worker_of(&name);
+            let held = runtime.held_by(&worker).map_err(runtime_error)?;
+            if held.is_empty() {
+                continue;
+            }
+            let last = self.agents.state().seen.get(&name).map_or(self.agents.base_ms, |seen| seen.at_ms);
+            for run in held {
+                if now - last <= grace {
+                    runtime.renew(&run, &worker).map_err(runtime_error)?;
+                } else {
+                    self.interrupt(&runtime, &run, &name, now - last)?;
+                }
+            }
+        }
         let mut waiting: Vec<BuildRow> = Vec::new();
         for run in runtime.due().map_err(runtime_error)? {
             let record = runtime.get(&run).map_err(runtime_error)?;
-            let held =
-                record.worker.as_deref().and_then(|w| w.strip_prefix(WORKER_PREFIX)).map(str::to_owned);
-            match (record.status, held) {
-                (RunStatus::Running, Some(name)) => {
-                    let last =
-                        self.agents.state().seen.get(&name).map_or(self.agents.base_ms, |seen| seen.at_ms);
-                    if now - last <= grace {
-                        runtime.renew(&run, &worker_of(&name)).map_err(runtime_error)?;
-                    } else {
-                        self.interrupt(&runtime, &run, &name, now - last)?;
-                    }
-                }
-                _ => {
-                    if let Some(row) = model::build_by_run(&self.db(), &run)? {
-                        waiting.push(row);
-                    }
-                }
+            let by_agent = record.worker.as_deref().is_some_and(|w| w.starts_with(WORKER_PREFIX));
+            if record.status == RunStatus::Running && by_agent {
+                continue;
+            }
+            if let Some(row) = model::build_by_run(&self.db(), &run)? {
+                waiting.push(row);
             }
         }
         self.dispatch(&waiting, now)?;
@@ -1364,6 +1382,11 @@ impl ChildAgent {
             })
             .map_err(|e| CiError::failed(e.to_string()))?;
         Ok(Self { name: name.to_owned(), control, alive, at_stop: Mutex::default() })
+    }
+
+    /// Writes `line` to its input, when it was started with one: a token it reads there.
+    pub fn send(&self, line: &str) -> bool {
+        self.control.send(line)
     }
 
     /// Runs `undo` once it stops: a key file removed, say.

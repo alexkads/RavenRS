@@ -36,6 +36,21 @@ pub struct Server {
     runtime: Option<tokio::runtime::Runtime>,
     watch: Option<AgentWatch>,
     executors: Option<Executors>,
+    serving: Option<tokio::task::JoinHandle<std::io::Result<()>>>,
+    address: std::net::SocketAddr,
+    channels: LiveChannels,
+}
+
+/// The HTTP of `ci`, whose data is in `dir`, on `listener`.
+fn serve(
+    ci: Arc<Ci>,
+    dir: &Path,
+    channels: LiveChannels,
+    listener: tokio::net::TcpListener,
+) -> impl std::future::Future<Output = std::io::Result<()>> + Send + 'static {
+    let options = ApiOptions::new().workers(2).open(api::OPEN_PREFIX).open(agents::JOIN_PATH).live(channels);
+    let users = api::users_file(dir);
+    ravenrs_app_server::serve_with(listener, options, move || api::service(ci.clone(), &users))
 }
 
 impl Server {
@@ -64,17 +79,28 @@ impl Server {
             .build()
             .expect("a runtime");
         let listener = runtime.block_on(tokio::net::TcpListener::bind("127.0.0.1:0")).expect("a port");
-        let url = format!("http://{}", listener.local_addr().expect("an address"));
+        let address = listener.local_addr().expect("an address");
+        let url = format!("http://{address}");
         ci.set_agent_server(&url);
-        let options =
-            ApiOptions::new().workers(2).open(api::OPEN_PREFIX).open(agents::JOIN_PATH).live(channels);
-        let (made, users) = (ci.clone(), api::users_file(&dir.0));
-        runtime.spawn(ravenrs_app_server::serve_with(listener, options, move || {
-            api::service(made.clone(), &users)
-        }));
+        let serving = Some(runtime.spawn(serve(ci.clone(), &dir.0, channels.clone(), listener)));
         let watch = Some(ci.watch_agents(Duration::from_millis(100)));
         let executors = Some(Executors::start(ci.clone(), executors, Duration::from_millis(50)));
-        Self { ci, url, _dir: dir, runtime: Some(runtime), watch, executors }
+        Self { ci, url, _dir: dir, runtime: Some(runtime), watch, executors, serving, address, channels }
+    }
+
+    /// Stops answering HTTP for `pause`, as a network that fell, and answers again on the same port.
+    #[allow(dead_code, reason = "only some tests stop it")]
+    pub fn pause(&mut self, pause: Duration) {
+        let Some(runtime) = &self.runtime else { return };
+        if let Some(serving) = self.serving.take() {
+            serving.abort();
+            let _ = runtime.block_on(serving);
+        }
+        std::thread::sleep(pause);
+        let listener =
+            runtime.block_on(tokio::net::TcpListener::bind(self.address)).expect("the same port again");
+        self.serving =
+            Some(runtime.spawn(serve(self.ci.clone(), &self._dir.0, self.channels.clone(), listener)));
     }
 
     /// Keeps a job whose `.raven-ci.toml` is `pipeline`.
@@ -169,7 +195,6 @@ impl Agent {
         self.running.as_ref().expect("running").control().pid()
     }
 
-    #[allow(dead_code, reason = "for the tests of A-03")]
     /// Kills it at once, as a machine that fell: with `KILL`, nothing it can do about it.
     pub fn kill(&mut self) {
         if let Some(running) = self.running.take() {
@@ -188,19 +213,16 @@ impl Drop for Agent {
 }
 
 #[cfg(unix)]
-#[allow(dead_code, reason = "for the tests of A-03")]
 fn kill_now(pid: u32) {
     let _ = std::process::Command::new("kill").args(["-KILL", &pid.to_string()]).status();
 }
 
 #[cfg(windows)]
-#[allow(dead_code, reason = "for the tests of A-03")]
 fn kill_now(pid: u32) {
     let _ = std::process::Command::new("taskkill").args(["/PID", &pid.to_string(), "/F"]).status();
 }
 
 /// A step that waits `seconds`, on every system.
-#[allow(dead_code, reason = "for the tests of A-03")]
 pub fn sleep_step(seconds: u32) -> String {
     if cfg!(windows) {
         format!("ping -n {} 127.0.0.1 > NUL", seconds + 1)

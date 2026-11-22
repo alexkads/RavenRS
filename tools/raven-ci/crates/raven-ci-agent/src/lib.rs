@@ -91,7 +91,7 @@ fn value<'a>(args: &'a [String], flag: &str) -> Result<Option<&'a str>, String> 
 
 impl Config {
     /// What `args` say, with the token from `token` when they do not give one:
-    /// `--servidor URL --nome NOME [--token T] [--pasta DIR] [--rotulos a,b] [--executores N]`
+    /// `--servidor URL --nome NOME [--token T | --token -] [--pasta DIR] [--rotulos a,b] [--executores N]`
     /// and the limits of [`Limits::from_args`].
     pub fn from_args(args: &[String], token: Option<String>) -> Result<Self, String> {
         let server = value(args, "--servidor")?.ok_or("falta --servidor URL")?.to_owned();
@@ -106,7 +106,18 @@ impl Config {
             None => 1,
         };
         let executors = limits.executors(executors.max(1));
-        let token = value(args, "--token")?.map(str::to_owned).or(token).filter(|t| !t.is_empty());
+        let token = match value(args, "--token")? {
+            // From the first line of the input: what a launcher through SSH sends, so the token
+            // shows in no list of processes on either machine.
+            Some("-") => {
+                let mut line = String::new();
+                std::io::stdin().read_line(&mut line).map_err(|e| format!("o token na entrada: {e}"))?;
+                Some(line.trim().to_owned())
+            }
+            Some(given) => Some(given.to_owned()),
+            None => token,
+        };
+        let token = token.filter(|t| !t.is_empty());
         Ok(Self { server, name, token, dir, labels, executors, limits })
     }
 }
@@ -142,6 +153,8 @@ struct Agent {
     ci: Arc<Ci>,
     plugins: Plugins,
     running: Mutex<HashMap<String, Arc<AgentSite>>>,
+    /// The folders of builds a life before left, by run: given back or forgotten.
+    left: Mutex<HashMap<String, PathBuf>>,
     doorbell: Arc<Doorbell>,
     stopping: Arc<AtomicBool>,
 }
@@ -182,6 +195,7 @@ impl Agent {
             executors: self.config.executors,
             free: self.config.executors.saturating_sub(busy),
             running,
+            left: self.left.lock().unwrap_or_else(PoisonError::into_inner).keys().cloned().collect(),
             memory_bytes: limits::memory_now(),
             limits: self.config.limits.report(&self.config.dir),
             version: env!("CARGO_PKG_VERSION").to_owned(),
@@ -235,6 +249,15 @@ impl Agent {
                     if let Some(site) = running.get(&run) {
                         site.forget("o servidor terminou o build sem este agente");
                     }
+                    let left = self.left.lock().unwrap_or_else(PoisonError::into_inner).remove(&run);
+                    if let Some(workspace) = left {
+                        let _ = std::fs::remove_dir_all(&workspace);
+                        let _ = std::fs::remove_file(workspace.with_extension("estado"));
+                        say(
+                            &self.config.name,
+                            &format!("{}: esquecido, a pasta foi apagada", workspace.display()),
+                        );
+                    }
                 }
                 Ok(())
             }
@@ -282,6 +305,7 @@ impl Agent {
 
     fn run_task(self: &Arc<Self>, task: Task) {
         let run = task.lease.id.clone();
+        self.left.lock().unwrap_or_else(PoisonError::into_inner).remove(&run);
         let token = CancelToken::new();
         let environment = self.config.limits.environment();
         let site = Arc::new(AgentSite::new(
@@ -349,12 +373,14 @@ pub fn run(config: Config, stopping: Arc<AtomicBool>) -> Result<(), String> {
     ci.apply_plugins().map_err(|e| e.to_string())?;
     let plugins = Plugins::new(ci.clone()).map_err(|e| e.to_string())?;
     let limits = config.limits.apply(&config.name);
+    let ci_workspaces = config.dir.join("dados").join(raven_ci_core::WORKSPACES_DIR);
     let agent = Arc::new(Agent {
         config,
         link,
         ci,
         plugins,
         running: Mutex::default(),
+        left: Mutex::new(left_behind(&ci_workspaces)),
         doorbell: Arc::new(Doorbell::default()),
         stopping: stopping.clone(),
     });
@@ -395,6 +421,29 @@ pub fn run(config: Config, stopping: Arc<AtomicBool>) -> Result<(), String> {
         let _ = thread.join();
     }
     Ok(())
+}
+
+/// The builds whose folders a life before left in `root`, by run: the notes beside the folders
+/// (`<number>.estado`) say the run.
+fn left_behind(root: &Path) -> HashMap<String, PathBuf> {
+    fn walk(folder: &Path, found: &mut HashMap<String, PathBuf>) {
+        let Ok(entries) = std::fs::read_dir(folder) else { return };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path, found);
+            } else if path.extension().is_some_and(|e| e == "estado")
+                && let Ok(text) = std::fs::read_to_string(&path)
+                && let Ok(note) = serde_json::from_str::<serde_json::Value>(&text)
+                && let Some(run) = note.get("run").and_then(serde_json::Value::as_str)
+            {
+                found.insert(run.to_owned(), path.with_extension(""));
+            }
+        }
+    }
+    let mut found = HashMap::new();
+    walk(root, &mut found);
+    found
 }
 
 /// Hears the doorbell of the server's live channel until the agent stops.

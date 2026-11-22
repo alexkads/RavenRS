@@ -38,7 +38,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use raven_ci_plugin_api::{BuildScope, CiError, CiPlugin, Host, Permission};
 use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, Module, ModuleManifest};
-use ravenrs_flows::{Catalog, NodeContext, NodeError, NodeKind, NodeSpec, Ports};
+use ravenrs_flows::{Catalog, NodeContext, NodeError, NodeKind, NodeSpec, Ports, Reconciled};
 use serde_json::Value;
 
 /// The kind of the step that takes a lock.
@@ -168,6 +168,12 @@ struct Lock(Arc<State>);
 impl NodeKind for Lock {
     fn spec(&self) -> NodeSpec {
         NodeSpec::new(LOCK, 1).title("Trava").input("main").output("main").requires("name")
+    }
+
+    /// A lock taken by a worker that died is free again (the system lets go of a dead process's
+    /// `flock`), so taking it again is right.
+    fn reconcile(&self, _: &NodeContext<'_>) -> Reconciled {
+        Reconciled::NotDone
     }
 
     fn execute(&self, cx: &NodeContext<'_>) -> Result<Ports, NodeError> {

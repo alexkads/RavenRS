@@ -6008,6 +6008,7 @@ version = "0.1.0"
 dependencies = [
  "raven-ci-core",
  "raven-ci-plugin-agent-local",
+ "raven-ci-plugin-agent-remote",
  "raven-ci-plugin-api",
  "raven-ci-plugin-api-trigger",
  "raven-ci-plugin-credentials",
@@ -6033,6 +6034,7 @@ version = "0.1.0"
 dependencies = [
  "raven-ci-core",
  "raven-ci-plugin-agent-local",
+ "raven-ci-plugin-agent-remote",
  "raven-ci-plugin-api",
  "raven-ci-plugin-format-toml",
  "raven-ci-plugin-git",
@@ -6075,6 +6077,17 @@ dependencies = [
 
 [[package]]
 name = "raven-ci-plugin-agent-local"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-process",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-agent-remote"
 version = "0.1.0"
 dependencies = [
  "raven-ci-core",
