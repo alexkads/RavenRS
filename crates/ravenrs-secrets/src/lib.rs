@@ -15,14 +15,16 @@
 //! * [`Redactor`] and [`redact`] keep values out of what gets written down: every value a vault
 //!   hands out is taken out of the text it is given, the same way everywhere.
 
+mod error;
 mod key;
 mod redact;
 mod storage;
 mod vault;
 
+pub use error::{Access, SecretError};
 #[cfg(feature = "system-keyring")]
 pub use key::SystemKeyring;
 pub use key::{FixedKey, KEY_LEN, KeyFile, KeyFromEnv, KeySource};
 pub use redact::{MARK, Redactor, redact};
 pub use storage::{FileStorage, MemoryStorage, Sealed, SecretStorage};
-pub use vault::{Access, SecretError, SecretInfo, SecretRef, Vault};
+pub use vault::{SecretInfo, SecretRef, Vault};

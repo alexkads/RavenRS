@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use chacha20poly1305::aead::{OsRng, rand_core::RngCore};
 use zeroize::Zeroizing;
 
-use crate::vault::SecretError;
+use crate::error::SecretError;
 
 /// The length of a key, in bytes.
 pub const KEY_LEN: usize = 32;

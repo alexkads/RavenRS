@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use serde::{Deserialize, Serialize};
 
-use crate::vault::{Access, SecretError};
+use crate::error::{Access, SecretError};
 
 /// One secret as it is kept.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
