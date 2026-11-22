@@ -43,6 +43,7 @@ mod lifecycle;
 mod model;
 pub mod multibranch;
 pub mod panel;
+pub mod people;
 mod registry;
 mod store;
 

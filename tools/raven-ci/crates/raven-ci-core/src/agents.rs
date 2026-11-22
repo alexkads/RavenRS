@@ -553,7 +553,7 @@ impl Ci {
             .map_err(db_error)?
             .flatten();
         if let (Some(old), Some(file)) = (old, &self.agents.users) {
-            let maker = crate::api::users(file)?;
+            let maker = crate::people::users(file)?;
             let _ = ravenrs_app_server::revoke_key(&maker, &old);
         }
         self.db()
@@ -583,8 +583,8 @@ impl Ci {
             .users
             .as_ref()
             .ok_or_else(|| CiError::unavailable("um núcleo em memória não recebe agentes"))?;
-        let maker = crate::api::users(file)?;
-        let directory = UserDirectory::new(maker.clone(), crate::api::roles())
+        let maker = crate::people::users(file)?;
+        let directory = UserDirectory::new(maker.clone(), crate::people::roles())
             .map_err(|e| CiError::failed(e.to_string()))?;
         if directory.is_empty().map_err(|e| CiError::failed(e.to_string()))? {
             return Err(CiError::unavailable(
@@ -593,11 +593,11 @@ impl Ci {
         }
         let user = format!("{USER_PREFIX}{name}");
         if directory.identity_of(&user).map_err(|e| CiError::failed(e.to_string()))?.is_none() {
-            crate::api::create_user(file, &user, &random(), ROLE_AGENT)?;
+            crate::people::create_user(file, &user, &random(), ROLE_AGENT)?;
         }
         ravenrs_app_server::issue_key(
             &maker,
-            crate::api::roles(),
+            crate::people::roles(),
             &user,
             &format!("agente {name}"),
             &[],
@@ -615,7 +615,7 @@ impl Ci {
             .map_err(db_error)?;
         let Some(key) = key else { return Err(CiError::unavailable(format!("não há o agente {name}"))) };
         if let (Some(key), Some(file)) = (key, &self.agents.users) {
-            let maker = crate::api::users(file)?;
+            let maker = crate::people::users(file)?;
             ravenrs_app_server::revoke_key(&maker, &key).map_err(|e| CiError::failed(e.to_string()))?;
         }
         self.db().execute("DELETE FROM ci_agents WHERE name = ?1", params![name]).map_err(db_error)?;

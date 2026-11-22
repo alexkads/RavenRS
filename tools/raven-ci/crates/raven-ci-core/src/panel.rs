@@ -262,7 +262,7 @@ fn act(
                 .ok_or_else(|| CiError::unavailable("este servidor não guarda usuários"))?;
             let (name, password) = (text(&asked, "name")?, text(&asked, "password")?);
             let role = asked.get("role").and_then(Json::as_str).unwrap_or(ROLE_RUN);
-            let role = crate::api::create_user(file, name, password, role)?;
+            let role = crate::people::create_user(file, name, password, role)?;
             record(ci, &caller.name, &format!("criou o usuário {name} com o papel {role}"));
             json!({ "name": name, "role": role })
         }
@@ -536,7 +536,7 @@ fn users(options: &PanelOptions) -> Result<Json, CiError> {
         .as_deref()
         .ok_or_else(|| CiError::unavailable("este servidor não guarda usuários"))?;
     let failed = |e: &dyn std::fmt::Display| CiError::failed(format!("os usuários: {e}"));
-    let space = crate::api::users(file)?();
+    let space = crate::people::users(file)?();
     let named = |records: Vec<ravenrs_app::Object>| -> BTreeMap<String, String> {
         records.iter().map(|r| (key(&r.get("id")), key(&r.get("name")))).collect()
     };
