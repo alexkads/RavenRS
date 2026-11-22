@@ -1,16 +1,63 @@
 # Raven CI (RCI)
 
-A CI/CD server of its own for RavenRS and for small build servers, made to do what a small Jenkins
-does with a fraction of its memory. Its core holds three things: the queue, the model of jobs and
-builds, and the register of plugins. Everything else is a plugin, including the pipeline formats,
-the steps, git, the providers, triggers, publishers and agents. A plugin is compiled in or is a
-program of any language that speaks JSON-RPC.
+A CI/CD server of its own, made to do what a small Jenkins does in a fraction of its memory: about
+36 MiB for the server and 16 MiB for an agent while a build runs, against 596 MB and 250 MB of the
+Jenkins it replaces (see "Feito com RavenRS" below). It builds a repository's branches and pull
+requests, takes builds from a schedule, a webhook or the API, runs them on the server or on agents
+(other users, other machines, containers, pods), keeps their logs, tests and artifacts, puts the
+status on each commit and tells people when something breaks.
 
-Phase 1 of [#803](https://github.com/alexkads/RavenRS/issues/803) made the core and the API of
-plugins. Phase 2 brings the plugins that do real work, starting with the life of a build around its
-steps (#861), the format `.raven-ci.toml` (#862), the step `sh` (#863), git (#870), locks (#871)
-and room on the disk (#872). GitHub, Azure DevOps, triggers, the HTTP API, the other plugins, the
-agents and the panel come next.
+Its core holds three things: the queue, the model of jobs and builds, and the register of plugins.
+Everything else is a plugin, including the pipeline formats, the steps, git, the providers, the
+triggers, the publishers, the notices and the agents. A plugin is compiled in, or is a program of
+any language that speaks JSON-RPC. It is built with RavenRS, and its panel is made only of RavenRS
+components, on the desktop and in the browser.
+
+The plan and the state of each part are in [#803](https://github.com/alexkads/RavenRS/issues/803).
+
+## Guides
+
+| Guide | For |
+|---|---|
+| [The pipeline](docs/pipeline.md) | every field of `.raven-ci.toml`, the steps of each plugin, and the errors it says |
+| [Moving from Jenkins](docs/migrating-from-jenkins.md) | what maps to what, `raven-ci converter`, what has no counterpart, and how to switch with no day without CI |
+| [Running the server](docs/operations.md) | installing, the folder of data, roles, the vault and its key, metrics, updating, and what to do when something goes wrong |
+| [Build agents](docs/agents.md) | agents on other machines, as other users, in containers and pods, and how they resume a build |
+| [Writing a plugin](docs/writing-a-plugin.md) | both kinds of plugin, the manifest, the protocol and the tests |
+
+## From nothing to a first build
+
+On Fedora, from the RPM (other systems: "Install it" below):
+
+```bash
+sudo dnf install https://github.com/alexkads/RavenRS/releases/download/raven-ci-v0.1.3/raven-ci-0.1.3-1.fc45.x86_64.rpm
+echo 'uma senha longa' | sudo -u raven-ci raven-ci --dados /var/lib/raven-ci usuario criar ana
+```
+
+The first person made is an administrator. Open `http://127.0.0.1:8090/painel/`, sign in, and
+give the server a job. A job is a pipeline and its settings; here, one that a person or a program
+starts, in a `raven-ci.toml` applied by an administrator's key:
+
+```toml
+[[jobs]]
+name = "site"
+pipeline = """
+[[stages]]
+name = "Teste"
+steps = ["git --version", "echo ola"]
+"""
+settings = { triggers = [{ id = "api" }] }
+```
+
+```bash
+export RAVEN_CI_SERVIDOR=http://127.0.0.1:8090 RAVEN_CI_TOKEN=…   # a key: see "From the terminal"
+raven-ci aplicar raven-ci.toml --servidor $RAVEN_CI_SERVIDOR
+raven-ci rodar site --esperar
+```
+
+`rodar --esperar` follows the log and ends with 0 when the build passed. A real job fetches its
+code (`scm`), reads its pipeline from the repository, and starts by a webhook or a schedule: the
+sections on GitHub and Azure DevOps below show the whole settings of one.
 
 ## How it works
 
@@ -182,7 +229,7 @@ The parameterized pipeline of an Azure DevOps repository is a job that fetches w
 
 ## Build agents
 
-The server can leave its builds to agents: `raven-ci-agent`, a program of about 12 MB at rest that
+The server can leave its builds to agents: `raven-ci-agent`, a program of about 16 MiB while it works that
 connects out to the server (HTTP and SSE, nothing open where it runs), takes builds by a lease of
 the queue and runs them with only the plugins each one needs. A job asks for one with
 `agent = { label = "linux" }`; with no agent connected that has the label, a template brings one up
@@ -273,7 +320,88 @@ A plugin in Rust with the standard traits can also be compiled and installed by 
 no new `raven-ci`: `raven-ci plugins compilar PASTA`. The section "Um plugin Rust compilado pelo
 sistema" of that page explains it, and [plugins/exemplo-rust](plugins/exemplo-rust) is the example.
 
+## What comes for free
+
+- **Nothing to write to keep things clean**: the folder of each build is removed at its end,
+  however it ends, and so is every container, network, volume and compose project a step of Docker
+  started, and every pod of an agent in Kubernetes.
+- **Secrets hidden everywhere**: a value a plugin reads from the vault is replaced by `****` in
+  every log, the server's and the build's, from the moment it is read.
+- **A pipeline checked before it runs**: every error of `.raven-ci.toml` at once, each with its
+  line, in the panel's editor as you type and when the job is saved.
+- **Requests that join**: asking for a build equal to one still waiting gives the number of that
+  one, so a burst of pushes does not queue ten equal builds.
+- **A pull request built as it will be**: merged onto its target, with the status on its own
+  commit.
+- **A server that stops cleanly**: `SIGTERM` (systemd, `docker stop`, Ctrl+C) lets the builds go
+  and waits for the agents it launched to be gone.
+- **The terminal and the agents of AI**: every command takes `--format json`, and `raven-ci rodar
+  --esperar` ends with the result of the build as its code.
+
+## Per platform
+
+| | Linux | macOS | Windows |
+|---|---|---|---|
+| Server | yes; as a service of systemd with `MemoryMax`, or the RPM on Fedora | yes; as a service of launchd, with no memory limit | yes; as a task of the Task Scheduler, with no memory limit |
+| `sh` steps | `sh -e -c` | `sh -e -c` | `cmd /C` |
+| `nice` | yes | yes | said in the log and left |
+| Limits of an agent | cores, memory (a cgroup v2 of its own) and disk | cores and disk; memory by watching its processes | cores and disk; memory by watching its processes |
+| An agent as another user | `sudo -n` or as root | `sudo -n` or as root | no |
+| An agent on another machine (`agent-remote`) | yes | yes | being done in #906: the command line of `cmd` |
+| Docker and Kubernetes steps | through `docker`/`podman` and `kubectl`, where they are installed | the same | the same |
+
+The panel for the browser needs WebGPU or WebGL2; the panel on the desktop runs where RavenRS
+does.
+
+## When something goes wrong
+
+The common ones, with what to do, are in [Running the server](docs/operations.md#when-something-goes-wrong):
+a plugin missing (`falta o plugin X`), a build waiting for ever for an agent with its label, a
+webhook answered with 401, a notice that never arrives, the vault that does not open. Where to look
+first:
+
+- `raven-ci plugins listar`: each plugin on, off or refused, with why;
+- the log of the build: every line of the core starts with what it did (`aviso email: …`,
+  `buscar o código: …`);
+- the log of the server: `journalctl -u raven-ci` with the RPM, `docker logs` in a container;
+- `raven-ci --self-test`: the core and every point of plugins, in memory, in a second.
+
+## Feito com RavenRS: the memory it takes
+
+Measured with `tools/raven-ci/scripts/medir-memoria.sh` on 22/11/2026: binaries built in release,
+the resident memory (RSS) as `ps` says it, on a Mac with Apple silicon (arm64, macOS 27.2). The
+same script runs on Linux; those numbers come with the week beside Jenkins (V-03 of #803).
+
+| | Server (`raven-ci servir`) | Agent (`raven-ci-agent`) |
+|---|---|---|
+| Idle, no agent connected | 13.8 MiB | — |
+| Idle, one agent connected | 34.4 MiB | 15.6 MiB |
+| Highest while a build runs on the agent | 35.9 MiB | 16.3 MiB |
+| Size of the program | 13.6 MiB | 7.7 MiB |
+
+The Jenkins it replaces, at home with two jobs, held 596 MB in its controller and 250 MB in its
+agent, idle. The server is under its goal of 60 MB; the agent is 1.3 MiB above its goal of 15 MB,
+and why the server grows by 21 MiB when the first agent connects is being looked at.
+
 ## Install it
+
+### On Fedora, with the RPM
+
+Each version of Raven CI has its RPM in the releases of the repository, under the tag
+`raven-ci-v<versão>`:
+
+```bash
+sudo dnf install https://github.com/alexkads/RavenRS/releases/download/raven-ci-v0.1.3/raven-ci-0.1.3-1.fc45.x86_64.rpm
+echo 'uma senha longa' | sudo -u raven-ci raven-ci --dados /var/lib/raven-ci usuario criar ana --papel Administradores
+```
+
+The package brings `raven-ci`, `raven-ci-agent` and the panel for the browser, and starts the
+service `raven-ci` as the user `raven-ci`: data in `/var/lib/raven-ci`, the server on
+`127.0.0.1:8090`, the panel at `/painel/`, `MemoryMax=256M`. Another address or limit goes in a
+drop-in (`sudo systemctl edit raven-ci`). Removing the package (`sudo dnf remove raven-ci`) stops the
+service and keeps the data. The RPM is made by `tools/raven-ci/pacote/gerar-rpm.sh`, on a Fedora.
+
+### With the installer
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven-ci/install.cmd -o /tmp/install.cmd && sh /tmp/install.cmd

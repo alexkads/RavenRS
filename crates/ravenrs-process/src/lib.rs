@@ -510,6 +510,30 @@ impl Running {
         self.control.clone()
     }
 
+    /// Stops it as [`Control::stop`] does, and waits at most `within` for it and what it started
+    /// to end: how it ended, or `None` when it had not ended in time.
+    ///
+    /// [`Control::stop`] only asks: a thread of this crate sends the polite stop and, after
+    /// [`GRACE`], the forced one. A program that ends right after asking (a test, a server that
+    /// stops) takes that thread with it, and the child is left running on its own. Waiting here
+    /// keeps the asker alive until the child is gone. Give `within` more than [`GRACE`], so the
+    /// forced stop has its time.
+    pub fn stop_and_wait(&self, within: Duration) -> Option<End> {
+        self.control.stop();
+        let until = Instant::now() + within;
+        loop {
+            let left = until.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return None;
+            }
+            match self.events.recv_timeout(left) {
+                Ok(Event::Ended(end)) => return Some(end),
+                Ok(_) => {}
+                Err(_) => return None,
+            }
+        }
+    }
+
     /// Waits for it to end and gives everything it said.
     pub fn wait(self) -> Output {
         let mut output = Output { stdout: Vec::new(), stderr: Vec::new(), end: End::Code(-1) };

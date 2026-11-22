@@ -151,3 +151,27 @@ fn confining_a_process_needs_a_delegated_cgroup_on_linux_and_is_refused_elsewher
         assert!(matches!(confined, Err(ProcessError::Unsupported(_))), "{confined:?}");
     }
 }
+
+#[cfg(unix)]
+#[test]
+fn stop_and_wait_returns_only_once_a_child_that_ignores_the_polite_stop_is_gone() {
+    // `trap '' TERM` makes the shell and the `sleep` it starts ignore the polite stop.
+    let running = Spec::new("sh").args(["-c", "trap '' TERM; echo pronto; sleep 30"]).spawn().expect("runs");
+    assert_eq!(running.next_within(Duration::from_secs(10)), Some(Event::Out("pronto".into())));
+    let group = format!("-{}", running.control().pid());
+    let began = Instant::now();
+    assert_eq!(running.stop_and_wait(Duration::from_secs(10)), Some(End::Stopped));
+    let took = began.elapsed();
+    assert!(took >= ravenrs_process::GRACE / 2, "it waited for the forced stop: {took:?}");
+    assert!(took < Duration::from_secs(10), "and not for the whole time: {took:?}");
+    let alive = std::process::Command::new("kill").args(["-0", "--", &group]).status().expect("kill");
+    assert!(!alive.success(), "nothing of the group is left");
+}
+
+#[test]
+fn stop_and_wait_comes_back_at_once_for_a_child_that_stops_when_asked() {
+    let running = Spec::new(FAKE).args(["sleep", "30000"]).spawn().expect("runs");
+    let began = Instant::now();
+    assert_eq!(running.stop_and_wait(Duration::from_secs(10)), Some(End::Stopped));
+    assert!(began.elapsed() < Duration::from_secs(5), "{:?}", began.elapsed());
+}

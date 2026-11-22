@@ -199,15 +199,20 @@ impl Agent {
     pub fn kill(&mut self) {
         if let Some(running) = self.running.take() {
             kill_now(running.control().pid());
-            running.control().stop();
+            let _ = running.stop_and_wait(STOP_WAIT);
         }
     }
 }
 
+/// How long dropping an agent waits for it to be gone: more than the grace of the polite stop.
+const STOP_WAIT: Duration = Duration::from_secs(5);
+
 impl Drop for Agent {
+    /// Stops the agent and waits for it to be gone (#908): only asking would leave it running on
+    /// its own once the process of the test ends, trying for ever to reach a server that is gone.
     fn drop(&mut self) {
         if let Some(running) = self.running.take() {
-            running.control().stop();
+            let _ = running.stop_and_wait(STOP_WAIT);
         }
     }
 }
