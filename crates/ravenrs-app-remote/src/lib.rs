@@ -10,9 +10,13 @@
 //! the server refused goes away, and whoever watches is told with
 //! [`on_problem`](RemoteDatabase::on_problem).
 //!
+//! Without the feature `ui` (on by default), only the client and the live channel are here: what
+//! a program with no window needs, such as a build agent.
+//!
 //! The server decides everything. The copy only ever holds what the person can see, so nothing
 //! here is a permission, and being taken apart gives nobody anything more.
 
+#[cfg(feature = "ui")]
 mod gate;
 mod live;
 mod transport;
@@ -21,6 +25,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
+#[cfg(feature = "ui")]
 pub use gate::RemoteApp;
 pub use live::{LiveEvent, LiveFeed, LiveState, SseParser};
 use ravenrs_app::{
@@ -107,6 +112,13 @@ impl RemoteClient {
     /// A client of the server at this address, over HTTP.
     pub fn http(base: impl Into<String>) -> Self {
         Self::new(base, HttpTransport)
+    }
+
+    /// The same client presenting `token` from now on, in place of signing in: a key of the
+    /// server (`rvk_…`) that a program with no password keeps, as a build agent does.
+    pub fn with_token(self, token: impl Into<String>) -> Self {
+        *self.0.token.borrow_mut() = Some(token.into());
+        self
     }
 
     fn base(&self) -> &str {

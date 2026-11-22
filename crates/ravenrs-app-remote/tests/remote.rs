@@ -1,5 +1,6 @@
 //! The client against the real service, with nothing but the network left out.
 #![allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
+#![cfg(feature = "ui")]
 
 use std::cell::RefCell;
 use std::collections::VecDeque;
