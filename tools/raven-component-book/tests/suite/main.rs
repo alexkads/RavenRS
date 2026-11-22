@@ -7,5 +7,6 @@ mod book;
 mod export;
 mod guardian;
 mod novidades;
+mod scenarios;
 mod testable;
 mod window;

@@ -7,8 +7,17 @@
 //! passed); `--versao` prints the version.
 
 /// Every option the book reads; any other is refused.
-const OPTIONS: [&str; 8] =
-    ["--versao", "--self-test", "--json", "--claude-design", "--sha", "--verify", "--replay", "--help"];
+const OPTIONS: [&str; 9] = [
+    ravenrs_e2e_wire::SERVE_FLAG,
+    "--versao",
+    "--self-test",
+    "--json",
+    "--claude-design",
+    "--sha",
+    "--verify",
+    "--replay",
+    "--help",
+];
 
 fn main() -> std::process::ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -36,6 +45,22 @@ fn main() -> std::process::ExitCode {
     if has("--versao") {
         println!("{}", raven_component_book::VERSION);
         return std::process::ExitCode::SUCCESS;
+    }
+    // A test tool such as Raven Test Studio drives the book with no window (`--e2e-serve`):
+    // the same book the tests open, with no updates and no self-test in the status bar.
+    if has(ravenrs_e2e_wire::SERVE_FLAG) {
+        let session =
+            ravenrs_e2e::E2e::new(raven_component_book::app(), ravenrs::prelude::Theme::raven_dark())
+                .viewport(ravenrs::prelude::Size::new(1440.0, 900.0), 1.0);
+        let hello =
+            ravenrs_e2e_wire::Hello::of("RavenComponentBook").scenarios(raven_component_book::SCENARIOS);
+        return match ravenrs_e2e_wire::serve_filmed(hello, session, ravenrs::movie::ChannelFilm::default()) {
+            Ok(()) => std::process::ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("o canal de teste parou: {error}");
+                std::process::ExitCode::FAILURE
+            }
+        };
     }
     if has("--self-test") {
         return match raven_component_book::self_test() {

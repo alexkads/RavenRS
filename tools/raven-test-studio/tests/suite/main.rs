@@ -12,5 +12,6 @@ mod manifest;
 mod novidades;
 mod outputs;
 mod project;
+mod scenarios;
 mod self_test;
 mod tray;

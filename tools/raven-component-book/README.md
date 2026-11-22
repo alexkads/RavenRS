@@ -70,3 +70,14 @@ List it in the `stories()` of the crate's `book` module and take it out of `pend
 - It writes files and verifies a copy; publishing them to the design system artifact is done with the Artifact tool, sending the whole folder and removing what `files.txt` does not list.
 - Previews draw Raven Dark at 760 pt, the first story beside its 320 pt version and the states it reacts to; Raven Light, Raven Glass and the other widths are in the JSON.
 - Interaction and keys are measured on the first story's first control only; a key whose effect the story does not show (Enter on a button that only calls `on_click`) is not listed.
+
+## End-to-end tests (Raven Test Studio)
+
+The scenario of the book is in `tests/e2e/`, as a `.raventest` file the Raven Test Studio reads: it searches for TextField and sees its stories, then picks Button, changes its label and checks the story draws it again. The book brings it (`SCENARIOS`), and `tests/suite/scenarios.rs` plays it on every `cargo test`.
+
+```bash
+raven-test-studio --project tools/raven-component-book --run-all --no-cache --format json --out target/e2e/raven-component-book
+```
+
+The book answers the Studio when opened with `--e2e-serve`, with no window, no updates and no self-test in the status bar; its name on the channel is "RavenComponentBook" (`[package.metadata.ravenrs.e2e]` in `Cargo.toml`).
+
