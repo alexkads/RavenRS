@@ -6,6 +6,7 @@ mod actions;
 mod base_inputs;
 mod base_overlays;
 mod base_rest;
+mod collections;
 mod declared;
 mod find;
 mod kit;

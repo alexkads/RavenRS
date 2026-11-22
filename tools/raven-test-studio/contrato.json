@@ -1255,40 +1255,40 @@
    "crate": "ravenrs-widgets-charts",
    "tipo": "AreaChart",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-charts",
    "tipo": "BarChart",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-charts",
    "tipo": "Barcode",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-charts",
    "tipo": "Chart",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-charts",
    "tipo": "ChartCard",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": []
    }
   },
   {
@@ -1309,40 +1309,46 @@
    "crate": "ravenrs-widgets-charts",
    "tipo": "FlowInspector",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-charts",
    "tipo": "FlowLayers",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-charts",
    "tipo": "FlowLibrary",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-charts",
    "tipo": "FlowToolbox",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-charts",
    "tipo": "SankeyChart",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": []
    }
   },
   {
@@ -1428,8 +1434,12 @@
    "crate": "ravenrs-widgets-dock",
    "tipo": "Ribbon",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [
+     "tab:<título>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
@@ -2093,40 +2103,58 @@
    "crate": "ravenrs-widgets-lists",
    "tipo": "DocumentTabs",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [
+     "tab:<id>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-lists",
    "tipo": "FileBrowser",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [
+     "row:<chave>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-lists",
    "tipo": "Filmstrip",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [
+     "row:<chave>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-lists",
    "tipo": "PagedDocumentView",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-lists",
    "tipo": "SortableList",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [
+     "item:<chave>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
@@ -2157,24 +2185,35 @@
    "crate": "ravenrs-widgets-lists",
    "tipo": "YearView",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [
+     "day:<aaaa-mm-dd>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-scheduler",
    "tipo": "EventCalendar",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [
+     "event:<id>",
+     "day:<aaaa-mm-dd>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-scheduler",
    "tipo": "RecurrenceEditor",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
@@ -2195,8 +2234,12 @@
    "crate": "ravenrs-widgets-scheduler",
    "tipo": "Timeline",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [
+     "item:<id>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
@@ -2213,8 +2256,10 @@
    "crate": "ravenrs-widgets-lists",
    "tipo": "DataInspector",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   }
  ]

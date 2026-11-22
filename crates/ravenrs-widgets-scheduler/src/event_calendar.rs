@@ -367,7 +367,9 @@ impl View for CalendarDay<'_> {
         let mut children = vec![number];
         for event in self.events.iter().take(s.per_day) {
             let chip = EventChip { event, selected: &s.selected, on_event: s.on_event.clone() };
-            children.push(cx.keyed_child(event.id, &chip));
+            let chip = cx.keyed_child(event.id, &chip);
+            cx.test_id(chip, &format!("event:{}", event.id));
+            children.push(chip);
         }
         let hidden = self.events.len().saturating_sub(s.per_day);
         if hidden > 0 {
@@ -527,7 +529,9 @@ impl View for DayColumn<'_> {
                 day_width: width,
                 calendar: c,
             };
-            children.push(cx.keyed_child(event.id ^ (1 << 62), &chip));
+            let chip = cx.keyed_child(event.id ^ (1 << 62), &chip);
+            cx.test_id(chip, &format!("event:{}", event.id));
+            children.push(chip);
         }
         let node = cx.container(
             LayoutStyle {
@@ -859,7 +863,9 @@ impl EventCalendar {
                 scheduler: self,
                 keys: &keys,
             };
-            cells.push(cx.keyed_child(date.to_days() as u64, &day));
+            let cell = cx.keyed_child(date.to_days() as u64, &day);
+            cx.test_id(cell, &format!("day:{date}"));
+            cells.push(cell);
             date = date.add_days(1);
         }
         let grid = cx.container(
@@ -925,7 +931,9 @@ impl EventCalendar {
                     .map(|event| {
                         let chip =
                             EventChip { event, selected: &self.selected, on_event: self.on_event.clone() };
-                        cx.keyed_child(event.id, &chip)
+                        let chip = cx.keyed_child(event.id, &chip);
+                        cx.test_id(chip, &format!("event:{}", event.id));
+                        chip
                     })
                     .collect();
                 cells.push(cx.container(column, &chips, Paint::None));
