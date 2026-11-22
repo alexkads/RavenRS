@@ -113,6 +113,8 @@ fn announces_every_tool_as_read_only() {
             "expression_functions",
             "feature_center",
             "guides",
+            "lint_rules",
+            "lint_source",
             "list_components",
             "parity_status",
             "ravenrs_tools",
@@ -727,4 +729,45 @@ fn report_layout_templates_list_and_every_one_checks() {
     }
     let missing = client.call_err("report_layout_templates", json!({ "name": "nope" }));
     assert!(missing["error"].as_str().unwrap().contains("invoice"));
+}
+
+#[test]
+fn lint_rules_and_lint_source_follow_ravenrs_lint() {
+    let mut client = Client::start();
+    let rules = client.call("lint_rules", json!({}));
+    let names: Vec<&str> =
+        rules["rules"].as_array().unwrap().iter().map(|rule| rule["name"].as_str().unwrap()).collect();
+    assert_eq!(names.len(), 12, "{names:?}");
+    assert!(names.contains(&"raw_color") && names.contains(&"module_cycle"));
+    let raw = rules["rules"].as_array().unwrap().iter().find(|rule| rule["name"] == "raw_color").unwrap();
+    assert!(raw["catches"].as_str().unwrap().contains("Color::rgb"), "{raw}");
+
+    let screen = r#"
+use ravenrs::prelude::*;
+
+fn body() -> impl View {
+    VStack::new()
+        .child(Button::new("Salvar").padding(5.0))
+        .background(Color::rgb(0.1, 0.2, 0.3))
+}
+"#;
+    let found = client.call("lint_source", json!({ "source": screen, "language": "pt-BR" }));
+    let rules: Vec<(&str, u64)> = found["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| (f["rule"].as_str().unwrap(), f["line"].as_u64().unwrap()))
+        .collect();
+    assert!(rules.contains(&("off_grid_spacing", 6)), "{found}");
+    assert!(rules.contains(&("raw_color", 7)), "{found}");
+    assert_eq!(found["clean"], false);
+
+    let clean = "fn body() -> impl View {\n    Button::new(\"Salvar\").padding(8.0)\n}\n";
+    let clean = client.call("lint_source", json!({ "source": clean, "language": "pt-BR" }));
+    assert_eq!(clean["clean"], true, "{clean}");
+
+    let broken = client.call_err("lint_source", json!({ "source": "fn body( {", "file": "src/ui.rs" }));
+    assert!(broken["error"].as_str().unwrap().starts_with("src/ui.rs:1:"), "{broken}");
+    let wrong = client.call_err("lint_source", json!({ "source": "", "language": "fr" }));
+    assert!(wrong["error"].as_str().unwrap().contains("'en' or 'pt-BR'"));
 }

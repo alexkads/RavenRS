@@ -7111,6 +7111,7 @@ version = "27.1.28"
 dependencies = [
  "proc-macro2",
  "ravenrs-criteria",
+ "ravenrs-lint",
  "ravenrs-report",
  "rmcp",
  "serde",

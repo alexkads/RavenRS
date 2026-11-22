@@ -13,6 +13,7 @@ use crate::api::{GUIDES, Index, Item, Member, Usage, code_blocks_with};
 use crate::docs;
 use crate::expression::{self, SchemaInput};
 use crate::feature_center;
+use crate::lint;
 use crate::report::{self, CreateInput};
 use crate::tooling;
 
@@ -23,7 +24,8 @@ const INSTRUCTIONS: &str = "Answers questions about the RavenRS GUI framework fo
 of the version this server was built from. Check component_api and component_examples before writing a view \
 instead of guessing builder methods, and feature_center for the page of the feature center that shows a component \
 working with all its features. Use design_tokens to find the semantic name of a color or text style, \
-parity_status before promising that a feature exists, app_contracts before writing a module meant for more than one application, validate_expression for filters and report expressions, \
+parity_status before promising that a feature exists, lint_rules and lint_source to keep a view within the rules of \
+ravenrs-lint (theme tokens, the 4px grid, buttons that start with a verb), app_contracts before writing a module meant for more than one application, validate_expression for filters and report expressions, \
 search_api when you do not know a type's name, and guides for how things work: the application framework, reports, \
 label and receipt printers, NF-e, the SEFAZ sandbox, the point of sale and what they do not prove. \
 To prove a screen works from the outside, ask ravenrs_tools for raven-test-studio, the end-to-end test tool that \
@@ -87,6 +89,16 @@ struct FeatureCenter {
     status: Option<String>,
     /// How many components to return, up to 300. Defaults to 50.
     limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+struct LintSource {
+    /// The whole text of one Rust source file.
+    source: String,
+    /// Its path, only for the answer and for rules that look at the file. Defaults to src/lib.rs.
+    file: Option<String>,
+    /// The language of the button captions: en (default) or pt-BR.
+    language: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize, schemars::JsonSchema)]
@@ -348,6 +360,22 @@ impl RavenServer {
             input.status.as_deref(),
             input.limit.unwrap_or(50).clamp(1, 300),
         ))
+    }
+
+    #[tool(
+        description = "The rules of ravenrs-lint, which every RavenRS interface follows: each rule's name, what it protects and what it catches, how to lower a rule and how to excuse one place with a reason.",
+        annotations(read_only_hint = true, open_world_hint = false)
+    )]
+    fn lint_rules(&self) -> CallToolResult {
+        CallToolResult::structured(lint::rules())
+    }
+
+    #[tool(
+        description = "Check the text of one Rust source file against the rules of ravenrs-lint without writing anything: each finding with its rule, line, column, message and how to fix it. Text that is not valid Rust answers the syntax error. module_cycle needs the whole crate and is left to cargo ravenrs-lint.",
+        annotations(read_only_hint = true, open_world_hint = false)
+    )]
+    fn lint_source(&self, Parameters(input): Parameters<LintSource>) -> CallToolResult {
+        answer(lint::check(&input.source, input.file.as_deref(), input.language.as_deref()))
     }
 
     #[tool(

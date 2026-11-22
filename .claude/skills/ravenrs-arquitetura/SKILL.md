@@ -18,6 +18,9 @@ Esta skill é um mapa. O detalhe fica nos documentos do repositório, para exist
 | `docs/AUTOMACAO-COMERCIAL.md`, skill `ravenrs-fiscal` | NF-e, sandbox, caixa, etiquetas, pagamentos e o que falta para vender |
 | Skill `ravenrs-check`, `crates/ravenrs-xcache/README.md` | Gate local, tempos por etapa e o cache de compilação entre worktrees (Kache ou `ravenrs-xcache`) |
 | Skill `ravenrs-acoplamento` | Antes de criar ou mover módulo ou crate, ou de acrescentar `use crate::…` entre módulos de topo: camadas, ciclos e a regra `module_cycle` |
+| Skill `ravenrs-voz`, `crates/ravenrs-ai/README.md` | Voz local (Kokoro), fonemas pt-BR, qual voz em cada uso, diagnóstico de fala errada e narração gravada |
+| Skill `ravenrs-filmes`, `crates/ravenrs-movie/README.md` | Gravar, conferir e embutir os filmes de treinamento |
+| Skill `ravenrs-site`, `docs/SITE_SEO.md` | Montar, percorrer com Playwright e publicar o site |
 
 Se o código contradisser um documento, confie no código e corrija o documento na mesma mudança.
 
