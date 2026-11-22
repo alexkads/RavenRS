@@ -20,6 +20,7 @@ raven-ci-plugin-credentials = { path = "crates/raven-ci-plugin-credentials" }
 raven-ci-plugin-format-toml = { path = "crates/raven-ci-plugin-format-toml" }
 raven-ci-plugin-git = { path = "crates/raven-ci-plugin-git" }
 raven-ci-plugin-github = { path = "crates/raven-ci-plugin-github" }
+raven-ci-plugin-junit = { path = "crates/raven-ci-plugin-junit" }
 raven-ci-plugin-lock = { path = "crates/raven-ci-plugin-lock" }
 raven-ci-plugin-shell = { path = "crates/raven-ci-plugin-shell" }
 raven-ci-plugin-workspace = { path = "crates/raven-ci-plugin-workspace" }
