@@ -59,9 +59,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
-<<<<<<< HEAD
 - `ravenrs-git`, git for RavenRS services over the git installed: shallow `clone`, `fetch` with refspecs, `fetch_pull_request` (`refs/pull/N/head` as `<remote>/pr/N`), `checkout` with no branch, `rev_parse`, `ls_remote`, and `merge`, which names the files of a conflict and undoes it. A `Credential` goes in the child's environment as `http.extraHeader`, never as an argument nor in the remote's address, and every command runs without the user's git configuration and never asks for a password (#817).
-=======
+
 - `ravenrs-secrets`, the vault: secrets sealed with ChaCha20-Poly1305 under a key kept apart from them (`KeyFile`, `KeyFromEnv`, or the system's store with the feature `system-keyring`), an opaque `SecretRef` for documents and exports, separate rights to use (`use_with`), reveal and administer, rotation, revocation, `MemoryStorage` and `FileStorage`, and one `Redactor` that keeps every value handed out of text as `•••`. `ravenrs-agent-cli` masks with the same `redact` (#815, part of #546).
 
 - The live channel: `ravenrs-app-server` streams events as they happen at `GET /api/live/{topic}`, as Server-Sent Events, from a `LiveChannels` the application publishes to from any thread (`open`, `publish`, `ApiOptions::live`). Each topic keeps its last 256 events for whoever comes back with `Last-Event-ID`, and sends `gap` when some are gone. The streams take none of the threads that answer, and end when their token does. `ravenrs-app-remote` listens with `RemoteClient::listen`, on the desktop and in the browser (`LiveFeed`, `SseParser`), coming back from the last event when the stream is lost (#810).
@@ -73,7 +72,6 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - Imaging and chat are in the testability contract of the RTS (#741): `ColorWheel` takes `SetValue` with a color as `#ff0000`; `TransformHandles` and `CropOverlay` take their box by value (`x, y, width × height, angle`), and `testing::CropDriver` sets and reads it; the messages of a `Chat` are `message:<n>`, and the sphere of a `FloatingPanel` is `orb` and opens and closes with `Expand` and `Collapse`. `RuleOfThirdsGrid` has no screen.
 
 - `testing::SortableDriver` moves an item of a `SortableList` before another by their keys, with Alt and the arrows as a person does (#740). Each point of a chart is a node of its own, `point:<series>:<category>`, named with its value, so a screen reader reads the data one by one; the commands of a `Ribbon` are `command:<label>`.
->>>>>>> origin/master
 
 - Lists, scheduler, dock and charts are in the testability contract of the RTS (#740): document tabs are `tab:<id>`, the tabs of a `Ribbon` `tab:<title>`, the items of a `SortableList` with a key `item:<key>`, the days of a `YearView` and an `EventCalendar` `day:<yyyy-mm-dd>`, calendar events `event:<id>` and timeline items `item:<id>`. `FileBrowser` and `Filmstrip` keep the `row:<key>` of their list.
 
