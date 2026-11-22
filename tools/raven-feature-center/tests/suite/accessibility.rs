@@ -131,7 +131,6 @@ demonstrations! {
     api_web => "API web",
     api_service => "Serviço da API",
     leitores_de_tela_e_teclado => "Leitores de tela e teclado",
-    api_service => "Serviço da API",
     pessoas => "Pessoas",
     eventos => "Eventos",
     paises => "Países",
