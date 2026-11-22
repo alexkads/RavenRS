@@ -6007,6 +6007,8 @@ name = "raven-ci"
 version = "0.1.0"
 dependencies = [
  "raven-ci-core",
+ "raven-ci-plugin-agent-local",
+ "raven-ci-plugin-agent-remote",
  "raven-ci-plugin-api",
  "raven-ci-plugin-api-trigger",
  "raven-ci-plugin-artifacts",
@@ -6033,6 +6035,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "raven-ci-agent"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-agent-local",
+ "raven-ci-plugin-agent-remote",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-git",
+ "raven-ci-plugin-lock",
+ "raven-ci-plugin-shell",
+ "raven-ci-plugin-workspace",
+ "ravenrs-app-remote",
+ "ravenrs-app-server",
+ "ravenrs-flows",
+ "ravenrs-flows-runtime",
+ "ravenrs-metrics",
+ "ravenrs-process",
+ "serde",
+ "serde_json",
+ "tokio",
+ "ureq",
+ "uuid",
+]
+
+[[package]]
 name = "raven-ci-core"
 version = "0.1.0"
 dependencies = [
@@ -6049,7 +6077,9 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "toml",
+ "uuid",
 ]
 
 [[package]]
@@ -6059,6 +6089,28 @@ dependencies = [
  "raven-ci-plugin-api",
  "ravenrs-app",
  "ravenrs-flows",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-agent-local"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-process",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-agent-remote"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-process",
  "serde_json",
 ]
 

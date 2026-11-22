@@ -8,12 +8,13 @@ use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use ravenrs_flows::{
-    BinaryRef, CancelToken, Catalog, Clock, Executor, FlowDefinition, Item, Mode, NodeRun, NodeStatus, Plan,
-    Run, RunOutcome, Step, SystemClock, Wake,
+    BinaryRef, CancelToken, Catalog, Clock, FlowDefinition, Item, Mode, NodeRun, NodeStatus, Plan, Run,
+    RunOutcome, SystemClock, Wake,
 };
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 
+use crate::remote::{Held, Lease, StepRecord};
 use crate::store::{self, StoreError};
 
 /// How long a worker holds a run before another may take it, unless it renews: it renews at
@@ -280,6 +281,11 @@ impl Runtime {
         self
     }
 
+    /// How long its leases last, in milliseconds: what a worker whose node runs long renews within.
+    pub fn lease_length(&self) -> u64 {
+        self.lease_ms
+    }
+
     fn db(&self) -> MutexGuard<'_, Connection> {
         self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
     }
@@ -433,54 +439,28 @@ impl Runtime {
     /// Runs `id`, which `worker` holds: from its checkpoint when it ran before. Each step is
     /// written as it happens, and the lease renewed.
     pub fn execute(&self, id: &str, worker: &str) -> Result<RunStatus, StoreError> {
-        let row = self.row(id)?;
-        let flow =
-            FlowDefinition::from_json(&row.definition).map_err(|e| StoreError::Unreadable(e.to_string()))?;
-        let plan = match Plan::compile(&flow, &self.catalog) {
-            Ok(plan) => plan,
-            Err(errors) => {
-                let reason = errors.iter().map(ToString::to_string).collect::<Vec<_>>().join("; ");
-                let outcome = RunOutcome::Stopped { node: String::new(), reason };
-                return self.end(id, worker, &outcome);
-            }
-        };
-        let started = match row.started_ms {
-            Some(ms) => ms,
-            None => {
-                let now = self.now();
-                self.db().execute("UPDATE runs SET started_ms = ?2 WHERE id = ?1", params![id, now])?;
-                now
-            }
-        };
-        let Kept { checkpoint, in_progress, woken } = self.checkpoint(id, &plan, started)?;
-        let mut events = BTreeMap::new();
-        for (name, items) in store::events(&self.db(), id)? {
-            events.insert(name, serde_json::from_str::<Vec<Item>>(&items)?);
-        }
+        let lease = self.lease_of(id, worker)?;
         let failure: RefCell<Option<StoreError>> = RefCell::new(None);
         let lost = RefCell::new(false);
         let token = CancelToken::new();
-        if let Some(reason) = &row.cancel_requested {
-            token.cancel(reason.clone());
-        }
         self.tokens().insert(id.to_owned(), token.clone());
-        let mut executor = Executor::new(&plan, &self.catalog)
-            .run_id(id)
-            .mode(row.mode)
-            .shared_clock(self.clock.clone())
-            .events(events)
-            .woken(woken)
-            .cancel_cooperatively(token.clone())
-            .on_step(|step| {
-                if let Err(e) = self.write_step(id, worker, step, &lost, &token) {
+        let run = lease.run(&self.catalog, self.clock.clone(), token.clone(), |record| {
+            match self.record(id, worker, &record) {
+                Ok(held) => {
+                    if !held.held {
+                        *lost.borrow_mut() = true;
+                    }
+                    if let Some(reason) = held.cancel
+                        && !token.is_cancelled()
+                    {
+                        token.cancel(reason);
+                    }
+                }
+                Err(e) => {
                     failure.borrow_mut().get_or_insert(e);
                 }
-            });
-        if let Some(node) = &row.start_node {
-            executor = executor.start_with(node.clone(), row.input.clone());
-        }
-        let run = executor.resume(&checkpoint, &in_progress);
-        drop(executor);
+            }
+        });
         self.tokens().remove(id);
         if let Some(e) = failure.into_inner() {
             return Err(e);
@@ -488,51 +468,141 @@ impl Runtime {
         if lost.into_inner() {
             return Ok(RunStatus::Running);
         }
-        self.end(id, worker, &run.outcome)
+        match run {
+            Ok(run) => self.end(id, worker, &run.outcome),
+            Err(reason) => self.end(id, worker, &RunOutcome::Stopped { node: String::new(), reason }),
+        }
     }
 
-    fn write_step(
-        &self,
-        id: &str,
-        worker: &str,
-        step: Step<'_>,
-        lost: &RefCell<bool>,
-        token: &CancelToken,
-    ) -> Result<(), StoreError> {
+    /// The runs due now, by id, in the order [`claim`](Self::claim) takes them: what a host that
+    /// chooses which run goes to which worker (by the labels of a build agent) looks at before
+    /// [`claim_id`](Self::claim_id).
+    pub fn due(&self) -> Result<Vec<String>, StoreError> {
+        store::due(&self.db(), self.now())
+    }
+
+    /// Takes the run `id` for `worker`, when it is due; whether it did. Two workers never take the
+    /// same run.
+    pub fn claim_id(&self, id: &str, worker: &str) -> Result<bool, StoreError> {
+        let now = self.now();
+        store::claim_id(&self.db(), id, worker, now, now.saturating_add(self.lease_ms as i64))
+    }
+
+    /// The runs `worker` holds now, running, oldest first: what a host gives back to a worker
+    /// elsewhere that came back as a new process and lost track of them.
+    pub fn held_by(&self, worker: &str) -> Result<Vec<String>, StoreError> {
         let db = self.db();
-        match step {
-            Step::Started { node } => store::started(&db, id, node)?,
-            Step::Settled { node, part } => store::settled(&db, id, node, &serde_json::to_string(part)?)?,
-            Step::LoopDone { head } => store::loop_done(&db, id, head)?,
-            _ => {}
+        let mut stmt = db.prepare(
+            "SELECT id FROM runs WHERE worker = ?1 AND status = 'running' ORDER BY created_ms, id",
+        )?;
+        let rows = stmt.query_map(params![worker], |row| row.get(0))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// What a worker in another process needs to run `id`, which `worker` holds: see
+    /// [`Lease`]. [`StoreError::NotHeld`] when `worker` does not hold it.
+    pub fn lease(&self, id: &str, worker: &str) -> Result<Lease, StoreError> {
+        if !store::holds(&self.db(), id, worker)? {
+            return Err(StoreError::NotHeld(id.to_owned()));
         }
+        self.lease_of(id, worker)
+    }
+
+    fn lease_of(&self, id: &str, worker: &str) -> Result<Lease, StoreError> {
+        let row = self.row(id)?;
+        let flow =
+            FlowDefinition::from_json(&row.definition).map_err(|e| StoreError::Unreadable(e.to_string()))?;
+        let started_ms = match row.started_ms {
+            Some(ms) => ms,
+            None => {
+                let now = self.now();
+                self.db().execute("UPDATE runs SET started_ms = ?2 WHERE id = ?1", params![id, now])?;
+                now
+            }
+        };
+        // A flow that no longer compiles keeps every part: the worker refuses it anyway.
+        let plan = Plan::compile(&flow, &self.catalog).ok();
+        let Kept { checkpoint, in_progress, woken } = self.checkpoint(id, plan.as_ref(), started_ms)?;
+        let mut events = BTreeMap::new();
+        for (name, items) in store::events(&self.db(), id)? {
+            events.insert(name, serde_json::from_str::<Vec<Item>>(&items)?);
+        }
+        let settled = checkpoint
+            .order
+            .iter()
+            .filter_map(|node| checkpoint.nodes.get(node).map(|part| (node.clone(), part.clone())))
+            .collect();
+        Ok(Lease {
+            id: id.to_owned(),
+            worker: worker.to_owned(),
+            definition: row.definition,
+            test: row.mode == Mode::Test,
+            start_node: row.start_node,
+            input: row.input,
+            started_ms,
+            settled,
+            in_progress,
+            woken,
+            events,
+            cancel_requested: row.cancel_requested,
+        })
+    }
+
+    /// Writes `step` of `id`, which `worker` runs elsewhere, and renews its lease; whether it still
+    /// holds the run and whether someone asked to cancel it. A worker that no longer holds it
+    /// writes nothing.
+    pub fn record(&self, id: &str, worker: &str, step: &StepRecord) -> Result<Held, StoreError> {
+        {
+            let db = self.db();
+            if !store::holds(&db, id, worker)? {
+                return Ok(Held { held: false, cancel: None });
+            }
+            match step {
+                StepRecord::Started { node } => store::started(&db, id, node)?,
+                StepRecord::Settled { node, part } => {
+                    store::settled(&db, id, node, &serde_json::to_string(part)?)?;
+                }
+                StepRecord::LoopDone { head } => store::loop_done(&db, id, head)?,
+            }
+        }
+        self.renew(id, worker)
+    }
+
+    /// Gives `worker` more time on `id`, with no step to write: what a worker does while a node
+    /// runs for long, and what a host does for a worker it knows is still there. Whether it still
+    /// holds the run, and whether someone asked to cancel it.
+    pub fn renew(&self, id: &str, worker: &str) -> Result<Held, StoreError> {
+        let db = self.db();
         let until = self.now().saturating_add(self.lease_ms as i64);
-        if !store::renew(&db, id, worker, until)? {
-            *lost.borrow_mut() = true;
-        }
-        // Another process may have asked to cancel it.
-        let asked: Option<String> = db
+        let held = store::renew(&db, id, worker, until)?;
+        let cancel: Option<String> = db
             .query_row("SELECT cancel_requested FROM runs WHERE id = ?1", params![id], |row| row.get(0))
             .optional()?
             .flatten();
-        if let Some(reason) = asked
-            && !token.is_cancelled()
-        {
-            token.cancel(reason);
+        Ok(Held { held, cancel })
+    }
+
+    /// Ends `id`, which `worker` ran elsewhere, as `outcome` says; its status after.
+    /// [`StoreError::NotHeld`] when `worker` no longer holds it, and then nothing changes.
+    pub fn finish(&self, id: &str, worker: &str, outcome: &RunOutcome) -> Result<RunStatus, StoreError> {
+        if !store::holds(&self.db(), id, worker)? {
+            return Err(StoreError::NotHeld(id.to_owned()));
         }
-        Ok(())
+        self.end(id, worker, outcome)
     }
 
     /// What `id` kept: the parts of the nodes that settled (a loop only once it ended), the
     /// nodes it was in when it stopped, and how each waiting node waits.
-    fn checkpoint(&self, id: &str, plan: &Plan, started: i64) -> Result<Kept, StoreError> {
+    fn checkpoint(&self, id: &str, plan: Option<&Plan>, started: i64) -> Result<Kept, StoreError> {
         let db = self.db();
         let ended: BTreeSet<String> = store::loops(&db, id)?.into_iter().collect();
         let mut unfinished: BTreeSet<&str> = BTreeSet::new();
-        for head in plan.order().iter().filter(|n| !plan.loop_body(n).is_empty()) {
-            if !ended.contains(head) {
-                unfinished.insert(head);
-                unfinished.extend(plan.loop_body(head).iter().map(String::as_str));
+        if let Some(plan) = plan {
+            for head in plan.order().iter().filter(|n| !plan.loop_body(n).is_empty()) {
+                if !ended.contains(head) {
+                    unfinished.insert(head);
+                    unfinished.extend(plan.loop_body(head).iter().map(String::as_str));
+                }
             }
         }
         let mut run = Run::default();
@@ -568,7 +638,7 @@ impl Runtime {
         let ended = status.ended().then(|| self.now());
         self.db().execute(
             "UPDATE runs SET status = ?3, outcome = ?4, wake_at = ?5, wake_event = ?6, ended_ms = ?7, lease_until = NULL
-             WHERE id = ?1 AND worker = ?2",
+             WHERE id = ?1 AND worker = ?2 AND status = 'running'",
             params![id, worker, status.as_str(), serde_json::to_string(outcome)?, wake_at, wake_event, ended],
         )?;
         Ok(status)

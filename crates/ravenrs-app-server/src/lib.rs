@@ -28,6 +28,7 @@ pub use hooks::{
     webhook_event_entity,
 };
 pub use http::{ApiOptions, router, router_with, serve, serve_with};
+pub use keys::{IssuedKey, issue_key, revoke_key};
 pub use live::{LiveChannels, LiveEvent};
 use ravenrs_app::{
     APP_SETTING, AuditSettings, AuditTrail, AuditedObjectSpace, AuthError, Authenticator, CONTEXT_DELETE,
@@ -215,6 +216,19 @@ impl Failure {
             object.insert("operation".to_owned(), json!(operation));
         }
         ApiResponse::json(self.status, body)
+    }
+}
+
+impl std::fmt::Display for Failure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} ({}): {}", self.status, self.code, self.message)
+    }
+}
+
+impl Failure {
+    /// The HTTP status it answers with.
+    pub fn status(&self) -> u16 {
+        self.status
     }
 }
 

@@ -39,6 +39,8 @@ pub const USAGE: &str = "uso: raven-ci [--dados PASTA] [--plugins PASTA]… [--f
   servir --config ARQUIVO aplica o arquivo ao subir
   servico instalar|remover|estado [--memoria 1G] [--endereco HOST:PORTA] [--executores N] [--sistema]
                           o servidor como serviço do sistema (systemd, launchd ou Windows)
+  agentes listar|token|remover|modelos|modelo
+                          os agentes que rodam os builds fora do servidor
   <comando> ...           um comando que um plugin ligado traz
   --self-test             confere o núcleo com um plugin falso de cada ponto
   --versao                a versão";
@@ -232,6 +234,7 @@ impl Invocation {
                 write(out, &format!("{USAGE}\n"))?;
                 Ok(2)
             }
+            ["agentes", args @ ..] => crate::agentes::command(&ci, args, self.json, out),
             [name, args @ ..] => {
                 let command = ci
                     .registry()

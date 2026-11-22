@@ -41,7 +41,7 @@ use std::time::Duration;
 
 use raven_ci_plugin_api::{BuildScope, CiError, CiPlugin, Host, Permission};
 use ravenrs_app::{Module, ModuleManifest};
-use ravenrs_flows::{Catalog, NodeContext, NodeError, NodeKind, NodeSpec, Ports};
+use ravenrs_flows::{Catalog, NodeContext, NodeError, NodeKind, NodeSpec, Ports, Reconciled};
 use ravenrs_process::{End, Event, Spec};
 use serde_json::Value;
 
@@ -204,6 +204,12 @@ fn command(script: &str, nice: Option<i64>, log: &dyn Fn(&str)) -> Spec {
 impl NodeKind for Sh {
     fn spec(&self) -> NodeSpec {
         NodeSpec::new(SH, 1).title("Comando").input("main").output("main").requires("script")
+    }
+
+    /// A command whose worker died in the middle (an agent that fell) runs again: the build's
+    /// folder kept what it wrote, and a build command is made to be run again.
+    fn reconcile(&self, _: &NodeContext<'_>) -> Reconciled {
+        Reconciled::NotDone
     }
 
     fn execute(&self, cx: &NodeContext<'_>) -> Result<Ports, NodeError> {

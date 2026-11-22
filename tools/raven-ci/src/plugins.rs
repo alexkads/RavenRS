@@ -3,6 +3,8 @@
 
 use std::sync::Arc;
 
+use raven_ci_plugin_agent_local::AgentLocalPlugin;
+use raven_ci_plugin_agent_remote::AgentRemotePlugin;
 use raven_ci_plugin_api::CiPlugin;
 use raven_ci_plugin_api_trigger::ApiTriggerPlugin;
 use raven_ci_plugin_artifacts::ArtifactsPlugin;
@@ -36,5 +38,7 @@ pub fn builtin() -> Vec<Arc<dyn CiPlugin>> {
         Arc::new(AzureDevopsPlugin::new()),
         Arc::new(ArtifactsPlugin::new()),
         Arc::new(JunitPlugin::new()),
+        Arc::new(AgentLocalPlugin::new()),
+        Arc::new(AgentRemotePlugin::new()),
     ]
 }

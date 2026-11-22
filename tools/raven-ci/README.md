@@ -179,6 +179,23 @@ The parameterized pipeline of an Azure DevOps repository is a job that fetches w
 - Azure DevOps Server, or a test, takes the address of its collection in the configuration of the
   plugin: `{"api": "https://ado.empresa/colecao"}`.
 
+## Build agents
+
+The server can leave its builds to agents: `raven-ci-agent`, a program of about 12 MB at rest that
+connects out to the server (HTTP and SSE, nothing open where it runs), takes builds by a lease of
+the queue and runs them with only the plugins each one needs. A job asks for one with
+`agent = { label = "linux" }`; with no agent connected that has the label, a template brings one up
+(`agent-local` on this machine, as another user; `agent-remote` on another, through SSH). An agent
+that falls comes back and resumes its build; one that does not leaves it interrupted after the
+grace time. Each agent may have limits of cores, memory (a cgroup of its own on Linux, and a watch
+of its processes everywhere) and disk: `--nucleos 4 --memoria 8G --disco 50G`. See
+[Build agents](docs/agents.md).
+
+```text
+raven-ci agentes token linux-1 --rotulos linux
+RAVEN_CI_AGENT_TOKEN=rva_… raven-ci-agent --servidor http://ci.local:8080 --nome linux-1 --rotulos linux
+```
+
 ## The plugins that come with it
 
 | Plugin | Point | What it does |
@@ -197,6 +214,8 @@ The parameterized pipeline of an Azure DevOps repository is a job that fetches w
 | `azure-devops` | scm, status | fetches a repository of Azure DevOps with the PAT of a credential, a pull request from its source branch merged onto its target, and sends the status to the pull request or the commit |
 | `artifacts` | publisher, routes | keeps the files the patterns of `artifacts = [...]` find (`*`, `**`, `?`, nothing out of the folder), says which pattern found nothing, and gives them back: `GET /api/ci/artifacts?job=&number=` and `GET /api/ci/artifact?id=` |
 | `junit` | publisher, route | reads the JUnit XML of `junit = [...]` with `ravenrs-junit`, keeps the count and the names of what failed with the build, and gives the trend of a job at `GET /api/ci/tests?job=` |
+| `agent-local` | agent launcher | brings `raven-ci-agent` up on the server's machine for a template of agents, as another user when it says one (`sudo -n`, or switched by root), so the server runs with `--executores 0` |
+| `agent-remote` | agent launcher | brings `raven-ci-agent` up on another machine through `ssh` (the token on its input, a key of the vault when the template names one); the agent connects back |
 
 ```toml
 [[parameters]]

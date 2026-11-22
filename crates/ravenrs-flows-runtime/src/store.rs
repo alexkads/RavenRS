@@ -25,6 +25,8 @@ pub enum StoreError {
     Unreadable(String),
     /// There is no run with this id.
     NoRun(String),
+    /// The worker named does not hold this run (any more): another took it, or it ended.
+    NotHeld(String),
 }
 
 impl fmt::Display for StoreError {
@@ -33,6 +35,7 @@ impl fmt::Display for StoreError {
             Self::Database(e) => write!(f, "the database: {e}"),
             Self::Unreadable(why) => write!(f, "something kept could not be read: {why}"),
             Self::NoRun(id) => write!(f, "there is no run {id}"),
+            Self::NotHeld(id) => write!(f, "the run {id} is not held by this worker"),
         }
     }
 }
@@ -159,6 +162,48 @@ pub(crate) fn claim(
         .optional()?;
     tx.commit()?;
     Ok(id)
+}
+
+/// What makes a run due now: asked for, its worker's lease ran out, or its wait is over.
+const DUE: &str = "status = 'queued'
+    OR (status = 'running' AND lease_until < ?1)
+    OR (status = 'waiting' AND wake_at IS NOT NULL AND wake_at <= ?1)";
+
+/// The ids of the runs due at `now_ms`, in the order a claim takes them.
+pub(crate) fn due(conn: &Connection, now_ms: i64) -> Result<Vec<String>, StoreError> {
+    let mut stmt =
+        conn.prepare(&format!("SELECT id FROM runs WHERE {DUE} ORDER BY priority DESC, created_ms, id"))?;
+    let rows = stmt.query_map(params![now_ms], |row| row.get(0))?;
+    Ok(rows.collect::<Result<_, _>>()?)
+}
+
+/// Takes `run` for `worker` if it is due at `now_ms`, in one statement; whether it did.
+pub(crate) fn claim_id(
+    conn: &Connection,
+    run: &str,
+    worker: &str,
+    now_ms: i64,
+    lease_until: i64,
+) -> Result<bool, StoreError> {
+    let changed = conn.execute(
+        &format!(
+            "UPDATE runs SET status = 'running', worker = ?2, lease_until = ?3 WHERE id = ?4 AND ({DUE})"
+        ),
+        params![now_ms, worker, lease_until, run],
+    )?;
+    Ok(changed == 1)
+}
+
+/// Whether `worker` holds `run` now, running.
+pub(crate) fn holds(conn: &Connection, run: &str, worker: &str) -> Result<bool, StoreError> {
+    let found: Option<i64> = conn
+        .query_row(
+            "SELECT 1 FROM runs WHERE id = ?1 AND worker = ?2 AND status = 'running'",
+            params![run, worker],
+            |row| row.get(0),
+        )
+        .optional()?;
+    Ok(found.is_some())
 }
 
 /// Gives `worker` more time on `run`; `false` when it no longer holds it.

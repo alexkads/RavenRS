@@ -52,7 +52,12 @@ pub const OPEN_PREFIX: &str = "/hooks/";
 
 /// The roles of the CI, as the server knows them.
 pub fn roles() -> Vec<Role> {
-    vec![Role::new(ROLE_ADMIN).administrative(), Role::new(ROLE_RUN), Role::new(ROLE_READ)]
+    vec![
+        Role::new(ROLE_ADMIN).administrative(),
+        Role::new(ROLE_RUN),
+        Role::new(ROLE_READ),
+        Role::new(crate::agents::ROLE_AGENT),
+    ]
 }
 
 fn failed(e: impl std::fmt::Display) -> CiError {
@@ -158,6 +163,9 @@ fn answer(ci: &Ci, request: &ApiRequest, who: &mut dyn FnMut() -> Option<Caller>
         && let ["api", "ci", what @ ("jobs" | "config")] = path.as_slice()
     {
         return Some(write(ci, what, request, who));
+    }
+    if let Some(answered) = crate::agents::answer(ci, request, &path, who) {
+        return Some(answered);
     }
     if path.as_slice() == ["api", "ci", "credentials"] && request.method == "GET" {
         return Some(match who() {

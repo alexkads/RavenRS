@@ -4,3 +4,4 @@
 mod disk;
 mod format;
 mod threads;
+mod tree;
