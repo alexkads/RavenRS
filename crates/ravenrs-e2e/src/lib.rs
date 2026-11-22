@@ -696,6 +696,16 @@ impl Expect<'_> {
         }
     }
 
+    /// The node can be checked and is not (check box, switch, toggle).
+    pub fn to_be_unchecked(&self) -> E2eResult {
+        let node = self.node()?;
+        if node.toggled == Some(Toggled::False) {
+            Ok(())
+        } else {
+            Err(self.fail(format!("expected unchecked, found {:?}", node.toggled)))
+        }
+    }
+
     /// The node does not respond to input.
     pub fn to_be_disabled(&self) -> E2eResult {
         if self.node()?.disabled { Ok(()) } else { Err(self.fail("expected disabled, it is enabled".into())) }

@@ -12,7 +12,7 @@ tools/ that builds a binary (src/main.rs) and depends on a RavenRS crate. Each o
 - depends on `ravenrs-e2e-wire`, which is how the Studio knows it speaks the test channel, and
   answers it: its sources name `SERVE_FLAG` (`--e2e-serve`);
 - keeps `.raventest` files in `tests/e2e/`, each a scenario that opens the declared app and
-  checks something (`check` or `mention`), not only clicks;
+  checks something (`check`, `mention` or `expect`), not only clicks;
 - plays them on every `cargo test`: a file under `tests/` reads `tests/e2e` (`FOLDER`) and plays
   them (`Scenario::play`, `play_served`, or each block's `command()` as Raven Finanças does).
 
@@ -36,7 +36,7 @@ NO_SCREEN = {
     "tools/raven-channel-video": (705, "a command line that records other apps; no window of its own"),
 }
 
-CHECKS = {"check", "conferir", "mention", "mencionar", "menciona"}
+CHECKS = {"check", "conferir", "mention", "mencionar", "menciona", "expect", "estar"}
 
 
 def section(manifest, name):
@@ -84,7 +84,7 @@ def scenario_problems(file, app):
     if app not in opens:
         problems.append(f"opens the app it declares (`open {app}`)")
     if not any(w and w[0].lower() in CHECKS for w in words):
-        problems.append("checks something (`check` or `mention`), not only clicks")
+        problems.append("checks something (`check`, `mention` or `expect`), not only clicks")
     return problems
 
 

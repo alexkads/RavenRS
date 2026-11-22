@@ -86,8 +86,9 @@ collapse <target> | <title>\n\
 wait <target> = <text it comes to show> | <title>\n\
 check <target> = <exact value or name> | <title>\n\
 mention <target> = <text it contains> | <title>\n\
+expect <target> = checked, unchecked, disabled, enabled, focused, visible or count N | <title>\n\
 A target is #<test id> or the exact text shown on screen. The first block opens the app. \
-type, fill, select, check and mention always have ` = ` and a text after the target; click, \
+type, fill, select, check, mention and expect always have ` = ` and a text after the target; click, \
 expand and collapse never have. Act only on the targets listed below; never invent a test id.";
 
 /// A whole scenario, for the AI to copy the shape of when the app has none of its own.
