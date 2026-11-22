@@ -191,3 +191,16 @@ fn a_hook_sees_the_build_before_and_after_and_refuses_what_its_settings_say() {
     hook.after(&build, BuildStatus::Succeeded, &serde_json::Value::Null).expect("after");
     assert_eq!(probe.hooked(), ["antes site#2", "antes site#2", "depois site#2 passou"]);
 }
+
+#[test]
+fn the_fake_of_screens_puts_a_view_in_the_model_once_it_started() {
+    let off = Fake::new(Point::Screens);
+    assert!(!raven_ci_plugin_api::has_screens(&off), "made, it adds nothing");
+    let on = started(Point::Screens);
+    assert!(raven_ci_plugin_api::has_screens(&on));
+    assert_eq!(points_of(&on), [Point::Screens]);
+    let mut model = ravenrs_app::ModelNode::new("Application");
+    ravenrs_app::Module::extend_model(&on, &mut model);
+    let views = model.children.iter().find(|node| node.id == "Views").expect("its views");
+    assert_eq!(views.children[0].id, "fake-screens_View");
+}

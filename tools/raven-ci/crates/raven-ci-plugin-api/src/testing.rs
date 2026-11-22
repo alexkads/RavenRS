@@ -338,6 +338,19 @@ impl Module for Fake {
     fn manifest(&self) -> ModuleManifest {
         self.manifest.clone()
     }
+
+    /// The fake of [`Point::Screens`] puts one view in the model once it started, as a plugin with a
+    /// page of the panel does.
+    fn extend_model(&self, root: &mut ravenrs_app::ModelNode) {
+        if self.offers(Point::Screens) {
+            let view =
+                ravenrs_app::ModelNode::new(format!("{}_View", self.name)).with("Caption", self.name.clone());
+            match root.children.iter_mut().find(|node| node.id == "Views") {
+                Some(views) => views.children.push(view),
+                None => root.children.push(ravenrs_app::ModelNode::new("Views").child(view)),
+            }
+        }
+    }
 }
 
 impl CiPlugin for Fake {

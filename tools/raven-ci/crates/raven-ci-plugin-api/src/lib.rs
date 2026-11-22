@@ -132,7 +132,7 @@ pub use host::Host;
 pub use http::{HttpRequest, HttpResponse, ROLE_ADMIN, ROLE_READ, ROLE_RUN, Route};
 pub use permission::Permission;
 pub use pipeline::{FormatError, PLUGIN_KEY, Pipeline, PipelineFormat, PostSteps, PostWhen, STAGE_KEY, Use};
-pub use plugin::{CiPlugin, Migration, Point, points_of};
+pub use plugin::{CiPlugin, Migration, Point, has_screens, points_of};
 pub use publish::{
     Attachment, BuildEvent, BuildInfo, BuildStatus, CommitState, CommitStatus, Notifier, Publisher,
     StatusReporter,
