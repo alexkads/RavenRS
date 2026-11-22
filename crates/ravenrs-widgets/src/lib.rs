@@ -72,6 +72,7 @@ use ravenrs_widgets_imaging::lottie;
 /// The stories of the components, as Storybook keeps them, for RavenComponentBook: each
 /// component gives its [`book::Meta`] through [`book::ComponentBook`], and [`book::all`] lists
 /// them (feature `book`).
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 pub mod book {
     pub use ravenrs_widgets_base::book::*;
 
@@ -96,6 +97,7 @@ pub mod book {
 /// float the panels of a `DockArea`, reorder a `SortableList` and set the crop of a `CropOverlay`
 /// by keys and by value, as a person does, never by pixels.
 #[cfg(feature = "testing")]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 pub mod testing {
     pub use ravenrs_widgets_charts::testing::FlowCanvasDriver;
     pub use ravenrs_widgets_dock::testing::DockDriver;
@@ -256,7 +258,7 @@ pub use link_service::{LinkOpener, Links};
 pub use links::Link;
 pub use lists::{
     DayMark, DocumentTab, DocumentTabs, FileBrowser, FileEntry, FileSort, FileSortColumn, Filmstrip,
-    FilmstripCell, PagedDocumentView, SortableList, VirtualList, YearView,
+    FilmstripCell, LogBuffer, LogView, PagedDocumentView, SortableList, VirtualList, YearView,
 };
 #[cfg(feature = "live")]
 #[doc(hidden)]

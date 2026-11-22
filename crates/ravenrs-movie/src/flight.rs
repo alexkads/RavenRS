@@ -43,6 +43,7 @@ struct Stretch {
     started: f64,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Stretch {
     fn new(size: Size, background: ravenrs_core::Color, started: f64) -> Self {
         Self { film: SessionFilm::new(size, background, Pace::Person), started }

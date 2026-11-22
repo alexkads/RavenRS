@@ -7,7 +7,7 @@ samples! {
     "Table" => table, "List" => list, "Stat" => stat, "Chart" => chart, "ChartReference" => chart_reference,
     "SankeyChart" => sankey_chart, "FlowCanvas" => flow_canvas, "PatchPanel" => patch_panel, "ChartCard" => chart_card, "BarChart" => bar_chart,
     "AreaChart" => area_chart, "Barcode" => barcode, "Timeline" => timeline, "PropertyRow" => property_row,
-    "VirtualList" => virtual_list, "PagedDocumentView" => paged_document_view,
+    "VirtualList" => virtual_list, "LogView" => log_view, "PagedDocumentView" => paged_document_view,
     "FileBrowser" => file_browser, "SortableList" => sortable_list,
 }
 
@@ -363,6 +363,20 @@ fn virtual_list() -> impl View {
     .key(|index| index as u64)
     .selection(selected.binding())
     .height(260.0)
+}
+// end
+
+// sample: LogView, 300
+fn log_view() -> impl View {
+    // A build as it runs: the colors the test runner writes, a stage that folds, the search.
+    let log = LogBuffer::new();
+    log.section("Testes");
+    log.push("$ cargo nextest run");
+    for n in 0..200 {
+        let mark = if n % 37 == 0 { "\u{1b}[31mFAIL\u{1b}[0m" } else { "\u{1b}[32mPASS\u{1b}[0m" };
+        log.push(&format!("    {mark} [0.0{}s] suite::test_{n}", n % 10));
+    }
+    LogView::new(log).height(240.0)
 }
 // end
 

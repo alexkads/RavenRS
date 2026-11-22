@@ -15,6 +15,7 @@ mod data_inspector;
 mod document_tabs;
 mod file_browser;
 mod filmstrip;
+mod log_view;
 mod paged_document_view;
 mod sortable_list;
 mod tree_view;
@@ -35,6 +36,7 @@ pub(crate) fn generated() -> Vec<Meta> {
     all.push(<crate::DocumentTabs as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::FileBrowser as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::Filmstrip as ravenrs_widgets_base::book::ComponentBook>::book());
+    all.push(<crate::LogView as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::PagedDocumentView as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::SortableList as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::TreeView as ravenrs_widgets_base::book::ComponentBook>::book());

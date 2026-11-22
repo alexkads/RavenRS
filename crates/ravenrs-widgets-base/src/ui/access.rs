@@ -227,6 +227,7 @@ impl Ui {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Ui {
     /// Where this node's test id was declared, or its instrumented view was constructed, as of the latest
     /// [`Self::access_tree`]. Returns `None` without `e2e-source`; not sent to screen readers.

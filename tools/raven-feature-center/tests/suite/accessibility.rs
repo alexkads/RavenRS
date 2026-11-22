@@ -101,6 +101,7 @@ demonstrations! {
     formulario_de_parametros => "Formulário de parâmetros",
     editor_de_expressoes => "Editor de expressões",
     inspetor_de_dados => "Inspetor de dados",
+    log_de_build => "Log de build",
     regras => "Regras",
     avisos_e_informacoes => "Avisos e informações",
     ao_sair_do_campo => "Ao sair do campo",

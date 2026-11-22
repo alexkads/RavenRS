@@ -35,6 +35,7 @@ impl std::fmt::Debug for DataGridDriver<'_> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<'a> DataGridDriver<'a> {
     /// Drives the grid on the screen; with more than one, say which with [`Self::within`].
     pub fn new(e2e: &'a mut E2e) -> Self {

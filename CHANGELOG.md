@@ -59,6 +59,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `LogView` and `LogBuffer` in `ravenrs-widgets-lists`: a build log as it comes, in a monospaced font with the colors the program wrote (ANSI 30-37 and 90-97, bold, reset, mapped to the theme's colors, with every other escape taken out), over a `VirtualList` that follows the end, with a search that marks the lines and counts them, sections that fold by click or Expand/Collapse, and the number of a line as a button that points at it (`on_line`). New labels `log_name`, `log_search`, `log_go_to_end`, `log_matches`, `log_folded` and `log_point_line`. It has its RCB stories, its RTS contract and the page "Log de build" in the feature center (#824).
+
 - `ravenrs-metrics`, metrics in the Prometheus text format with no dependencies: a `Registry` of counters, gauges and histograms with labels, safe from any thread, `render()` for a `/metrics` route with `CONTENT_TYPE`, and `process_rss_bytes()`, the memory the process holds, on Linux. Bad names, names taken and the wrong number of label values are errors, not panics (#820).
 
 - `ravenrs-git`, git for RavenRS services over the git installed: shallow `clone`, `fetch` with refspecs, `fetch_pull_request` (`refs/pull/N/head` as `<remote>/pr/N`), `checkout` with no branch, `rev_parse`, `ls_remote`, and `merge`, which names the files of a conflict and undoes it. A `Credential` goes in the child's environment as `http.extraHeader`, never as an argument nor in the remote's address, and every command runs without the user's git configuration and never asks for a password (#817).

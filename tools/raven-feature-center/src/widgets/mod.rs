@@ -65,6 +65,13 @@ pub const PAGES: &[Page] = &[
         make: || Box::new(listas::inspetor::InspectorPage),
     },
     Page {
+        id: listas::log::ID,
+        caption: listas::log::PAGE,
+        group: "Listas e árvores",
+        icon: IconName::FileText,
+        make: || Box::new(listas::log::LogPage),
+    },
+    Page {
         id: graficos::fluxo::ID,
         caption: graficos::fluxo::PAGE,
         group: "Gráficos e fluxos",
