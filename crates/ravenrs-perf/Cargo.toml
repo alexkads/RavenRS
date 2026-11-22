@@ -22,7 +22,7 @@ ravenrs-widgets = { workspace = true, features = ["charts", "lottie"] }
 calculator = { path = "../../examples/calculator" }
 component-gallery = { path = "../../examples/component-gallery" }
 family-finance = { path = "../../examples/family-finance" }
-feature-center = { path = "../../examples/feature-center" }
+feature-center = { path = "../../tools/feature-center" }
 ravenrs-app-ui.workspace = true
 pollster.workspace = true
 serde_json.workspace = true

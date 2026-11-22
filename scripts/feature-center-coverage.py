@@ -4,12 +4,12 @@
     scripts/feature-center-coverage.py            # checks; exit 1 with what is missing
     scripts/feature-center-coverage.py --summary  # also lists the components still waiting
 
-examples/feature-center/recursos.json has one entry per component: each public view of the
+tools/feature-center/recursos.json has one entry per component: each public view of the
 widgets' crates and each type of ravenrs-app* set up by methods, as scripts/component_inventory.py
 finds them. An entry is either
 
 - shown: {"crate", "tipo", "pagina", "recursos"}. "recursos" are the type's `pub fn`, exactly; each
-  one is called in examples/feature-center/src (`.name(` or `::name(`), and the page, as the
+  one is called in tools/feature-center/src (`.name(` or `::name(`), and the page, as the
   navigation calls it, is visited in tests/tour.rs; or
 - waiting: {"crate", "tipo", "pendente": true, "issue", "conhecidos"}. "conhecidos" are the `pub fn`
   it had when it started waiting. A new one means the component changed, and a component that
@@ -24,7 +24,7 @@ import sys
 
 from component_inventory import app_builders, built_components, public_methods_at, root, widget_components
 
-CENTER = root / "examples/feature-center"
+CENTER = root / "tools/feature-center"
 MANIFEST = CENTER / "recursos.json"
 TOUR = CENTER / "tests/tour.rs"
 
@@ -54,7 +54,7 @@ def main():
         if entry is None:
             problems.append(
                 f"{place(path, line)}: {name} ({crate}) is a public component with no entry in "
-                "examples/feature-center/recursos.json: give it a page in the feature center that shows "
+                "tools/feature-center/recursos.json: give it a page in the feature center that shows "
                 "every feature (skill ravenrs-feature-center)"
             )
             continue
@@ -88,12 +88,12 @@ def main():
             problems.append(f"{name} ({crate}) no longer has {', '.join(gone)}: take them out of its \"recursos\"")
         for method in sorted(declared & set(methods)):
             if not re.search(rf"(\.|::){method}\s*(::<[^>]*>)?\(", center_source):
-                problems.append(f"{name}::{method} is declared but never called in examples/feature-center/src")
+                problems.append(f"{name}::{method} is declared but never called in tools/feature-center/src")
         page = entry.get("pagina")
         if not page:
             problems.append(f"{name} ({crate}) is shown but has no \"pagina\"")
         elif f'"{page}"' not in tour:
-            problems.append(f"{name}: the page \"{page}\" has no step in examples/feature-center/tests/tour.rs")
+            problems.append(f"{name}: the page \"{page}\" has no step in tools/feature-center/tests/tour.rs")
 
     for key, entry in sorted(by_key.items()):
         if key not in code:

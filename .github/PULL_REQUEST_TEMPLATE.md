@@ -5,7 +5,7 @@ Closes #
 **How it was tested**
 
 - [ ] `./scripts/check.sh` passes, with the total time and the three slowest steps it printed, and whether the build directory started empty (`--full` before a release; it needs `cargo install cargo-nextest --locked`)
-- [ ] New or changed components have behavior tests and a page in examples/feature-center with every feature (`scripts/feature-center-coverage.py`, skill ravenrs-feature-center)
+- [ ] New or changed components have behavior tests and a page in tools/feature-center with every feature (`scripts/feature-center-coverage.py`, skill ravenrs-feature-center)
 - [ ] README / docs/PARITY.md / CHANGELOG.md updated where relevant
 
 **Limitations: what is not done or was not tested**

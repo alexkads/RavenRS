@@ -7,7 +7,7 @@ cargo run -p feature-center
 ```
 
 ```bash
-./scripts/build-web.sh feature-center && python3 -m http.server -d examples/feature-center/web 8099
+./scripts/build-web.sh feature-center && python3 -m http.server -d tools/feature-center/web 8099
 ```
 
 On the desktop it keeps its records in SQLite, in `RAVEN_CENTRO` or a file in the temporary folder, so delete that file to start over. In the browser it keeps them in memory and starts over when the page reloads.

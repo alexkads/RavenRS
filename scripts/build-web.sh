@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Builds an example for the browser into examples/<name>/web/pkg.
+# Builds an example (or a tool, such as the feature center) for the browser into
+# examples/<name>/web/pkg or tools/<name>/web/pkg.
 # Usage: scripts/build-web.sh [example-name] [cargo flags...]   (default: hello-world)
 #        scripts/build-web.sh feature-center --no-default-features --features widgets,playground
 # Requires: rustup target add wasm32-unknown-unknown
@@ -11,7 +12,9 @@ name="${1:-hello-world}"
 shift || true
 crate="${name//-/_}"
 root="$(cd "$(dirname "$0")/.." && pwd)"
-out="$root/examples/$name/web/pkg"
+folder="examples"
+if [ -d "$root/tools/$name/web" ]; then folder="tools"; fi
+out="$root/$folder/$name/web/pkg"
 
 cd "$root"
 cargo build -p "$name" --lib --target wasm32-unknown-unknown --profile wasm-release "$@"
@@ -29,4 +32,4 @@ fi
 size=$(wc -c < "$out/${crate}_bg.wasm" | tr -d ' ')
 gz=$(gzip -9 -c "$out/${crate}_bg.wasm" | wc -c | tr -d ' ')
 echo "Built $out (${size} bytes, ${gz} bytes gzipped)"
-echo "Serve it with: python3 -m http.server -d examples/$name/web 8080"
+echo "Serve it with: python3 -m http.server -d $folder/$name/web 8080"

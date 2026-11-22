@@ -198,7 +198,7 @@ EntityInfo::new("Order")
 
 ## Trying everything
 
-[`examples/feature-center`](../examples/feature-center) has every feature, one small demonstration each, with what to try on each list. Sign in as `ana`, `bia` or `caio`, with the password `raven-demo`, and compare. Its `tests/tour.rs` goes through it all, in memory and in SQLite, so a new feature gets a demonstration there and a place in that tour.
+[`tools/feature-center`](../tools/feature-center) has every feature, one small demonstration each, with what to try on each list. Sign in as `ana`, `bia` or `caio`, with the password `raven-demo`, and compare. Its `tests/tour.rs` goes through it all, in memory and in SQLite, so a new feature gets a demonstration there and a place in that tour.
 
 ## Showing a list other ways
 
