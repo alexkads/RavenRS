@@ -1,0 +1,29 @@
+[package]
+name = "raven-ci-plugin-kubernetes"
+description = "The plugin kubernetes of Raven CI: kubectl apply and rollout status with the namespace and the context declared, the kubeconfig sealed in the vault, and a stuck rollout told in clear words (ImagePullBackOff, OOMKilled, Pending, 403), through the kubectl command."
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+# A kubectl that answers what a test tells it, on Linux, macOS and Windows: for the tests only.
+name = "kubectl-falso"
+path = "src/bin/kubectl-falso.rs"
+test = false
+doc = false
+
+[dependencies]
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
+raven-ci-plugin-shell = { path = "../raven-ci-plugin-shell" }
+ravenrs-app.workspace = true
+ravenrs-flows.workspace = true
+ravenrs-process.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api", features = ["testing"] }
+
+[lints]
+workspace = true
