@@ -131,7 +131,7 @@ pub use choice::{
 pub use clipboard::{Clipboard, ClipboardProvider, MemoryClipboard};
 pub use color_picker::ColorPicker;
 pub use context::{
-    ActivityObserver, BuildCx, Carrying, Drag, DragHandler, DragPayload, DragPhase, DrawFn, DropCheck,
+    AccessHandler, ActivityObserver, BuildCx, BusySignal, Carrying, Drag, DragHandler, DragPayload, DragPhase, DrawFn, DropCheck,
     DropHandler, KeyHandler, LiveFn, NodeId, Paint, PaintCx, Placement, QuadPaint, RichFn, Semantics,
     UiActivity, WidgetId,
 };

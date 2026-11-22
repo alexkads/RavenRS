@@ -1082,7 +1082,17 @@ impl ApplicationHandler<UserEvent> for App {
                 let Some(action) = access::action(request.action) else { return };
                 let clock = self.clock();
                 self.ui.set_time(clock);
-                if self.ui.perform_action(request.target_node.0, action)
+                let text = match &request.data {
+                    Some(accesskit::ActionData::Value(text)) => Some(text.to_string()),
+                    _ => None,
+                };
+                let redraw = match (action, text) {
+                    (ravenrs_core::AccessAction::SetValue, Some(text)) => {
+                        self.ui.set_access_value(request.target_node.0, &text)
+                    }
+                    (action, _) => self.ui.perform_action(request.target_node.0, action),
+                };
+                if redraw
                     && let Some(state) = &self.window
                 {
                     state.window.request_redraw();
