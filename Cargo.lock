@@ -6276,6 +6276,7 @@ dependencies = [
  "ravenrs-barcode",
  "ravenrs-core",
  "ravenrs-criteria",
+ "ravenrs-e2e",
  "ravenrs-grid-export",
  "ravenrs-layout",
  "ravenrs-live",

@@ -38,6 +38,7 @@ ravenrs-style.workspace = true
 ravenrs-widgets = { workspace = true, features = ["charts"] }
 
 [dev-dependencies]
+ravenrs-e2e.workspace = true
 serde_json.workspace = true
 
 [lints]
