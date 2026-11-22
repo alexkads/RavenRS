@@ -38,3 +38,14 @@ From a checkout: `cargo run -p raven-report-designer`.
 ## As a product
 
 It follows [tools/README.md](../README.md): its own version (`Cargo.toml`), the news of each version (`novidades.json`, `historico-de-novidades.json`), the installer made from `crates/ravenrs-app-update/install.cmd.in` (`install.cmd`), `--versao` and `--self-test`, and `tests/suite/`, which runs both on the binary.
+
+## End-to-end tests (Raven Test Studio)
+
+The scenarios of this tool are in `tests/e2e/`, as `.raventest` files the Raven Test Studio reads: the designer opens on the gallery of templates; the invoice opens in the preview, with its page, and the JSON opens from its tab. The tool brings them (`SCENARIOS`), and `tests/suite/scenarios.rs` plays them on every `cargo test`.
+
+```bash
+raven-test-studio --project tools/raven-report-designer --run-all --no-cache --format json --out target/e2e/raven-report-designer
+```
+
+The tool answers the Studio when opened with `--e2e-serve`, with no window; its name on the channel is "Raven Report Designer" (`[package.metadata.ravenrs.e2e]` in `Cargo.toml`).
+

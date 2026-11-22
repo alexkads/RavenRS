@@ -12,6 +12,27 @@ fn main() -> Result<(), ravenrs::native::PlatformError> {
         println!("{}", raven_feature_center::VERSION);
         return Ok(());
     }
+    // A test tool such as Raven Test Studio drives the app with no window (`--e2e-serve`), in
+    // memory: nothing the person keeps on disk is opened.
+    if arguments.iter().any(|arg| arg == ravenrs_e2e_wire::SERVE_FLAG) {
+        let session = ravenrs_e2e::E2e::new(
+            raven_feature_center::view(
+                &raven_feature_center::Opening::from_arguments(["--modo".to_owned(), "vitrine".to_owned()])
+                    .unwrap_or_default(),
+            ),
+            ravenrs::prelude::Theme::raven_dark(),
+        )
+        .viewport(ravenrs::prelude::Size::new(1400.0, 900.0), 1.0);
+        let hello =
+            ravenrs_e2e_wire::Hello::of("Raven Feature Center").scenarios(raven_feature_center::SCENARIOS);
+        if let Err(error) =
+            ravenrs_e2e_wire::serve_filmed(hello, session, ravenrs::movie::ChannelFilm::default())
+        {
+            eprintln!("o canal de teste parou: {error}");
+            std::process::exit(1);
+        }
+        return Ok(());
+    }
     if arguments.iter().any(|a| a == "--self-test") {
         match raven_feature_center::self_test() {
             Ok(said) => println!("{said}"),

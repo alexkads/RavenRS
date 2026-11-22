@@ -25,3 +25,4 @@ fn it_tests_itself_with_no_window() {
         Command::new(env!("CARGO_BIN_EXE_raven-code")).arg("--self-test").output().expect("the binary runs");
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
 }
+mod scenarios;

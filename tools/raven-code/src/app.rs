@@ -1038,6 +1038,8 @@ impl RavenCode {
                 .hover(self.0.tip.get())
                 .on_go_to(move |at| go.with_lsp(|lsp| lsp.ask_definition(&at_go, at)));
         }
+        // Found by the file it edits, as a test of Raven Test Studio asks for it.
+        let editor = editor.test_id(format!("editor:{path}"));
         let Some(disk) = document.on_disk.get() else { return Box::new(editor) };
         // Changed on disk while it had changes here: which to keep.
         let (reload, keep) = (document.clone(), document.clone());
