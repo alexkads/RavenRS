@@ -59,6 +59,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- The components of `ravenrs-widgets-kit` are in the testability contract of the RTS (#738): tabs are `tab:<label>` and take `Select`; the items and sections of a `Sidebar` are `item:<label>` and `section:<title>` (sections open and close with `Expand` and `Collapse`); breadcrumbs are `crumb:<label>`, wizard steps `step:<n>`, uploaded files `file:<name>` and the remove buttons of a `TagBox` `remove:<tag>`; `Disclosure`, `TagBox` and `LookupField` open and close with `Expand` and `Collapse`; `TextArea` takes `SetValue`. `IconTile` gets a story with a label; `QuadField` has no screen.
+
 - Every type of `ravenrs-widgets-base` is in the testability contract of the RTS (#737, last lot): `Stepper` and `ColorPicker` take `SetValue` (a whole number, a color as `#3B82F6`); `ColorPicker` and `DateRangePicker` open and close with `Expand` and `Collapse`; the jacks of a `PatchPanel` are `jack:<id>`, the dots of a `Carousel` `slide:<n>`, the colors of a `SwatchGrid` `swatch:<name>`, and the points of a `NinePointAnchor` `option:<name>` and take `Select`.
 - `ApiOptions::workers(n)` in `ravenrs-app-server`: that many requests answered at the same time, each by a thread with its own service, so one slow request no longer holds up the rest. The threads share who is signed in: signing in on one, signing out, a session running out and a new password count on all of them, and the limit on tries to sign in adds up across them. The default stays one thread (#807).
 
