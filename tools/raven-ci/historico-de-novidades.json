@@ -1,5 +1,26 @@
 [
   {
+    "versao": "0.1.2",
+    "data": "2026-11-22",
+    "titulo": "Raven CI avisa, mede e entende o cargo.",
+    "importante": false,
+    "novidades": [
+      "Passo cargo: cada erro e aviso aparece no log e fica guardado no build com o arquivo e a linha, e cada job reaproveita a compilação do build anterior.",
+      "Avisos por e-mail e por webhook quando um build falha, quando volta a passar ou sempre, com o motivo, a duração e o commit.",
+      "O webhook de saída vai assinado e tenta de novo sozinho quando o destino não responde.",
+      "/metrics no formato Prometheus, com a fila, os builds, os agentes e a memória do servidor e de cada plugin, para ver no Grafana."
+    ],
+    "por_que_atualizar": "Para saber que um build quebrou sem abrir o painel, e para acompanhar o servidor de longe.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      911,
+      912,
+      913
+    ]
+  },
+  {
     "versao": "0.1.1",
     "data": "2026-11-22",
     "titulo": "Raven CI roda pipelines de verdade: plugins, agentes e painel.",

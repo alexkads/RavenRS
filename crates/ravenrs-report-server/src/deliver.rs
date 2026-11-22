@@ -1,95 +1,59 @@
 //! Sends a run's files: by email, or to a folder under the server's output folder.
+//!
+//! The email itself is `ravenrs-mail`, shared with the other services that send email; this
+//! module reads the server's [`SmtpConfig`], with the credentials from the environment, and keeps
+//! the delivery to a folder.
 
 use std::fmt;
 use std::path::Path;
-use std::time::Duration;
 
-use lettre::message::header::ContentType;
-use lettre::message::{Attachment as MailAttachment, Mailbox, MultiPart, SinglePart};
-use lettre::transport::smtp::authentication::Credentials;
-use lettre::{Message, SmtpTransport, Transport};
+pub use ravenrs_mail::{Mail, MailAttachment, Mailer};
 
 use crate::config::{SmtpConfig, SmtpSecurity};
 use crate::job::safe_relative_path;
 use crate::render::OutputFile;
 
-/// How long the mail server may take.
-const SMTP_TIMEOUT: Duration = Duration::from_secs(120);
-
-/// A message to send.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Mail {
-    /// The recipients.
-    pub to: Vec<String>,
-    /// The subject.
-    pub subject: String,
-    /// The text.
-    pub body: String,
-    /// The attached files.
-    pub attachments: Vec<OutputFile>,
-}
-
-/// Sends email. Blocking: it runs off the async threads.
-pub trait Mailer: Send + Sync {
-    /// Sends one message.
-    fn send(&self, mail: &Mail) -> Result<(), String>;
-}
-
-/// Sends email through an SMTP server.
-pub struct SmtpMailer {
-    from: Mailbox,
-    transport: SmtpTransport,
-}
+/// Sends email through the SMTP server of the configuration.
+pub struct SmtpMailer(ravenrs_mail::SmtpMailer);
 
 impl fmt::Debug for SmtpMailer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("SmtpMailer").field("from", &self.from).finish_non_exhaustive()
+        self.0.fmt(f)
     }
 }
 
 impl SmtpMailer {
-    /// Prepares the connection; credentials come from the environment.
+    /// Prepares the connection; credentials come from the environment variables the
+    /// configuration names.
     pub fn new(config: &SmtpConfig) -> Result<Self, String> {
-        let from = config.from.parse().map_err(|_| format!("'{}' is not a valid sender", config.from))?;
-        let relay_error = |e: lettre::transport::smtp::Error| format!("mail server {}: {e}", config.host);
-        let mut builder = match config.security {
-            SmtpSecurity::Starttls => SmtpTransport::starttls_relay(&config.host).map_err(relay_error)?,
-            SmtpSecurity::Tls => SmtpTransport::relay(&config.host).map_err(relay_error)?,
-            // Chosen explicitly in the configuration, for a relay on the same machine.
-            SmtpSecurity::None => SmtpTransport::builder_dangerous(&config.host),
-        };
-        if let Some(port) = config.port {
-            builder = builder.port(port);
-        }
         let from_env = |variable: &str| {
             std::env::var(variable).map_err(|_| format!("the environment variable {variable} is not set"))
         };
-        if let (Some(username), Some(password)) = (&config.username_env, &config.password_env) {
-            builder = builder.credentials(Credentials::new(from_env(username)?, from_env(password)?));
+        let mut settings =
+            ravenrs_mail::SmtpSettings::new(&config.host, &config.from).security(match config.security {
+                SmtpSecurity::Starttls => ravenrs_mail::Security::Starttls,
+                SmtpSecurity::Tls => ravenrs_mail::Security::Tls,
+                SmtpSecurity::None => ravenrs_mail::Security::None,
+            });
+        if let Some(port) = config.port {
+            settings = settings.port(port);
         }
-        Ok(Self { from, transport: builder.timeout(Some(SMTP_TIMEOUT)).build() })
+        if let (Some(username), Some(password)) = (&config.username_env, &config.password_env) {
+            settings = settings.credentials(from_env(username)?, from_env(password)?);
+        }
+        ravenrs_mail::SmtpMailer::new(&settings).map(Self)
     }
 }
 
 impl Mailer for SmtpMailer {
     fn send(&self, mail: &Mail) -> Result<(), String> {
-        let message = build_message(&self.from, mail)?;
-        self.transport.send(&message).map(|_| ()).map_err(|e| e.to_string())
+        self.0.send(mail)
     }
 }
 
-fn build_message(from: &Mailbox, mail: &Mail) -> Result<Message, String> {
-    let mut builder = Message::builder().from(from.clone()).subject(mail.subject.clone());
-    for address in &mail.to {
-        let mailbox: Mailbox = address.parse().map_err(|_| format!("'{address}' is not a valid address"))?;
-        builder = builder.to(mailbox);
-    }
-    let mut parts = MultiPart::mixed().singlepart(SinglePart::plain(mail.body.clone()));
-    for file in &mail.attachments {
-        let kind = ContentType::parse(file.mime).map_err(|e| e.to_string())?;
-        parts = parts.singlepart(MailAttachment::new(file.name.clone()).body(file.bytes.clone(), kind));
-    }
-    builder.multipart(parts).map_err(|e| e.to_string())
+/// The files of a run, as attachments of a message.
+pub fn attachments(files: &[OutputFile]) -> Vec<MailAttachment> {
+    files.iter().map(|file| MailAttachment::new(file.name.clone(), file.mime, file.bytes.clone())).collect()
 }
 
 /// Writes files to `path` under `output_dir`, refusing to leave it.
@@ -142,35 +106,5 @@ mod tests {
         assert!(write_to_folder(dir.path(), "link", &[file()]).is_err());
         assert!(!outside.path().join("a.csv").exists());
         Ok(())
-    }
-
-    #[test]
-    fn messages_carry_the_files_and_keep_headers_safe() -> Result<(), String> {
-        let from: Mailbox = "Reports <r@example.com>".parse().map_err(|_| "from")?;
-        let mail = Mail {
-            to: vec!["Ana <ana@example.com>".to_owned(), "b@example.com".to_owned()],
-            subject: "Oi\r\nBcc: evil@example.com".to_owned(),
-            body: "Segue".to_owned(),
-            attachments: vec![file()],
-        };
-        let message = build_message(&from, &mail)?;
-        let raw = String::from_utf8_lossy(&message.formatted()).into_owned();
-        assert!(raw.contains("a.csv"));
-        assert!(!raw.contains("\r\nBcc: evil"), "{raw}");
-        assert_eq!(message.envelope().to().len(), 2);
-        Ok(())
-    }
-
-    #[test]
-    fn a_bad_address_is_an_error() {
-        let from: Result<Mailbox, _> = "r@example.com".parse();
-        let Ok(from) = from else { return };
-        let mail = Mail {
-            to: vec!["nope".to_owned()],
-            subject: String::new(),
-            body: String::new(),
-            attachments: vec![],
-        };
-        assert!(build_message(&from, &mail).is_err());
     }
 }

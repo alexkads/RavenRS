@@ -45,6 +45,7 @@ pub mod multibranch;
 pub mod panel;
 pub mod people;
 mod registry;
+mod snapshot;
 mod store;
 
 use std::path::{Path, PathBuf};
@@ -834,5 +835,9 @@ impl host::Attachments for Ci {
 
     fn one(&self, id: i64) -> Result<(AttachmentInfo, Vec<u8>), CiError> {
         self.attachment(id)
+    }
+
+    fn snapshot(&self) -> Result<raven_ci_plugin_api::CiSnapshot, CiError> {
+        Ci::snapshot(self)
     }
 }

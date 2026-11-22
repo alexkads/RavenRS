@@ -129,9 +129,7 @@ impl Job {
                         return Err(format!("an email delivery needs 1 to {MAX_RECIPIENTS} recipients"));
                     }
                     for address in to {
-                        address
-                            .parse::<lettre::message::Mailbox>()
-                            .map_err(|_| format!("'{address}' is not a valid email address"))?;
+                        ravenrs_mail::check_address(address)?;
                     }
                 }
                 Delivery::Folder { path } => {

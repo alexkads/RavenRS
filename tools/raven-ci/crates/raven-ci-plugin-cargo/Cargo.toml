@@ -1,0 +1,25 @@
+[package]
+name = "raven-ci-plugin-cargo"
+description = "The plugin cargo of Raven CI: the step cargo, each error and warning with its file and line kept with the build, one target per job between builds, and ravenrs-xcache."
+version = "0.1.0"
+edition.workspace = true
+rust-version = "1.89"
+license.workspace = true
+publish = false
+
+[dependencies]
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
+# The loop that runs a program for a step: each line to the log, stopped when the build is.
+raven-ci-plugin-shell = { path = "../raven-ci-plugin-shell" }
+ravenrs-app.workspace = true
+ravenrs-flows.workspace = true
+ravenrs-process.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+raven-ci-core = { path = "../raven-ci-core" }
+raven-ci-plugin-format-toml = { path = "../raven-ci-plugin-format-toml" }
+
+[lints]
+workspace = true

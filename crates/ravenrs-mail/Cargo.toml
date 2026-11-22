@@ -1,0 +1,20 @@
+[package]
+name = "ravenrs-mail"
+description = "Sending email from a RavenRS service: a message with its attachments and safe headers, through an SMTP server over STARTTLS or TLS."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-mail"
+keywords = ["email", "smtp", "mail"]
+categories = ["email"]
+
+[dependencies]
+lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "builder", "hostname", "rustls", "ring", "webpki-roots"] }
+
+[lints]
+workspace = true

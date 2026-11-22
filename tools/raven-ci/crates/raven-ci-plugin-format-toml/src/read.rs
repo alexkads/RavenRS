@@ -615,6 +615,13 @@ pub(crate) fn read(job: &str, text: &str) -> Result<Pipeline, Vec<FormatError>> 
         }
     }
     pipeline.flow = builder.flow;
+    // A step cargo keeps its diagnostics; its plugin's publisher turns them into an attachment.
+    let has_cargo = |flow: &FlowDefinition| flow.nodes.iter().any(|node| node.kind == "cargo");
+    if (has_cargo(&pipeline.flow) || pipeline.post.iter().any(|post| has_cargo(&post.flow)))
+        && !pipeline.publishers.iter().any(|publisher| publisher.id == "cargo")
+    {
+        pipeline.publishers.push(Use::new("cargo", "cargo", json!({})));
+    }
     if read.reader.errors.is_empty() {
         Ok(pipeline)
     } else {

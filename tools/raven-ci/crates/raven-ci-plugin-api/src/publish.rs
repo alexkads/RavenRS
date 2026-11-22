@@ -65,6 +65,16 @@ pub struct BuildInfo {
     pub parameters: Map<String, Value>,
     /// The commit it built, when it fetched code.
     pub commit: Option<String>,
+    /// How long it took, from the request to its end; only when it ended.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub duration_ms: Option<u64>,
+    /// Why it ended as it did, in words, when the core knows: the step that failed, the time limit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    /// How the build before it of the same job ended, for a notice that only speaks when it
+    /// changes ("voltou a passar"); none for the first build.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous: Option<BuildStatus>,
 }
 
 /// Something a build leaves: an artifact, a test result, a summary. The core keeps the bytes
@@ -207,6 +217,61 @@ pub enum BuildEvent {
     Started(BuildInfo),
     /// It ended, in its status.
     Ended(BuildInfo),
+}
+
+impl BuildStatus {
+    /// Whether it went wrong in a way people should hear of: a step failed, the time ran out or
+    /// its agent was lost. A build someone cancelled did not.
+    pub fn went_wrong(self) -> bool {
+        matches!(self, Self::Failed | Self::TimedOut | Self::Interrupted)
+    }
+}
+
+/// When a [`Notifier`] speaks, as a job says it in `when`: the same rule for every notifier, so
+/// an e-mail and a webhook of one job agree.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum NoticeWhen {
+    /// When a build went wrong ([`BuildStatus::went_wrong`]): `falha`, the default.
+    #[default]
+    Failure,
+    /// When it went wrong after one that did not, or passed after one that went wrong:
+    /// `mudanca`. Says a break once, and that it was fixed.
+    Change,
+    /// At the end of every build: `sempre`.
+    Always,
+}
+
+impl NoticeWhen {
+    /// The `when` of a job's settings for a notifier: `falha`, `mudanca` or `sempre`, `falha` when
+    /// it says none.
+    pub fn of(settings: &Value) -> Result<Self, CiError> {
+        match settings.get("when").and_then(Value::as_str) {
+            None | Some("falha") => Ok(Self::Failure),
+            Some("mudanca" | "mudança") => Ok(Self::Change),
+            Some("sempre") => Ok(Self::Always),
+            Some(other) => {
+                Err(CiError::settings("when", format!("{other} não existe; use falha, mudanca ou sempre")))
+            }
+        }
+    }
+
+    /// Whether `event` is one to tell, and in which words: `None` when it is not.
+    pub fn due(self, event: &BuildEvent) -> Option<&'static str> {
+        let BuildEvent::Ended(build) = event else { return None };
+        let wrong = build.status.went_wrong();
+        let was_wrong = build.previous.is_some_and(BuildStatus::went_wrong);
+        match self {
+            Self::Always => Some(if build.status == BuildStatus::Succeeded && was_wrong {
+                "voltou a passar"
+            } else {
+                build.status.words()
+            }),
+            Self::Failure => wrong.then(|| build.status.words()),
+            Self::Change if wrong && !was_wrong => Some(build.status.words()),
+            Self::Change if build.status == BuildStatus::Succeeded && was_wrong => Some("voltou a passar"),
+            Self::Change => None,
+        }
+    }
 }
 
 /// A way of telling people about builds: e-mail, an outgoing webhook.

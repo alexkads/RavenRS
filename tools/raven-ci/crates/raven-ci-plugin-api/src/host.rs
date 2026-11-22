@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use serde_json::Value;
 
-use crate::{AttachmentInfo, CiError, Permission};
+use crate::{AttachmentInfo, CiError, CiSnapshot, Permission};
 
 /// What the core offers a plugin that is switched on, given to [`CiPlugin::start`](crate::CiPlugin::start).
 ///
@@ -88,5 +88,15 @@ pub trait Host: Send + Sync {
     fn attachment(&self, id: i64) -> Result<(AttachmentInfo, Vec<u8>), CiError> {
         let _ = id;
         Err(CiError::unavailable("este núcleo não dá os anexos dos builds aos plugins"))
+    }
+
+    /// The server at this moment: queue, builds, agents, plugins and memory.
+    ///
+    /// **Its role.** The one read of the whole server a plugin gets, for what reports on it, such
+    /// as `/metrics`. Asks no permission: it says counts and names, never a secret, a log or a
+    /// parameter. A host that keeps no builds answers [`CiError::Unavailable`], as this default
+    /// does.
+    fn snapshot(&self) -> Result<CiSnapshot, CiError> {
+        Err(CiError::unavailable("este núcleo não dá o retrato do servidor aos plugins"))
     }
 }

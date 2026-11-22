@@ -5,7 +5,7 @@ use std::fmt;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock, Weak};
 
-use raven_ci_plugin_api::{AttachmentInfo, CiError, Host, Migration, Permission};
+use raven_ci_plugin_api::{AttachmentInfo, CiError, CiSnapshot, Host, Migration, Permission};
 use rusqlite::{Connection, params};
 use serde_json::Value;
 
@@ -19,6 +19,8 @@ pub(crate) trait Attachments: Send + Sync {
 
     /// The attachment `id`, with its bytes.
     fn one(&self, id: i64) -> Result<(AttachmentInfo, Vec<u8>), CiError>;
+    /// The server at this moment (#913).
+    fn snapshot(&self) -> Result<CiSnapshot, CiError>;
 }
 
 /// The core, lent to the hosts once it is shared; weak, since the core holds the hosts.
@@ -250,5 +252,9 @@ impl Host for PluginHost {
 
     fn attachment(&self, id: i64) -> Result<(AttachmentInfo, Vec<u8>), CiError> {
         self.lent()?.one(id)
+    }
+
+    fn snapshot(&self) -> Result<CiSnapshot, CiError> {
+        self.lent()?.snapshot()
     }
 }

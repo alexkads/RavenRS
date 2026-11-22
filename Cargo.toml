@@ -82,6 +82,7 @@ ravenrs-sheet = { version = "27.1.28", path = "crates/ravenrs-sheet" }
 ravenrs-spreadsheet = { version = "27.1.28", path = "crates/ravenrs-spreadsheet" }
 ravenrs-report-server = { version = "27.1.28", path = "crates/ravenrs-report-server" }
 ravenrs-metrics = { version = "27.1.28", path = "crates/ravenrs-metrics" }
+ravenrs-mail = { version = "27.1.28", path = "crates/ravenrs-mail" }
 ravenrs-git = { version = "27.1.28", path = "crates/ravenrs-git" }
 ravenrs-junit = { version = "27.1.28", path = "crates/ravenrs-junit" }
 ravenrs-schedule = { version = "27.1.28", path = "crates/ravenrs-schedule" }

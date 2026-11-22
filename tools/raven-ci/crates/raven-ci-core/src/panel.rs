@@ -344,6 +344,15 @@ fn pieces(items: &ModelNode) -> Vec<ScreenItem> {
         .collect()
 }
 
+impl Ci {
+    /// The panel of this server, when its configuration says the address people reach it at:
+    /// the link a notice of a build gives.
+    pub(crate) fn panel_url(&self) -> Option<String> {
+        let url = self.url().ok().flatten()?;
+        Some(format!("{}{PANEL_PATH}", url.trim_end_matches('/')))
+    }
+}
+
 /// What the server says of itself.
 fn server(ci: &Ci, options: &PanelOptions) -> Json {
     let on: Vec<String> = ci.registry().on().iter().map(|p| p.name().to_owned()).collect();
