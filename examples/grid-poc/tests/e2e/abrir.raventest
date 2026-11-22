@@ -1,0 +1,8 @@
+scenario: Grade de dados: trocar de demonstração
+// Começa agrupada por região, com as 100 mil linhas; em páginas, a mesma grade mostra as linhas.
+open Grade de dados                                  | Abrir a grade de dados
+check Agrupado por Região = Agrupado por Região      | Começa agrupada por região
+check 100,000 de 100,000 linhas = 100,000 de 100,000 linhas | Com as 100 mil linhas
+click #option:Em páginas                             | Mostrar em páginas
+mention As mesmas 100 mil linhas em páginas: escolha quantas linhas por página no rodapé. = páginas | A explicação muda
+check Cliente 0000001 = Cliente 0000001              | As linhas aparecem

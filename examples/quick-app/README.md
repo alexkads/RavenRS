@@ -4,7 +4,7 @@
 
 ## End-to-end tests (Raven Test Studio)
 
-The scenarios of this example are in `tests/e2e/`, as `.raventest` files the Raven Test Studio reads: abre os bancos, cadastra um com código e nome e confere na lista. The app brings them (`SCENARIOS`), and `tests/scenarios.rs` plays them in the same process on every `cargo test`.
+The scenarios of this example are in `tests/e2e/`, as `.raventest` files the Raven Test Studio reads: opens the banks, adds one with a code and a name, and finds it on the list. The app brings them (`SCENARIOS`), and `tests/scenarios.rs` plays them in the same process on every `cargo test`.
 
 To run them as the Studio does, with the app in a process of its own, no window and no cache:
 

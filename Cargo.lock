@@ -1342,6 +1342,8 @@ dependencies = [
  "ravenrs",
  "ravenrs-app",
  "ravenrs-app-ui",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "ravenrs-grid-export",
  "ravenrs-project",
  "tracing-subscriber",
@@ -2903,6 +2905,8 @@ name = "grid-poc"
 version = "27.1.28"
 dependencies = [
  "ravenrs",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "tracing-subscriber",
 ]
 
@@ -5623,6 +5627,8 @@ dependencies = [
  "ravenrs-app-ui",
  "ravenrs-core",
  "ravenrs-criteria",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "ravenrs-style",
  "ravenrs-widgets",
  "wasm-bindgen",
@@ -8124,6 +8130,8 @@ version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "ravenrs-report",
  "ravenrs-report-viewer",
  "serde_json",
@@ -8283,6 +8291,8 @@ version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "ravenrs-spreadsheet",
  "serde_json",
  "tracing-subscriber",

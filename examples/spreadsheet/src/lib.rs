@@ -1,5 +1,9 @@
 //! A household budget in the RavenRS spreadsheet, shared by the native and the web build.
 
+/// The scenarios of Raven Test Studio the app brings, one per file of `tests/e2e/`: the tool
+/// gets them when it opens the app with `--e2e-serve`, and the tests play them.
+pub const SCENARIOS: [&str; 1] = [include_str!("../tests/e2e/abrir.raventest")];
+
 use ravenrs::prelude::*;
 use ravenrs_spreadsheet::{Spreadsheet, SpreadsheetState};
 use serde_json::json;

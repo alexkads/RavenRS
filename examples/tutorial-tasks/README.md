@@ -20,7 +20,7 @@ O gravador confere o erro de título obrigatório e a tarefa salva na lista.
 
 ## End-to-end tests (Raven Test Studio)
 
-The scenarios of this example are in `tests/e2e/`, as `.raventest` files the Raven Test Studio reads: a lista começa vazia; uma tarefa nova aparece nela depois de salva. The app brings them (`SCENARIOS`), and `tests/scenarios.rs` plays them in the same process on every `cargo test`.
+The scenarios of this example are in `tests/e2e/`, as `.raventest` files the Raven Test Studio reads: the list starts empty; a new task shows on it once saved. The app brings them (`SCENARIOS`), and `tests/scenarios.rs` plays them in the same process on every `cargo test`.
 
 To run them as the Studio does, with the app in a process of its own, no window and no cache:
 

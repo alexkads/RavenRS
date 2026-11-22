@@ -358,6 +358,26 @@ impl Scenario {
         }
         Ok(())
     }
+
+    /// Plays the scenario on an app opened in a process of its own, over the test channel, as
+    /// the tool plays it: for an app whose screen its tests cannot build, such as one with only a
+    /// binary. The error names the scenario, the step that failed and why, and shows the screen.
+    pub fn play_served(&self, client: &mut crate::Client) -> Result<(), String> {
+        for (step, block) in self.blocks.iter().enumerate() {
+            let Some(command) = block.command() else { continue };
+            if let Err(failure) = client.send(&command) {
+                return Err(format!(
+                    "{}: passo {} ({}) falhou: {}\n{}",
+                    self.name,
+                    step + 1,
+                    block.title,
+                    failure.message,
+                    failure.screen
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 /// The folder of an app where its scenarios live, from the app's package folder.
