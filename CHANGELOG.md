@@ -57,6 +57,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- The overlays of `ravenrs-widgets-base` keep the testability contract of the RTS (#737, second lot): `Dialog`, `Sheet`, `CommandPalette`, the menus and the toasts close with `Dismiss`; `DropdownMenu`, `ContextMenu` and the titles of a `Menubar` (`menu:<title>`) open with `ShowMenu`, `Expand` and `Collapse`, and a `Popover` with `Expand` and `Collapse`; menu items are `item:<label>`, commands `option:<label>`, toasts `toast:<id>`, and the close buttons `close`. `BuildCx::on_access` called again on a node adds to what it takes.
+
 - The input controls of `ravenrs-widgets-base` keep the testability contract of the RTS (#737, first lot): `TextField`, `Slider`, `Combobox`, `DatePicker` and `InputOtp` take `SetValue`; `Select`, `Combobox` and `DatePicker` open and close with `Expand` and `Collapse`; the options of `Select`, `Combobox` and `RadioGroup` are `option:<value>` and take `Select`; the days of the calendar are `day:<yyyy-mm-dd>` and take `Select`. `ravenrs-e2e` says so when a component refuses a value or an action.
 
 - The testability contract of the Raven Test Studio is checked: `tools/raven-test-studio/contrato.json` has an entry for each type of the feature center (test ids, actions, driver and scenario, `sem_tela`, or pending with its issue), and `scripts/rts-coverage.py`, in `check.sh`, refuses a type with none, a test id numbered by position and an action the code and the contract disagree on. The Studio's run log has the ids `log:N` (#736).
