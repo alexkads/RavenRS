@@ -10,7 +10,7 @@ finds them. An entry is either
 
 - shown: {"crate", "tipo", "pagina", "recursos"}. "recursos" are the type's `pub fn`, exactly; each
   one is called in tools/feature-center/src (`.name(` or `::name(`), and the page, as the
-  navigation calls it, is visited in tests/tour.rs; or
+  navigation calls it, is visited in tests/suite/tour.rs; or
 - waiting: {"crate", "tipo", "pendente": true, "issue", "conhecidos"}. "conhecidos" are the `pub fn`
   it had when it started waiting. A new one means the component changed, and a component that
   changes leaves the waiting list in the same pull request, with every feature shown.
@@ -26,7 +26,7 @@ from component_inventory import app_builders, built_components, public_methods_a
 
 CENTER = root / "tools/feature-center"
 MANIFEST = CENTER / "recursos.json"
-TOUR = CENTER / "tests/tour.rs"
+TOUR = CENTER / "tests/suite/tour.rs"
 
 
 def place(path, line):
@@ -93,7 +93,7 @@ def main():
         if not page:
             problems.append(f"{name} ({crate}) is shown but has no \"pagina\"")
         elif f'"{page}"' not in tour:
-            problems.append(f"{name}: the page \"{page}\" has no step in tools/feature-center/tests/tour.rs")
+            problems.append(f"{name}: the page \"{page}\" has no step in tools/feature-center/tests/suite/tour.rs")
 
     for key, entry in sorted(by_key.items()):
         if key not in code:

@@ -1,5 +1,5 @@
 //! The feature center: every component and every feature of the RavenRS, one page each, with what
-//! to try (#579). It is also how to know it all still works: `tests/tour.rs` goes through every
+//! to try (#579). It is also how to know it all still works: `tests/suite/tour.rs` goes through every
 //! demonstration, as each of the three people, in memory and in SQLite.
 //!
 //! It opens in more than one way, chosen by [`Opening`] from the command line or the address of the

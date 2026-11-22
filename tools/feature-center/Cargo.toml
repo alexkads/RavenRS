@@ -80,25 +80,9 @@ name = "api"
 required-features = ["app"]
 
 [[test]]
-name = "tour"
-required-features = ["app"]
-
-[[test]]
-name = "accessibility"
-required-features = ["app"]
-
-[[test]]
-name = "opening"
-required-features = ["app", "widgets", "playground"]
-
-[[test]]
 name = "suite"
 path = "tests/suite/main.rs"
 required-features = ["app", "widgets", "playground"]
-
-[[test]]
-name = "cabos"
-required-features = ["widgets"]
 
 [lints]
 workspace = true

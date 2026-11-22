@@ -2,6 +2,11 @@
 //! the MCP server read them.
 #![allow(clippy::expect_used, reason = "tests fail loudly")]
 
+mod accessibility;
+mod cabos;
+mod opening;
+mod tour;
+
 #[test]
 fn the_news_speak_of_the_version_running() {
     let news = ravenrs_app_update::parse_news(include_str!("../../novidades.json")).expect("the news");

@@ -93,6 +93,6 @@ The center can also be the window of that server: build it with `RAVEN_API_URL=h
 
 ## It is also the test
 
-`tests/tour.rs` goes through all of this, as each of the three people, in memory and in SQLite.
+`tests/suite/tour.rs` goes through all of this, as each of the three people, in memory and in SQLite.
 
-Every component of the library is shown here, with every feature (#579). A component that is new or changes gets its page in the same pull request: the skill `ravenrs-feature-center` says how. `recursos.json` lists each component, the page that shows it and the features it calls. `scripts/feature-center-coverage.py` checks that list against the code, and `scripts/check.sh` runs it. In `tests/accessibility.rs`, `every_demonstration_has_a_step_in_the_tour` checks that every page of the navigation has a step in the tour.
+Every component of the library is shown here, with every feature (#579). A component that is new or changes gets its page in the same pull request: the skill `ravenrs-feature-center` says how. `recursos.json` lists each component, the page that shows it and the features it calls. `scripts/feature-center-coverage.py` checks that list against the code, and `scripts/check.sh` runs it. In `tests/suite/accessibility.rs`, `every_demonstration_has_a_step_in_the_tour` checks that every page of the navigation has a step in the tour.

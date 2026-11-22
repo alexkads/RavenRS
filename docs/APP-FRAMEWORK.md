@@ -198,7 +198,7 @@ EntityInfo::new("Order")
 
 ## Trying everything
 
-[`tools/feature-center`](../tools/feature-center) has every feature, one small demonstration each, with what to try on each list. Sign in as `ana`, `bia` or `caio`, with the password `raven-demo`, and compare. Its `tests/tour.rs` goes through it all, in memory and in SQLite, so a new feature gets a demonstration there and a place in that tour.
+[`tools/feature-center`](../tools/feature-center) has every feature, one small demonstration each, with what to try on each list. Sign in as `ana`, `bia` or `caio`, with the password `raven-demo`, and compare. Its `tests/suite/tour.rs` goes through it all, in memory and in SQLite, so a new feature gets a demonstration there and a place in that tour.
 
 ## Showing a list other ways
 
@@ -458,7 +458,7 @@ ui.set_viewport(Size::new(1200.0, 800.0), 1.0);
 Audit::new().theme(Theme::raven_light()).open("Novo").app(&mut ui).assert_clean();
 ```
 
-`Audit::app` walks the application with no window: the screen it opens on, every item of the navigation, and on each, the buttons given to `open`. On every screen it reports a control with no name, an id that appears twice, focus on a node that is not there, Tab that does not move or goes round some controls and never reaches the others, a window over the screen that Escape does not close, and two commands on the same keys. On the theme on screen and on every theme given, it checks text and the focus ring against the WCAG AA contrast. `Audit::screen` looks at one screen. `Audit::items` lists the items of the navigation, and `Audit::item` opens one by its name and looks at it as `app` would, or reports `NoSuchItem` when the navigation no longer has it. `feature-center` audits each demonstration in a test of its own that way, so its screens run in parallel. One more test fails when a demonstration has no audit test, and another when it has no step in `tests/tour.rs`. As before, `check_tree`, `check_focus`, `check_theme` and `check_shortcuts` are there one by one. `quick-app`, `quick-plan` and `feature-center` run it in their tests, and any example can.
+`Audit::app` walks the application with no window: the screen it opens on, every item of the navigation, and on each, the buttons given to `open`. On every screen it reports a control with no name, an id that appears twice, focus on a node that is not there, Tab that does not move or goes round some controls and never reaches the others, a window over the screen that Escape does not close, and two commands on the same keys. On the theme on screen and on every theme given, it checks text and the focus ring against the WCAG AA contrast. `Audit::screen` looks at one screen. `Audit::items` lists the items of the navigation, and `Audit::item` opens one by its name and looks at it as `app` would, or reports `NoSuchItem` when the navigation no longer has it. `feature-center` audits each demonstration in a test of its own that way, so its screens run in parallel. One more test fails when a demonstration has no audit test, and another when it has no step in `tests/suite/tour.rs`. As before, `check_tree`, `check_focus`, `check_theme` and `check_shortcuts` are there one by one. `quick-app`, `quick-plan` and `feature-center` run it in their tests, and any example can.
 
 ## PostgreSQL
 
