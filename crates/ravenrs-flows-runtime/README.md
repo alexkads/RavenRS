@@ -18,13 +18,17 @@ Durable runs of [`ravenrs-flows`](../ravenrs-flows) flows, kept in SQLite.
 ## The rest
 
 - `Runtime::rerun(id, Revision::Original | Revision::Current(flow))` runs the same input again. The new run keeps where it came from.
-- `Runtime::prune(&Retention { older_than_ms, statuses, keep_last })` forgets ended runs by age, status and how many of each flow stay, with their steps, events and files.
+- **The order of the queue.** `Request::priority(n)` puts a run before the runs of a lower priority; among equals the oldest leaves first. `Runtime::set_priority` moves a run still waiting, and `Runtime::queue()` lists the waiting runs in the order they leave.
+- **Requests that join.** `Request::key(k)`: a request with the key of a run still queued joins that run instead of making another, which counts it in `RunRecord::joined` and takes the higher priority. Ten pushes while a build waits make one build. A rerun never joins.
+- **Cancelling.** `Runtime::cancel(id, reason)` ends a queued or waiting run at once. A run this process is running is cancelled through its token (`Executor::cancel_cooperatively`), so a node that looks at its token stops; a run another process is running stops when that process writes its next step.
+- **Other kinds, same queue.** `Runtime::with_catalog(catalog)` gives the same runs, on the same connection, run with other kinds: what a host whose kinds change while it runs (plugins switched on or off) uses, even with the queue in memory.
+- `Runtime::prune(&Retention { older_than_ms, statuses, keep_last, flow_id })` forgets ended runs by age, status and how many of each flow stay (of one flow only, with `flow_id`), with their steps, events and files.
 - `Runtime::put_blob` keeps a file a run's items carry, apart from their JSON, and `Runtime::blob` reads it back.
 - `Runtime::clock(ManualClock)` puts the queue, the leases and the waits on a test clock.
 
 ## Tables
 
-`runs` (one row per run), `steps` (one row per node that started), `loops_done`, `events` and `blobs`, made by `Runtime::open` when the file has none. The file uses the write-ahead log and waits up to 10 seconds for a lock.
+`runs` (one row per run, with its priority, key, joined requests and a cancel asked from another process; a file made before these columns gets them when it opens), `steps` (one row per node that started), `loops_done`, `events` and `blobs`, made by `Runtime::open` when the file has none. The file uses the write-ahead log and waits up to 10 seconds for a lock.
 
 ## Limits
 
