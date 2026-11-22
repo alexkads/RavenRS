@@ -1032,7 +1032,7 @@ impl View for InputOtp {
             let border = if active {
                 Border { width: 1.5, color: theme.color(Semantic::Accent) }
             } else {
-                Border { width: 1.0, color: theme.color(Semantic::Border) }
+                Border { width: 1.0, color: theme.color(Semantic::ControlBorder) }
             };
             boxes.push(cx.container(
                 LayoutStyle {

@@ -14,6 +14,7 @@ pub fn light() -> Theme {
             bg_200: Color::hex(0xffffff),
             bg_300: Color::hex(0xe9f3d2),
             border: Color::hex(0xd8e6ba),
+            control_border: Color::hex(0x7a8a5c),
             ink: Color::hex(0x15230d),
             ink_muted: Color::hex(0x4c5c3d),
             accent: Color::hex(0x7ac70c),
@@ -39,6 +40,7 @@ pub fn dark() -> Theme {
             bg_200: Color::hex(0x3c4046),
             bg_300: Color::hex(0x4a4f55),
             border: Color::hex(0x585e65),
+            control_border: Color::hex(0x8a929b),
             ink: Color::hex(0xf6f8f2),
             ink_muted: Color::hex(0xc9cfcc),
             accent: Color::hex(0xb2ea3c),
@@ -69,6 +71,7 @@ pub fn glass() -> Theme {
             accent_pressed: dark.accent_pressed,
             on_accent: dark.on_accent,
             focus_ring: dark.focus_ring,
+            control_border: dark.control_border,
             success: dark.success,
             warning: dark.warning,
             danger: dark.danger,
@@ -150,6 +153,11 @@ mod tests {
                 assert!(ratio >= 4.5, "{}: {name} is {ratio:.2}:1", theme.name);
             }
             assert!(p.focus_ring.contrast_ratio(p.bg_000) >= 3.0, "{}: focus ring", theme.name);
+            for ground in [p.bg_000, over(p.bg_100, p.bg_000), card] {
+                let ratio = over(p.control_border, p.bg_000).contrast_ratio(ground);
+                assert!(ratio >= 3.0, "{}: field outline is {ratio:.2}:1", theme.name);
+            }
+            assert!(theme.is_readable(), "{}", theme.name);
         }
     }
 

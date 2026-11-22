@@ -118,7 +118,8 @@ impl View for Toggle {
             theme.color(Semantic::Control).lerp(theme.color(Semantic::Ink), if hovered { 0.08 } else { 0.0 })
         };
         let track = state.fill(track);
-        let border = (!on).then(|| Border { width: 1.0, color: state.ink(theme.color(Semantic::Border)) });
+        let border =
+            (!on).then(|| Border { width: 1.0, color: state.ink(theme.color(Semantic::ControlBorder)) });
         let (track_width, track_height, knob, inset) =
             if self.small { (32.0, 18.0, 14.0, 2.0) } else { (40.0, 24.0, 18.0, 3.0) };
         // The thumb stretches while held and is kept apart from the track so it
@@ -239,10 +240,10 @@ pub fn check_box_around(
     let paint = if checked {
         QuadPaint { corner_radius: 5.0, ..QuadPaint::new(state.fill(theme.color(Semantic::Accent))) }
     } else {
-        let edge = if hovered { theme.color(Semantic::Ink) } else { theme.color(Semantic::InkMuted) };
+        let edge = if hovered { theme.color(Semantic::Ink) } else { theme.color(Semantic::ControlBorder) };
         QuadPaint {
             corner_radius: 5.0,
-            border: Some(Border { width: 1.5, color: state.ink(edge.with_alpha(0.7)) }),
+            border: Some(Border { width: 1.5, color: state.ink(edge) }),
             ..QuadPaint::new(Color::TRANSPARENT)
         }
     };
@@ -346,13 +347,13 @@ impl View for RadioOption {
         } else {
             vec![]
         };
-        let edge = if hovered { theme.color(Semantic::Ink) } else { theme.color(Semantic::InkMuted) };
+        let edge = if hovered { theme.color(Semantic::Ink) } else { theme.color(Semantic::ControlBorder) };
         let paint = if on {
             QuadPaint { corner_radius: 9.0, ..QuadPaint::new(theme.color(Semantic::Accent)) }
         } else {
             QuadPaint {
                 corner_radius: 9.0,
-                border: Some(Border { width: 1.5, color: edge.with_alpha(0.7) }),
+                border: Some(Border { width: 1.5, color: edge }),
                 ..QuadPaint::new(Color::TRANSPARENT)
             }
         };
@@ -848,7 +849,7 @@ impl View for Stepper {
         };
         let paint = QuadPaint {
             corner_radius: theme.radii.md,
-            border: Some(Border { width: 1.0, color: state.ink(theme.color(Semantic::Border)) }),
+            border: Some(Border { width: 1.0, color: state.ink(theme.color(Semantic::ControlBorder)) }),
             ..QuadPaint::new(state.fill(theme.color(Semantic::Control)))
         };
         let node = cx.container(style, &[minus, value, plus], Paint::Quad(paint));
