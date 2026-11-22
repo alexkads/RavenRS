@@ -373,3 +373,165 @@ fn a_flow_that_does_not_compile_ends_stopped_with_why() {
         matches!(record.outcome, Some(RunOutcome::Stopped { ref reason, .. }) if reason.contains("nowhere"))
     );
 }
+
+// The queue of #839: priorities, requests that join, cancelling and moving a run, and files made
+// before any of it.
+
+/// A flow of its own id, so each run is told apart by its flow.
+fn named(id: &str) -> FlowDefinition {
+    FlowDefinition::new(id, id)
+        .node(NodeDef::new("start", "manual").parameter("items", json!([{ "id": 1 }])))
+        .node(NodeDef::new("after", "join").parameter("field", json!("id")))
+        .connect("start", "main", "after", "main")
+}
+
+#[test]
+fn the_highest_priority_leaves_the_queue_first_and_the_oldest_among_equals() {
+    let clock = ManualClock::at(0);
+    let runtime = Runtime::in_memory(Catalog::builtin()).expect("opens").clock(clock.clone());
+    let old = runtime.enqueue(Request::new(named("old"))).expect("asked");
+    clock.advance(1);
+    let urgent = runtime.enqueue(Request::new(named("urgent")).priority(10)).expect("asked");
+    clock.advance(1);
+    let newer = runtime.enqueue(Request::new(named("newer"))).expect("asked");
+    let line: Vec<String> = runtime.queue().expect("listed").into_iter().map(|r| r.id).collect();
+    assert_eq!(line, [urgent.clone(), old.clone(), newer.clone()]);
+    assert_eq!(runtime.claim("a").expect("claims"), Some(urgent));
+    assert_eq!(runtime.claim("a").expect("claims"), Some(old));
+
+    runtime.set_priority(&newer, 5).expect("moved");
+    assert_eq!(runtime.get(&newer).expect("kept").priority, 5);
+    assert!(runtime.set_priority("run-none", 1).is_err(), "there is no such run");
+}
+
+#[test]
+fn requests_with_the_key_of_a_run_in_the_queue_join_it() {
+    let runtime = Runtime::in_memory(Catalog::builtin()).expect("opens");
+    let first = runtime.enqueue(Request::new(named("site")).key("site@main")).expect("asked");
+    let second = runtime.enqueue(Request::new(named("site")).key("site@main")).expect("asked");
+    let third = runtime.enqueue(Request::new(named("site")).key("site@main").priority(3)).expect("asked");
+    assert_eq!((second.as_str(), third.as_str()), (first.as_str(), first.as_str()));
+    let record = runtime.get(&first).expect("kept");
+    assert_eq!((record.joined, record.priority, record.key.as_deref()), (2, 3, Some("site@main")));
+    assert_eq!(runtime.work_until_idle("a").expect("runs"), 1, "three requests, one run");
+
+    // Once it left the queue, the same key makes a run of its own.
+    let after = runtime.enqueue(Request::new(named("site")).key("site@main")).expect("asked");
+    assert_ne!(after, first);
+    // A rerun is asked for on purpose and never joins.
+    let again = runtime.rerun(&first, Revision::Original).expect("asked");
+    assert_ne!(again, after);
+    assert_eq!(runtime.get(&again).expect("kept").priority, 3, "a rerun keeps the priority");
+}
+
+#[test]
+fn a_run_cancelled_in_the_queue_ends_without_running() {
+    let runtime = Runtime::in_memory(Catalog::builtin()).expect("opens");
+    let id = runtime.enqueue(Request::new(simple())).expect("asked");
+    assert_eq!(runtime.cancel(&id, "no longer needed").expect("cancels"), RunStatus::Cancelled);
+    assert_eq!(runtime.work_until_idle("a").expect("runs"), 0);
+    let record = runtime.get(&id).expect("kept");
+    assert!(
+        matches!(record.outcome, Some(RunOutcome::Cancelled { ref reason }) if reason == "no longer needed")
+    );
+    assert!(record.ended_ms.is_some());
+    assert!(runtime.queue().expect("listed").is_empty());
+    // A run that ended stays as it ended.
+    assert_eq!(runtime.cancel(&id, "again").expect("answers"), RunStatus::Cancelled);
+}
+
+/// Waits, a little at a time, until it is cancelled; says it started.
+struct Busy(Arc<AtomicBool>);
+impl NodeKind for Busy {
+    fn spec(&self) -> NodeSpec {
+        NodeSpec::new("busy", 1).input("main").output("main")
+    }
+    fn execute(&self, cx: &NodeContext<'_>) -> Result<Ports, NodeError> {
+        self.0.store(true, Ordering::SeqCst);
+        cx.sleep(60_000)?;
+        Ok(main_port(cx.input("main").to_vec()))
+    }
+}
+
+#[test]
+fn a_run_cancelled_while_it_runs_stops_its_node_through_the_token() {
+    let started = Arc::new(AtomicBool::new(false));
+    let runtime =
+        Arc::new(Runtime::in_memory(Catalog::builtin().with(Busy(started.clone()))).expect("opens"));
+    let flow = FlowDefinition::new("slow", "Slow")
+        .node(NodeDef::new("start", "manual").parameter("items", json!([{ "id": 1 }])))
+        .node(NodeDef::new("wait", "busy"))
+        .connect("start", "main", "wait", "main");
+    let id = runtime.enqueue(Request::new(flow)).expect("asked");
+    let worker = {
+        let runtime = runtime.clone();
+        std::thread::spawn(move || runtime.work("a").expect("runs"))
+    };
+    let begun = std::time::Instant::now();
+    while !started.load(Ordering::SeqCst) {
+        assert!(begun.elapsed().as_secs() < 10, "the node started");
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    assert_eq!(runtime.cancel(&id, "stopped by Ana").expect("asks"), RunStatus::Running);
+    worker.join().expect("the worker ends");
+    assert!(begun.elapsed().as_secs() < 10, "it did not wait the minute out");
+    let record = runtime.get(&id).expect("kept");
+    assert_eq!(record.status, RunStatus::Cancelled);
+}
+
+#[test]
+fn a_run_another_process_cancels_stops_at_its_next_step() {
+    let db = TempDb::new("cancel-across");
+    let catalog = Catalog::builtin().with(Send(Arc::new(AtomicU32::new(0))));
+    let flow = FlowDefinition::new("two", "Two")
+        .node(NodeDef::new("start", "manual").parameter("items", json!([{ "id": 1 }])))
+        .node(NodeDef::new("send", "send"))
+        .connect("start", "main", "send", "main");
+    let here = Runtime::open(&db.0, catalog.clone()).expect("opens");
+    let id = here.enqueue(Request::new(flow)).expect("asked");
+    assert_eq!(here.claim("a").expect("claims"), Some(id.clone()));
+    // The other process sees it running and asks; this one finds out when it writes a step.
+    let there = Runtime::open(&db.0, catalog).expect("opens");
+    assert_eq!(there.cancel(&id, "from the panel").expect("asks"), RunStatus::Running);
+    assert_eq!(here.execute(&id, "a").expect("runs"), RunStatus::Cancelled);
+}
+
+#[test]
+fn a_retention_for_one_flow_leaves_the_others_alone() {
+    let runtime = Runtime::in_memory(Catalog::builtin()).expect("opens");
+    for flow in ["a", "a", "b", "b"] {
+        runtime.enqueue(Request::new(named(flow))).expect("asked");
+    }
+    runtime.work_until_idle("w").expect("runs");
+    let only_a = Retention { keep_last: Some(1), flow_id: Some("a".into()), ..Retention::default() };
+    assert_eq!(runtime.prune(&only_a).expect("prunes").runs, 1);
+    assert_eq!(runtime.runs_of("a").expect("listed").len(), 1);
+    assert_eq!(runtime.runs_of("b").expect("listed").len(), 2);
+}
+
+#[test]
+fn a_file_made_before_the_queue_had_priorities_opens_and_gets_the_columns() {
+    let db = TempDb::new("old-file");
+    {
+        let conn = rusqlite::Connection::open(&db.0).expect("opens");
+        conn.execute_batch(
+            "CREATE TABLE runs (
+                id TEXT PRIMARY KEY, flow_id TEXT NOT NULL, revision INTEGER NOT NULL, definition TEXT NOT NULL,
+                mode TEXT NOT NULL, actor TEXT, start_node TEXT, input TEXT NOT NULL, status TEXT NOT NULL,
+                outcome TEXT, origin TEXT, worker TEXT, lease_until INTEGER, wake_at INTEGER, wake_event TEXT,
+                started_ms INTEGER, created_ms INTEGER NOT NULL, ended_ms INTEGER);",
+        )
+        .expect("the old table");
+        conn.execute(
+            "INSERT INTO runs (id, flow_id, revision, definition, mode, input, status, created_ms)
+             VALUES ('run-old', 'orders', 1, ?1, 'active', '[]', 'queued', 0)",
+            [simple().to_json()],
+        )
+        .expect("an old run");
+    }
+    let runtime = Runtime::open(&db.0, Catalog::builtin()).expect("opens the old file");
+    let record = runtime.get("run-old").expect("kept");
+    assert_eq!((record.priority, record.joined, record.key), (0, 0, None));
+    assert_eq!(runtime.work_until_idle("a").expect("runs"), 1);
+    assert_eq!(runtime.get("run-old").expect("kept").status, RunStatus::Finished);
+}
