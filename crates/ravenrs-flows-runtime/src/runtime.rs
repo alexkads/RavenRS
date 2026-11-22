@@ -218,12 +218,12 @@ pub struct Pruned {
 /// run with a lease, runs it writing a checkpoint after every node, and a run left by a worker
 /// that died goes back to the queue when its lease runs out.
 pub struct Runtime {
-    conn: Mutex<Connection>,
+    conn: Arc<Mutex<Connection>>,
     catalog: Catalog,
     clock: Arc<dyn Clock>,
     lease_ms: u64,
     /// The token of each run this process is running, so cancelling it reaches the node at once.
-    running: Mutex<BTreeMap<String, CancelToken>>,
+    running: Arc<Mutex<BTreeMap<String, CancelToken>>>,
 }
 
 impl fmt::Debug for Runtime {
@@ -247,12 +247,25 @@ impl Runtime {
     fn on(conn: Connection, catalog: Catalog) -> Result<Self, StoreError> {
         store::prepare(&conn)?;
         Ok(Self {
-            conn: Mutex::new(conn),
+            conn: Arc::new(Mutex::new(conn)),
             catalog,
             clock: Arc::new(SystemClock),
             lease_ms: LEASE_MS,
-            running: Mutex::default(),
+            running: Arc::default(),
         })
+    }
+
+    /// The same runs, on the same connection and clock, run with the kinds of `catalog`: what a
+    /// host whose kinds change while it runs uses (a plugin switched on or off), so the queue
+    /// goes on whole, even one kept only in memory. Cancelling a run reaches it from either.
+    pub fn with_catalog(&self, catalog: Catalog) -> Self {
+        Self {
+            conn: self.conn.clone(),
+            catalog,
+            clock: self.clock.clone(),
+            lease_ms: self.lease_ms,
+            running: self.running.clone(),
+        }
     }
 
     /// On `clock`: the time runs are asked for, held, woken and forgotten by.

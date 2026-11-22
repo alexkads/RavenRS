@@ -12,6 +12,7 @@ Metrics for RavenRS services in the Prometheus text format (0.0.4): what a `/met
 | `Registry::histogram` | Counts observations into growing ranges, with `+Inf`, `_sum` and `_count`. `DEFAULT_BUCKETS` suits durations in seconds. |
 | `CONTENT_TYPE` | `text/plain; version=0.0.4; charset=utf-8`, for the route. |
 | `process_rss_bytes` | The memory the process holds, on Linux, from `/proc/self/status`. `None` on other systems, which have no such file. |
+| `rss_bytes_of` | The memory another process holds, such as a child the service started: from `/proc/<pid>/status` on Linux and from `ps` on macOS. `None` elsewhere and when the process is gone. |
 
 Names follow `[a-zA-Z_:][a-zA-Z0-9_:]*` and labels `[a-zA-Z_][a-zA-Z0-9_]*`. A bad name, a name taken, the wrong number of label values or ranges that do not grow are errors, never panics. Label values and help are escaped as the format asks (`\"`, `\\`, `\n`). Everything is safe from any thread.
 

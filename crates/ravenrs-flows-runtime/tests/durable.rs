@@ -535,3 +535,15 @@ fn a_file_made_before_the_queue_had_priorities_opens_and_gets_the_columns() {
     assert_eq!(runtime.work_until_idle("a").expect("runs"), 1);
     assert_eq!(runtime.get("run-old").expect("kept").status, RunStatus::Finished);
 }
+
+#[test]
+fn a_runtime_with_other_kinds_shares_the_queue_even_in_memory() {
+    let sent = Arc::new(AtomicU32::new(0));
+    let before = Runtime::in_memory(Catalog::builtin()).expect("opens");
+    let id = before.enqueue(Request::new(flow("send"))).expect("asked");
+    let after = before.with_catalog(Catalog::builtin().with(Send(sent.clone())));
+    assert_eq!(after.queue().expect("listed").len(), 1, "the run asked for before is there");
+    after.work_until_idle("a").expect("runs");
+    assert_eq!(before.get(&id).expect("kept").status, RunStatus::Finished);
+    assert_eq!(sent.load(Ordering::SeqCst), 2, "both send nodes ran with the kind the new catalog has");
+}
