@@ -13,8 +13,15 @@ documentation = "https://docs.rs/ravenrs-flows"
 keywords = ["workflow", "automation", "flow", "nodes", "dataflow"]
 categories = ["gui", "data-structures"]
 
+[features]
+default = ["canvas"]
+# The bridge to the FlowCanvas (to_graph, from_graph, Catalog::run_rules, card, port_name), over the
+# drawing model of ravenrs-graphics. Off, the crate runs flows with no drawing in its tree: what a
+# server or a plugin of Raven CI built on its own needs.
+canvas = ["dep:ravenrs-graphics"]
+
 [dependencies]
-ravenrs-graphics.workspace = true
+ravenrs-graphics = { workspace = true, optional = true }
 # The conditions and values of the built-in nodes, over each item's JSON.
 ravenrs-criteria = { workspace = true, features = ["json"] }
 serde.workspace = true
