@@ -1,0 +1,6 @@
+scenario: Parar volta ao início
+open Raven Test Studio                                       | Abrir o Studio testado
+click #run                                                   | Rodar
+check #summary = 5 de 5 passos passaram                       | Rodou
+click #stop                                                  | Parar
+check #summary = Ainda não rodou                              | Voltou ao início

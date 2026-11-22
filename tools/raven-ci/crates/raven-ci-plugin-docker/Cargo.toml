@@ -1,0 +1,23 @@
+[package]
+name = "raven-ci-plugin-docker"
+description = "The plugin docker of Raven CI: steps in an image with the build's folder mounted and the agent's user, docker build and push with the login of a registry, compose with the wait for health, and every container, network and volume of the build removed at its end, through the docker or podman command."
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+base64 = "0.23"
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
+raven-ci-plugin-shell = { path = "../raven-ci-plugin-shell" }
+ravenrs-app.workspace = true
+ravenrs-flows.workspace = true
+ravenrs-process.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api", features = ["testing"] }
+
+[lints]
+workspace = true

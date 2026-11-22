@@ -34,7 +34,7 @@ use ravenrs_core::{
 };
 use ravenrs_render::{GpuContext, GpuError, Renderer, preferred_surface_format, surface_report, wgpu};
 use ravenrs_style::Theme;
-use ravenrs_widgets::{Diagnostics, DiagnosticsHost, Labels, Localized, Ui, View};
+use ravenrs_widgets::{Diagnostics, DiagnosticsHost, Driving, Labels, Localized, Ui, UiDriver, View};
 use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
 use winit::event::StartCause;
@@ -47,6 +47,7 @@ use winit::window::{Icon, Window, WindowAttributes, WindowId};
 pub use diagnostics::diagnose;
 pub use files::{OpenDialog, SaveDialog, open_url, open_with_system};
 pub use notice::SystemNotifier;
+pub use ravenrs_core::{TrayEntry, TrayMenu};
 pub use tray::SystemTray;
 
 /// Wheel pixels that ask for twice the size, with Ctrl held.
@@ -65,6 +66,10 @@ enum UserEvent {
     Pinch(f32),
     /// From the icon beside the clock, or from opening the app a second time.
     Tray(tray::TrayAction),
+    /// The app changed the entries of the menu beside the clock.
+    TrayMenu,
+    /// The [`UiDriver`] of [`run_driven`] asked for a turn.
+    Drive,
 }
 
 impl From<accesskit_winit::Event> for UserEvent {
@@ -200,7 +205,27 @@ impl From<GpuError> for PlatformError {
 /// # Ok::<(), ravenrs_platform_native::PlatformError>(())
 /// ```
 pub fn run(root: impl View + 'static, options: WindowOptions) -> Result<(), PlatformError> {
-    run_window(root, options, AppIdentity::anonymous(None))
+    run_window(root, options, AppIdentity::anonymous(None), None)
+}
+
+/// Like [`run`], with the window's interface driven by `driver`, as a test tool drives it to run
+/// a scenario where the person can watch (`--headed` in Raven Test Studio).
+///
+/// The driver gets the window's own [`Ui`] on this thread whenever it asks for a turn, so what
+/// it does is what the window shows. While it is in control ([`Driving::Driven`]) the window
+/// draws, resizes and animates, but the person's pointer, keyboard and focus changes do not
+/// reach the interface; once it lets go ([`Driving::Released`]) the window is an ordinary one;
+/// when it is done ([`Driving::Done`]) the window closes and this returns. Closing the window
+/// while the driver is in control tells it ([`UiDriver::window_closed`]) and ends the app.
+///
+/// The app runs with no identity: no tray, no single copy and no app id, so a test window never
+/// reaches a copy of the app the person has open.
+pub fn run_driven(
+    root: impl View + 'static,
+    options: WindowOptions,
+    driver: impl UiDriver + 'static,
+) -> Result<(), PlatformError> {
+    run_window(root, options, AppIdentity::anonymous(None), Some(Box::new(driver)))
 }
 
 /// Who the app is to the system, and what it asks of the desktop: given to [`run_as`].
@@ -306,7 +331,7 @@ pub fn run_as(
     options: WindowOptions,
     identity: AppIdentity,
 ) -> Result<(), PlatformError> {
-    run_window(root, options, identity)
+    run_window(root, options, identity, None)
 }
 
 /// Like [`run`], with an icon for the window's title bar and the task bar on
@@ -319,13 +344,14 @@ pub fn run_with_icon(
     options: WindowOptions,
     icon: ImageData,
 ) -> Result<(), PlatformError> {
-    run_window(root, options, AppIdentity::anonymous(Some(icon)))
+    run_window(root, options, AppIdentity::anonymous(Some(icon)), None)
 }
 
 fn run_window(
     root: impl View + 'static,
     options: WindowOptions,
     identity: AppIdentity,
+    driver: Option<Box<dyn UiDriver>>,
 ) -> Result<(), PlatformError> {
     let AppIdentity { id, icon, labels, diagnostics, new_issue_url, tray } = identity;
     let app_id = (!id.is_empty()).then_some(id);
@@ -370,6 +396,12 @@ fn run_window(
         // It only fails once the loop is gone, when there is nothing left to tell.
         let _ = answer.send_event(UserEvent::Tray(action));
     });
+    if let Some(tray) = &tray {
+        let changed = event_loop.create_proxy();
+        tray.entries().on_change(move || {
+            let _ = changed.send_event(UserEvent::TrayMenu);
+        });
+    }
     if let Some(id) = single_copy
         && let Err(e) = tray::listen_for_other_copies(id, tray_notify.clone())
     {
@@ -397,6 +429,8 @@ fn run_window(
         last_click: None,
         started: std::time::Instant::now(),
         looking: false,
+        driving: if driver.is_some() { Driving::Driven } else { Driving::Released },
+        driver,
         error: None,
     };
     event_loop.run_app(&mut app).map_err(|e| PlatformError::EventLoop(e.to_string()))?;
@@ -457,6 +491,10 @@ struct App {
     started: std::time::Instant,
     /// The diagnostics panel is open, so the frames are being looked at closely.
     looking: bool,
+    /// What drives the interface from outside, for [`run_driven`].
+    driver: Option<Box<dyn UiDriver>>,
+    /// Who is in control: the person, unless a driver is.
+    driving: Driving,
     error: Option<PlatformError>,
 }
 
@@ -571,6 +609,25 @@ impl App {
     }
 
     /// Brings the window back, or to the front if it never left.
+    /// An entry of the app's menu beside the clock was chosen: one whose id starts with
+    /// `open:` opens the window first, and the app hears the id on this, the interface's thread.
+    fn tray_choice(&mut self, event_loop: &ActiveEventLoop, id: &str) {
+        if id.starts_with(ravenrs_core::OPENS_WINDOW) {
+            self.open_window(event_loop);
+        }
+        if let Some(tray) = self.tray.clone() {
+            tray.select(id);
+        }
+        // The app may keep the choice for its next build, which runs now even with no window.
+        self.ui.ui_waker().wake();
+        let clock = self.clock();
+        self.ui.set_time(clock);
+        self.ui.update();
+        if let Some(state) = &self.window {
+            state.window.request_redraw();
+        }
+    }
+
     fn open_window(&mut self, event_loop: &ActiveEventLoop) {
         self.in_tray = None;
         if let Some(state) = &self.window {
@@ -675,7 +732,8 @@ impl App {
     }
 
     fn dispatch(&mut self, event: Event) {
-        self.ui.set_time(self.started.elapsed().as_secs_f64());
+        let clock = self.clock();
+        self.ui.set_time(clock);
         let redraw = self.ui.handle_event(&event);
         if let Some(state) = &mut self.window {
             let cursor = self.ui.cursor();
@@ -713,7 +771,8 @@ impl App {
                 Err(e) => tracing::error!(error = %e, "GPU recovery failed"),
             }
         }
-        self.ui.set_time(self.started.elapsed().as_secs_f64());
+        let clock = self.clock();
+        self.ui.set_time(clock);
         let Some(state) = &mut self.window else { return };
         let scale = self.ui.scale();
         // Looking costs a little, so it only happens while the panel is open.
@@ -783,6 +842,68 @@ impl App {
         }
         self.update_access();
     }
+}
+
+impl App {
+    /// Hands the driver of [`run_driven`] its wake function, once the window is on screen, and
+    /// gives it its first turn.
+    fn start_driver(&mut self, event_loop: &ActiveEventLoop) {
+        let Some(driver) = &mut self.driver else { return };
+        let proxy = self.proxy.clone();
+        // It only fails once the loop is gone, when there is nothing left to drive.
+        driver.start(Box::new(move || {
+            let _ = proxy.send_event(UserEvent::Drive);
+        }));
+        self.drive_turn(event_loop);
+    }
+
+    /// The interface's clock, in seconds since the app started: the real one, or the one the
+    /// driver of [`run_driven`] keeps while it is in control ([`UiDriver::time`]).
+    fn clock(&mut self) -> f64 {
+        let now = self.started.elapsed().as_secs_f64();
+        match &mut self.driver {
+            Some(driver) if self.driving == Driving::Driven => driver.time(now),
+            _ => now,
+        }
+    }
+
+    /// A turn of the driver of [`run_driven`] on the window's interface, then a frame.
+    fn drive_turn(&mut self, event_loop: &ActiveEventLoop) {
+        if self.driving == Driving::Done {
+            return;
+        }
+        let Some(driver) = &mut self.driver else { return };
+        let now = self.started.elapsed().as_secs_f64();
+        let now = driver.time(now);
+        self.driving = driver.drive(&mut self.ui, now);
+        if self.driving == Driving::Done {
+            event_loop.exit();
+            return;
+        }
+        if let Some(state) = &self.window {
+            state.window.request_redraw();
+        }
+    }
+}
+
+/// What the person does to the interface, which does not reach it while a driver is in control.
+/// Losing the focus is among it: the person may click the terminal to step the test.
+fn is_person_input(event: &WindowEvent) -> bool {
+    matches!(
+        event,
+        WindowEvent::CursorMoved { .. }
+            | WindowEvent::CursorLeft { .. }
+            | WindowEvent::MouseInput { .. }
+            | WindowEvent::MouseWheel { .. }
+            | WindowEvent::PinchGesture { .. }
+            | WindowEvent::ModifiersChanged(_)
+            | WindowEvent::KeyboardInput { .. }
+            | WindowEvent::Focused(_)
+            | WindowEvent::HoveredFile(_)
+            | WindowEvent::HoveredFileCancelled
+            | WindowEvent::DroppedFile(_)
+            | WindowEvent::Touch(_)
+    )
 }
 
 /// Ctrl+Shift+D, or Cmd+Shift+D on a Mac, opens the diagnostics panel.
@@ -887,7 +1008,9 @@ impl ApplicationHandler<UserEvent> for App {
         }
         match self.ui.next_wake().filter(|_| self.in_tray.is_none()) {
             Some(at) => {
-                let at = self.started + std::time::Duration::from_secs_f64(at.max(0.0));
+                // The interface's clock may run behind the real one while a driver holds it.
+                let behind = self.started.elapsed().as_secs_f64() - self.clock();
+                let at = self.started + std::time::Duration::from_secs_f64((at + behind).max(0.0));
                 event_loop.set_control_flow(ControlFlow::WaitUntil(at));
             }
             None => event_loop.set_control_flow(ControlFlow::Wait),
@@ -902,6 +1025,7 @@ impl ApplicationHandler<UserEvent> for App {
             Ok(state) => {
                 self.show_window(state);
                 self.listen_for_wayland_pinches();
+                self.start_driver(event_loop);
             }
             Err(e) => {
                 tracing::error!(error = %e, "could not start");
@@ -917,15 +1041,29 @@ impl ApplicationHandler<UserEvent> for App {
             UserEvent::Access(event) => event,
             UserEvent::Tray(tray::TrayAction::Open) => return self.open_window(event_loop),
             UserEvent::Tray(tray::TrayAction::Quit) => return event_loop.exit(),
+            UserEvent::Tray(tray::TrayAction::Select(id)) => return self.tray_choice(event_loop, &id),
+            UserEvent::TrayMenu => {
+                if let (Some(shown), Some(tray)) = (&self.in_tray, &self.tray) {
+                    shown.refresh(tray);
+                }
+                return;
+            }
             UserEvent::Pinch(delta) => {
-                if let Some(position) = self.pointer {
+                if let Some(position) = self.pointer.filter(|_| self.driving != Driving::Driven) {
                     self.dispatch(Event::Pinch { position, delta });
                 }
                 return;
             }
+            UserEvent::Drive => return self.drive_turn(event_loop),
             UserEvent::Wake => {
                 tracing::trace!("woken from another thread");
-                if let Some(state) = &self.window {
+                if self.in_tray.is_some() {
+                    // A hidden window draws nothing, but the screen still builds: what it reads
+                    // (an update that finished, a run that ended) reaches the menu of the icon.
+                    let clock = self.clock();
+                    self.ui.set_time(clock);
+                    self.ui.update();
+                } else if let Some(state) = &self.window {
                     state.window.request_redraw();
                 }
                 return;
@@ -942,10 +1080,19 @@ impl ApplicationHandler<UserEvent> for App {
             }
             A::ActionRequested(request) => {
                 let Some(action) = access::action(request.action) else { return };
-                self.ui.set_time(self.started.elapsed().as_secs_f64());
-                if self.ui.perform_action(request.target_node.0, action)
-                    && let Some(state) = &self.window
-                {
+                let clock = self.clock();
+                self.ui.set_time(clock);
+                let text = match &request.data {
+                    Some(accesskit::ActionData::Value(text)) => Some(text.to_string()),
+                    _ => None,
+                };
+                let redraw = match (action, text) {
+                    (ravenrs_core::AccessAction::SetValue, Some(text)) => {
+                        self.ui.set_access_value(request.target_node.0, &text)
+                    }
+                    (action, _) => self.ui.perform_action(request.target_node.0, action),
+                };
+                if redraw && let Some(state) = &self.window {
                     state.window.request_redraw();
                 }
             }
@@ -961,6 +1108,18 @@ impl ApplicationHandler<UserEvent> for App {
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
         if let (Some(access), Some(state)) = (&mut self.access, &self.window) {
             access.adapter.process_event(&state.window, &event);
+        }
+        if self.driving == Driving::Driven {
+            if is_person_input(&event) {
+                return;
+            }
+            if matches!(event, WindowEvent::CloseRequested) {
+                if let Some(driver) = &mut self.driver {
+                    driver.window_closed();
+                }
+                event_loop.exit();
+                return;
+            }
         }
         match event {
             WindowEvent::ThemeChanged(theme) => {

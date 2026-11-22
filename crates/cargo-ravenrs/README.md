@@ -16,11 +16,16 @@ For a released version, add `--tag vYY.R.P` to `cargo install`. This crate embed
 sources and is installed from Git, rather than crates.io. From a checkout use
 `cargo install --path crates/cargo-ravenrs --locked`.
 
+Since it does not come from crates.io, nothing updates it by itself. It says when it is behind:
+a command it does not know (one a newer skill names) answers with the installed version and the
+install command, with exit code 2; `cargo ravenrs --version` and `cargo ravenrs doctor` warn when the
+project asks for another RavenRS, and say whether to update or to install that project's tag.
+
 `new` asks for the template and target in a terminal. With `--yes` or redirected input,
 it defaults to `hello` and `desktop`. Templates are `hello`, `app`, `app-sqlite`, and
 `relatorios`; targets are `desktop`, `web`, and `both`. SQLite is used on the desktop;
 the SQLite template uses IndexedDB in the browser. Source files are embedded from
-`examples/hello-world`, `tutorial-tasks`, `tasks-sqlite`, and `report-designer`.
+`examples/hello-world`, `tutorial-tasks`, `tasks-sqlite`, and `raven-report-designer`.
 
 Flags: `--no-git`, `--no-ai`, `--no-check`, and `--plugin`. The last flag writes a
 version-pinned Claude marketplace registration instead of copying the local skill.
@@ -35,10 +40,59 @@ is written. Keep personal instructions outside the managed blocks. The local ski
 copied byte-for-byte from the versioned plugin, and its marked body can be updated while
 preserving notes outside the block. An unmarked existing skill is preserved and reported.
 
+`cargo ravenrs e2e run` runs the project's end-to-end scenarios with no window and no Raven Test Studio, with [`ravenrs-e2e-runner`](../ravenrs-e2e-runner), the engine the Studio uses too:
+
+- with no path, it runs the `tests/e2e/*.raventest` of every app of the project that speaks the test channel ([`ravenrs-e2e-wire`](../ravenrs-e2e-wire)), compiling each with Cargo and opening the executable Cargo reports. A compiler error is `E2E_APP_BUILD`, with Rust's source location and diagnostic in the report; a compiled app that cannot open its channel is `E2E_APP_START`;
+- with a path (`cargo ravenrs e2e run tests/e2e/pedido.raventest`, or a folder), it runs those files, opening the apps they name from the project before any installed copy;
+- `--format` is `text`, `json`, `jsonl` (one event per line, with the time of each step), `junit` (for build servers) or `html` (a page with the summary, each step and the failure);
+- each run is kept in `target/e2e/<scenario>/` (`--out` for another folder): `relatorio.json`, `relatorio.html`, `trace.jsonl` and, on a failure, `arvore.txt` with the app's screen;
+- `--film on-failure` films each app the scenarios open and keeps `filme-N.ravenmovie` of the one a block failed on, beside the report (`always` keeps every film, `never` films nothing; `film` in `e2e.toml` says it once). An app served without filming is not filmed, and the report says so;
+- `--headed` runs the same scenarios with the app's real window on screen, on its test data (`--slow-mo <ms>` to follow each step, `--step` to start paused and go one block per Enter, `--keep-open on-failure|always` to look at the window at the end, `--headless` to turn off a window `e2e.toml` asks for); an app that cannot show its window fails with `E2E_NO_WINDOW`;
+- the exit code is 0 when every scenario passed, 1 when one failed and 2 when nothing could run.
+
+An `e2e.toml` next to an app's `Cargo.toml` keeps the suite's choices: `folder` (where its scenarios are, `tests/e2e` by default), and, at the project's root, `format`, `out`, `film`, `window` (`headless` or `headed`), `slow_mo` (milliseconds) and `keep_open` for when the command line does not give them. `app`, `themes` and `load` are read and said to have no effect yet; any other key, or a wrong value, stops the run with exit code 2, the file and the key.
+
+`cargo ravenrs e2e schema scenario` prints the JSON Schema of a scenario as JSON (what an AI writes before it becomes a `.raventest`), and `schema report` the one of the JSON report. `cargo ravenrs e2e rust <file>` prints the scenario as a Rust integration test of the app it opens, through its `CARGO_BIN_EXE_*` and the test channel: generated, to read, or to keep in the app's `tests/` when a team prefers Rust (`--bin` names the binary when the app is not found).
+
+`cargo ravenrs e2e list` says which packages are made with RavenRS, which are apps, whether each speaks the test channel, its scenarios and the screens it builds (`--json` for a tool). `--project <folder>` points either command at another project.
+
+`features = ["e2e-source"]` in the app's `[package.metadata.ravenrs.e2e]` enables its named Cargo features for source test builds only. This is separate from `e2e.toml`. Omit it for defaults; the app must define the selected features. Discovery lists the choices and configuration errors; execution refuses malformed lists before opening an app.
+
+All four templates (`hello`, `app`, `app-sqlite`, `relatorios`) include that metadata, an opt-in
+`e2e-source` feature, and `tests/e2e/start.raventest`. Their native entry handles the explicit
+`--e2e-serve` argument before opening a window, with the existing frame/film adapter over
+stdin/stdout. The test branch uses memory, including `app-sqlite`; its normal desktop entry
+still opens the persistent database. The generated screen test also uses the memory fixture.
+The channel adds no runner, Studio or AI dependency to the generated app. Web builds keep
+their existing browser entry; this channel is native and does not open a socket or attach
+to a window already running.
+
+`cargo ravenrs e2e install` equips an existing generated app (or `--project <folder>`),
+without building or starting it. It recognizes the original native entry and the installed
+entry, including after `cargo fmt`; new projects already have the channel. It merges only
+the e2e dependencies, metadata and source feature, keeps comments/custom fields and valid
+scenarios, and honors a scenario folder inside the app. A second run preserves bytes and
+modification times. The SQLite template's original screen test is also switched to memory;
+custom tests stay untouched.
+
+Initial support is limited to the four templates recorded in `.ravenrs-project.toml`, with
+the framework version matching the CLI and a single default binary. A changed entry,
+conflicting declaration, invalid configuration/scenario or linked destination is refused
+before generated files are written. For custom startup, add `--e2e-serve` manually before
+the window or persistence, using the channel described in `ravenrs-e2e-wire`. Recognition of
+formatted entries uses `rustfmt` on stdin, never to rewrite the user's file. The fixture is
+`tasks().into_view()` for SQLite and `app()` for the other templates; review that factory
+when changing application startup or storage.
+
 `doctor` compares RavenRS dependency versions with the CLI, checks managed
 files, and runs initialize + tools/list through all four registered commands. It reports
 stale files and versions with a nonzero exit code. Projects made with `--no-ai` are checked
-without requiring assistant files. Versions are read as Cargo resolves them, without
+without requiring assistant files. Before checking assistant integration, it reads each app's
+e2e metadata and scenario files without compiling or launching the app. Missing channel
+configuration or scenarios produces a warning; invalid `e2e.toml`, test features, declared
+binary or scenarios fails the check. Libraries do not need a test channel. Channel detection
+is a static hint from dependencies and sources, not proof of a successful handshake; run
+`cargo ravenrs e2e run` to test the channel in execution. Versions are read as Cargo resolves them, without
 touching any manifest: renamed dependencies (`ui = { package = "ravenrs", .. }`), tables
 under `[target.'cfg(..)']`, and `ravenrs.workspace = true`, taken from the
 `[workspace.dependencies]` of the workspace that owns the package (`package.workspace`, or
@@ -59,5 +113,7 @@ The compilation matrix checks every template/target with local workspace patches
 a build cache. Set `RAVENRS_TEST_PUBLISHED=1` to check against crates.io after publishing
 the corresponding framework release. The regular tests start the real MCP binary from
 each configuration and verify idempotence, version checks, and the embedded sources.
+The explicit ignored tests also build all four native templates in release and drive their
+test channels and initial scenarios, including frames and untouched SQLite storage.
 
 CLI, framework, templates and MCP use the same release version. The current Git tag is `v27.1.28`.

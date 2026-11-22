@@ -1,0 +1,30 @@
+[package]
+name = "ravenrs-e2e"
+description = "End-to-end tests for RavenRS apps: find a part of the screen by test id, role and name or text, act on it with real input events, check it, and read the screen as text. Errors carry stable codes, what was on the screen and what came close."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-e2e"
+keywords = ["gui", "testing", "e2e", "accessibility"]
+categories = ["gui", "development-tools::testing"]
+
+[features]
+e2e-source = ["ravenrs-widgets-base/e2e-source"]
+
+[dependencies]
+ravenrs-core.workspace = true
+ravenrs-style.workspace = true
+ravenrs-widgets-base.workspace = true
+
+[dev-dependencies]
+ravenrs-layout.workspace = true
+ravenrs-reactive.workspace = true
+ravenrs-widgets = { workspace = true, features = ["testing", "charts"] }
+
+[lints]
+workspace = true

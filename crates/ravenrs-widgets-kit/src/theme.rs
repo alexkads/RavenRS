@@ -13,6 +13,8 @@ use crate::{
 
 /// The contrast text has to reach on its ground.
 const LEGIBLE: f32 = 4.5;
+/// The least contrast of the outline of a field or control against its ground.
+const OUTLINE: f32 = 3.0;
 const RADIUS_MOST: i32 = 64;
 const SIZE_LEAST: i32 = 8;
 const SIZE_MOST: i32 = 96;
@@ -154,7 +156,9 @@ fn color_field(
     let theme = state.get();
     let canvas = theme.palette.bg_000;
     let ratio = flattened(theme.color(role), canvas).contrast_ratio(flattened(theme.color(ground), canvas));
-    let tone = if ratio < LEGIBLE { Tone::Warning } else { Tone::Neutral };
+    // Text asks for 4.5:1; the outline of a control is not text, and 3:1 is enough for it.
+    let least = if role == Semantic::ControlBorder { OUTLINE } else { LEGIBLE };
+    let tone = if ratio < least { Tone::Warning } else { Tone::Neutral };
     field.note_text(Some(cx.labels().theme_contrast(ratio, ground.token())), tone)
 }
 
@@ -194,6 +198,7 @@ impl View for ThemeEditor {
                 (S::SurfaceElevated, None),
                 (S::Control, None),
                 (S::Border, None),
+                (S::ControlBorder, Some(S::Surface)),
             ],
             cx,
         );

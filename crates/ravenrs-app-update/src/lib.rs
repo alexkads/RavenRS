@@ -25,8 +25,14 @@
 //! only speaks when there is a version, or when someone asked and is waiting for an answer.
 //!
 //! Who the app is, its folders and its addresses, is an [`InstalledApp`]; nothing
-//! here knows any app. The README says how an app adopts it. The crate draws
-//! nothing: the app shows [`Notice`] and [`News`] with its own components.
+//! here knows any app. The README says how an app adopts it. With no features the
+//! crate draws nothing; the feature `ui` adds [`ui`], the news and the notice drawn the same
+//! way in every app.
+//!
+//! An app that is a server runs as a service of the system: [`ServiceSpec`] says what to run and
+//! [`ServiceManager`] writes the unit of systemd, the plist of launchd or the task of Windows and
+//! starts it. The installer installs it at the end when `<PREFIXO>_SERVICO=1`, with the app's own
+//! `servico instalar`.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -38,7 +44,11 @@ mod app;
 mod installer;
 mod news;
 mod release;
+mod service;
 mod template;
+mod tray;
+#[cfg(feature = "ui")]
+pub mod ui;
 
 pub use app::{InstallKind, InstalledApp};
 pub use installer::{
@@ -50,7 +60,9 @@ pub use news::{
     News, Notice, NoticeAction, UpdateStatus, is_newer, join_history, notice, parse_history, parse_news,
 };
 pub use release::{assert_release_files_agree, check_release_files};
+pub use service::{Installed, ServiceManager, ServiceSpec, ServiceStatus, ServiceSystem};
 pub use template::{INSTALLER_TEMPLATE, WRITE_INSTALLER_ENV, assert_installer_is_current, check_installer};
+pub use tray::{TRAY_NEWS, TRAY_UPDATE, TrayChoice, tray_choice, tray_entries};
 
 /// How often an open app looks for a new version.
 pub const CHECK_EVERY: Duration = Duration::from_secs(3600);
@@ -203,6 +215,11 @@ impl Updater {
         if let Some(waker) = self.waker.borrow().as_ref() {
             waker.wake();
         }
+    }
+
+    /// The app it updates.
+    pub fn app(&self) -> &'static InstalledApp {
+        self.app
     }
 
     /// The step the installer was on, as it last said.
@@ -438,6 +455,33 @@ impl Drop for WakeOnDrop {
     fn drop(&mut self) {
         self.0.wake();
     }
+}
+
+/// Asks now, on this thread, what the window's check asks in the background: the latest
+/// version the repository announces and what to do about it, by the same rule ([`decide`]).
+/// For a command line, or another program that asks the app (a pane beside a chat), with no
+/// window and no [`Updater`]: the news read, which names the latest version even when it is
+/// the one running, and the decision. `Err` says why the network gave no answer.
+pub fn check_now(app: &InstalledApp) -> Result<(News, Decision), String> {
+    let news = latest_news(app)?;
+    let home = app.home();
+    let now = seconds_now();
+    let decision = decide(
+        app.install_kind(),
+        app.version,
+        Some(news.clone()),
+        &read_memory(&home.join(installer::MEMORY)),
+        is_locked(&home.join(installer::LOCK), now),
+        now,
+    );
+    Ok((news, decision))
+}
+
+/// Installs `news` now, on this thread, with the installer the window runs: the same lock,
+/// the same memory of a failed version and the same check that the installed copy answers
+/// with the new version. `on_stage` hears each stage the installer reports, to show it.
+pub fn install_now(app: &InstalledApp, news: &News, on_stage: &dyn Fn(String)) -> Result<(), String> {
+    run_installer(&Setup::of(app), &news.versao, on_stage)
 }
 
 /// The latest version the repository announces, or why it could not be known.

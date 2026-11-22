@@ -9,7 +9,7 @@ use ravenrs_app_a11y::AccessibleText;
 use ravenrs_layout::Align;
 use ravenrs_widgets::{
     AccessibleControl, Alert, AnyView, BuildCx, FormField, FormGroup, FormLayout, NodeId, Text, Tone, VStack,
-    View,
+    View, ViewExt,
 };
 
 use crate::session::EditorRequest;
@@ -111,7 +111,9 @@ impl DetailView {
             session: self.session.clone(),
         };
         let name = item.and_then(|n| n.text("Editor")).unwrap_or("");
-        let editor = self.session.editors().editor(name, &request);
+        // Tests and tools find each editor by its field, whatever its caption says.
+        let editor: AnyView =
+            Box::new(self.session.editors().editor(name, &request).test_id(format!("field:{field}")));
         let spoken = AccessibleText::of_field(info, item, &caption);
         // A check box says its own name.
         if matches!(info.kind, ravenrs_app::FieldKind::Boolean) {

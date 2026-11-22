@@ -1,0 +1,466 @@
+//! The videos of the project's channel, recorded from the real apps.
+//!
+//! ```text
+//! cargo run --release -p raven-channel-video -- record OUT
+//! FF_AI_MODELS=~/.raven-financas/modelos cargo run --release -p raven-channel-video -- narrate OUT --voz pm_santa
+//! cargo run --release -p raven-channel-video -- export OUT
+//! ```
+//!
+//! `record` writes the films, `narrate` records what their boxes say with the local
+//! Kokoro voice (`--voz` chooses `pf_dora`, `pm_alex` or `pm_santa`, the default), and `export` writes the wide and the vertical video, the subtitles,
+//! the chapters for the description and a cover. `frames OUT 0:6000` draws
+//! single moments (film:ms) as pictures, to look at before exporting.
+#![allow(clippy::expect_used, clippy::print_stdout, clippy::print_stderr, reason = "a tool run by hand")]
+
+use std::path::{Path, PathBuf};
+
+use family_finance::db::Database;
+use family_finance::ui::App;
+use family_finance::update;
+use family_finance::{seed, themes};
+use ravenrs::core::Key;
+use ravenrs::movie::{Movie, MovieLabels, Narration, OverlayKind, RecordError, Recorder};
+use ravenrs::prelude::*;
+use ravenrs_movie_video::{Video, VideoFormat, chapters, subtitles};
+
+const SIZE: Size = Size::new(1280.0, 720.0);
+const BRAND: &str = "RavenRS · github.com/alexkads/RavenRS";
+
+/// The components, in the gallery.
+fn gallery(take: &mut Recorder) -> Result<(), RecordError> {
+    take.wait(0.6);
+    take.intro(
+        "RavenRS",
+        "Um framework de interface em Rust. Tudo o que aparece aqui é desenhado pela GPU, com o mesmo código no Mac, no Linux, no Windows e no navegador.",
+    );
+    take.explain(
+        "REVENUE",
+        "Um painel só de componentes",
+        "Cartões, gráficos e tabela saem prontos da biblioteca. Não há nenhuma imagem: cada traço é desenhado na hora.",
+    )?;
+    take.click("Data grid")?;
+    take.wait(0.8);
+    take.explain(
+        "100,000 of 100,000 rows",
+        "Cem mil linhas sem travar",
+        "A grade de dados só desenha o que está na tela. Ela ordena por várias colunas, filtra, agrupa e exporta.",
+    )?;
+    take.type_into("Search all columns", "Aurora")?;
+    take.wait(1.6);
+    take.click("Charts")?;
+    take.wait(0.8);
+    take.explain(
+        "Chart family",
+        "Gráficos",
+        "Área, barra, linha, pizza, radar e radial, todos com a dica que aparece ao passar o mouse.",
+    )?;
+    take.click("Bar")?;
+    take.wait(1.4);
+    take.click("Radial")?;
+    take.wait(1.4);
+    take.click("Ribbon")?;
+    take.wait(0.8);
+    take.explain(
+        "Clipboard",
+        "Faixa de comandos",
+        "Menu Arquivo, barra de acesso rápido, abas e grupos de botões, como nos programas de escritório.",
+    )?;
+    take.click("Insert")?;
+    take.wait(1.2);
+    take.click("Motion")?;
+    take.wait(0.8);
+    take.explain(
+        "Send to the other side",
+        "Animação com molas",
+        "Clique de novo no meio do caminho e ela volta sem tranco, porque a mola guarda a velocidade.",
+    )?;
+    take.click("Send to the other side")?;
+    take.wait(0.35);
+    take.click("Send to the other side")?;
+    take.wait(1.4);
+    take.explain("Theme", "Temas", "Um tema troca a aparência do aplicativo inteiro de uma vez.")?;
+    take.click("Dark")?;
+    take.wait(1.6);
+    take.click("Glass")?;
+    take.wait(1.6);
+    take.click("Light")?;
+    take.wait(1.0);
+    Ok(())
+}
+
+/// A real app made with it.
+fn finance(take: &mut Recorder) -> Result<(), RecordError> {
+    take.wait(0.6);
+    take.intro(
+        "Um aplicativo de verdade",
+        "O Raven Finanças é feito só com o RavenRS: banco de dados local, relatórios, agenda e um assistente que roda na própria máquina.",
+    );
+    // The voice of the intro is a little longer than its box.
+    take.wait(0.8);
+    take.explain(
+        "SALDO DAS CONTAS",
+        "O painel",
+        "Saldo, receitas, despesas e o que vence nos próximos trinta dias, num relance.",
+    )?;
+    take.click("Novo")?;
+    take.wait(1.6);
+    take.press(Key::Escape);
+    take.wait(0.4);
+    take.explain(
+        "Procurar comando",
+        "Paleta de comandos",
+        "Qualquer tela fica a um atalho de distância. É só digitar o nome.",
+    )?;
+    take.click("Procurar comando")?;
+    take.wait(0.6);
+    take.type_into("Paleta de comandos", "Orça")?;
+    take.wait(1.6);
+    take.press(Key::Escape);
+    take.wait(0.5);
+    take.intro(
+        "Gravado pelo próprio RavenRS",
+        "Este vídeo saiu de um roteiro, rodando o aplicativo de verdade. Dentro do app, o mesmo filme vira um manual interativo e ocupa poucos quilobytes.",
+    );
+    take.intro(
+        "Código aberto",
+        "O RavenRS está no GitHub. O endereço está na descrição. Até o próximo vídeo!",
+    );
+    // Room for the last words before the fade.
+    take.wait(1.5);
+    Ok(())
+}
+
+/// The opening card, fades and the halo around the pointer.
+fn edit(film: Movie, title: &str, subtitle: &str) -> Movie {
+    let mut project = film.project().clone();
+    let total = project.duration_ms();
+    project.add_overlay(OverlayKind::FadeOut, total.saturating_sub(800), 800);
+    project.add_overlay(OverlayKind::PointerHighlight, 0, total);
+    if !title.is_empty() {
+        project.insert_title(0, title, subtitle, 2500);
+    }
+    project.add_overlay(OverlayKind::FadeIn, 0, 600);
+    film.with_project(project)
+}
+
+fn record(out: &Path) {
+    let mut take = Recorder::new(component_gallery::Gallery::new(), Theme::raven_light(), SIZE);
+    gallery(&mut take).unwrap_or_else(|e| panic!("the gallery script no longer fits: {e}"));
+    let first = edit(take.finish().expect("film"), "RavenRS", "Interfaces em Rust, desenhadas na GPU");
+    let today = Date::new(2026, 11, 15).expect("valid date");
+    let db = Database::in_memory().expect("database");
+    seed::load_demo(&db, today).expect("seed");
+    let mut take = Recorder::new(App::new(db, today, None, update::idle()), themes::light(), SIZE);
+    finance(&mut take).unwrap_or_else(|e| panic!("the finance script no longer fits: {e}"));
+    let second = edit(take.finish().expect("film"), "", "");
+    for (name, film) in [("1-componentes", &first), ("2-financas", &second)] {
+        std::fs::write(out.join(format!("{name}.ravenmovie")), film.to_bytes()).expect("film");
+        println!("{name}: {:.1}s, {} boxes", film.duration_ms() as f32 / 1000.0, film.hotspots().len());
+    }
+}
+
+fn films(out: &Path) -> Vec<Movie> {
+    ["1-componentes", "2-financas"]
+        .iter()
+        .map(|name| {
+            let bytes = std::fs::read(out.join(format!("{name}.ravenmovie"))).expect("run record first");
+            Movie::from_bytes(&bytes).expect("a film")
+        })
+        .collect()
+}
+
+/// The voice when `--voz` is not given: the one of the trainings.
+const DEFAULT_SPEAKER: &str = "pm_santa";
+
+/// The Kokoro voice chosen with `--voz NAME`, among [`ravenrs_ai::KOKORO_SPEAKERS`].
+fn chosen_speaker(args: &[String]) -> Result<String, String> {
+    let speaker = match args.iter().position(|arg| arg == "--voz") {
+        Some(at) => args.get(at + 1).ok_or("--voz pede o nome da voz")?.clone(),
+        None => DEFAULT_SPEAKER.to_owned(),
+    };
+    if ravenrs_ai::KOKORO_SPEAKERS.contains(&speaker.as_str()) {
+        Ok(speaker)
+    } else {
+        Err(format!("voz {speaker} desconhecida; use uma de {}", ravenrs_ai::KOKORO_SPEAKERS.join(", ")))
+    }
+}
+
+/// What a box says, as the voice says it: short sentences together, a quarter second after each.
+fn spoken_sound(
+    engine: &mut ravenrs_ai::SpeechEngine,
+    settings: &ravenrs_ai::SpeechSettings,
+    text: &str,
+) -> Vec<f32> {
+    let silence = vec![0.0_f32; (ravenrs_ai::SPEECH_RATE / 4) as usize];
+    let mut sound = Vec::new();
+    // Short sentences go together: Kokoro says a few words alone with a flat tune.
+    for piece in engine.pieces(&ravenrs_ai::spoken_pt_br(text)) {
+        sound.extend(engine.speak(&piece, settings, &mut |_| true).expect("sound"));
+        sound.extend_from_slice(&silence);
+    }
+    sound
+}
+
+fn narrate(out: &Path, speaker: String) {
+    use ravenrs_ai::{ModelFolder, SPEECH_RATE, SpeechEngine, SpeechSettings, model_by_id};
+    let mut said: Vec<String> = films(out)
+        .iter()
+        .flat_map(|film| {
+            film.hotspots().iter().map(|s| format!("{}. {}", s.title, s.text)).collect::<Vec<_>>()
+        })
+        .collect();
+    said.dedup();
+    let root = std::env::var("FF_AI_MODELS").expect("FF_AI_MODELS: the folder of the models");
+    let model = model_by_id("kokoro-82m").expect("known");
+    let mut engine = SpeechEngine::load(&ModelFolder::new(root), &model).expect("the Kokoro voice");
+    println!("voz: {speaker}");
+    let settings = SpeechSettings { speaker: Some(speaker), ..SpeechSettings::default() };
+    let wavs = out.join("falas");
+    std::fs::create_dir_all(&wavs).expect("folder");
+    let mut recordings = Vec::new();
+    for (index, text) in said.iter().enumerate() {
+        let sound = spoken_sound(&mut engine, &settings, text);
+        let allowed = 0.8 + text.chars().count() as f32 * 0.075;
+        println!("{:.1}s of {allowed:.1}s | {text}", sound.len() as f32 / SPEECH_RATE as f32);
+        std::fs::write(wavs.join(format!("{index:02}.wav")), wav_of(&sound, SPEECH_RATE)).expect("wav");
+        std::fs::write(wavs.join(format!("{index:02}.txt")), text).expect("text");
+        recordings.push((text.clone(), sound));
+    }
+    std::fs::write(out.join("narracao.voz"), Narration::pack(&recordings, SPEECH_RATE)).expect("narration");
+}
+
+fn wav_of(sound: &[f32], rate: u32) -> Vec<u8> {
+    let mut wav = Vec::with_capacity(44 + sound.len() * 2);
+    wav.extend_from_slice(b"RIFF");
+    wav.extend_from_slice(&(36 + sound.len() as u32 * 2).to_le_bytes());
+    wav.extend_from_slice(b"WAVEfmt ");
+    wav.extend_from_slice(&16_u32.to_le_bytes());
+    for value in [1_u16, 1] {
+        wav.extend_from_slice(&value.to_le_bytes());
+    }
+    wav.extend_from_slice(&rate.to_le_bytes());
+    wav.extend_from_slice(&(rate * 2).to_le_bytes());
+    for value in [2_u16, 16] {
+        wav.extend_from_slice(&value.to_le_bytes());
+    }
+    wav.extend_from_slice(b"data");
+    wav.extend_from_slice(&(sound.len() as u32 * 2).to_le_bytes());
+    for sample in sound {
+        wav.extend_from_slice(&((sample.clamp(-1.0, 1.0) * 32767.0) as i16).to_le_bytes());
+    }
+    wav
+}
+
+fn export(out: &Path, only: Option<&str>) {
+    let films = films(out);
+    let narration = std::fs::read(out.join("narracao.voz"))
+        .ok()
+        .map(|bytes| Narration::new(Box::leak(bytes.into_boxed_slice())));
+    if narration.is_none() {
+        eprintln!("no narracao.voz: the video goes without the voice");
+    }
+    let make = |format: VideoFormat, films: &[Movie]| {
+        let mut video = Video::new(films[0].clone(), format).labels(MovieLabels::pt_br()).brand(BRAND);
+        for film in &films[1..] {
+            video = video.then(film.clone());
+        }
+        match &narration {
+            Some(narration) => video.narration(narration.clone()),
+            None => video,
+        }
+    };
+    let started = std::time::Instant::now();
+    let write = |name: &str, video: Video| {
+        let report = video
+            .write(out.join(name), |done, all| {
+                if done % 300 == 0 || done == all {
+                    eprintln!("{name}: {done}/{all}");
+                }
+            })
+            .expect("the video");
+        println!(
+            "{name}: {:.1}s, {:.1} MB, {:.0}s to make{}",
+            report.duration_ms as f32 / 1000.0,
+            report.bytes as f32 / 1e6,
+            started.elapsed().as_secs_f32(),
+            if report.too_long { ", too long for the format" } else { "" }
+        );
+        for text in report.unrecorded {
+            println!("  not said: {text}");
+        }
+    };
+    if only != Some("vertical") {
+        let wide = make(VideoFormat::WIDE, &films);
+        std::fs::write(out.join("capa.png"), wide.thumbnail(1_200).expect("cover")).expect("cover");
+        write("ravenrs-youtube.mov", wide);
+        std::fs::write(out.join("ravenrs-youtube.srt"), subtitles(&films)).expect("srt");
+        let description = format!(
+            "RavenRS é um framework de interface em Rust: componentes desenhados pela GPU, o mesmo código no Mac, no Linux, no Windows e no navegador.\n\n\
+             Neste vídeo: a galeria de componentes (painel, grade de dados com cem mil linhas, gráficos, faixa de comandos, animações e temas) e o Raven Finanças, um aplicativo completo feito só com o RavenRS.\n\n\
+             O vídeo foi gravado pelo próprio RavenRS, a partir de um roteiro, com o crate ravenrs-movie-video.\n\n\
+             Código: https://github.com/alexkads/RavenRS\n\n{}",
+            chapters(&films)
+        );
+        std::fs::write(out.join("descricao.txt"), description).expect("description");
+    }
+    if only != Some("wide") {
+        let followed: Vec<Movie> = films.to_vec();
+        write("ravenrs-vertical.mov", make(VideoFormat::VERTICAL, &followed));
+    }
+}
+
+/// Pictures of moments of the first film, wide and vertical, to look at.
+fn frames(out: &Path, moments: &[String]) {
+    let films = films(out);
+    for (film, at) in moments.iter().filter_map(|m| m.split_once(':')) {
+        let movie = &films[film.parse::<usize>().expect("film")];
+        let at: u64 = at.parse().expect("ms");
+        for (name, format, movie) in
+            [("wide", VideoFormat::WIDE, movie.clone()), ("vertical", VideoFormat::VERTICAL, movie.clone())]
+        {
+            let video = Video::new(movie, format).labels(MovieLabels::pt_br()).brand(BRAND);
+            std::fs::write(
+                out.join(format!("q-{film}-{at}-{name}.png")),
+                video.thumbnail(at).expect("picture"),
+            )
+            .expect("png");
+        }
+    }
+}
+
+mod versao;
+
+/// Builds, with no window, the screens the films are recorded from: the gallery and Raven
+/// Finanças on its demo data. Returns what it checked.
+fn self_test() -> Result<String, String> {
+    let today = Date::new(2026, 11, 15).ok_or("valid date")?;
+    let db = Database::in_memory().map_err(|e| e.to_string())?;
+    seed::load_demo(&db, today).map_err(|e| e.to_string())?;
+    let screens: [(&str, AnyView, Theme); 2] = [
+        ("a galeria", Box::new(component_gallery::Gallery::new()), Theme::raven_light()),
+        ("o Raven Finanças", Box::new(App::new(db, today, None, update::idle())), themes::light()),
+    ];
+    for (name, view, theme) in screens {
+        let mut ui = Ui::new(view, theme);
+        ui.set_viewport(SIZE, 1.0);
+        for _ in 0..4 {
+            ui.update();
+        }
+        let nodes = ui.access_tree().nodes.len();
+        if nodes < 3 {
+            return Err(format!("{name} abriu com {nodes} nós acessíveis"));
+        }
+    }
+    Ok("Autoteste: a galeria e o Raven Finanças abrem sem janela".to_owned())
+}
+
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    // The installer proves a new binary opens with this.
+    if args.iter().any(|a| a == "--versao") {
+        println!("{}", versao::VERSION);
+        return;
+    }
+    if args.iter().any(|a| a == "--self-test") {
+        match self_test() {
+            Ok(said) => println!("{said}"),
+            Err(why) => {
+                eprintln!("o autoteste falhou: {why}");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
+    let out = PathBuf::from(
+        args.get(2)
+            .expect("usage: raven-channel-video record|narrate|export OUT [--voz pf_dora|pm_alex|pm_santa]"),
+    );
+    std::fs::create_dir_all(&out).expect("folder");
+    match args[1].as_str() {
+        "record" => record(&out),
+        "narrate" => match chosen_speaker(&args[3..]) {
+            Ok(speaker) => narrate(&out, speaker),
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        },
+        "export" => export(&out, args.get(3).map(String::as_str)),
+        "frames" => frames(&out, &args[3..]),
+        other => panic!("unknown step {other}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args(list: &[&str]) -> Vec<String> {
+        list.iter().map(|arg| (*arg).to_owned()).collect()
+    }
+
+    /// Lowercase words without accents or punctuation, to compare what was said with what was heard.
+    fn words(text: &str) -> Vec<String> {
+        let plain: String = text
+            .to_lowercase()
+            .chars()
+            .map(|c| match c {
+                'á' | 'à' | 'â' | 'ã' => 'a',
+                'é' | 'ê' => 'e',
+                'í' => 'i',
+                'ó' | 'ô' | 'õ' => 'o',
+                'ú' => 'u',
+                'ç' => 'c',
+                c if c.is_alphanumeric() => c,
+                _ => ' ',
+            })
+            .collect();
+        plain.split_whitespace().map(str::to_owned).collect()
+    }
+
+    /// #97: each of the three voices says a box of the films, and Whisper hears it back. Needs
+    /// `FF_AI_MODELS` with `kokoro-82m` and `whisper-base`; run it in release.
+    #[test]
+    #[ignore = "needs FF_AI_MODELS with kokoro-82m and whisper-base"]
+    fn whisper_hears_what_each_voice_says() {
+        use ravenrs_ai::{
+            HEARING_RATE, ModelFolder, SPEECH_RATE, SpeechEngine, SpeechSettings, Transcriber, model_by_id,
+        };
+        let root = std::env::var("FF_AI_MODELS").expect("FF_AI_MODELS");
+        let folder = ModelFolder::new(root);
+        let mut engine =
+            SpeechEngine::load(&folder, &model_by_id("kokoro-82m").expect("known")).expect("Kokoro");
+        let mut ears =
+            Transcriber::load(&folder, &model_by_id("whisper-base").expect("known")).expect("Whisper");
+        let text = "Lançamentos. Cada gasto entra com o valor, a categoria e quem pagou, e o saldo da conta acompanha.";
+        let expected = words(text);
+        for voice in ["pf_dora", "pm_alex", "pm_santa"] {
+            let settings = SpeechSettings { speaker: Some(voice.to_owned()), ..SpeechSettings::default() };
+            let sound = spoken_sound(&mut engine, &settings, text);
+            // Whisper hears at its own rate; the voice speaks at 24 kHz.
+            let step = SPEECH_RATE as f32 / HEARING_RATE as f32;
+            let heard_rate: Vec<f32> = (0..(sound.len() as f32 / step) as usize)
+                .map(|i| {
+                    let at = i as f32 * step;
+                    let (a, f) = (at as usize, at.fract());
+                    sound[a] * (1.0 - f) + sound.get(a + 1).copied().unwrap_or(0.0) * f
+                })
+                .collect();
+            let heard = ears.transcribe(&heard_rate, "pt").expect("heard").text;
+            let got = words(&heard);
+            let found = expected.iter().filter(|w| got.contains(w)).count();
+            println!("{voice}: {found}/{} | {heard}", expected.len());
+            assert!(found * 10 >= expected.len() * 8, "{voice} said it so that Whisper heard: {heard}");
+        }
+    }
+
+    #[test]
+    fn the_voice_is_one_of_the_three_and_pm_santa_without_choosing() {
+        assert_eq!(chosen_speaker(&args(&[])).as_deref(), Ok("pm_santa"));
+        for voice in ["pf_dora", "pm_alex", "pm_santa"] {
+            assert_eq!(chosen_speaker(&args(&["--voz", voice])).as_deref(), Ok(voice));
+        }
+        assert!(chosen_speaker(&args(&["--voz", "af_heart"])).is_err_and(|e| e.contains("pf_dora")));
+        assert!(chosen_speaker(&args(&["--voz"])).is_err());
+    }
+}

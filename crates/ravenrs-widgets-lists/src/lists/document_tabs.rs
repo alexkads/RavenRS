@@ -303,6 +303,8 @@ impl View for TabView<'_> {
             Paint::Quad(QuadPaint { corner_radius: radius, ..QuadPaint::new(fill) }),
         );
         cx.report_frame(node);
+        // Found by its id, which stays with it when the tabs are reordered or renamed.
+        cx.test_id(node, &format!("tab:{}", tab.id));
         let (active, id) = (strip.active.clone(), tab.id);
         cx.on_click(node, Rc::new(move || active.set(id)));
         cx.cursor(node, CursorIcon::Pointer);

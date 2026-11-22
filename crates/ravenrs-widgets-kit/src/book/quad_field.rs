@@ -1,0 +1,75 @@
+//! The stories of `QuadField`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #760: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_base::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use ravenrs_widgets_base::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `QuadField`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let arg_height = args.number("height") as f32;
+        let arg_range = match args.choice("range") {
+            "Through" => ScrollRange::Through,
+            "Enter" => ScrollRange::Enter,
+            "Exit" => ScrollRange::Exit,
+            _ => ScrollRange::Scene,
+        };
+
+        // Scroll inside: the waving floor stands up into a small dashboard.
+        // ravenrs-lint: allow(raw_color) the pixels of the scene, like those of an `ImageData::from_fn`
+        let (floor, bars, ground) = (Color::hex(0x222734), Color::hex(0x4c66ee), Color::hex(0x12151c));
+        let picture = move |u: f32, v: f32, time: f64| {
+            let bar = ((u - 0.1) / 0.1).floor();
+            let height = 0.35 + 0.25 * (bar * 1.7 + time as f32).sin().abs();
+            if v < 0.15 {
+                floor
+            } else if (0.1..0.9).contains(&u) && v > 0.9 - height {
+                bars
+            } else {
+                ground
+            }
+        };
+        ScrollView::new((
+            ScrollScene::new({
+                let mut it = QuadField::new(64, 36, picture);
+                it = it.height(arg_height);
+                it = it.range(arg_range.clone());
+                it
+            })
+            .length(600.0),
+            Canvas::new(|_, _| {}).size(10.0, 400.0),
+        ))
+        .spacing(0.0)
+        .height(280.0)
+    })
+}
+
+impl ComponentBook for QuadField {
+    fn book() -> Meta {
+        Meta::new("Layout/QuadField", render)
+            .summary("A plane of squares that waves like a floor and stands up into a picture as the page scrolls.")
+            .arg(ArgType::number("height", 280.0, 0.0, 1120.0, 1.0))
+            .arg(ArgType::choice("range", &["Scene", "Through", "Enter", "Exit"], "Scene"))
+            .story("Example", Args::new())
+            .story("Range: Through", Args::new().with("range", ArgValue::choice("Through")))
+            .story("Range: Enter", Args::new().with("range", ArgValue::choice("Enter")))
+            .story("Range: Exit", Args::new().with("range", ArgValue::choice("Exit")))
+    }
+}

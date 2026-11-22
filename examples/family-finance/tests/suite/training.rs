@@ -977,7 +977,7 @@ fn record_narration() {
     if let Ok(only) = std::env::var("FF_NARRATION_TAKES") {
         let wavs = std::env::var("FF_NARRATION_WAVS").expect("FF_NARRATION_WAVS");
         for index in only.split(',').filter_map(|index| index.parse::<usize>().ok()) {
-            let text = family_finance::ui::spoken(&said[index]);
+            let text = ravenrs_ai::spoken_pt_br(&said[index]);
             for take in 1..=6_u64 {
                 let settings = SpeechSettings { seed: take * 7919, ..settings.clone() };
                 let parts = if take % 2 == 0 { vec![text.clone()] } else { engine.pieces(&text) };
@@ -998,7 +998,7 @@ fn record_narration() {
         let mut added = Vec::new();
         for text in said.iter().filter(|text| narration.clip(text).is_none()) {
             let mut sound = Vec::new();
-            for piece in engine.pieces(&family_finance::ui::spoken(text)) {
+            for piece in engine.pieces(&ravenrs_ai::spoken_pt_br(text)) {
                 sound.extend(engine.speak(&piece, &settings, &mut |_| true).expect("sound"));
                 sound.extend_from_slice(&silence);
             }
@@ -1026,7 +1026,7 @@ fn record_narration() {
         }
         for (index, text) in said.iter().filter(|text| !have.contains(*text)).enumerate() {
             let mut sound = Vec::new();
-            for piece in engine.pieces(&family_finance::ui::spoken(text)) {
+            for piece in engine.pieces(&ravenrs_ai::spoken_pt_br(text)) {
                 sound.extend(engine.speak(&piece, &settings, &mut |_| true).expect("sound"));
                 sound.extend_from_slice(&silence);
             }
@@ -1038,7 +1038,7 @@ fn record_narration() {
     }
     for text in said.iter().take(limit.unwrap_or(usize::MAX)) {
         let mut sound = Vec::new();
-        for piece in engine.pieces(&family_finance::ui::spoken(text)) {
+        for piece in engine.pieces(&ravenrs_ai::spoken_pt_br(text)) {
             sound.extend(engine.speak(&piece, &settings, &mut |_| true).expect("sound"));
             sound.extend_from_slice(&silence);
         }

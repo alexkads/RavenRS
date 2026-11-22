@@ -14,7 +14,7 @@ A component is ✅ in [PARITY.md](PARITY.md) only when all of these hold:
 6. **Edge cases.** Empty data, a single item, huge counts, non-ASCII text, out-of-range values (clamped, never panicking) and a zero-size viewport.
 7. **Performance.** Meets the [performance contract](#performance-contract) and stays inside the budgets below. Large collections are virtualized.
 8. **Tests.** At least one behavior test that drives it through `Ui` (pointer and keyboard). Property tests for any pure logic. A golden image for any component whose drawing is non-trivial.
-9. **Docs and demo.** A page in the [feature center](../examples/feature-center) that shows every public feature, with a step in its tour, in the same pull request: `scripts/feature-center-coverage.py` fails the check otherwise (#580). Until #579 retires the [component gallery](../examples/component-gallery), the short sample there stays too.
+9. **Docs and demo.** A page in the [feature center](../tools/raven-feature-center) that shows every public feature, with a step in its tour, in the same pull request: `scripts/feature-center-coverage.py` fails the check otherwise (#580). Until #579 retires the [component gallery](../examples/component-gallery), the short sample there stays too.
 
 ## Definition of done for a crate's documentation
 
@@ -194,9 +194,9 @@ The size of a WebAssembly build, after `wasm-opt -Oz`:
 | `component-gallery` before charts used it | 3,301,057 | 1,399,745 |
 | `component-gallery` using every chart and code | 3,582,964 | 1,504,909 |
 | `component-gallery` on 2026-11-15, with the playground and every example (#587) | 19,693,812 | 6,161,710 |
-| `feature-center`, `--no-default-features --features widgets` (#587) | 5,487,036 | 2,282,172 |
-| `feature-center`, `--no-default-features --features widgets,playground` (#587) | 19,341,123 | 6,083,834 |
-| `feature-center`, every feature: the whole center, the components and the playground (#587) | 20,123,847 | 6,386,374 |
+| `raven-feature-center`, `--no-default-features --features widgets` (#587) | 5,487,036 | 2,282,172 |
+| `raven-feature-center`, `--no-default-features --features widgets,playground` (#587) | 19,341,123 | 6,083,834 |
+| `raven-feature-center`, every feature: the whole center, the components and the playground (#587) | 20,123,847 | 6,386,374 |
 
 The feature center replaces the gallery on the site (#579) at about the same size: with the playground it is 78 KB gzipped smaller than the gallery, and the whole center, application framework included, adds 225 KB gzipped to it. The pages of the components alone, with no playground, are a third of that.
 

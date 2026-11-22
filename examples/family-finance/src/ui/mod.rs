@@ -14,13 +14,13 @@ mod records;
 mod reports;
 mod request;
 mod settings;
-mod spoken;
 mod store;
 mod training;
+mod tray;
 
 pub use assistant::{ASSISTANT_INTRO, ASSISTANT_TOOLS};
 pub use opening::Opening;
-pub use spoken::spoken;
+pub use tray::{NEW_EXPENSE, NEW_INCOME, TrayLink};
 mod telegram_card;
 mod updates;
 
@@ -88,6 +88,8 @@ pub struct App {
     telegram_paired: Arc<AtomicBool>,
     overdue: Memo<u64, usize>,
     icon: Memo<u8, Option<ImageData>>,
+    /// The menu beside the clock, when the window has one.
+    tray: Option<TrayLink>,
 }
 
 impl std::fmt::Debug for App {
@@ -131,7 +133,7 @@ impl App {
             menu_folded: State::new(None),
             palette: State::new(false),
             sidebar,
-            news: updates::NewsDialog::new(),
+            news: updates::news_dialog(),
             training,
             recorder,
             reporter,
@@ -146,7 +148,44 @@ impl App {
             telegram_paired: Arc::default(),
             overdue: Memo::new(),
             icon: Memo::new(),
+            tray: None,
         }
+    }
+
+    /// Keeps `link`'s menu beside the clock as the app's state changes, and acts on what is
+    /// chosen there.
+    pub fn tray(mut self, link: TrayLink) -> Self {
+        self.tray = Some(link);
+        self
+    }
+
+    /// How many bills are overdue today.
+    fn overdue_count(&self) -> usize {
+        let today = self.store.today;
+        self.overdue.get(self.store.version(), || {
+            self.store
+                .read(|db| db.open_bills())
+                .iter()
+                .filter(|b| b.status(today) == BillStatus::Overdue)
+                .count()
+        })
+    }
+
+    /// What was chosen on the icon's menu, then the menu as the app now stands.
+    fn follow_tray(&self) {
+        let Some(link) = &self.tray else { return };
+        for id in link.take() {
+            match self.store.updater.tray_select(&id) {
+                Some(ravenrs_app_update::TrayChoice::News) => self.news.show_latest(),
+                Some(_) => {}
+                None if id == tray::NEW_EXPENSE => {
+                    self.forms.transaction.start_new(&self.store, Flow::Expense)
+                }
+                None if id == tray::NEW_INCOME => self.forms.transaction.start_new(&self.store, Flow::Income),
+                None => {}
+            }
+        }
+        link.menu().set(tray::entries(self.overdue_count(), self.store.updater.tray_entries()));
     }
 
     /// Opens a screen, by its place in the sidebar. Screenshots and tests start here.
@@ -228,14 +267,7 @@ impl App {
     }
 
     fn sidebar(&self) -> impl View + use<> {
-        let today = self.store.today;
-        let overdue = self.overdue.get(self.store.version(), || {
-            self.store
-                .read(|db| db.open_bills())
-                .iter()
-                .filter(|b| b.status(today) == BillStatus::Overdue)
-                .count()
-        });
+        let overdue = self.overdue_count();
         let palette = self.palette.clone();
         let (collapse, open) = (self.sidebar.clone(), self.sidebar.is_open());
         let setter = |state: &State<usize>, value: usize| -> Rc<dyn Fn()> {
@@ -437,6 +469,7 @@ impl Component for App {
 
 impl App {
     fn window_view(&self, window: Size) -> impl View + use<> {
+        self.follow_tray();
         let page = self.page_view(window);
         let main = VStack::new((
             updates::UpdatePump(self.store.updater.clone()),

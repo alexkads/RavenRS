@@ -981,7 +981,7 @@ impl View for TextArea {
         let border = if focused {
             Border { width: 1.5, color: accent }
         } else {
-            let base = theme.color(Semantic::Border);
+            let base = theme.color(Semantic::ControlBorder);
             Border {
                 width: 1.0,
                 color: state.ink(if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base }),
@@ -1018,6 +1018,14 @@ impl View for TextArea {
         cx.semantics(node, state.semantics(semantics));
         if state.disabled {
             return node;
+        }
+        if state.accepts_input() {
+            // Takes the whole text at once, as a screen reader or a test asks.
+            let whole = self.value.clone();
+            cx.on_access(node, &[ravenrs_core::AccessAction::SetValue], move |_, text| {
+                whole.set(text.unwrap_or_default().to_owned());
+                true
+            });
         }
 
         // Press places the caret, dragging selects, Shift-click extends.

@@ -2,18 +2,25 @@
 name = "raven-flows"
 description = "An automation app made only of RavenRS components: flows of nodes drawn on a FlowCanvas, run for real by ravenrs-flows and kept by ravenrs-flows-runtime."
 # The app's own version, read by its news, as Raven Finanças does.
-version = "0.1.0"
+version = "0.1.1"
 edition.workspace = true
 # ravenrs-flows-runtime needs 1.89 (rusqlite 0.41), one above the workspace.
 rust-version = "1.89"
 license.workspace = true
 publish = false
 
+# How Raven Test Studio (RTS) finds and opens this app on the test channel (--e2e-serve).
+[package.metadata.ravenrs.e2e]
+app = "Raven Flows"
+binary = "raven-flows"
+
 [dependencies]
+ravenrs-e2e.workspace = true
+ravenrs-e2e-wire = { workspace = true, features = ["serve"] }
 ravenrs = { workspace = true, features = ["code"] }
 ravenrs-flows.workspace = true
 ravenrs-flows-runtime.workspace = true
-ravenrs-app-update.workspace = true
+ravenrs-app-update = { workspace = true, features = ["ui"] }
 # The nodes of the Codex CLI and the Claude CLI.
 ravenrs-agent-cli.workspace = true
 serde.workspace = true

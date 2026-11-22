@@ -11,6 +11,9 @@
 #[allow(unused_imports)]
 use ravenrs_widgets_base::*;
 
+/// The stories of the components of this crate (feature `book`).
+#[cfg(feature = "book")]
+pub mod book;
 #[doc(hidden)]
 pub mod commands;
 #[doc(hidden)]

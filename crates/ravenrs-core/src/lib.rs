@@ -17,6 +17,7 @@ mod event;
 mod geometry;
 mod scene;
 mod storage;
+mod tray;
 
 pub use access::{AccessAction, AccessNode, AccessTree, NumericValue, Role, Toggled};
 pub use color::Color;
@@ -35,3 +36,4 @@ pub use scene::{
 #[cfg(not(target_arch = "wasm32"))]
 pub use storage::FileStorage;
 pub use storage::{MemoryStorage, Storage};
+pub use tray::{OPENS_WINDOW, TrayEntry, TrayMenu};

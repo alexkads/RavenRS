@@ -1,22 +1,29 @@
-//! HTTP around the service. Storage and permissions belong to one thread, so that thread does all
-//! the work, one request at a time, and the rest here only carries requests to it and answers back.
+//! HTTP around the service. What a service holds belongs to the thread that made it, so each thread
+//! that answers makes its own, and the rest here only carries requests to them and answers back.
+//! With [`ApiOptions::workers`] above one, that many requests are answered at the same time; the
+//! threads share who is signed in through [`crate::shared::Shared`].
 
 use std::collections::BTreeMap;
+use std::convert::Infallible;
 use std::io;
 use std::net::SocketAddr;
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use axum::Router;
 use axum::body::{Body, to_bytes};
 use axum::extract::{ConnectInfo, DefaultBodyLimit, Request, State};
 use axum::http::{HeaderValue, Method, StatusCode, header};
+use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{IntoResponse, Response};
 use serde_json::{Value as Json, json};
 use tokio::net::TcpListener;
+use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::{mpsc, oneshot};
 
+use crate::live::{Listening, LiveChannels, LiveEvent};
+use crate::shared::Shared;
 use crate::{ApiRequest, ApiResponse, ApiService};
 
 /// The largest request body.
@@ -25,7 +32,7 @@ const BODY_LIMIT: usize = 4 * 1024 * 1024;
 const SIGN_IN_LIMIT: usize = 64 * 1024;
 /// How long a body has to arrive.
 const BODY_WITHIN: Duration = Duration::from_secs(30);
-/// What the thread that does the work has for a stack. An expression as long as a filter can be
+/// What each thread that does the work has for a stack. An expression as long as a filter can be
 /// nests its parts as deep as it is long, and running out of stack would end the whole process.
 const WORKER_STACK: usize = 32 * 1024 * 1024;
 /// How many requests wait for their turn before more are turned away.
@@ -39,19 +46,64 @@ type Asked = (ApiRequest, oneshot::Sender<ApiResponse>);
 struct Worker {
     asking: mpsc::Sender<Asked>,
     origins: Arc<Vec<String>>,
+    live: Option<LiveChannels>,
+    open: Arc<Vec<String>>,
+    headers: Arc<Vec<String>>,
 }
 
 /// How the service meets the outside.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct ApiOptions {
     origins: Vec<String>,
+    workers: usize,
+    live: Option<LiveChannels>,
+    open: Vec<String>,
+    headers: Vec<String>,
+}
+
+impl Default for ApiOptions {
+    fn default() -> Self {
+        Self { origins: Vec::new(), workers: 1, live: None, open: Vec::new(), headers: Vec::new() }
+    }
 }
 
 impl ApiOptions {
-    /// Nothing but what comes from the same place.
+    /// Nothing but what comes from the same place, answered by one thread.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// How many requests are answered at the same time, each by a thread with its own service made
+    /// by `make`; zero counts as one. Above one, `make` has to open the same storage each time it is
+    /// called, as a database file or a database server: records kept in a `MemoryDatabase` belong to
+    /// the thread that made it, so a service over one stays with one thread.
+    pub fn workers(mut self, workers: usize) -> Self {
+        self.workers = workers.max(1);
+        self
+    }
+
+    /// Streams the topics of `channels` at `GET /api/live/{topic}`, as Server-Sent Events, to
+    /// whoever may read `/api/me`. Keep a clone of `channels` to publish to them.
+    pub fn live(mut self, channels: LiveChannels) -> Self {
+        self.live = Some(channels);
+        self
+    }
+
+    /// Lets requests whose path starts with `prefix`, such as `/hooks/`, reach the service with no
+    /// token, as a webhook of another service comes: what answers them (a
+    /// [`fallback`](crate::ApiService::fallback)) checks a signature of its own. Everything else
+    /// with no token is still turned away before its body is read.
+    pub fn open(mut self, prefix: impl Into<String>) -> Self {
+        self.open.push(prefix.into());
+        self
+    }
+
+    /// Hands the headers whose lowercase names start with `prefix` (`x-hub-`, `x-github-`,
+    /// `content-type`) to the service too, besides the `x-ravenrs-*` ones it always gets.
+    pub fn pass_header(mut self, prefix: impl Into<String>) -> Self {
+        self.headers.push(prefix.into().to_ascii_lowercase());
+        self
     }
 
     /// Lets pages from this origin, such as `https://example.com`, call the service from a browser.
@@ -70,6 +122,14 @@ fn answer(status: u16, body: &Json) -> Response {
         response.headers_mut().insert(header::WWW_AUTHENTICATE, header::HeaderValue::from_static("Bearer"));
     }
     response
+}
+
+/// `bytes` of the type `content_type`, as a fallback answered them.
+fn raw(status: u16, content_type: &str, bytes: Vec<u8>) -> Response {
+    let status = StatusCode::from_u16(status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+    let kind =
+        HeaderValue::from_str(content_type).unwrap_or(HeaderValue::from_static("application/octet-stream"));
+    (status, [(header::CONTENT_TYPE, kind)], bytes).into_response()
 }
 
 fn busy() -> Response {
@@ -154,7 +214,8 @@ async fn answered(worker: &Worker, request: Request<Body>) -> Response {
     // Nobody who has not signed in gets to make it read a large body. A webhook signs its body
     // instead, and the service checks the signature before reading it.
     let signing_in = parts.uri.path() == "/api/auth/token";
-    let hook = parts.uri.path().starts_with("/api/hooks/");
+    let hook = parts.uri.path().starts_with("/api/hooks/")
+        || worker.open.iter().any(|prefix| parts.uri.path().starts_with(prefix.as_str()));
     if bearer.is_none() && !signing_in && !hook {
         return answer(401, &json!({ "error": "unauthorized", "message": "A valid token is required." }));
     }
@@ -174,73 +235,207 @@ async fn answered(worker: &Worker, request: Request<Body>) -> Response {
         headers: parts
             .headers
             .iter()
-            .filter(|(name, _)| name.as_str().starts_with("x-ravenrs-"))
+            .filter(|(name, _)| {
+                let name = name.as_str();
+                name.starts_with("x-ravenrs-")
+                    || worker.headers.iter().any(|prefix| name.starts_with(prefix.as_str()))
+            })
             .filter_map(|(name, value)| Some((name.as_str().to_owned(), value.to_str().ok()?.to_owned())))
             .collect(),
         body: body.to_vec(),
     };
-    let (reply, answered) = oneshot::channel();
-    if worker.asking.try_send((asked, reply)).is_err() {
-        return busy();
+    if let (true, [api, live, topic]) = (asked.method == "GET", asked.path.as_slice())
+        && api == "api"
+        && live == "live"
+    {
+        let after = parts
+            .headers
+            .get("last-event-id")
+            .and_then(|value| value.to_str().ok())
+            .or_else(|| asked.query.get("after").map(String::as_str))
+            .and_then(|text| text.trim().parse().ok());
+        let topic = topic.clone();
+        return stream(worker, asked, &topic, after).await;
     }
-    match tokio::time::timeout(ANSWER_WITHIN, answered).await {
-        Ok(Ok(response)) => answer(response.status, &response.body),
-        _ => busy(),
+    match ask(worker, asked).await {
+        Some(ApiResponse { status, raw: Some((content_type, bytes)), .. }) => {
+            raw(status, &content_type, bytes)
+        }
+        Some(response) => answer(response.status, &response.body),
+        None => busy(),
+    }
+}
+
+/// Hands a request to the threads that answer, and waits for the answer; `None` when they are
+/// too busy or too slow.
+async fn ask(worker: &Worker, asked: ApiRequest) -> Option<ApiResponse> {
+    let (reply, answered) = oneshot::channel();
+    worker.asking.try_send((asked, reply)).ok()?;
+    tokio::time::timeout(ANSWER_WITHIN, answered).await.ok()?.ok()
+}
+
+/// Asks whether whoever sent `asked` may read `/api/me`: the same check as every route behind a
+/// token, done by the threads that answer, which know tokens, keys and who was turned off.
+async fn may_listen(worker: &Worker, asked: &ApiRequest) -> Option<ApiResponse> {
+    let mut probe = asked.clone();
+    probe.path = vec!["api".to_owned(), "me".to_owned()];
+    probe.query.clear();
+    probe.body.clear();
+    ask(worker, probe).await
+}
+
+fn not_found() -> Response {
+    answer(404, &json!({ "error": "not_found", "message": "There is no such route." }))
+}
+
+/// What one open stream is at.
+struct Stream {
+    worker: Worker,
+    asked: ApiRequest,
+    missed: std::collections::VecDeque<LiveEvent>,
+    gap: bool,
+    coming: tokio::sync::broadcast::Receiver<LiveEvent>,
+    last: u64,
+    tick: tokio::time::Interval,
+}
+
+fn event_of(event: &LiveEvent) -> Event {
+    Event::default().id(event.id.to_string()).event(&event.kind).data(event.data.to_string())
+}
+
+/// The next thing to send on a stream, or `None` when it ends: a gap, what it missed, what comes,
+/// and every tick a new look at whether it may still listen.
+async fn next(mut stream: Stream) -> Option<(Result<Event, Infallible>, Stream)> {
+    loop {
+        if stream.gap {
+            stream.gap = false;
+            return Some((Ok(Event::default().event("gap").data("{}")), stream));
+        }
+        if let Some(event) = stream.missed.pop_front() {
+            stream.last = event.id;
+            return Some((Ok(event_of(&event)), stream));
+        }
+        tokio::select! {
+            got = stream.coming.recv() => match got {
+                Ok(event) if event.id > stream.last => {
+                    stream.last = event.id;
+                    return Some((Ok(event_of(&event)), stream));
+                }
+                Ok(_) => {}
+                Err(RecvError::Lagged(_)) => stream.gap = true,
+                Err(RecvError::Closed) => return None,
+            },
+            _ = stream.tick.tick() => {
+                if !may_listen(&stream.worker, &stream.asked).await.is_some_and(|answer| answer.status == 200) {
+                    return None;
+                }
+            }
+        }
+    }
+}
+
+/// Opens a stream of `topic` for whoever sent `asked`, from after the event `after`.
+async fn stream(worker: &Worker, asked: ApiRequest, topic: &str, after: Option<u64>) -> Response {
+    let Some(channels) = worker.live.clone().filter(|channels| channels.is_open(topic)) else {
+        return not_found();
+    };
+    match may_listen(worker, &asked).await {
+        Some(answered) if answered.status == 200 => {}
+        Some(refused) => return answer(refused.status, &refused.body),
+        None => return busy(),
+    }
+    let Some(Listening { missed, gap, coming }) = channels.listen(topic, after) else { return not_found() };
+    let every = channels.check();
+    let tick = tokio::time::interval_at(tokio::time::Instant::now() + every, every);
+    let state = Stream {
+        worker: worker.clone(),
+        asked,
+        missed: missed.into(),
+        gap,
+        coming,
+        last: after.unwrap_or(0),
+        tick,
+    };
+    Sse::new(futures_util::stream::unfold(state, next))
+        .keep_alive(KeepAlive::new().interval(every))
+        .into_response()
+}
+
+/// Answers what comes in `waiting` until it closes. The threads take turns at it: whoever is free
+/// takes the next request.
+fn work(mut service: ApiService, waiting: &Mutex<mpsc::Receiver<Asked>>) {
+    loop {
+        let next = match waiting.lock() {
+            Ok(mut waiting) => waiting.blocking_recv(),
+            Err(_) => None,
+        };
+        let Some((request, reply)) = next else { return };
+        // One request that goes wrong is that request's problem, and not everyone's after it.
+        let answered = catch_unwind(AssertUnwindSafe(|| service.handle(request)));
+        let response = answered.unwrap_or_else(|_| {
+            tracing::error!("a request panicked");
+            ApiResponse::json(
+                500,
+                json!({ "error": "internal", "message": "Something went wrong on the server." }),
+            )
+        });
+        let _ = reply.send(response);
     }
 }
 
 /// The routes, over a service made by `make` on a thread of its own, since what it holds belongs to
 /// one thread. It fails if the service cannot be made.
-pub fn router(make: impl FnOnce() -> Result<ApiService, String> + Send + 'static) -> io::Result<Router> {
+pub fn router(make: impl Fn() -> Result<ApiService, String> + Send + Sync + 'static) -> io::Result<Router> {
     router_with(ApiOptions::new(), make)
 }
 
-/// The same, with these options.
+/// The same, with these options. Each of its [`ApiOptions::workers`] calls `make` once, on its own
+/// thread, and only after the one before it has made its service, so what `make` puts in place the
+/// first time (people, sample records) is there for the next; if any fails, so does this.
 pub fn router_with(
     options: ApiOptions,
-    make: impl FnOnce() -> Result<ApiService, String> + Send + 'static,
+    make: impl Fn() -> Result<ApiService, String> + Send + Sync + 'static,
 ) -> io::Result<Router> {
-    let (sender, mut waiting) = mpsc::channel::<Asked>(WAITING);
+    let (sender, waiting) = mpsc::channel::<Asked>(WAITING);
+    let waiting = Arc::new(Mutex::new(waiting));
+    let make = Arc::new(make);
+    let shared = Arc::new(Shared::default());
     let (made, started) = std::sync::mpsc::channel::<Result<(), String>>();
-    let worker = std::thread::Builder::new().name("ravenrs-app-server".to_owned()).stack_size(WORKER_STACK);
-    worker.spawn(move || {
-        let mut service = match make() {
-            Ok(service) => {
-                let _ = made.send(Ok(()));
-                service
-            }
-            Err(why) => {
-                let _ = made.send(Err(why));
-                return;
-            }
-        };
-        while let Some((request, reply)) = waiting.blocking_recv() {
-            // One request that goes wrong is that request's problem, and not everyone's after it.
-            let answered = catch_unwind(AssertUnwindSafe(|| service.handle(request)));
-            let response = answered.unwrap_or_else(|_| {
-                tracing::error!("a request panicked");
-                ApiResponse {
-                    status: 500,
-                    body: json!({ "error": "internal", "message": "Something went wrong on the server." }),
+    for number in 0..options.workers {
+        let (make, waiting, shared, made) = (make.clone(), waiting.clone(), shared.clone(), made.clone());
+        let name = format!("ravenrs-app-server-{number}");
+        std::thread::Builder::new().name(name).stack_size(WORKER_STACK).spawn(move || {
+            let mut service = match make() {
+                Ok(service) => service,
+                Err(why) => {
+                    let _ = made.send(Err(why));
+                    return;
                 }
-            });
-            let _ = reply.send(response);
-        }
-    })?;
-    started
-        .recv()
-        .map_err(|_| io::Error::other("the service stopped while starting"))?
-        .map_err(io::Error::other)?;
-    Ok(Router::new()
-        .fallback(handle)
-        .layer(DefaultBodyLimit::max(BODY_LIMIT))
-        .with_state(Worker { asking: sender, origins: Arc::new(options.origins) }))
+            };
+            service.share(shared);
+            let _ = made.send(Ok(()));
+            drop(made);
+            work(service, &waiting);
+        })?;
+        started
+            .recv()
+            .map_err(|_| io::Error::other("the service stopped while starting"))?
+            .map_err(io::Error::other)?;
+    }
+    drop(made);
+    Ok(Router::new().fallback(handle).layer(DefaultBodyLimit::max(BODY_LIMIT)).with_state(Worker {
+        asking: sender,
+        origins: Arc::new(options.origins),
+        live: options.live,
+        open: Arc::new(options.open),
+        headers: Arc::new(options.headers),
+    }))
 }
 
 /// Serves the API on this listener until it fails.
 pub async fn serve(
     listener: TcpListener,
-    make: impl FnOnce() -> Result<ApiService, String> + Send + 'static,
+    make: impl Fn() -> Result<ApiService, String> + Send + Sync + 'static,
 ) -> io::Result<()> {
     axum::serve(listener, router(make)?.into_make_service_with_connect_info::<SocketAddr>()).await
 }
@@ -249,7 +444,7 @@ pub async fn serve(
 pub async fn serve_with(
     listener: TcpListener,
     options: ApiOptions,
-    make: impl FnOnce() -> Result<ApiService, String> + Send + 'static,
+    make: impl Fn() -> Result<ApiService, String> + Send + Sync + 'static,
 ) -> io::Result<()> {
     axum::serve(listener, router_with(options, make)?.into_make_service_with_connect_info::<SocketAddr>())
         .await

@@ -14,6 +14,8 @@ When it opens and every hour after that, the app reads `novidades.json` from the
 4. the installed app becomes the previous version, kept on macOS in `~/<home_dir>/anterior` (where it does not show as a second app) and elsewhere beside it as `.anterior`, and the new one moves in;
 5. the app asks the installed binary which version it is; only then does the status bar offer **Reabrir agora**.
 
+With no window, a command line or another program asking the app (a pane beside a Claude conversation asks Raven Test Studio) uses `check_now`, which reads the same news and decides by the same rule, and `install_now`, which runs the same installer with the same lock and memory, on the calling thread, telling each stage.
+
 A version that failed is not tried again by itself for a day (`RETRY_AFTER`); clicking **Tentar de novo** tries at once. Two windows never compile together: the second follows the first one's steps through a lock in `~/<home_dir>`, which counts as stale after three hours or twenty minutes of a silent log. A copy built with `cargo run` only mentions the new version.
 
 | In `~/<home_dir>` | What it is |
@@ -95,7 +97,22 @@ RAVENRS_WRITE_INSTALLER=1 cargo test -p raven-flows the_installer_is_the_one
 
 From then on the test fails if the copy and [`install.cmd.in`](install.cmd.in) part ways. Change the template, never the copy, and write the copies again. A field that would change what the script does (a quote, a `$`, a `%`) is refused before anything is written.
 
-**5. Put it on screen.** The updater lives on the UI thread and its work on background threads:
+**5. Put it on screen.** Turn on the feature `ui` (`ravenrs-app-update = { workspace = true, features = ["ui"] }`) and every app shows the news and the notice the same way, with nothing to draw:
+
+```rust,ignore
+use ravenrs_app_update::ui::{NewsDialog, version_button, with_notice};
+
+let news = NewsDialog::new().on_open_file(|log| { let _ = ravenrs::native::open_with_system(log); });
+// In the status bar: the version opens the news of the version running; the notice, in the middle.
+let bar = StatusBar::new().left((version_button(format!("Raven Exemplo · versão {}", APP.version), &updater, &news),));
+let bar = with_notice(bar, &updater, &news);
+// Somewhere in the tree, over the screen: "Novidades", or "Detalhes da atualização" when one failed.
+let dialog = news.view(&updater);
+```
+
+`ui::release_note` draws one version (what changed, why update or why it mattered, **Quem contribuiu**, **Issues resolvidas** opening through the app's links, the date, "Nova" with **Como atualizar** and the installer's command, or "Instalada"), and `ui::release_notes` every version, for a `ReleaseNotes` placed elsewhere, as Raven Flows does in its settings. Raven Finanças, Raven Flows and Raven Test Studio all use it; a new app should too, instead of drawing its own.
+
+What it is made of, for an app that needs something else:
 
 - create it with `Updater::idle(&APP)`, and call `watch()` once the window is open;
 - in a view that builds every frame, call `connect(move || waker.wake())` with `cx.ui_waker()`, then `poll()`;
@@ -103,9 +120,38 @@ From then on the test fails if the copy and [`install.cmd.in`](install.cmd.in) p
 - `timeline()` is every version known, newest first, for `ReleaseNotes`, with `contribuidores` under **Quem contribuiu** and `issues` linked by `APP.issue_url(n)` under **Issues resolvidas**;
 - a failure's details are its reason, `stage()` and `APP.installer_log_tail(n)`, with `APP.install_command()` for running the installer by hand.
 
-`examples/family-finance/src/ui/updates.rs` does all of this with `StatusBar`, `ReleaseNotes` and `Button`, and **Procurar atualização** in its Ajustes is `ask()`.
+`ui` does all of this with `StatusBar`, `ReleaseNotes`, `Dialog` and `Button`, and **Procurar atualização** in the Ajustes of Raven Finanças is `ask()`.
 
 **6. Show the commands in the README.** `APP.install_command_on(true)` (PowerShell) and `APP.install_command_on(false)` (a terminal) are the commands to paste; the app shows the one for its system when updating from inside fails.
+
+## An app that is a server: a service of the system
+
+A server (Raven CI) runs with no window and no one watching it, so the system's own manager of
+services starts it with the machine and again when it falls. `ServiceSpec` says what to run
+(binary, arguments, environment, `memory_max`, folder of logs, user or whole system) and
+`ServiceManager` writes the file each manager reads and asks it to start, stop or say how it is:
+
+| System | File | What it holds |
+|---|---|---|
+| Linux, systemd | `~/.config/systemd/user/<pacote>.service`, or `/etc/systemd/system` | `Restart=on-failure`, `MemoryMax=`, `KillSignal=SIGTERM`, `TimeoutStopSec`; `systemctl [--user] enable --now`, then `restart` |
+| macOS, launchd | `~/Library/LaunchAgents/<bundle_id>.plist`, or `/Library/LaunchDaemons` | `RunAtLoad`, `KeepAlive` when it falls, output in the folder of logs; `launchctl bootout` and `bootstrap`. No memory limit: macOS applies none to a service, and the file says so |
+| Windows, Task Scheduler | `<pasta>/<pacote>-tarefa.xml`, in UTF-16 | at logon (or at boot as SYSTEM), again a minute after it falls, no time limit; `schtasks /Create /XML` and `/Run`. No memory limit. A service of the Service Control Manager needs the binary to speak to it, and is left for when it can be tested on Windows |
+
+```rust
+use ravenrs_app_update::{ServiceManager, ServiceSpec};
+
+let spec = ServiceSpec::for_app(&APP, std::env::current_exe()?)
+    .args(["servir", "--endereco", "0.0.0.0:8080"])
+    .memory_max("1G");
+if let Some(manager) = ServiceManager::current() {
+    let done = manager.install(&spec)?; // the file written, the commands run, what to know
+}
+```
+
+`ServiceManager::dry_run(folder)` writes the files in `folder` and runs no command: the three
+systems are tested on any machine. The installer installs the service at the end when
+`<PREFIXO>_SERVICO=1` (`RCI_SERVICO=1 sh install.cmd`), by running the app's own
+`servico instalar`; an app with no such command is never asked.
 
 ## Why each app keeps a whole `install.cmd`
 

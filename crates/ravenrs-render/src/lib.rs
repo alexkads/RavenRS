@@ -1,24 +1,4 @@
-//! The RavenRS render engine.
-//!
-//! [`Renderer`] turns a [`ravenrs_core::Scene`] into one wgpu render pass:
-//!
-//! * **Quads** (rounded rectangles, borders, linear gradients, soft shadows) are
-//!   instanced and shaded with a signed-distance function (`shaders/quad.wgsl`),
-//!   so edges are anti-aliased analytically at any scale factor.
-//! * **Images** are textures with a full mip chain, cached by image id, drawn
-//!   with the same rounded-corner SDF mask as quads (`shaders/image.wgsl`).
-//! * **Text** is rasterized once per glyph/size/subpixel offset with `swash` into
-//!   an R8 atlas and drawn as textured quads (`shaders/glyph.wgsl`).
-//!
-//! * **Cables** are simulated by a compute shader (`shaders/cable_sim.wgsl`) in a
-//!   [`GpuCables`] world and drawn straight from its buffer (`shaders/cable.wgsl`);
-//!   only four bytes of movement and the points come back, a frame late.
-//!
-//! Consecutive primitives of the same kind are batched; painter's order is kept.
-//! Instance buffers are reused and only grow.
-//!
-//! The crate does not own windows or surfaces: platform crates create the
-//! device and call [`Renderer::render`] with the frame's texture view.
+#![doc = include_str!("../README.md")]
 
 mod atlas;
 mod cables;

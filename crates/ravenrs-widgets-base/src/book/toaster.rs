@@ -1,0 +1,79 @@
+//! The stories of `Toaster`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #758: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `Toaster`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let arg_position = match args.choice("position") {
+            "TopLeft" => ToastPosition::TopLeft,
+            "TopCenter" => ToastPosition::TopCenter,
+            "TopRight" => ToastPosition::TopRight,
+            "BottomLeft" => ToastPosition::BottomLeft,
+            "BottomCenter" => ToastPosition::BottomCenter,
+            _ => ToastPosition::BottomRight,
+        };
+        let arg_bottom_inset = args.number("bottom_inset") as f32;
+
+        let toasts = Toasts::new();
+        if args.bool("showing") {
+            toasts.show_until_closed("Report exported", "sales-q3.pdf is ready.", Tone::Success);
+        }
+        let show = toasts.clone();
+        VStack::new((
+            Button::new("Show toast")
+                .on_click(move || show.show("Report exported", "sales-q3.pdf is ready.", Tone::Success)),
+            // `toasts.show_until_closed` keeps one up until it is closed.
+            {
+                let mut it = Toaster::new(toasts);
+                it = it.position(arg_position.clone());
+                it = it.bottom_inset(arg_bottom_inset);
+                it
+            },
+        ))
+    })
+}
+
+impl ComponentBook for Toaster {
+    fn book() -> Meta {
+        Meta::new("Overlays/Toaster", render)
+            .summary("Stacked notifications that dismiss themselves.")
+            .arg(ArgType::choice(
+                "position",
+                &["TopLeft", "TopCenter", "TopRight", "BottomLeft", "BottomCenter", "BottomRight"],
+                "BottomRight",
+            ))
+            .arg(
+                ArgType::number("bottom_inset", 0.0, 0.0, 200.0, 1.0)
+                    .description("Room left at the foot, as for a status bar."),
+            )
+            .arg(
+                ArgType::bool("showing", true)
+                    .description("A notice is up, so the story shows where it sits."),
+            )
+            .story("Example", Args::new())
+            .story("Over a status bar", Args::new().with("bottom_inset", 28.0))
+            .story("Position: TopLeft", Args::new().with("position", ArgValue::choice("TopLeft")))
+            .story("Position: TopCenter", Args::new().with("position", ArgValue::choice("TopCenter")))
+            .story("Position: TopRight", Args::new().with("position", ArgValue::choice("TopRight")))
+            .story("Position: BottomLeft", Args::new().with("position", ArgValue::choice("BottomLeft")))
+            .story("Position: BottomCenter", Args::new().with("position", ArgValue::choice("BottomCenter")))
+    }
+}

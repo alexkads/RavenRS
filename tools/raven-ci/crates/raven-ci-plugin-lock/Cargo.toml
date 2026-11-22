@@ -1,0 +1,23 @@
+[package]
+name = "raven-ci-plugin-lock"
+description = "The plugin lock of Raven CI: named locks between builds, and between Raven CI and scripts outside it, on the same files flock uses, never handed to the programs a step starts."
+version = "0.1.0"
+edition.workspace = true
+# std::fs::File::lock is from 1.89; raven-ci-core, which the tests use, needs it too.
+rust-version = "1.89"
+license.workspace = true
+publish = false
+
+[dependencies]
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
+ravenrs-app.workspace = true
+ravenrs-flows.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+raven-ci-core = { path = "../raven-ci-core" }
+raven-ci-plugin-format-toml = { path = "../raven-ci-plugin-format-toml" }
+raven-ci-plugin-shell = { path = "../raven-ci-plugin-shell" }
+
+[lints]
+workspace = true

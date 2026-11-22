@@ -1,6 +1,9 @@
 #![doc = include_str!("../README.md")]
 
 mod assistant;
+/// The stories of its components, for RavenComponentBook (feature `book`).
+#[cfg(feature = "book")]
+pub mod book;
 mod chat;
 mod composition;
 mod editor;
@@ -14,6 +17,7 @@ mod player;
 mod project;
 mod record;
 mod search;
+mod session_film;
 mod social;
 mod soundtrack;
 // What the generated registrations name views as.
@@ -35,6 +39,7 @@ pub use project::{
 };
 pub use record::{RecordError, Recorder};
 pub use search::{Answer, Moment, MomentKind, MovieLibrary};
+pub use session_film::{ChannelFilm, Pace, SessionFilm};
 pub use social::SocialFrame;
 pub use soundtrack::Soundtrack;
 

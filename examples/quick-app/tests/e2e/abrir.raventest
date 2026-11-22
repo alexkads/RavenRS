@@ -1,0 +1,10 @@
+scenario: Raven Contas: cadastrar um banco
+// Abre os bancos, cria um com código e nome, salva e confere na lista.
+open Raven Contas                    | Abrir o Raven Contas
+check Conta corrente = Conta corrente | A conta de exemplo está na lista
+click #item:Bancos                   | Ir aos bancos
+click Novo                           | Novo banco
+type #field:code = 260               | Digitar o código
+type #field:name = Nu Pagamentos     | Digitar o nome
+click Salvar e fechar                | Salvar e voltar à lista
+check Nu Pagamentos = Nu Pagamentos  | O banco está na lista

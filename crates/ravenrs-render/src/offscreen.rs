@@ -8,6 +8,12 @@ const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
 /// Draws a scene at this size, and gives its pixels as RGBA, row by row. Fails when the GPU cannot
 /// give the pixels back.
+///
+/// The scene is drawn at scale 1.0, so `width` and `height` are logical pixels too. The pixels
+/// are `Rgba8Unorm`, in sRGB, with premultiplied alpha. Each call builds a new [`Renderer`], which
+/// compiles the shaders and rasterizes every glyph again, and blocks until the GPU has copied the
+/// pixels back: right for one picture, slow for many. To draw many, keep one [`Renderer`] and
+/// render into a texture of your own. Waiting this way is not possible in a browser.
 pub fn render_to_rgba(gpu: &GpuContext, scene: &Scene, width: u32, height: u32) -> Result<Vec<u8>, String> {
     let mut renderer = Renderer::new(&gpu.device, &gpu.queue, FORMAT);
     render_with(gpu, &mut renderer, scene, width, height)

@@ -29,11 +29,16 @@
 //! assert_eq!(runtime.get(&id).expect("kept").status, RunStatus::Finished);
 //! ```
 //!
+//! A worker in another process, with no access to the file (a build agent on another machine),
+//! runs a run through a [`Lease`] and sends back each [`StepRecord`]: see [`Runtime::lease`].
+//!
 //! A loop is one checkpoint: a run stopped inside a loop goes round it again from the start
 //! when it resumes.
 
+mod remote;
 mod runtime;
 mod store;
 
+pub use remote::{Held, Lease, StepRecord};
 pub use runtime::{LEASE_MS, Pruned, Request, Retention, Revision, RunRecord, RunStatus, Runtime};
 pub use store::StoreError;

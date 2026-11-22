@@ -69,6 +69,44 @@ use ravenrs_widgets_imaging::imaging;
 #[allow(unused_imports)]
 use ravenrs_widgets_imaging::lottie;
 
+/// The stories of the components, as Storybook keeps them, for RavenComponentBook: each
+/// component gives its [`book::Meta`] through [`book::ComponentBook`], and [`book::all`] lists
+/// them (feature `book`).
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+pub mod book {
+    pub use ravenrs_widgets_base::book::*;
+
+    /// The stories of every component that gives them, family by family.
+    #[cfg(feature = "book")]
+    pub fn all() -> Vec<Meta> {
+        let mut all = ravenrs_widgets_base::book::stories();
+        all.extend(ravenrs_widgets_kit::book::stories());
+        all.extend(ravenrs_widgets_lists::book::stories());
+        all.extend(ravenrs_widgets_grid::book::stories());
+        all.extend(ravenrs_widgets_scheduler::book::stories());
+        all.extend(ravenrs_widgets_dock::book::stories());
+        all.extend(ravenrs_widgets_imaging::book::stories());
+        all.extend(ravenrs_widgets_charts::book::stories());
+        all.extend(ravenrs_widgets_chat::book::stories());
+        all
+    }
+}
+
+/// Drivers for tests written with `ravenrs-e2e` (feature `testing`): they edit, sort and
+/// filter a `DataGrid`, join the nodes of a `FlowCanvas`, move the events of a `Scheduler`,
+/// float the panels of a `DockArea`, reorder a `SortableList` and set the crop of a `CropOverlay`
+/// by keys and by value, as a person does, never by pixels.
+#[cfg(feature = "testing")]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+pub mod testing {
+    pub use ravenrs_widgets_charts::testing::FlowCanvasDriver;
+    pub use ravenrs_widgets_dock::testing::DockDriver;
+    pub use ravenrs_widgets_grid::testing::DataGridDriver;
+    pub use ravenrs_widgets_imaging::testing::CropDriver;
+    pub use ravenrs_widgets_lists::testing::SortableDriver;
+    pub use ravenrs_widgets_scheduler::testing::SchedulerDriver;
+}
+
 // The charts family lives in its own crate, and keeps its module names here.
 #[cfg(feature = "charts")]
 #[allow(unused_imports)]
@@ -150,9 +188,9 @@ pub use code_editor::{
 pub use color_picker::ColorPicker;
 pub use commands::{ConfirmDialog, FloatingToolbar, SplitButton, Toolbar, ToolbarAction};
 pub use context::{
-    ActivityObserver, BuildCx, Carrying, Drag, DragHandler, DragPayload, DragPhase, DrawFn, DropCheck,
-    DropHandler, KeyHandler, LiveFn, NodeId, Paint, PaintCx, Placement, QuadPaint, RichFn, Semantics,
-    UiActivity, WidgetId,
+    AccessHandler, ActivityObserver, BuildCx, BusySignal, Carrying, Drag, DragHandler, DragPayload,
+    DragPhase, DrawFn, DropCheck, DropHandler, KeyHandler, LiveFn, NodeId, Paint, PaintCx, Placement,
+    QuadPaint, RichFn, Semantics, UiActivity, WidgetId,
 };
 pub use conversation::{Attachment, AttachmentStrip, AudioPlayerButton, SelectionBar};
 pub use counter::{KeyBar, KeyBarItem, Scan, ScanField};
@@ -220,7 +258,7 @@ pub use link_service::{LinkOpener, Links};
 pub use links::Link;
 pub use lists::{
     DayMark, DocumentTab, DocumentTabs, FileBrowser, FileEntry, FileSort, FileSortColumn, Filmstrip,
-    FilmstripCell, PagedDocumentView, SortableList, VirtualList, YearView,
+    FilmstripCell, LogBuffer, LogView, PagedDocumentView, SortableList, VirtualList, YearView,
 };
 #[cfg(feature = "live")]
 #[doc(hidden)]
@@ -232,7 +270,7 @@ pub use lookup::{LookupField, LookupItem, LookupRequest, LookupResponder};
 #[cfg(feature = "lottie")]
 pub use lottie::Lottie;
 pub use model_picker::{ModelChoice, ModelPicker, ModelPickerLabels, ModelStatus};
-pub use modifiers::{Faded, Styled, ViewExt};
+pub use modifiers::{Faded, Styled, TestId, ViewExt};
 pub use motion::Collapse;
 pub use motion_spec::Motion;
 pub use nav::{
@@ -253,6 +291,7 @@ pub use ravenrs_core::cable;
 #[cfg(feature = "lottie")]
 pub use ravenrs_lottie::{Animation as LottieAnimation, LottieError};
 pub use ravenrs_text::TextAlign;
+pub use ravenrs_widgets_base::{Driving, UiDriver};
 pub use recurrence::{
     Frequency, RecurrenceEnd, RecurrenceRule, RecurrenceSet, exceptions_text, parse_exceptions,
 };

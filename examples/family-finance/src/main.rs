@@ -20,6 +20,24 @@ fn main() -> Result<(), PlatformError> {
         println!("{}", update::CURRENT);
         return Ok(());
     }
+    // A tool such as Raven Test Studio drives the app with no window, on the sample family in
+    // memory: the database of the person using the app is never opened.
+    if first.as_deref() == Some(family_finance::e2e::SERVE_FLAG) {
+        // With the window, the same sample family shows on screen while the tool drives it.
+        let rest: Vec<String> = arguments.collect();
+        if family_finance::e2e::wants_window(&rest) {
+            if let Err(e) = family_finance::e2e::serve_headed() {
+                eprintln!("a janela de teste não abriu: {e}");
+                std::process::exit(1);
+            }
+            return Ok(());
+        }
+        if let Err(e) = family_finance::e2e::serve() {
+            eprintln!("o canal de teste parou: {e}");
+            std::process::exit(1);
+        }
+        return Ok(());
+    }
     // Sem janela nem banco, para responder mesmo quando a app não abre.
     if first.as_deref() == Some("--diagnostico") {
         print!("{}", diagnose());
@@ -50,10 +68,22 @@ fn main() -> Result<(), PlatformError> {
         Some(icon) => identity.icon(icon),
         None => identity,
     };
+    // The menu beside the clock says the overdue bills, starts the entries of the day and
+    // offers an update that is ready; the window acts on what is chosen there.
+    let link = family_finance::ui::TrayLink::new(ravenrs::core::TrayMenu::default());
+    let chosen = link.clone();
     let identity = if everyday {
-        identity.close_to_tray(SystemTray::new("Raven Finanças").open("Abrir o Raven Finanças").quit("Sair"))
+        identity.close_to_tray(
+            SystemTray::new("Raven Finanças")
+                .open("Abrir o Raven Finanças")
+                .quit("Sair")
+                .menu(link.menu().clone())
+                .on_select(move |id| chosen.choose(id)),
+        )
     } else {
         identity
     };
-    run_as(Opening::new(path, today(), update::idle(), diagnostics, errors), options, identity)
+    let opening = Opening::new(path, today(), update::idle(), diagnostics, errors);
+    let opening = if everyday { opening.tray(link) } else { opening };
+    run_as(opening, options, identity)
 }

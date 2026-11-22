@@ -7,7 +7,14 @@ rust-version.workspace = true
 license.workspace = true
 publish = false
 
+# How Raven Test Studio (RTS) finds and opens this app on the test channel (--e2e-serve).
+[package.metadata.ravenrs.e2e]
+app = "Mini-PDV"
+binary = "mini-pdv"
+
 [dependencies]
+ravenrs-e2e.workspace = true
+ravenrs-e2e-wire = { workspace = true, features = ["serve"] }
 ravenrs.workspace = true
 ravenrs-app.workspace = true
 ravenrs-app-nfe.workspace = true

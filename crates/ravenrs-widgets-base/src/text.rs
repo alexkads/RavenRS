@@ -24,6 +24,8 @@ pub struct Text {
     foreground: Fill,
     truncate: bool,
     align: TextAlign,
+    #[cfg(feature = "e2e-source")]
+    source: &'static std::panic::Location<'static>,
 }
 
 impl fmt::Debug for Text {
@@ -39,21 +41,25 @@ impl fmt::Debug for Text {
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Text {
     /// Static text.
+    #[cfg_attr(feature = "e2e-source", track_caller)]
     pub fn new(text: impl Into<String>) -> Self {
         Self::with_content(Content::Static(text.into()))
     }
 
     /// Text derived from a state; the view updates when the state changes.
+    #[cfg_attr(feature = "e2e-source", track_caller)]
     pub fn bound<T: 'static>(state: &State<T>, format: impl Fn(&T) -> String + 'static) -> Self {
         let state = state.clone();
         Self::with_content(Content::Dynamic(Rc::new(move || state.with(&format))))
     }
 
     /// Text computed by a closure on every build; any state it reads is tracked.
+    #[cfg_attr(feature = "e2e-source", track_caller)]
     pub fn dynamic(f: impl Fn() -> String + 'static) -> Self {
         Self::with_content(Content::Dynamic(Rc::new(f)))
     }
 
+    #[cfg_attr(feature = "e2e-source", track_caller)]
     fn with_content(content: Content) -> Self {
         Self {
             content,
@@ -63,6 +69,8 @@ impl Text {
             foreground: Semantic::Ink.into(),
             truncate: false,
             align: TextAlign::Start,
+            #[cfg(feature = "e2e-source")]
+            source: std::panic::Location::caller(),
         }
     }
 
@@ -135,6 +143,8 @@ impl View for Text {
         if let Some(level) = heading_level(self.style) {
             cx.semantics(node, Semantics::new(ravenrs_core::Role::Heading).level(level));
         }
+        #[cfg(feature = "e2e-source")]
+        cx.view_source(node, self.source);
         node
     }
 }

@@ -8,6 +8,7 @@ use ravenrs_flows::{
     Catalog, ErrorPolicy, Executor, FixedClock, FlowDefinition, Item, ItemRef, Mode, NodeContext, NodeDef,
     NodeError, NodeKind, NodeSpec, NodeStatus, Plan, PlanError, Ports, Run, RunError,
 };
+#[cfg(feature = "canvas")]
 use ravenrs_graphics::flow::{FlowGate, FlowNode, FlowNodeStatus, FlowRun, PortDirection};
 use serde_json::{Value, json};
 
@@ -411,6 +412,7 @@ fn the_json_reads_back_the_same_and_a_newer_format_is_refused() {
     assert!(FlowDefinition::from_json("not json").is_err());
 }
 
+#[cfg(feature = "canvas")]
 #[test]
 fn the_flow_drawn_on_the_canvas_reads_back_as_the_same_flow() {
     let catalog = catalog();
@@ -443,6 +445,7 @@ fn the_flow_drawn_on_the_canvas_reads_back_as_the_same_flow() {
     assert_eq!(read.find("new").map(|n| n.parameters.is_empty()), Some(true));
 }
 
+#[cfg(feature = "canvas")]
 #[test]
 fn the_canvas_debugger_runs_the_flow_by_the_catalog_rules() {
     let catalog = catalog();
@@ -473,6 +476,7 @@ fn the_canvas_debugger_runs_the_flow_by_the_catalog_rules() {
     assert!(run.is_over() && run.failure().is_none(), "{:?}", run.events);
 }
 
+#[cfg(feature = "canvas")]
 #[test]
 fn a_card_copied_and_pasted_on_the_canvas_brings_the_node_setup_under_its_new_id() {
     let catalog = catalog();
@@ -493,6 +497,7 @@ fn a_card_copied_and_pasted_on_the_canvas_brings_the_node_setup_under_its_new_id
     assert_eq!((read.id.as_str(), read.name.as_str()), ("f", "copy"), "the flow's name rides in the graph");
 }
 
+#[cfg(feature = "canvas")]
 #[test]
 fn an_input_and_an_output_of_one_name_are_drawn_as_two_ports_and_read_back_as_one_name() {
     let catalog = Catalog::builtin();

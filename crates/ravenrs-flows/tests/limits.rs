@@ -321,3 +321,36 @@ fn the_wait_before_each_try_grows_by_the_backoff() {
     assert_eq!(back.retry, Some(retry));
     assert_eq!(back.timeout_ms, Some(50));
 }
+
+/// Says the run it is in.
+struct WhichRun;
+impl NodeKind for WhichRun {
+    fn spec(&self) -> NodeSpec {
+        NodeSpec::new("which-run", 1).input("main").output("main")
+    }
+    fn execute(&self, cx: &NodeContext<'_>) -> Result<Ports, NodeError> {
+        Ok(main_port(vec![Item::new(json!({ "run": cx.run_id() }))]))
+    }
+}
+
+#[test]
+fn every_node_knows_the_run_it_is_in_also_on_a_thread_of_its_own() {
+    let mut catalog = Catalog::builtin();
+    catalog.add(WhichRun);
+    let mut slow = NodeDef::new("timed", "which-run");
+    slow.timeout_ms = Some(5_000);
+    let flow = FlowDefinition::new("f", "f")
+        .node(start())
+        .node(NodeDef::new("plain", "which-run"))
+        .node(slow)
+        .connect("start", "main", "plain", "main")
+        .connect("plain", "main", "timed", "main");
+    let plan = Plan::compile(&flow, &catalog).expect("compiles");
+    let run = Executor::new(&plan, &catalog).run_id("run-7").run();
+    for node in ["plain", "timed"] {
+        let said = &run.nodes[node].outputs["main"][0].json["run"];
+        assert_eq!(said, "run-7", "{node}");
+    }
+    let without = Executor::new(&plan, &catalog).run();
+    assert!(without.nodes["plain"].outputs["main"][0].json["run"].is_null());
+}

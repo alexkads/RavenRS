@@ -188,6 +188,18 @@ fn the_wheel_pans_and_a_pinch_zooms_around_the_pointer() {
 }
 
 #[test]
+fn without_wheel_panning_the_wheel_leaves_the_view_for_the_page() {
+    // A diagram set in a page that scrolls: the wheel over it must scroll the page.
+    let mut rig = rig_with(graph(), |canvas| canvas.pan_with_wheel(false));
+    rig.ui
+        .handle_event(&Event::Scroll { position: Point::new(300.0, 300.0), delta: Point::new(-10.0, -20.0) });
+    settle(&mut rig.ui);
+    assert_eq!(rig.view.get().offset, Point::new(0.0, 0.0), "the wheel did not pan");
+    drag(&mut rig.ui, Point::new(300.0, 500.0), Point::new(340.0, 470.0));
+    assert_eq!(rig.view.get().offset, Point::new(40.0, -30.0), "a drag still pans");
+}
+
+#[test]
 fn connecting_two_ports_adds_the_connection_and_selects_it() {
     let mut rig = rig();
     // From the output of `a` (right edge, halfway down) to the input of `b`.
@@ -319,6 +331,38 @@ fn outlines(ui: &Ui) -> Vec<ravenrs_core::PathFill> {
         .iter()
         .filter_map(|p| if let ravenrs_core::Primitive::Path(path) = p { Some(path.clone()) } else { None })
         .collect()
+}
+
+#[test]
+fn connections_to_nodes_out_of_view_stay_inside_the_canvas() {
+    // A canvas narrower than the window, beside room something else would use: "Check stock"
+    // starts at x 408, past the canvas's right edge at 400, and the line runs out to it.
+    let graph =
+        graph().edge(FlowEdge::new("e1", FlowEndpoint::new("a", "out"), FlowEndpoint::new("b", "in")));
+    let rig = rig_with(graph, |c| c.size(400.0, 300.0));
+    let mut clips: Vec<ravenrs_core::Rect> = Vec::new();
+    let mut lines = 0;
+    for p in rig.ui.scene().primitives() {
+        match p {
+            ravenrs_core::Primitive::PushClip(rect) => {
+                let inner = clips.last().map_or(*rect, |outer| outer.intersect(rect));
+                clips.push(inner);
+            }
+            ravenrs_core::Primitive::PopClip => {
+                clips.pop();
+            }
+            ravenrs_core::Primitive::Path(_) => {
+                lines += 1;
+                let clip = clips.last().expect("every line the canvas draws is clipped");
+                assert!(
+                    clip.max_x() <= 400.5 && clip.max_y() <= 300.5,
+                    "a line may show outside the canvas, up to {clip:?}"
+                );
+            }
+            _ => {}
+        }
+    }
+    assert!(lines > 0, "the connection was drawn");
 }
 
 #[test]
@@ -1859,4 +1903,14 @@ fn without_models_a_connection_let_go_in_the_open_is_given_up_as_before() {
     drag(&mut rig.ui, Point::new(248.0, 90.0), Point::new(620.0, 480.0));
     assert!(named(&mut rig.ui, "Find the next node").is_none());
     assert!(rig.graph.get().edges.is_empty());
+}
+
+#[test]
+fn every_node_is_found_by_its_key() {
+    let mut r = rig();
+    let tree = r.ui.access_tree();
+    for (id, title) in [("a", "New sale"), ("b", "Check stock"), ("c", "Send refusal")] {
+        let node = tree.by_test_id(&format!("node:{id}")).unwrap_or_else(|| panic!("node:{id} is tagged"));
+        assert_eq!(node.name.as_deref(), Some(title));
+    }
 }

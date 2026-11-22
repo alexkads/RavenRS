@@ -62,7 +62,78 @@ A component is done when it:
 4. Has behavior tests in `crates/ravenrs-widgets/tests/suite/`, declared with `mod` in its `main.rs`, that drive it through `Ui` (click, type, check state). Each package's integration tests are one binary, so they link once; `scripts/check-test-suites.py` fails if a file there is left undeclared.
 5. Appears in the gallery (`examples/component-gallery`), is listed in the README and in `site/components/index.html`, has an example in one of the files of `examples/component-gallery/src/samples/`, and its row in `docs/PARITY.md` is updated.
 6. Has rustdoc on the public type and builder methods.
-7. Runs in the playground: `scripts/gen-live.py` exposes it to the interpreter (the gate fails until it is run), and its example runs from its code, which `coverage_of_the_interpreter` in `examples/component-gallery` checks. The check runs the example interpreted and compiled, and the two have to build as many elements, with no problem later in a paint or a handler. An example the interpreter cannot read yet goes in `examples/component-gallery/live-pending.txt`, with why; today the list is empty.
+7. Is testable by the Raven Test Studio, as the next section says.
+8. Runs in the playground: `scripts/gen-live.py` exposes it to the interpreter (the gate fails until it is run), and its example runs from its code, which `coverage_of_the_interpreter` in `examples/component-gallery` checks. The check runs the example interpreted and compiled, and the two have to build as many elements, with no problem later in a paint or a handler. An example the interpreter cannot read yet goes in `examples/component-gallery/live-pending.txt`, with why; today the list is empty.
+
+## Testability (RTS)
+
+Every public type of the feature center has an entry in `tools/raven-test-studio/contrato.json`, which `scripts/rts-coverage.py` checks in `check.sh` (#734, #736). A component with a screen keeps this contract:
+
+- [ ] every part a test acts on has a name a screen reader reads, or a test id (`BuildCx::test_id`, `ViewExt::test_id`);
+- [ ] the items of a collection have test ids made from their key, `part:<key>` (`row:<key>`, `cell:<key>:<column>`), never from their position, so they stay with the data when the list sorts, filters or scrolls;
+- [ ] the actions beyond a click it takes are declared with `BuildCx::on_access` (`Expand`, `Collapse`, `Select`, `SetValue`, `ShowMenu`, `Dismiss`), and listed in its entry;
+- [ ] while it loads or waits for an answer it says so with `BuildCx::busy` (or `busy_while` and a `BusySignal` for work away from the `Ui`), so tests wait for it with no `sleep`;
+- [ ] a component with a gesture of its own (dragging, joining, resizing) has a driver in the `testing` module of its crate, and, when it helps, a `.raventest` under a `tests/e2e` folder.
+
+A complete entry, for a tree:
+
+```json
+{"crate": "ravenrs-widgets-lists", "tipo": "TreeView",
+ "rts": {"ids": ["item:<chave>"], "acoes": ["Click", "Expand", "Collapse"], "busy": false,
+         "driver": "TreeDriver", "cenario": "tools/raven-feature-center/tests/e2e/arvore.raventest"}}
+```
+
+with the code that keeps it:
+
+```rust
+cx.test_id(row, &format!("item:{}", node.key));
+cx.on_access(row, &[AccessAction::Expand, AccessAction::Collapse], move |action, _| {
+    open.set(action == AccessAction::Expand);
+    true
+});
+```
+
+A type with nothing on the screen is `{"sem_tela": true}`; one that does not keep the contract yet is `{"pendente": true, "issue": N}`, with the open issue of its family (#737 to #741).
+
+## End-to-end scenarios of the apps
+
+Every app with a window in `examples/` and `tools/` (an independent workspace too) is tested by the Raven Test Studio as a person uses it, and `scripts/e2e-scenarios.py` checks in `check.sh` that the Studio finds and runs it (#702). A new app comes with the same five pieces, in the same pull request:
+
+- [ ] `Cargo.toml` says what the Studio opens, and brings the test channel outside the web build:
+
+  ```toml
+  [package.metadata.ravenrs.e2e]
+  app = "Hello World"        # the name its scenarios open; no other app may use it
+  binary = "hello-world"
+
+  [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+  ravenrs-e2e.workspace = true
+  ravenrs-e2e-wire = { workspace = true, features = ["serve"] }
+  ```
+
+- [ ] `tests/e2e/` keeps `.raventest` scenarios that open the app and check what it did (`check`, `mention`, `expect` for a state), not only click. Find parts by test id or by the text a screen reader reads, never by position; a text that shows twice needs a test id (`display`, `item:<key>`).
+- [ ] the app brings them, so a Studio installed anywhere runs them: `pub const SCENARIOS: [&str; 1] = [include_str!("../tests/e2e/abrir.raventest")];` in `lib.rs`.
+- [ ] `main.rs` answers the channel before any window, with data in memory or in a folder of its own under the temporary folder, never the person's:
+
+  ```rust
+  if std::env::args().skip(1).any(|arg| arg == ravenrs_e2e_wire::SERVE_FLAG) {
+      let session = ravenrs_e2e::E2e::new(hello_world::app(), Theme::raven_dark())
+          .viewport(Size::new(760.0, 560.0), 1.0);
+      let hello = ravenrs_e2e_wire::Hello::of("Hello World").scenarios(hello_world::SCENARIOS);
+      ravenrs_e2e_wire::serve_filmed(hello, session, ravenrs::movie::ChannelFilm::default())?;
+      return Ok(());
+  }
+  ```
+
+- [ ] a test plays them on every `cargo test` (`tests/scenarios.rs`, or `tests/suite/scenarios.rs` when the app has a suite): `check_folder` refuses a file that is not embedded, and `Scenario::play` runs each on the same session the channel serves. An app that keeps what it saves on disk plays them in a child process with `Client::spawn` and `play_served`, and the test reads back what was saved (`tools/raven-movie-editor`).
+
+Before the pull request, run the Studio on it with no cache, and say in the pull request what it answered:
+
+```bash
+raven-test-studio --project examples/hello-world --run-all --no-cache --format json --out target/e2e/hello-world
+```
+
+An app with no window of its own (it writes to the terminal or drives other apps) goes in `NO_SCREEN` of `scripts/e2e-scenarios.py`, with the issue that says what it would need; the script refuses it there once it keeps scenarios.
 
 ## Code style
 

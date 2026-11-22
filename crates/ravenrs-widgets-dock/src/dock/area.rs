@@ -1231,6 +1231,7 @@ impl View for TabView<'_> {
             node,
             if panel.unsaved { semantics.description(labels.unsaved.clone()) } else { semantics },
         );
+        cx.test_id(node, &format!("panel:{id}"));
         if self.actions.focus.borrow().as_deref() == Some(id.as_str()) {
             self.actions.focus.borrow_mut().take();
             cx.request_focus_node(node);
@@ -2509,6 +2510,7 @@ impl View for FloatingView<'_> {
         cx.focusable(header, radius);
         cx.cursor(header, CursorIcon::Move);
         cx.semantics(header, Semantics::new(Role::Button).name(labels.dock_move_floating_name(&title)));
+        cx.test_id(header, &format!("floating-move:{id}"));
         let modifiers = cx.modifiers();
         cx.on_drag(header, self.grab_handler(Grab::MOVE, modifiers.clone()));
         let (back, home) = (actions.clone(), id.clone());
@@ -2630,6 +2632,7 @@ impl View for FloatingView<'_> {
         );
         let semantics = Semantics::new(Role::Dialog).name(labels.dock_floating_name(&title));
         cx.semantics(node, if unsaved { semantics.description(labels.unsaved.clone()) } else { semantics });
+        cx.test_id(node, &format!("floating:{id}"));
         node
     }
 }

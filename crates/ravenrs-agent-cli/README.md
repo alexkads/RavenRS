@@ -16,8 +16,10 @@ Flow nodes that call the coding agents installed on the computer: the Codex CLI 
 
 | Node | What it does | Parameters |
 |---|---|---|
-| `codex` | Runs the Codex CLI with the prompt. | `prompt` (text with expressions), `dir`, `read_only`, `timeout_ms`, `session` |
+| `codex` | Runs the Codex CLI with the prompt. | `prompt` (text with expressions), `dir`, `read_only`, `timeout_ms`, `session`, `model` |
 | `claude` | Runs the Claude CLI with the prompt. | the same, and `allowed_tools`, `denied_tools`, `max_turns`, `budget_usd` |
+
+`model` names the model; `cheapest` asks for the agent's cheapest, which `cheapest_model` finds: for Codex, the first model its installed CLI lists and calls affordable (from `models_cache.json` in `CODEX_HOME`, `~/.codex` by default), so a new generation needs no new build; for Claude, `haiku`. A CLI whose `--help` has no `--model` refuses a model before running.
 | `code_review` | Asks the agent to review what the prompt gives, pointing each problem with file and line, changing nothing. | `prompt`, `dir` |
 
 Each item that reaches a node is one run; the item that leaves carries the `final_message`, the `events` (started, messages, tools, errors, finished), the `session` to resume and the `cost_usd`. A CLI that is not installed, too old, or refused is a failure of the node that says why; a failure while reading only may be tried again, and one that may have changed files is reported as uncertain.

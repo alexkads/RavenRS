@@ -1,0 +1,10 @@
+scenario: Raven Flows: criar e executar um fluxo
+// Numa pasta só desta sessão: o fluxo de exemplo está na lista; um fluxo novo abre no editor, roda e entra na lista.
+open Raven Flows                                       | Abrir o Raven Flows
+check Conferir pedidos = Conferir pedidos              | O fluxo de exemplo está na lista
+fill Nome do novo fluxo = Avisar clientes              | Dar nome a um fluxo novo
+click Criar fluxo                                      | Criar o fluxo
+check #node:inicio = Início                            | Ele abre no editor, com o início
+click Executar fluxo                                   | Executar o fluxo
+click Voltar aos fluxos                                | Voltar aos fluxos
+check Avisar clientes = Avisar clientes                | O fluxo novo está na lista

@@ -99,6 +99,36 @@ impl fmt::Debug for Paint {
 /// Called with the focused element's key presses; returns true when it handled the key.
 pub type KeyHandler = Rc<dyn Fn(&Key, Modifiers) -> bool>;
 
+/// What a node does when assistive technology or a test asks it for one of the actions it
+/// declared with [`BuildCx::on_access`]: the action, and the text that comes with
+/// [`AccessAction::SetValue`](ravenrs_core::AccessAction::SetValue). Returns whether it did it.
+pub type AccessHandler = Rc<dyn Fn(ravenrs_core::AccessAction, Option<&str>) -> bool>;
+
+/// Whether work done away from the [`Ui`](crate::Ui) is still going, shared with that work: a
+/// thread, a request to a remote `ObjectSpace`. Setting it needs no rebuild; the next
+/// accessibility tree reads it. Cloning gives the same signal.
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct BusySignal(std::sync::Arc<std::sync::atomic::AtomicBool>);
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl BusySignal {
+    /// A signal that starts free.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Marks the work as going (`true`) or finished (`false`), from any thread.
+    pub fn set(&self, busy: bool) {
+        self.0.store(busy, std::sync::atomic::Ordering::Release);
+    }
+
+    /// Whether the work is still going.
+    pub fn is_busy(&self) -> bool {
+        self.0.load(std::sync::atomic::Ordering::Acquire)
+    }
+}
+
 /// Phase of a pointer drag that started on an element.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
@@ -354,6 +384,8 @@ pub struct Semantics {
     /// The name is a guess (an icon's name) that a tooltip may replace.
     #[doc(hidden)]
     pub fallback_name: bool,
+    #[doc(hidden)]
+    pub protected: bool,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -376,6 +408,7 @@ impl Semantics {
             hidden: false,
             active: false,
             fallback_name: false,
+            protected: false,
         }
     }
 
@@ -383,6 +416,13 @@ impl Semantics {
     /// (decorations, duplicated content).
     pub fn hidden() -> Self {
         Self { hidden: true, ..Self::new(Role::Group) }
+    }
+
+    /// Marks the value as secret (a password field): assistive technology and tests are told
+    /// it is protected, and the value given is the masked one.
+    pub fn protected(mut self) -> Self {
+        self.protected = true;
+        self
     }
 
     /// The role.
@@ -557,6 +597,20 @@ pub struct Element {
     pub time_link: Option<crate::TimeLink>,
     /// Told the scroll progress along this range before each paint.
     pub progress_out: Option<(crate::ScrollRange, Rc<std::cell::Cell<f32>>)>,
+    /// The id tests and automation find this element by (see [`BuildCx::test_id`]).
+    pub test_id: Option<Rc<str>>,
+    /// The actions beyond a click this element takes from assistive technology and tests.
+    pub access: Option<(Vec<ravenrs_core::AccessAction>, AccessHandler)>,
+    /// Busy now, as the view said when it was built.
+    pub busy: bool,
+    /// Busy while this signal says so, read when the accessibility tree is made.
+    pub busy_signal: Option<BusySignal>,
+    /// The declaration site of that id, kept only in source-instrumented test builds.
+    #[cfg(feature = "e2e-source")]
+    pub test_source: Option<&'static std::panic::Location<'static>>,
+    /// The view constructor's caller, used when no explicit test tag supplies an origin.
+    #[cfg(feature = "e2e-source")]
+    pub view_source: Option<&'static std::panic::Location<'static>>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -607,6 +661,14 @@ impl Element {
             on_appear: None,
             time_link: None,
             progress_out: None,
+            test_id: None,
+            access: None,
+            busy: false,
+            busy_signal: None,
+            #[cfg(feature = "e2e-source")]
+            test_source: None,
+            #[cfg(feature = "e2e-source")]
+            view_source: None,
         }
     }
 
@@ -1215,6 +1277,57 @@ impl<'a> BuildCx<'a> {
         }
     }
 
+    /// The actions beyond a click the node takes from screen readers and tests, and what it
+    /// does for each: open and close ([`Expand`](ravenrs_core::AccessAction::Expand),
+    /// [`Collapse`](ravenrs_core::AccessAction::Collapse)), choose
+    /// ([`Select`](ravenrs_core::AccessAction::Select)), take a value
+    /// ([`SetValue`](ravenrs_core::AccessAction::SetValue), with its text), open its menu or
+    /// close ([`ShowMenu`](ravenrs_core::AccessAction::ShowMenu),
+    /// [`Dismiss`](ravenrs_core::AccessAction::Dismiss)). The node needs [`Semantics`] or focus
+    /// to be in the tree. The handler returns whether it did the action. Called again on the
+    /// same node, it adds to what the node takes: a component that wraps another (a popover
+    /// around its anchor) keeps the anchor's own actions.
+    pub fn on_access(
+        &mut self,
+        node: NodeId,
+        actions: &[ravenrs_core::AccessAction],
+        handler: impl Fn(ravenrs_core::AccessAction, Option<&str>) -> bool + 'static,
+    ) {
+        let Some(e) = self.element_mut(node) else { return };
+        let new: AccessHandler = Rc::new(handler);
+        e.access =
+            Some(match e.access.take() {
+                None => (actions.to_vec(), new),
+                Some((mut had, old)) => {
+                    let mine = actions.to_vec();
+                    had.retain(|a| !mine.contains(a));
+                    let (inner, outer) = (old, new);
+                    let combined: AccessHandler = Rc::new(move |action, text| {
+                        if mine.contains(&action) { outer(action, text) } else { inner(action, text) }
+                    });
+                    had.extend(actions.iter().copied());
+                    (had, combined)
+                }
+            });
+    }
+
+    /// Says the node is busy with work that has not finished, such as loading or waiting for
+    /// an answer: screen readers announce it and tests wait until it is free. For work away
+    /// from the `Ui`, see [`BuildCx::busy_while`].
+    pub fn busy(&mut self, node: NodeId, busy: bool) {
+        if let Some(e) = self.element_mut(node) {
+            e.busy = busy;
+        }
+    }
+
+    /// The node is busy while `signal` says so: the work sets it from its thread, with no
+    /// rebuild, and the next accessibility tree reads it.
+    pub fn busy_while(&mut self, node: NodeId, signal: &BusySignal) {
+        if let Some(e) = self.element_mut(node) {
+            e.busy_signal = Some(signal.clone());
+        }
+    }
+
     /// Describes the node to screen readers; see [`Semantics`].
     pub fn semantics(&mut self, node: NodeId, semantics: Semantics) {
         if let Some(e) = self.element_mut(node) {
@@ -1288,6 +1401,36 @@ impl<'a> BuildCx<'a> {
         }
         if let Some(description) = description {
             s.description = Some(description.to_owned());
+        }
+    }
+
+    /// Tags the node with an id that tests and automation find it by, which does not change
+    /// when the screen around it is reordered or wrapped. It is not read by screen readers; on
+    /// the web it becomes `data-testid`. A node that does not show to assistive technology
+    /// passes the id to the first one inside it. Components use it to tag their own parts;
+    /// apps use [`ViewExt::test_id`](crate::ViewExt::test_id).
+    #[cfg_attr(feature = "e2e-source", track_caller)]
+    pub fn test_id(&mut self, node: NodeId, id: &str) {
+        if let Some(e) = self.element_mut(node) {
+            e.test_id = Some(Rc::from(id));
+            #[cfg(feature = "e2e-source")]
+            {
+                e.test_source = Some(std::panic::Location::caller());
+            }
+        }
+    }
+
+    #[cfg(feature = "e2e-source")]
+    pub(crate) fn test_source(&mut self, node: NodeId, source: &'static std::panic::Location<'static>) {
+        if let Some(e) = self.element_mut(node) {
+            e.test_source = Some(source);
+        }
+    }
+
+    #[cfg(feature = "e2e-source")]
+    pub(crate) fn view_source(&mut self, node: NodeId, source: &'static std::panic::Location<'static>) {
+        if let Some(e) = self.element_mut(node) {
+            e.view_source = Some(source);
         }
     }
 

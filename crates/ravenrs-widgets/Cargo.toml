@@ -34,6 +34,7 @@ ravenrs-lottie = { workspace = true, optional = true }
 
 [features]
 default = ["decode", "charts", "flow", "lottie"]
+e2e-source = ["ravenrs-widgets-base/e2e-source"]
 # PNG and JPEG decoding for `Image::from_bytes`.
 decode = ["ravenrs-widgets-base/decode", "ravenrs-widgets-kit/decode"]
 # `Chart`, `BarChart`, `AreaChart` and `Barcode`, drawn with `ravenrs-graphics`.
@@ -42,12 +43,22 @@ charts = ["dep:ravenrs-graphics", "ravenrs-widgets-charts/charts"]
 flow = ["dep:ravenrs-graphics", "ravenrs-widgets-charts/flow"]
 # `Lottie`, a player of Lottie animations of our own.
 lottie = ["dep:ravenrs-lottie", "ravenrs-widgets-imaging/lottie"]
+# The drivers of `ravenrs_widgets::testing`, for tests written with ravenrs-e2e.
+testing = ["flow", "ravenrs-widgets-imaging/testing", "ravenrs-widgets-lists/testing", "ravenrs-widgets-grid/testing", "ravenrs-widgets-charts/testing", "ravenrs-widgets-scheduler/testing", "ravenrs-widgets-dock/testing"]
+# The stories of the components, for RavenComponentBook (`book::all`).
+book = ["ravenrs-widgets-base/book", "ravenrs-widgets-kit/book", "ravenrs-widgets-lists/book", "ravenrs-widgets-grid/book", "ravenrs-widgets-scheduler/book", "ravenrs-widgets-dock/book", "ravenrs-widgets-imaging/book", "ravenrs-widgets-charts/book", "ravenrs-widgets-chat/book"]
 # `CodeEditor` and `Playground`, with Fira Mono embedded in `ravenrs-text`.
 code = ["ravenrs-widgets-chat/code"]
 # `LiveRunner`: the Playground runs edited examples with the interpreter of ravenrs-live.
 live = ["code", "dep:ravenrs-live", "ravenrs-widgets-base/live", "ravenrs-widgets-kit/live", "ravenrs-core/live", "ravenrs-style/live", "ravenrs-layout/live", "ravenrs-text/live", "ravenrs-graphics?/live", "ravenrs-lottie?/live", "ravenrs-widgets-grid/live", "ravenrs-widgets-lists/live", "ravenrs-widgets-scheduler/live", "ravenrs-widgets-dock/live", "ravenrs-widgets-imaging/live", "ravenrs-widgets-charts/live", "ravenrs-widgets-chat/live"]
 
 [dev-dependencies]
+# The test drivers of the grid and the diagram, tested here as an app uses them.
+ravenrs-e2e.workspace = true
+ravenrs-widgets-grid = { path = "../ravenrs-widgets-grid", features = ["testing"] }
+ravenrs-widgets-charts = { path = "../ravenrs-widgets-charts", features = ["testing"] }
+ravenrs-widgets-scheduler = { path = "../ravenrs-widgets-scheduler", features = ["testing"] }
+ravenrs-widgets-dock = { path = "../ravenrs-widgets-dock", features = ["testing"] }
 ravenrs-animation.workspace = true
 ravenrs-criteria.workspace = true
 serde_json.workspace = true

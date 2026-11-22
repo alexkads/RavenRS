@@ -25,6 +25,8 @@ pub enum StoreError {
     Unreadable(String),
     /// There is no run with this id.
     NoRun(String),
+    /// The worker named does not hold this run (any more): another took it, or it ended.
+    NotHeld(String),
 }
 
 impl fmt::Display for StoreError {
@@ -33,6 +35,7 @@ impl fmt::Display for StoreError {
             Self::Database(e) => write!(f, "the database: {e}"),
             Self::Unreadable(why) => write!(f, "something kept could not be read: {why}"),
             Self::NoRun(id) => write!(f, "there is no run {id}"),
+            Self::NotHeld(id) => write!(f, "the run {id} is not held by this worker"),
         }
     }
 }
@@ -70,7 +73,11 @@ CREATE TABLE IF NOT EXISTS runs (
     wake_event TEXT,
     started_ms INTEGER,
     created_ms INTEGER NOT NULL,
-    ended_ms INTEGER
+    ended_ms INTEGER,
+    priority INTEGER NOT NULL DEFAULT 0,
+    dedupe_key TEXT,
+    joined INTEGER NOT NULL DEFAULT 0,
+    cancel_requested TEXT
 );
 CREATE INDEX IF NOT EXISTS runs_by_status ON runs (status, created_ms);
 CREATE TABLE IF NOT EXISTS steps (
@@ -93,8 +100,31 @@ pub(crate) fn prepare(conn: &Connection) -> Result<(), StoreError> {
     conn.busy_timeout(std::time::Duration::from_secs(10))?;
     let _ = conn.query_row("PRAGMA journal_mode = WAL", [], |_| Ok(()));
     conn.execute_batch(SCHEMA)?;
+    // Files made before the queue had priorities, keys and cancelling get the columns, empty.
+    let columns: Vec<String> = {
+        let mut stmt = conn.prepare("PRAGMA table_info(runs)")?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(1))?;
+        rows.collect::<Result<_, _>>()?
+    };
+    for (column, kind) in ADDED_COLUMNS {
+        if !columns.iter().any(|c| c == column) {
+            conn.execute_batch(&format!("ALTER TABLE runs ADD COLUMN {column} {kind}"))?;
+        }
+    }
+    conn.execute_batch(
+        "CREATE INDEX IF NOT EXISTS runs_in_line ON runs (status, priority DESC, created_ms);
+         CREATE INDEX IF NOT EXISTS runs_by_key ON runs (dedupe_key, status);",
+    )?;
     Ok(())
 }
+
+/// The columns that came after the first files, and how each is declared.
+const ADDED_COLUMNS: [(&str, &str); 4] = [
+    ("priority", "INTEGER NOT NULL DEFAULT 0"),
+    ("dedupe_key", "TEXT"),
+    ("joined", "INTEGER NOT NULL DEFAULT 0"),
+    ("cancel_requested", "TEXT"),
+];
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -106,8 +136,9 @@ pub(crate) fn new_id(prefix: &str, now_ms: i64) -> String {
 }
 
 /// The run due first that no one holds: asked for, held by a worker whose lease ran out, or
-/// waiting for a time that came. It is given to `worker` until `lease_until`, in one statement
-/// inside a write transaction, so two workers never get the same run.
+/// waiting for a time that came; the highest priority first and, among equals, the oldest. It is
+/// given to `worker` until `lease_until`, in one statement inside a write transaction, so two
+/// workers never get the same run.
 pub(crate) fn claim(
     conn: &mut Connection,
     worker: &str,
@@ -123,7 +154,7 @@ pub(crate) fn claim(
                  WHERE status = 'queued'
                     OR (status = 'running' AND lease_until < ?2)
                     OR (status = 'waiting' AND wake_at IS NOT NULL AND wake_at <= ?2)
-                 ORDER BY created_ms, id LIMIT 1)
+                 ORDER BY priority DESC, created_ms, id LIMIT 1)
              RETURNING id",
             params![worker, now_ms, lease_until],
             |row| row.get(0),
@@ -131,6 +162,48 @@ pub(crate) fn claim(
         .optional()?;
     tx.commit()?;
     Ok(id)
+}
+
+/// What makes a run due now: asked for, its worker's lease ran out, or its wait is over.
+const DUE: &str = "status = 'queued'
+    OR (status = 'running' AND lease_until < ?1)
+    OR (status = 'waiting' AND wake_at IS NOT NULL AND wake_at <= ?1)";
+
+/// The ids of the runs due at `now_ms`, in the order a claim takes them.
+pub(crate) fn due(conn: &Connection, now_ms: i64) -> Result<Vec<String>, StoreError> {
+    let mut stmt =
+        conn.prepare(&format!("SELECT id FROM runs WHERE {DUE} ORDER BY priority DESC, created_ms, id"))?;
+    let rows = stmt.query_map(params![now_ms], |row| row.get(0))?;
+    Ok(rows.collect::<Result<_, _>>()?)
+}
+
+/// Takes `run` for `worker` if it is due at `now_ms`, in one statement; whether it did.
+pub(crate) fn claim_id(
+    conn: &Connection,
+    run: &str,
+    worker: &str,
+    now_ms: i64,
+    lease_until: i64,
+) -> Result<bool, StoreError> {
+    let changed = conn.execute(
+        &format!(
+            "UPDATE runs SET status = 'running', worker = ?2, lease_until = ?3 WHERE id = ?4 AND ({DUE})"
+        ),
+        params![now_ms, worker, lease_until, run],
+    )?;
+    Ok(changed == 1)
+}
+
+/// Whether `worker` holds `run` now, running.
+pub(crate) fn holds(conn: &Connection, run: &str, worker: &str) -> Result<bool, StoreError> {
+    let found: Option<i64> = conn
+        .query_row(
+            "SELECT 1 FROM runs WHERE id = ?1 AND worker = ?2 AND status = 'running'",
+            params![run, worker],
+            |row| row.get(0),
+        )
+        .optional()?;
+    Ok(found.is_some())
 }
 
 /// Gives `worker` more time on `run`; `false` when it no longer holds it.

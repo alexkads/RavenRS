@@ -1,0 +1,36 @@
+# A plugin with one of each point that is not a step, for the tests of the core: what each method
+# of the protocol carries, the requests a trigger makes outside a call, and the program that falls
+# and is started again with the jobs it watched.
+name = "pontos"
+version = "0.1.0"
+summary = "Um de cada ponto, para os testes do núcleo."
+command = "python3"
+windows_command = "python"
+args = ["pontos.py"]
+permissions = ["secrets"]
+timeout_ms = 5000
+idle_ms = 300
+
+[[steps]]
+kind = "diz"
+
+[[triggers]]
+id = "tique"
+
+[[publishers]]
+id = "anexos"
+
+[[build_hooks]]
+id = "porteiro"
+
+[[routes]]
+method = "POST"
+path = "/api/pontos/eco"
+
+[[credential_kinds]]
+id = "token-pontos"
+caption = "Token dos pontos"
+fields = [
+  { name = "usuario", kind = "text" },
+  { name = "token", kind = "text", secret = true, required = true },
+]

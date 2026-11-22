@@ -194,6 +194,8 @@ impl Session {
         editors: EditorRegistry,
         today: Date,
     ) -> Self {
+        // What it announces speaks the language of its words.
+        let access_words = Rc::new(RefCell::new(words.access.clone()));
         let frame = application.new_frame(FrameContext::Main, new_space());
         Self::linked(SessionInner {
             application: Rc::new(RefCell::new(application)),
@@ -236,7 +238,7 @@ impl Session {
             siblings: RefCell::default(),
             account: RefCell::default(),
             announcer: Announcer::new(),
-            access_words: Rc::default(),
+            access_words,
         })
     }
 

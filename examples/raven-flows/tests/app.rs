@@ -168,7 +168,10 @@ fn the_editor_runs_the_flow_and_runs_approve_it_from_the_screens() {
 
 #[test]
 fn the_news_of_every_version_say_who_made_it_and_which_issues_it_closes() {
-    let notes = raven_flows::release_notes(raven_flows::versao::idle().timeline());
+    let notes = ravenrs_app_update::ui::release_notes(
+        &raven_flows::versao::idle(),
+        &ravenrs::prelude::Links::default(),
+    );
     assert!(!notes.is_empty(), "this version's news at least");
     assert_eq!(raven_flows::versao::APP.version, raven_flows::VERSION);
 }

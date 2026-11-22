@@ -1993,10 +1993,10 @@ fn radar(data: &ChartData, rect: Rect, style: &PlotStyle, plot: &mut Plot) {
         }
     }
     let half = TAU / count as f32 / 2.0;
-    for i in 0..count {
+    for (i, category) in data.categories.iter().enumerate().take(count) {
         let angle = angle_of(i);
         if style.category_axis {
-            let name = (style.tick_format)(&data.categories[i]);
+            let name = (style.tick_format)(category);
             let lines = name.lines().count().max(1) as f32;
             let wide = name.lines().map(|l| l.chars().count()).max().unwrap_or(0) as f32 * size * CHAR_WIDTH;
             let spot = Point::new(

@@ -10,7 +10,9 @@
 //!
 //! No screen and no GPU: the crate runs on a server or a worker thread. The bridge to the
 //! canvas ([`FlowDefinition::to_graph`], [`FlowDefinition::from_graph`] and
-//! [`Catalog::run_rules`]) speaks the `ravenrs-graphics` model the `FlowCanvas` draws.
+//! [`Catalog::run_rules`]) speaks the `ravenrs-graphics` model the `FlowCanvas` draws; it is the
+//! feature `canvas`, on by default. With `default-features = false` the crate runs flows with no
+//! drawing in its tree, as a plugin of Raven CI compiled on its own does.
 //!
 //! ```
 //! use ravenrs_flows::{
@@ -78,6 +80,7 @@
 mod catalog;
 mod definition;
 pub mod expression;
+#[cfg(feature = "canvas")]
 mod graph;
 mod item;
 pub mod nodes;
@@ -91,6 +94,7 @@ pub use catalog::{
 pub use definition::{
     Connection, DefinitionError, ErrorPolicy, FORMAT, FlowDefinition, NodeDef, PortRef, Retry,
 };
+#[cfg(feature = "canvas")]
 pub use graph::{GRAPH_KEY, card, port_name};
 pub use item::{BinaryRef, Item, ItemRef, Ports};
 pub use plan::{Plan, PlanError};

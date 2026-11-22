@@ -1,0 +1,51 @@
+//! The stories of `Menubar`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #757: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `Menubar`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let arg_menu = args.text("menu");
+        let arg_separator = args.bool("separator");
+
+        {
+            let mut it = Menubar::new()
+                .item(MenuItem::new("New").icon(IconName::FilePlus).shortcut("⌘N"))
+                .item(MenuItem::new("Print").icon(IconName::Printer).shortcut("⌘P"))
+                .menu("Edit")
+                .item(MenuItem::new("Undo").icon(IconName::Undo2).shortcut("⌘Z"));
+            it = it.menu(arg_menu.clone());
+            if arg_separator {
+                it = it.separator();
+            }
+            it
+        }
+    })
+}
+
+impl ComponentBook for Menubar {
+    fn book() -> Meta {
+        Meta::new("Navigation/Menubar", render)
+            .summary("Horizontal bar of menus such as File, Edit and View.")
+            .arg(ArgType::text("menu", "File"))
+            .arg(ArgType::bool("separator", true))
+            .story("Example", Args::new())
+    }
+}

@@ -34,6 +34,7 @@ enum DockPanelKind
 enum DockSide
 enum DockTabBar
 enum DragPhase
+enum Driving
 enum FileSortColumn
 enum Fill
 enum FilterFieldKind
@@ -642,6 +643,12 @@ field Labels::lightbox_previous
 field Labels::list_name
 field Labels::listen
 field Labels::loading
+field Labels::log_folded
+field Labels::log_go_to_end
+field Labels::log_matches
+field Labels::log_name
+field Labels::log_point_line
+field Labels::log_search
 field Labels::marquee
 field Labels::minimap
 field Labels::month_year
@@ -981,6 +988,7 @@ field grid::query::QueryResult::matched
 field grid::query::QueryResult::rows
 field grid::query::QueryResult::totals
 fn apple_keys
+fn book::all
 fn days_in_month
 fn decode_image
 fn distance_to_cable
@@ -1024,6 +1032,7 @@ impl Clone for Barcode
 impl Clone for BoxHandle
 impl Clone for BoxTransform
 impl Clone for Breadcrumb
+impl Clone for BusySignal
 impl Clone for ButtonSize
 impl Clone for ButtonStyle
 impl Clone for CableAnchor
@@ -1082,6 +1091,7 @@ impl Clone for Dot
 impl Clone for Drag
 impl Clone for DragPayload
 impl Clone for DragPhase
+impl Clone for Driving
 impl Clone for EyedropperState
 impl Clone for FieldDrag
 impl Clone for FileEntry
@@ -1137,6 +1147,7 @@ impl Clone for Labels
 impl Clone for LightboxItem
 impl Clone for Links
 impl Clone for LiveRunner
+impl Clone for LogBuffer
 impl Clone for LookupItem
 impl Clone for LookupRequest
 impl Clone for LookupResponder
@@ -1266,6 +1277,196 @@ impl Clone for grid::query::GridTableColumn
 impl Clone for grid::query::GridTableKind
 impl Clone for grid::query::QueryResult
 impl Clone for grid::query::ViewRow
+impl ComponentBook for Accordion
+impl ComponentBook for Alert
+impl ComponentBook for Anchor
+impl ComponentBook for AreaChart
+impl ComponentBook for AspectRatio
+impl ComponentBook for AttachmentStrip
+impl ComponentBook for AudioPlayerButton
+impl ComponentBook for Avatar
+impl ComponentBook for Badge
+impl ComponentBook for BarChart
+impl ComponentBook for Barcode
+impl ComponentBook for Breadcrumb
+impl ComponentBook for Button
+impl ComponentBook for ButtonGroup
+impl ComponentBook for Calendar
+impl ComponentBook for Canvas
+impl ComponentBook for Card
+impl ComponentBook for CardView
+impl ComponentBook for Carousel
+impl ComponentBook for Chart
+impl ComponentBook for ChartCard
+impl ComponentBook for Chat
+impl ComponentBook for Checkbox
+impl ComponentBook for CodeBlock
+impl ComponentBook for CodeEditor
+impl ComponentBook for Collapse
+impl ComponentBook for ColorPair
+impl ComponentBook for ColorPicker
+impl ComponentBook for ColorSwatch
+impl ComponentBook for ColorWheel
+impl ComponentBook for Combobox
+impl ComponentBook for CommandPalette
+impl ComponentBook for CompareView
+impl ComponentBook for ConfirmDialog
+impl ComponentBook for ContextMenu
+impl ComponentBook for CountUp
+impl ComponentBook for CropOverlay
+impl ComponentBook for CurveEditor
+impl ComponentBook for DataGrid
+impl ComponentBook for DataInspector
+impl ComponentBook for DatePicker
+impl ComponentBook for DateRangePicker
+impl ComponentBook for DateTimePicker
+impl ComponentBook for DaySeparator
+impl ComponentBook for Dialog
+impl ComponentBook for Disclosure
+impl ComponentBook for Divider
+impl ComponentBook for DockArea
+impl ComponentBook for DocumentTabs
+impl ComponentBook for Dot
+impl ComponentBook for DropZone
+impl ComponentBook for DropdownMenu
+impl ComponentBook for EmptyState
+impl ComponentBook for EventCalendar
+impl ComponentBook for ExpressionEditor
+impl ComponentBook for Eyedropper
+impl ComponentBook for FavoriteToggle
+impl ComponentBook for FileBrowser
+impl ComponentBook for FileUpload
+impl ComponentBook for Filmstrip
+impl ComponentBook for FilterBuilder
+impl ComponentBook for FloatingPanel
+impl ComponentBook for FloatingToolbar
+impl ComponentBook for FlowCanvas
+impl ComponentBook for FlowInspector
+impl ComponentBook for FlowLayers
+impl ComponentBook for FlowLibrary
+impl ComponentBook for FlowToolbox
+impl ComponentBook for Footer
+impl ComponentBook for FormField
+impl ComponentBook for FormLayout
+impl ComponentBook for GlassCard
+impl ComponentBook for Grid
+impl ComponentBook for HStack
+impl ComponentBook for HelpTip
+impl ComponentBook for HeroBanner
+impl ComponentBook for Histogram
+impl ComponentBook for HoverCard
+impl ComponentBook for Icon
+impl ComponentBook for IconButton
+impl ComponentBook for IconTile
+impl ComponentBook for Image
+impl ComponentBook for ImageField
+impl ComponentBook for ImageLightbox
+impl ComponentBook for InlineRename
+impl ComponentBook for InputOtp
+impl ComponentBook for Kbd
+impl ComponentBook for KeyBar
+impl ComponentBook for Label
+impl ComponentBook for Link
+impl ComponentBook for List
+impl ComponentBook for LogView
+impl ComponentBook for LookupField
+impl ComponentBook for Lottie
+impl ComponentBook for Marquee
+impl ComponentBook for MaskedField
+impl ComponentBook for Menubar
+impl ComponentBook for Minimap
+impl ComponentBook for ModelPicker
+impl ComponentBook for MultiProgress
+impl ComponentBook for NinePointAnchor
+impl ComponentBook for NumberField
+impl ComponentBook for OverlayBadge
+impl ComponentBook for PageHeader
+impl ComponentBook for PagedDocumentView
+impl ComponentBook for Pagination
+impl ComponentBook for ParameterForm
+impl ComponentBook for PatchPanel
+impl ComponentBook for Playground
+impl ComponentBook for Popover
+impl ComponentBook for ProgressBar
+impl ComponentBook for PropertyRow
+impl ComponentBook for Protractor
+impl ComponentBook for QuadField
+impl ComponentBook for QuarterTurn
+impl ComponentBook for RadioGroup
+impl ComponentBook for Rating
+impl ComponentBook for RecurrenceEditor
+impl ComponentBook for ReleaseNotes
+impl ComponentBook for Ribbon
+impl ComponentBook for RichText
+impl ComponentBook for RubberBand
+impl ComponentBook for RuleOfThirdsGrid
+impl ComponentBook for Ruler
+impl ComponentBook for SankeyChart
+impl ComponentBook for ScanField
+impl ComponentBook for Scheduler
+impl ComponentBook for ScrollEdgeArrow
+impl ComponentBook for ScrollLinked
+impl ComponentBook for ScrollScene
+impl ComponentBook for ScrollView
+impl ComponentBook for Section
+impl ComponentBook for SegmentedControl
+impl ComponentBook for Select
+impl ComponentBook for SelectionBar
+impl ComponentBook for Sheet
+impl ComponentBook for ShimmerText
+impl ComponentBook for ShortcutHintBar
+impl ComponentBook for ShortcutSheet
+impl ComponentBook for Sidebar
+impl ComponentBook for SidebarBrand
+impl ComponentBook for Skeleton
+impl ComponentBook for Slider
+impl ComponentBook for SortableList
+impl ComponentBook for Spacer
+impl ComponentBook for Spinner
+impl ComponentBook for SplashScreen
+impl ComponentBook for SplitButton
+impl ComponentBook for SplitHandle
+impl ComponentBook for SplitPanes
+impl ComponentBook for Splitter
+impl ComponentBook for Stat
+impl ComponentBook for StatusBar
+impl ComponentBook for StepBadge
+impl ComponentBook for StepIndicator
+impl ComponentBook for Stepper
+impl ComponentBook for Sticky
+impl ComponentBook for SwatchGrid
+impl ComponentBook for Table
+impl ComponentBook for Tabs
+impl ComponentBook for TagBox
+impl ComponentBook for Text
+impl ComponentBook for TextArea
+impl ComponentBook for TextField
+impl ComponentBook for ThemeEditor
+impl ComponentBook for ThemePicker
+impl ComponentBook for ThemeSwitcher
+impl ComponentBook for Ticker
+impl ComponentBook for TileLayout
+impl ComponentBook for TimePicker
+impl ComponentBook for Timeline
+impl ComponentBook for TitleBar
+impl ComponentBook for Toaster
+impl ComponentBook for Toggle
+impl ComponentBook for ToggleButton
+impl ComponentBook for ToggleGroup
+impl ComponentBook for ToolRail
+impl ComponentBook for Toolbar
+impl ComponentBook for Tooltip
+impl ComponentBook for TransformHandles
+impl ComponentBook for TreeView
+impl ComponentBook for VStack
+impl ComponentBook for ValueSlider
+impl ComponentBook for VirtualList
+impl ComponentBook for Wizard
+impl ComponentBook for YearView
+impl ComponentBook for ZStack
+impl ComponentBook for ZoomControl
+impl ComponentBook for ZoomPanView
+impl ComponentBook for grid::DataGrid
 impl Copy for AnchorPoint
 impl Copy for BoxHandle
 impl Copy for BoxTransform
@@ -1296,6 +1497,7 @@ impl Copy for DockSide
 impl Copy for DockTabBar
 impl Copy for Drag
 impl Copy for DragPhase
+impl Copy for Driving
 impl Copy for FileSort
 impl Copy for FileSortColumn
 impl Copy for Fill
@@ -1374,6 +1576,7 @@ impl Debug for BoxHandle
 impl Debug for BoxTransform
 impl Debug for Breadcrumb
 impl Debug for BuildCx
+impl Debug for BusySignal
 impl Debug for Button
 impl Debug for ButtonGroup
 impl Debug for ButtonSize
@@ -1467,6 +1670,7 @@ impl Debug for Dot
 impl Debug for Drag
 impl Debug for DragPayload
 impl Debug for DragPhase
+impl Debug for Driving
 impl Debug for DropZone
 impl Debug for DropdownMenu
 impl Debug for EmptyState
@@ -1564,6 +1768,8 @@ impl Debug for List
 impl Debug for ListItem
 impl Debug for LiveRunner
 impl Debug for Localized
+impl Debug for LogBuffer
+impl Debug for LogView
 impl Debug for LookupField
 impl Debug for LookupItem
 impl Debug for LookupRequest
@@ -1698,6 +1904,7 @@ impl Debug for Table
 impl Debug for Tabs
 impl Debug for TabsVariant
 impl Debug for TagBox
+impl Debug for TestId
 impl Debug for Text
 impl Debug for TextArea
 impl Debug for TextField
@@ -1794,8 +2001,15 @@ impl Debug for grid::query::GridTableColumn
 impl Debug for grid::query::GridTableKind
 impl Debug for grid::query::QueryResult
 impl Debug for grid::query::ViewRow
+impl Debug for testing::CropDriver
+impl Debug for testing::DataGridDriver
+impl Debug for testing::DockDriver
+impl Debug for testing::FlowCanvasDriver
+impl Debug for testing::SchedulerDriver
+impl Debug for testing::SortableDriver
 impl Default for AnchorPoint
 impl Default for AudioPlayerButton
+impl Default for BusySignal
 impl Default for ButtonSize
 impl Default for ButtonStyle
 impl Default for CableSide
@@ -1849,6 +2063,7 @@ impl Default for KeyBar
 impl Default for Labels
 impl Default for Links
 impl Default for LiveRunner
+impl Default for LogBuffer
 impl Default for MemoryClipboard
 impl Default for Menubar
 impl Default for ModelPickerLabels
@@ -1968,6 +2183,7 @@ impl Eq for DockPanelKind
 impl Eq for DockSide
 impl Eq for DockTabBar
 impl Eq for DragPhase
+impl Eq for Driving
 impl Eq for FieldDrag
 impl Eq for FileRequest
 impl Eq for FileSort
@@ -2116,6 +2332,7 @@ impl PartialEq for DockTabBar
 impl PartialEq for DocumentTab
 impl PartialEq for Drag
 impl PartialEq for DragPhase
+impl PartialEq for Driving
 impl PartialEq for FieldDrag
 impl PartialEq for FileEntry
 impl PartialEq for FileRequest
@@ -2358,6 +2575,7 @@ impl View for Link
 impl View for List
 impl View for ListItem
 impl View for Localized
+impl View for LogView
 impl View for LookupField
 impl View for Lottie
 impl View for Marquee
@@ -2435,6 +2653,7 @@ impl View for SwatchGrid
 impl View for Table
 impl View for Tabs
 impl View for TagBox
+impl View for TestId
 impl View for Text
 impl View for TextArea
 impl View for TextField
@@ -2536,6 +2755,8 @@ method BuildCx::animated
 method BuildCx::animated_numbers
 method BuildCx::appear
 method BuildCx::ask_for_access_tree
+method BuildCx::busy
+method BuildCx::busy_while
 method BuildCx::cables
 method BuildCx::carrying
 method BuildCx::child
@@ -2575,6 +2796,7 @@ method BuildCx::motion
 method BuildCx::nothing_focused
 method BuildCx::now
 method BuildCx::observe_activity
+method BuildCx::on_access
 method BuildCx::on_appear
 method BuildCx::on_click
 method BuildCx::on_close_request
@@ -2612,6 +2834,7 @@ method BuildCx::shortcut_with_alt
 method BuildCx::shortcut_with_shift
 method BuildCx::sound
 method BuildCx::system_appearance
+method BuildCx::test_id
 method BuildCx::text
 method BuildCx::text_align
 method BuildCx::text_truncated
@@ -2627,6 +2850,9 @@ method BuildCx::wheel_scrolls_sideways
 method BuildCx::widget_id
 method BuildCx::window_closer
 method BuildCx::with_foreground
+method BusySignal::is_busy
+method BusySignal::new
+method BusySignal::set
 method Button::accessible_description
 method Button::accessible_name
 method Button::disabled
@@ -3294,6 +3520,7 @@ method FlowCanvas::notation
 method FlowCanvas::on_change
 method FlowCanvas::on_export
 method FlowCanvas::open_end
+method FlowCanvas::pan_with_wheel
 method FlowCanvas::ports_on_hover
 method FlowCanvas::quick_create
 method FlowCanvas::range
@@ -3619,6 +3846,20 @@ method ListItem::trailing
 method LiveRunner::new
 method LiveRunner::with_registry
 method Localized::new
+method LogBuffer::clear
+method LogBuffer::is_empty
+method LogBuffer::len
+method LogBuffer::line
+method LogBuffer::new
+method LogBuffer::push
+method LogBuffer::section
+method LogView::follow_end
+method LogView::height
+method LogView::label
+method LogView::line_numbers
+method LogView::new
+method LogView::on_line
+method LogView::searchable
 method LookupField::disabled
 method LookupField::label
 method LookupField::limit
@@ -3743,6 +3984,7 @@ method ParamField::shown_when
 method ParamValues::get
 method ParamValues::into_map
 method ParamValues::new
+method ParameterForm::live
 method ParameterForm::new
 method ParameterForm::on_apply
 method ParameterForm::on_discard
@@ -3841,6 +4083,7 @@ method ReleaseNote::section
 method ReleaseNotes::height
 method ReleaseNotes::new
 method RemoteRows::chunk_size
+method RemoteRows::is_loading
 method RemoteRows::max_chunks
 method RemoteRows::max_in_flight
 method RemoteRows::new
@@ -4005,6 +4248,7 @@ method Semantics::modal
 method Semantics::name
 method Semantics::new
 method Semantics::numeric
+method Semantics::protected
 method Semantics::read_only
 method Semantics::role
 method Semantics::selected
@@ -4342,6 +4586,7 @@ method Toasts::show
 method Toasts::show_for
 method Toasts::show_until_closed
 method Toasts::show_with
+method Toggle::accessible_name
 method Toggle::disabled
 method Toggle::label
 method Toggle::new
@@ -4411,6 +4656,7 @@ method TreeView::on_expand
 method TreeView::on_open
 method TreeView::row_height
 method TreeView::selected
+method Ui::access_node_at
 method Ui::access_tree
 method Ui::cables
 method Ui::clipboard
@@ -4431,6 +4677,8 @@ method Ui::perform_action
 method Ui::phase_times
 method Ui::scale
 method Ui::scene
+method Ui::scroll_frames
+method Ui::set_access_value
 method Ui::set_cable_world
 method Ui::set_clipboard
 method Ui::set_file_picker
@@ -4454,6 +4702,7 @@ method Ui::system_appearance
 method Ui::system_themes
 method Ui::take_close
 method Ui::take_frame_work
+method Ui::test_source
 method Ui::text_system
 method Ui::theme
 method Ui::theme_state
@@ -4638,6 +4887,7 @@ method grid::GridScenario::list_to_json
 method grid::GridScenario::new
 method grid::NumberFormat::format
 method grid::RemoteRows::chunk_size
+method grid::RemoteRows::is_loading
 method grid::RemoteRows::max_chunks
 method grid::RemoteRows::max_in_flight
 method grid::RemoteRows::new
@@ -4654,8 +4904,32 @@ method grid::query::GridQuery::set_filter
 method grid::query::GridQuery::toggle_collapsed
 method grid::query::GridQuery::toggle_group
 method grid::query::GridQuery::toggle_sort
+method testing::CropDriver::new
+method testing::CropDriver::set
+method testing::CropDriver::value
+method testing::DataGridDriver::clear_sort
+method testing::DataGridDriver::edit_cell
+method testing::DataGridDriver::filter
+method testing::DataGridDriver::new
+method testing::DataGridDriver::sort_by
+method testing::DataGridDriver::within
+method testing::DockDriver::dock_back
+method testing::DockDriver::float
+method testing::DockDriver::new
+method testing::FlowCanvasDriver::connect
+method testing::FlowCanvasDriver::move_node
+method testing::FlowCanvasDriver::new
+method testing::SchedulerDriver::move_event
+method testing::SchedulerDriver::move_to_resource
+method testing::SchedulerDriver::new
+method testing::SchedulerDriver::resize_event
+method testing::SortableDriver::move_before
+method testing::SortableDriver::new
+method testing::SortableDriver::order
+mod book
 mod grid
 mod grid::query
+mod testing
 mod validate
 reexport ChartCurve = ravenrs_graphics::plot::Curve
 reexport ChartGrid = ravenrs_graphics::plot::Grid
@@ -4699,6 +4973,7 @@ reexport PortSide = ravenrs_graphics::flow::PortSide
 reexport SankeyAlign = ravenrs_graphics::sankey::SankeyAlign
 reexport Symbology = ravenrs_barcode::Symbology
 reexport TextAlign = ravenrs_text::TextAlign
+reexport book::* = ravenrs_widgets_base::book
 reexport cable = ravenrs_core::cable
 struct AccessibleControl
 struct Accordion
@@ -4717,6 +4992,7 @@ struct Barcode
 struct BoxTransform
 struct Breadcrumb
 struct BuildCx
+struct BusySignal
 struct Button
 struct ButtonGroup
 struct CablePlug
@@ -4870,6 +5146,8 @@ struct List
 struct ListItem
 struct LiveRunner
 struct Localized
+struct LogBuffer
+struct LogView
 struct LookupField
 struct LookupItem
 struct LookupRequest
@@ -4987,6 +5265,7 @@ struct SystemAppearance
 struct Table
 struct Tabs
 struct TagBox
+struct TestId
 struct Text
 struct TextArea
 struct TextField
@@ -5065,6 +5344,12 @@ struct grid::query::GridQuery
 struct grid::query::GridTable
 struct grid::query::GridTableColumn
 struct grid::query::QueryResult
+struct testing::CropDriver
+struct testing::DataGridDriver
+struct testing::DockDriver
+struct testing::FlowCanvasDriver
+struct testing::SchedulerDriver
+struct testing::SortableDriver
 trait ClipboardProvider
 trait Component
 trait FilePickerProvider
@@ -5072,6 +5357,7 @@ trait FullScreenProvider
 trait LinkOpener
 trait Runner
 trait SoundProvider
+trait UiDriver
 trait View
 trait ViewExt
 trait ViewSeq
@@ -5091,6 +5377,10 @@ trait-item SoundProvider::play
 trait-item SoundProvider::speak
 trait-item SoundProvider::speak_clip
 trait-item SoundProvider::stop_speaking
+trait-item UiDriver::drive
+trait-item UiDriver::start
+trait-item UiDriver::time
+trait-item UiDriver::window_closed
 trait-item View::build
 trait-item View::type_name
 trait-item ViewExt::background
@@ -5101,9 +5391,11 @@ trait-item ViewExt::height
 trait-item ViewExt::opacity
 trait-item ViewExt::padding
 trait-item ViewExt::stretch
+trait-item ViewExt::test_id
 trait-item ViewExt::tooltip
 trait-item ViewExt::width
 trait-item ViewSeq::build_each
+type AccessHandler
 type ActivityObserver
 type AnyView
 type DockGuard
@@ -5178,6 +5470,7 @@ variant ChatAuthor::Assistant
 variant ChatAuthor::Person
 variant CodeLanguage::Plain
 variant CodeLanguage::Rust
+variant CodeLanguage::Toml
 variant CompareMode::Divider
 variant CompareMode::SideBySide
 variant CompareSide::First
@@ -5231,6 +5524,9 @@ variant DockTabBar::WhenSeveral
 variant DragPhase::End
 variant DragPhase::Move
 variant DragPhase::Start
+variant Driving::Done
+variant Driving::Driven
+variant Driving::Released
 variant FileSortColumn::Modified
 variant FileSortColumn::Name
 variant FileSortColumn::Size

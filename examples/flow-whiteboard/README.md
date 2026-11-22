@@ -31,3 +31,16 @@ python3 -m http.server -d examples/flow-whiteboard/web 8080
 ```
 
 On Linux and Windows, run `cargo run -p flow-whiteboard --release` and check that you can switch between Fluxograma and Mapa mental; Cmd/Ctrl+Enter on an idea makes the next one; drag a bend point of the loop; Salvar, close and open again.
+
+## End-to-end tests (Raven Test Studio)
+
+The scenarios of this example are in `tests/e2e/`, as `.raventest` files the Raven Test Studio reads: the sample flowchart starts with the order; named and saved, it shows on the list, and the mind map opens. The app brings them (`SCENARIOS`), and `tests/scenarios.rs` plays them on every `cargo test`.
+
+To run them as the Studio does, with the app in a process of its own, no window and no cache:
+
+```bash
+raven-test-studio --project examples/flow-whiteboard --run-all --no-cache --format json --out target/e2e/flow-whiteboard
+```
+
+The app answers the Studio when opened with `--e2e-serve`, on data in memory: the files it keeps on disk are never opened. Its name on the channel, which the `open` block of a scenario uses, is "Whiteboard" (`[package.metadata.ravenrs.e2e]` in `Cargo.toml`). A step that fails says the step, why, and the screen of the app at that moment; with `--film` the report keeps a film of the failure.
+

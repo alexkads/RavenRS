@@ -8,8 +8,8 @@ use family_finance::update;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use feature_center::seed::PASSWORD;
-use feature_center::{memory_database, watched};
+use raven_feature_center::seed::PASSWORD;
+use raven_feature_center::{memory_database, watched};
 use ravenrs_app_ui::Session;
 use ravenrs_core::{AccessAction, Event, Key, Modifiers, Point, Role};
 use ravenrs_widgets::{AnyView, Date, Ui};

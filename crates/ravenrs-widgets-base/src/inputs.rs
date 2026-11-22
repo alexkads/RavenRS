@@ -3,7 +3,8 @@
 use std::rc::Rc;
 
 use ravenrs_core::{
-    Border, Color, CursorIcon, Effect, Insets, Key, LinearGradient, Point, Quad, Rect, Role, Scene, Shadow,
+    AccessAction, Border, Color, CursorIcon, Effect, Insets, Key, LinearGradient, Point, Quad, Rect, Role,
+    Scene, Shadow,
 };
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::Binding;
@@ -44,6 +45,11 @@ impl ChoiceOption {
     fn wire(&self, cx: &mut BuildCx<'_>, node: NodeId, radius: f32) {
         let (selected, index) = (self.selected.clone(), self.index());
         make_interactive(cx, node, radius, Rc::new(move || selected.set(index)));
+        let chosen = self.selected.clone();
+        cx.on_access(node, &[AccessAction::Select], move |_, _| {
+            chosen.set(index);
+            true
+        });
         let selected = self.selected.clone();
         self.roving.wire(cx, node, Some(Rc::new(move |i| selected.set(i))));
     }
@@ -55,6 +61,7 @@ impl ChoiceOption {
 pub struct Toggle {
     value: Binding<bool>,
     label: Option<String>,
+    accessible_name: Option<String>,
     small: bool,
     state: util::EditorState,
 }
@@ -63,7 +70,15 @@ pub struct Toggle {
 impl Toggle {
     /// A switch bound to `value`.
     pub fn new(value: Binding<bool>) -> Self {
-        Self { value, label: None, small: false, state: util::EditorState::default() }
+        Self { value, label: None, accessible_name: None, small: false, state: util::EditorState::default() }
+    }
+
+    /// What a screen reader and a test call it, as "Ligar docker", with no text on the screen: for
+    /// a switch in a cell of a grid, where the row already says what it is about. A visible
+    /// [`label`](Self::label) stays as it is; this one is what is read.
+    pub fn accessible_name(mut self, name: impl Into<String>) -> Self {
+        self.accessible_name = Some(name.into());
+        self
     }
 
     /// A smaller switch, 32 by 18 logical pixels instead of 40 by 24, for dense lists.
@@ -103,7 +118,8 @@ impl View for Toggle {
             theme.color(Semantic::Control).lerp(theme.color(Semantic::Ink), if hovered { 0.08 } else { 0.0 })
         };
         let track = state.fill(track);
-        let border = (!on).then(|| Border { width: 1.0, color: state.ink(theme.color(Semantic::Border)) });
+        let border =
+            (!on).then(|| Border { width: 1.0, color: state.ink(theme.color(Semantic::ControlBorder)) });
         let (track_width, track_height, knob, inset) =
             if self.small { (32.0, 18.0, 14.0, 2.0) } else { (40.0, 24.0, 18.0, 3.0) };
         // The thumb stretches while held and is kept apart from the track so it
@@ -149,7 +165,12 @@ impl View for Toggle {
             ));
         }
         let node = row(cx, &children);
-        cx.semantics(node, state.semantics(Semantics::new(Role::Switch).toggled(on)));
+        let semantics = Semantics::new(Role::Switch).toggled(on);
+        let semantics = match &self.accessible_name {
+            Some(name) => semantics.name(name.clone()),
+            None => semantics,
+        };
+        cx.semantics(node, state.semantics(semantics));
         if state.accepts_input() {
             let value = self.value.clone();
             make_interactive(cx, node, 8.0, Rc::new(move || value.update(|v| *v = !*v)));
@@ -219,10 +240,10 @@ pub fn check_box_around(
     let paint = if checked {
         QuadPaint { corner_radius: 5.0, ..QuadPaint::new(state.fill(theme.color(Semantic::Accent))) }
     } else {
-        let edge = if hovered { theme.color(Semantic::Ink) } else { theme.color(Semantic::InkMuted) };
+        let edge = if hovered { theme.color(Semantic::Ink) } else { theme.color(Semantic::ControlBorder) };
         QuadPaint {
             corner_radius: 5.0,
-            border: Some(Border { width: 1.5, color: state.ink(edge.with_alpha(0.7)) }),
+            border: Some(Border { width: 1.5, color: state.ink(edge) }),
             ..QuadPaint::new(Color::TRANSPARENT)
         }
     };
@@ -326,13 +347,13 @@ impl View for RadioOption {
         } else {
             vec![]
         };
-        let edge = if hovered { theme.color(Semantic::Ink) } else { theme.color(Semantic::InkMuted) };
+        let edge = if hovered { theme.color(Semantic::Ink) } else { theme.color(Semantic::ControlBorder) };
         let paint = if on {
             QuadPaint { corner_radius: 9.0, ..QuadPaint::new(theme.color(Semantic::Accent)) }
         } else {
             QuadPaint {
                 corner_radius: 9.0,
-                border: Some(Border { width: 1.5, color: edge.with_alpha(0.7) }),
+                border: Some(Border { width: 1.5, color: edge }),
                 ..QuadPaint::new(Color::TRANSPARENT)
             }
         };
@@ -354,6 +375,8 @@ impl View for RadioOption {
         let label = util::label(cx, &self.label, TextStyle::Body, None, theme.color(Semantic::Ink));
         let node = row(cx, &[circle, label]);
         cx.semantics(node, Semantics::new(Role::RadioButton).selected(on).toggled(on));
+        // Found by its label, which stays with it when the options change order.
+        cx.test_id(node, &format!("option:{}", self.label));
         self.choice.wire(cx, node, 6.0);
         node
     }
@@ -639,6 +662,15 @@ impl View for SliderTrack<'_> {
         }
         cx.semantics(node, semantics);
         let snap = move |v: f32| ((v - min) / step).round() * step + min;
+        // Takes a number as its value, on its steps and inside its range, as a test asks.
+        let typed = slider.value.clone();
+        cx.on_access(node, &[AccessAction::SetValue], move |_, text| {
+            let Some(v) = text.and_then(|t| t.trim().replace(',', ".").parse::<f32>().ok()) else {
+                return false;
+            };
+            typed.set(snap(v.clamp(min, max)).clamp(min, max));
+            true
+        });
         let drag_value = slider.value.clone();
         cx.on_drag(
             node,
@@ -817,7 +849,7 @@ impl View for Stepper {
         };
         let paint = QuadPaint {
             corner_radius: theme.radii.md,
-            border: Some(Border { width: 1.0, color: state.ink(theme.color(Semantic::Border)) }),
+            border: Some(Border { width: 1.0, color: state.ink(theme.color(Semantic::ControlBorder)) }),
             ..QuadPaint::new(state.fill(theme.color(Semantic::Control)))
         };
         let node = cx.container(style, &[minus, value, plus], Paint::Quad(paint));
@@ -829,6 +861,15 @@ impl View for Stepper {
         cx.semantics(node, state.semantics(semantics));
         if state.disabled {
             return node;
+        }
+        if state.accepts_input() {
+            // Takes a whole number as its value, kept inside its range.
+            let typed = self.value.clone();
+            cx.on_access(node, &[AccessAction::SetValue], move |_, text| {
+                let Some(v) = text.and_then(|t| t.trim().parse::<i32>().ok()) else { return false };
+                typed.set(v.clamp(min, max));
+                true
+            });
         }
         let value = self.value.clone();
         cx.on_key(
@@ -941,6 +982,8 @@ impl View for Segment {
             );
         }
         cx.semantics(node, Semantics::new(Role::RadioButton).selected(on).toggled(on));
+        // Found by its label, which stays with it when the segments change order.
+        cx.test_id(node, &format!("option:{}", self.label));
         self.choice.wire(cx, node, 7.0);
         node
     }

@@ -2,7 +2,7 @@
 name = "family-finance"
 description = "RavenRS example: a desktop app for family expenses and bills to pay, stored in SQLite."
 # The app has its own version: raising it is what announces an update (see README.md).
-version = "0.1.38"
+version = "0.1.44"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -12,6 +12,9 @@ publish = false
 ravenrs = { workspace = true, features = ["tray", "notifications"] }
 ravenrs-ai.workspace = true
 ravenrs-criteria.workspace = true
+# The test channel, closed until the app is opened with --e2e-serve (see src/e2e.rs).
+ravenrs-e2e.workspace = true
+ravenrs-e2e-wire = { workspace = true, features = ["serve"] }
 ravenrs-report.workspace = true
 ravenrs-report-export.workspace = true
 ravenrs-report-viewer.workspace = true
@@ -33,13 +36,27 @@ rusqlite.workspace = true
 ravenrs-app.workspace = true
 ravenrs-app-ui.workspace = true
 ravenrs-app-sqlite.workspace = true
-ravenrs-app-update.workspace = true
+ravenrs-app-update = { workspace = true, features = ["ui"] }
 
 [dev-dependencies]
 image.workspace = true
 pollster.workspace = true
 
 # The house follows its own rules: `cargo run -p ravenrs-lint -- -p family-finance` (scripts/check.sh runs it).
+# How Raven Test Studio (RTS) finds and opens this app on the test channel (--e2e-serve):
+# its name on a scenario's Open block, the binary, the first version that speaks the channel,
+# a variable that points at another copy, and where the installer puts it, from the home folder.
+[package.metadata.ravenrs.e2e]
+app = "Raven Finanças"
+binary = "family-finance"
+since = "0.1.39"
+variable = "RAVEN_FINANCAS"
+installed = [
+    "Applications/Raven Finanças.app/Contents/MacOS/family-finance",
+    ".local/bin/family-finance",
+    "AppData/Local/Programs/RavenFinancas/family-finance.exe",
+]
+
 [package.metadata.ravenrs-lint]
 language = "pt-BR"
 

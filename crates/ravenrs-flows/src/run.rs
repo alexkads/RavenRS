@@ -219,6 +219,7 @@ pub struct Executor<'a> {
     woken: BTreeMap<String, Wake>,
     /// The first item each node that already ran gave, for expressions that read `nodes.<id>`.
     seen: std::cell::RefCell<Arc<BTreeMap<String, serde_json::Value>>>,
+    run: Option<Arc<str>>,
 }
 
 impl fmt::Debug for Executor<'_> {
@@ -254,7 +255,15 @@ impl<'a> Executor<'a> {
             events: Arc::default(),
             woken: BTreeMap::new(),
             seen: std::cell::RefCell::default(),
+            run: None,
         }
+    }
+
+    /// In the run `id`, which every node reads with [`NodeContext::run_id`]: a durable runtime
+    /// gives the id of its run, so a node finds what the host keeps for it.
+    pub fn run_id(mut self, id: impl Into<String>) -> Self {
+        self.run = Some(Arc::from(id.into()));
+        self
     }
 
     /// Telling `listener` each step as it happens, on the thread that runs: before a node runs,
@@ -312,6 +321,19 @@ impl<'a> Executor<'a> {
     pub fn cancel_with(mut self, token: CancelToken) -> Self {
         self.token = token;
         self.watched = true;
+        self
+    }
+
+    /// Cancelled by `token`, with the nodes running on the calling thread, as without a token:
+    /// cancelling it stops the run before the next node and reaches the node running through
+    /// its context ([`NodeContext::token`], [`NodeContext::check`], [`NodeContext::sleep`]).
+    /// A node that does not look at its token runs to its end. Nothing runs on another thread,
+    /// so a node that panics takes the caller down as it would with no token, and a run costs
+    /// no thread per node: what a durable runtime wants, where a worker that dies is the
+    /// failure it recovers from.
+    pub fn cancel_cooperatively(mut self, token: CancelToken) -> Self {
+        self.token = token;
+        self.watched = false;
         self
     }
 
@@ -727,6 +749,7 @@ impl<'a> Executor<'a> {
             .with_events(self.events.clone())
             .woken_from(self.woken.get(&node.id).cloned())
             .with_nodes(self.seen.borrow().clone())
+            .in_run(self.run.clone())
     }
 
     /// One try of `kind` on `node`. With a time limit or a token to watch, the try runs on a
@@ -776,8 +799,12 @@ impl<'a> Executor<'a> {
         let (tx, rx) = channel();
         let (kind, node_def, given, clock, mode, own) =
             (kind.clone(), node.clone(), inputs.clone(), self.clock.clone(), self.mode, token.clone());
-        let (events, woken, seen) =
-            (self.events.clone(), self.woken.get(&node.id).cloned(), self.seen.borrow().clone());
+        let (events, woken, seen, run) = (
+            self.events.clone(),
+            self.woken.get(&node.id).cloned(),
+            self.seen.borrow().clone(),
+            self.run.clone(),
+        );
         std::thread::spawn(move || {
             let cx = NodeContext::new(&node_def, &given, now_ms, mode)
                 .at_iteration(iteration)
@@ -787,7 +814,8 @@ impl<'a> Executor<'a> {
                 .with_deadline(deadline)
                 .with_events(events)
                 .with_nodes(seen)
-                .woken_from(woken);
+                .woken_from(woken)
+                .in_run(run);
             let _ = tx.send(kind.execute(&cx));
         });
         let began = Instant::now();

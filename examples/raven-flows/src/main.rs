@@ -5,6 +5,10 @@ fn main() -> Result<(), ravenrs::native::PlatformError> {
         println!("{}", raven_flows::VERSION);
         return Ok(());
     }
+    // A test tool such as Raven Test Studio drives the app with no window (`--e2e-serve`).
+    if raven_flows::e2e::serve_if_asked() {
+        return Ok(());
+    }
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()

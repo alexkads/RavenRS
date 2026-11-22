@@ -1,0 +1,49 @@
+//! The stories of `Label`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #756: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `Label`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let arg_hint = args.text("hint");
+        let arg_required = args.bool("required");
+
+        {
+            let mut it = Label::new("Company name");
+            if !arg_hint.is_empty() {
+                it = it.hint(arg_hint.clone());
+            }
+            if arg_required {
+                it = it.required();
+            }
+            it
+        }
+    })
+}
+
+impl ComponentBook for Label {
+    fn book() -> Meta {
+        Meta::new("Forms/Label", render)
+            .summary("Form label with an optional required marker and hint.")
+            .arg(ArgType::text("hint", "").description("Empty leaves it as the component has it."))
+            .arg(ArgType::bool("required", false))
+            .story("Example", Args::new())
+    }
+}

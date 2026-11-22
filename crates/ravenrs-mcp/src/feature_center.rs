@@ -1,4 +1,4 @@
-//! Where each component is shown working: the manifest of `examples/feature-center`, the
+//! Where each component is shown working: the manifest of `tools/raven-feature-center`, the
 //! showcase every component enters with all its features (#579).
 //!
 //! `recursos.json` has one entry per component. A shown one names its page and the public methods
@@ -13,9 +13,9 @@ use serde_json::{Value, json};
 
 use crate::api::RUST_SOURCES;
 
-const MANIFEST: &str = include_str!("../../../examples/feature-center/recursos.json");
+const MANIFEST: &str = include_str!("../../../tools/raven-feature-center/recursos.json");
 /// Where the pages of the center are.
-const SOURCES: &str = "examples/feature-center/src/";
+const SOURCES: &str = "tools/raven-feature-center/src/";
 
 #[derive(Debug, Deserialize)]
 struct Manifest {
@@ -96,17 +96,20 @@ pub fn describe(entry: &Entry) -> Value {
         Some((file, Some(id))) => {
             value["id"] = json!(id);
             value["source"] = json!(file);
-            value["run"] = json!(format!("cargo run -p feature-center -- --modo componentes --pagina {id}"));
+            value["run"] =
+                json!(format!("cargo run -p raven-feature-center -- --modo componentes --pagina {id}"));
             value["web"] = json!(format!("index.html?modo=componentes&pagina={id}"));
         }
         Some((file, None)) => {
             value["source"] = json!(file);
-            value["run"] =
-                json!(format!("cargo run -p feature-center, then open \"{caption}\" in the navigation"));
+            value["run"] = json!(format!(
+                "cargo run -p raven-feature-center, then open \"{caption}\" in the navigation"
+            ));
         }
         None => {
-            value["run"] =
-                json!(format!("cargo run -p feature-center, then open \"{caption}\" in the navigation"));
+            value["run"] = json!(format!(
+                "cargo run -p raven-feature-center, then open \"{caption}\" in the navigation"
+            ));
         }
     }
     value
@@ -139,7 +142,7 @@ pub fn search(
                 .take(10)
                 .collect();
             return Err(format!(
-                "'{name}' is not in examples/feature-center/recursos.json, which lists every public component; did you mean one of {near:?}? Use list_components or search_api to find its name."
+                "'{name}' is not in tools/raven-feature-center/recursos.json, which lists every public component; did you mean one of {near:?}? Use list_components or search_api to find its name."
             ));
         }
         let matches: Vec<Value> = found.into_iter().map(listed).collect();
@@ -174,7 +177,7 @@ pub fn search(
         "shown": shown,
         "waiting": waiting,
         "components": components,
-        "modes": "cargo run -p feature-center opens the whole center (sign in as ana, bia or caio, password raven-demo); --modo componentes opens only the pages of the components, --modo playground the examples, and --incorporado only the page",
+        "modes": "cargo run -p raven-feature-center opens the whole center (sign in as ana, bia or caio, password raven-demo); --modo componentes opens only the pages of the components, --modo playground the examples, and --incorporado only the page",
     }))
 }
 

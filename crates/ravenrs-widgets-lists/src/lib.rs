@@ -6,6 +6,10 @@
 
 // The base and the kit, by the names the components use: `crate::Button`, `crate::Tabs`,
 // `crate::context::BuildCx`.
+/// The stories of the components of this crate (feature `book`).
+#[cfg(feature = "book")]
+pub mod book;
+
 #[allow(unused_imports)]
 use ravenrs_widgets_base::*;
 #[allow(unused_imports)]
@@ -15,12 +19,14 @@ use ravenrs_widgets_kit::*;
 pub mod inspector;
 #[doc(hidden)]
 pub mod lists;
+#[cfg(feature = "testing")]
+pub mod testing;
 #[doc(hidden)]
 pub mod tree;
 
 pub use inspector::{DataInspector, PathStep, SAMPLE, field_path};
 pub use lists::{
     DayMark, DocumentTab, DocumentTabs, FileBrowser, FileEntry, FileSort, FileSortColumn, Filmstrip,
-    FilmstripCell, PagedDocumentView, SortableList, VirtualList, YearView,
+    FilmstripCell, LogBuffer, LogView, PagedDocumentView, SortableList, VirtualList, YearView,
 };
 pub use tree::{TreeNode, TreeView};

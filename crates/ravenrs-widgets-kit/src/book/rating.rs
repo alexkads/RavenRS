@@ -1,0 +1,75 @@
+//! The stories of `Rating`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #761: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_base::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use ravenrs_widgets_base::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `Rating`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let arg_label = args.text("label");
+        let arg_clearable = args.bool("clearable");
+        let arg_max = args.number("max") as u32;
+        let arg_size = args.number("size") as f32;
+        let arg_tone = match args.choice("tone") {
+            "Neutral" => Tone::Neutral,
+            "Accent" => Tone::Accent,
+            "Success" => Tone::Success,
+            "Danger" => Tone::Danger,
+            _ => Tone::Warning,
+        };
+
+        let score = State::new(args.number("score") as _);
+        VStack::new((
+            {
+                let mut it = Rating::new(score.binding());
+                it = it.label(arg_label.clone());
+                if arg_clearable {
+                    it = it.clearable();
+                }
+                it = it.max(arg_max);
+                it = it.size(arg_size);
+                it = it.tone(arg_tone.clone());
+                it
+            },
+            Rating::read_only(4).size(14.0),
+        ))
+        .spacing(12.0)
+    })
+}
+
+impl ComponentBook for Rating {
+    fn book() -> Meta {
+        Meta::new("Display and feedback/Rating", render)
+            .summary("Stars for a score, to read or to give with the pointer and the keyboard.")
+            .arg(ArgType::text("label", "Photo rating"))
+            .arg(ArgType::bool("clearable", true))
+            .arg(ArgType::number("max", 5.0, 0.0, 20.0, 1.0))
+            .arg(ArgType::number("size", 18.0, 0.0, 72.0, 1.0))
+            .arg(ArgType::choice("tone", &["Neutral", "Accent", "Success", "Warning", "Danger"], "Warning"))
+            .arg(ArgType::number("score", 3.0, 0.0, 12.0, 1.0).description("How the example starts."))
+            .story("Example", Args::new())
+            .story("Ten stars", Args::new().with("max", 10.0).with("score", 7.0))
+            .story("Tone: Neutral", Args::new().with("tone", ArgValue::choice("Neutral")))
+            .story("Tone: Accent", Args::new().with("tone", ArgValue::choice("Accent")))
+            .story("Tone: Success", Args::new().with("tone", ArgValue::choice("Success")))
+            .story("Tone: Danger", Args::new().with("tone", ArgValue::choice("Danger")))
+    }
+}

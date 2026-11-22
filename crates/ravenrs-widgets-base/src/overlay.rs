@@ -4,7 +4,8 @@ use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Key, Point, Role};
+use crate::ViewExt as _;
+use ravenrs_core::{AccessAction, Border, Color, CursorIcon, Effect, Insets, Key, Point, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
@@ -337,9 +338,31 @@ impl View for PanelOf<'_> {
     }
 }
 
+/// Lets a screen reader or a test open and close what `node` shows: `Expand`, `Collapse` and,
+/// for a menu, `ShowMenu`.
+pub(crate) fn menu_opener(cx: &mut BuildCx<'_>, node: NodeId, open: &Binding<bool>) {
+    let open = open.clone();
+    cx.on_access(
+        node,
+        &[AccessAction::Expand, AccessAction::Collapse, AccessAction::ShowMenu],
+        move |action, _| {
+            open.set(action != AccessAction::Collapse);
+            true
+        },
+    );
+}
+
 impl<A: View, C: View> View for Popover<A, C> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let anchor = cx.child(&self.anchor);
+        // Says it opens something, and opens and closes as a screen reader asks.
+        let is_open = self.open.get();
+        cx.update_semantics(anchor, |s| s.expanded = Some(is_open));
+        let open = self.open.clone();
+        cx.on_access(anchor, &[AccessAction::Expand, AccessAction::Collapse], move |action, _| {
+            open.set(action == AccessAction::Expand);
+            true
+        });
         if self.open.get() {
             let close = self.open.clone();
             let layer = PopoverLayer {
@@ -789,6 +812,10 @@ impl View for ListRow<'_> {
             semantics = semantics.disabled(true);
         }
         cx.semantics(node, semantics);
+        if self.role == Role::MenuItem {
+            // Found by its label, which stays with it when the menu changes.
+            cx.test_id(node, &format!("item:{}", self.label));
+        }
         if self.disabled {
             // Nothing chooses it; the click does not even close the menu.
             cx.on_click(node, Rc::new(|| {}));
@@ -946,6 +973,12 @@ impl View for MenuLevel<'_> {
         }
         let node = panel(cx, &rows, 6.0, 220.0);
         cx.semantics(node, Semantics::new(Role::Menu));
+        // Closed by a screen reader or a test, as Escape does.
+        let close = self.close.clone();
+        cx.on_access(node, &[AccessAction::Dismiss], move |_, _| {
+            close();
+            true
+        });
         if let Some(pointer_in) = self.pointer_in.clone() {
             cx.on_pointer_move(node, Rc::new(move |_, _| pointer_in()));
         }
@@ -968,6 +1001,7 @@ impl View for DropdownMenu {
             trigger = trigger.icon(icon);
         }
         let anchor = cx.child(&trigger);
+        menu_opener(cx, anchor, &open);
         let is_open = open.get();
         let name = self.icon_only.then(|| self.label.clone());
         cx.update_semantics(anchor, |s| {
@@ -1156,7 +1190,17 @@ impl View for Options<'_> {
                     aim: None,
                     pointer_in: None,
                 };
-                cx.keyed_child(i as u64, &row)
+                let node = cx.keyed_child(i as u64, &row);
+                // Found by its value, which stays with it when the list changes, and chosen
+                // by the action as by a click.
+                cx.test_id(node, &format!("option:{option}"));
+                let (selected, close) = (self.selected.clone(), self.close.clone());
+                cx.on_access(node, &[AccessAction::Select], move |_, _| {
+                    selected.set(i);
+                    close();
+                    true
+                });
+                node
             })
             .collect();
         let node = panel(cx, &rows, 6.0, self.width);
@@ -1191,7 +1235,7 @@ impl View for Select {
         let border = if is_open {
             Border { width: 1.5, color: theme.color(Semantic::Accent) }
         } else {
-            let base = theme.color(Semantic::Border);
+            let base = theme.color(Semantic::ControlBorder);
             Border {
                 width: 1.0,
                 color: state.ink(if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base }),
@@ -1241,6 +1285,12 @@ impl View for Select {
                 highlight.set(Some(selected.get()).filter(|i| *i < count).unwrap_or(0));
             })
         };
+        let (shown, from_start) = (open.clone(), reset.clone());
+        cx.on_access(node, &[AccessAction::Expand, AccessAction::Collapse], move |action, _| {
+            from_start();
+            shown.set(action == AccessAction::Expand);
+            true
+        });
         let (toggle, new_search) = (open.clone(), reset.clone());
         cx.on_click(
             node,
@@ -1433,7 +1483,8 @@ impl View for DialogLayer<'_> {
                     &IconButton::new(IconName::X)
                         .label(d.close_label.clone().unwrap_or_else(|| cx.labels().close.clone()))
                         .size(crate::ButtonSize::Small)
-                        .on_click(move || close.set(false)),
+                        .on_click(move || close.set(false))
+                        .test_id("close"),
                 ),
             );
         }
@@ -1483,6 +1534,12 @@ impl View for DialogLayer<'_> {
             semantics = semantics.description(text.clone());
         }
         cx.semantics(card, semantics);
+        // Closed by a screen reader or a test, as Escape and the close button do.
+        let shut = d.open.clone();
+        cx.on_access(card, &[AccessAction::Dismiss], move |_, _| {
+            shut.set(false);
+            true
+        });
         // The card swallows clicks so only the backdrop closes the dialog.
         cx.cursor(card, CursorIcon::Default);
         cx.motion(
@@ -1636,6 +1693,13 @@ pub fn search_row(
         Paint::Quad(QuadPaint { corner_radius: 7.0, ..QuadPaint::new(fill) }),
     );
     cx.semantics(row, Semantics::new(Role::ListBoxOption).selected(selected).active(highlighted));
+    // Found by its text, which stays with it while the search filters the list.
+    cx.test_id(row, &format!("option:{text}"));
+    let pick = on_pick.clone();
+    cx.on_access(row, &[AccessAction::Select], move |_, _| {
+        pick();
+        true
+    });
     cx.on_click(row, on_pick);
     cx.cursor(row, CursorIcon::Pointer);
     row

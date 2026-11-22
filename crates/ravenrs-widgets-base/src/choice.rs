@@ -3,7 +3,9 @@
 use std::collections::BTreeSet;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Insets, Key, Modifiers, PathFill, Quad, Rect, Role, Scene};
+use ravenrs_core::{
+    AccessAction, Border, Color, CursorIcon, Insets, Key, Modifiers, PathFill, Quad, Rect, Role, Scene,
+};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::Binding;
 use ravenrs_style::{Semantic, TextStyle, Weight};
@@ -198,6 +200,8 @@ impl View for GroupItem<'_> {
             _ => (false, Rc::new(|| {})),
         };
         let node = toggle_item(cx, on, *icon, label, ToggleLook::default(), action);
+        // Found by its label, which stays with it when the items change order.
+        cx.test_id(node, &format!("option:{label}"));
         // A toolbar: arrows move focus only; Space or Enter toggles.
         self.roving.wire(cx, node, None);
         node
@@ -348,6 +352,8 @@ impl View for Pagination {
                         .size(ButtonSize::Small)
                         .on_click(move || b.set(p));
                     let node = cx.keyed_child(p as u64, &button);
+                    // The key is the number of the page, as it is shown.
+                    cx.test_id(node, &format!("page:{}", p + 1));
                     cx.update_semantics(node, |s| s.selected = Some(p == current));
                     items.push(node);
                 }
@@ -673,6 +679,8 @@ impl View for SwatchGrid {
                 swatch = swatch.on_click(move || on_pick(color, held.get()));
             }
             let node = cx.child(&swatch);
+            // Found by the name of its color, wherever it is in the grid.
+            cx.test_id(node, &format!("swatch:{name}"));
             if focus_to.take(index) {
                 cx.request_focus_node(node);
             }
@@ -827,6 +835,13 @@ impl View for AnchorCell {
             node,
             Semantics::new(Role::RadioButton).name(self.name.clone()).selected(self.on).toggled(self.on),
         );
+        // Found by its name, and chosen as a screen reader asks.
+        cx.test_id(node, &format!("option:{}", self.name));
+        let (chosen, point) = (self.value.clone(), self.point);
+        cx.on_access(node, &[AccessAction::Select], move |_, _| {
+            chosen.set(point);
+            true
+        });
         let (value, point) = (self.value.clone(), self.point);
         cx.on_click(node, Rc::new(move || value.set(point)));
         cx.cursor(node, CursorIcon::Pointer);

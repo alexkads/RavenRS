@@ -11,7 +11,8 @@
 //! | Piece | What it does |
 //! |---|---|
 //! | [`Cli`] | Finds the CLI ([`Cli::probe`]), builds its arguments from a [`Policy`] and runs it. |
-//! | [`Policy`] | Reading only (the default), the folder, the tools allowed and denied, a time limit, turns and a budget. |
+//! | [`Policy`] | Reading only (the default), the folder, the tools allowed and denied, a time limit, turns, a budget and the model. |
+//! | [`cheapest_model`] | The cheapest model of an agent, for work that does not need its best one. |
 //! | [`Answer`] | The final message, the events, the session to resume and the cost, when the CLI says it. |
 //! | [`with_agents`] | Adds the nodes `codex`, `claude` and `code_review` to a catalog. |
 
@@ -66,6 +67,8 @@ pub struct Caps {
     pub budget: bool,
     /// It takes a number of turns.
     pub turns: bool,
+    /// It takes the model to use (`--model`).
+    pub model: bool,
 }
 
 /// Whether the CLI is there and what it can do.
@@ -104,6 +107,9 @@ pub struct Policy {
     pub max_turns: Option<u32>,
     /// How many dollars it may spend.
     pub budget_usd: Option<f64>,
+    /// The model to use; the CLI's own choice when `None`. [`cheapest_model`] names the
+    /// cheapest one.
+    pub model: Option<String>,
 }
 
 impl Default for Policy {
@@ -116,8 +122,50 @@ impl Default for Policy {
             timeout: Duration::from_secs(600),
             max_turns: None,
             budget_usd: None,
+            model: None,
         }
     }
+}
+
+/// The cheapest model of an agent, for work that does not need its best one, such as running
+/// a test and reading its report.
+///
+/// For Codex it is read from the list of models the installed CLI keeps
+/// (`$CODEX_HOME/models_cache.json`, `~/.codex` by default; see [`cheapest_codex_model_in`]),
+/// so a new generation is picked up without a new build; `None` when there is no list. For
+/// Claude it is `haiku`, the alias the CLI resolves to its smallest model.
+pub fn cheapest_model(agent: Agent) -> Option<String> {
+    match agent {
+        Agent::Claude => Some("haiku".into()),
+        Agent::Codex => {
+            let home = std::env::var_os("CODEX_HOME").map(PathBuf::from).or_else(|| {
+                std::env::var_os("HOME")
+                    .or_else(|| std::env::var_os("USERPROFILE"))
+                    .map(|home| PathBuf::from(home).join(".codex"))
+            })?;
+            let list = std::fs::read_to_string(home.join("models_cache.json")).ok()?;
+            cheapest_codex_model_in(&list)
+        }
+    }
+}
+
+/// The cheapest model in a Codex list of models (the JSON of `models_cache.json`): of the
+/// models it lists to people, the first in its own order whose description calls it affordable,
+/// then cheap, then efficient. `None` when none says so.
+pub fn cheapest_codex_model_in(list: &str) -> Option<String> {
+    let list: Value = serde_json::from_str(list).ok()?;
+    let mut models: Vec<&Value> = list["models"]
+        .as_array()?
+        .iter()
+        .filter(|model| model["visibility"].as_str().is_none_or(|v| v == "list"))
+        .collect();
+    models.sort_by_key(|model| model["priority"].as_i64().unwrap_or(i64::MAX));
+    ["affordable", "cheap", "efficient"].iter().find_map(|word| {
+        models.iter().find_map(|model| {
+            let said = model["description"].as_str().unwrap_or_default().to_lowercase();
+            said.contains(word).then(|| model["slug"].as_str().map(str::to_owned)).flatten()
+        })
+    })
 }
 
 /// What a CLI said along the way.
@@ -242,6 +290,12 @@ impl Cli {
         self.agent
     }
 
+    /// Whether the program is on this machine, without running it: cheap enough for a window
+    /// to ask on every frame. [`Self::probe`] says what it can do.
+    pub fn installed(&self) -> bool {
+        ravenrs_process::resolve(&self.program).is_some()
+    }
+
     /// Whether it is installed and what it can keep.
     pub fn probe(&self) -> Probe {
         if ravenrs_process::resolve(&self.program).is_none() {
@@ -272,6 +326,7 @@ impl Cli {
             tools: has("--allowedTools") && has("--disallowedTools"),
             budget: has("--max-budget-usd"),
             turns: has("--max-turns"),
+            model: has("--model"),
         };
         if caps.events { Probe::Ready { version, caps } } else { Probe::Incompatible { version } }
     }
@@ -287,6 +342,9 @@ impl Cli {
         let refuse =
             |what: &str| Err(AgentError::Refused(format!("{} does not keep {what}", self.agent.program())));
         let mut args: Vec<String> = Vec::new();
+        if policy.model.is_some() && !caps.model {
+            return refuse("a choice of model");
+        }
         match self.agent {
             Agent::Codex => {
                 if !caps.sandbox {
@@ -303,6 +361,9 @@ impl Cli {
                 }
                 args.extend(["exec", "--json", "--skip-git-repo-check", "--sandbox"].map(String::from));
                 args.push(if policy.read_only { "read-only" } else { "workspace-write" }.into());
+                if let Some(model) = &policy.model {
+                    args.extend(["--model".to_owned(), model.clone()]);
+                }
                 if let Some(dir) = &policy.dir {
                     args.extend(["--cd".to_owned(), dir.to_string_lossy().into_owned()]);
                 }
@@ -321,6 +382,9 @@ impl Cli {
                         .map(String::from),
                 );
                 args.push(if policy.read_only { "plan" } else { "acceptEdits" }.into());
+                if let Some(model) = &policy.model {
+                    args.extend(["--model".to_owned(), model.clone()]);
+                }
                 if !policy.allowed_tools.is_empty() || !policy.denied_tools.is_empty() {
                     if !caps.tools {
                         return refuse("a list of tools");
@@ -429,9 +493,9 @@ impl Cli {
     }
 }
 
-/// `text` with every secret value replaced.
+/// `text` with every secret value replaced, the same way as everywhere else in the house.
 fn redact(text: &str, secrets: &[String]) -> String {
-    secrets.iter().fold(text.to_owned(), |text, secret| text.replace(secret.as_str(), "•••"))
+    ravenrs_secrets::redact(text, secrets)
 }
 
 /// The events of one line the CLI wrote, filling what the answer learns from them.
@@ -563,6 +627,11 @@ impl AgentNode {
             denied_tools: strings("denied_tools"),
             max_turns: cx.parameter("max_turns").and_then(Value::as_u64).map(|n| n as u32),
             budget_usd: cx.parameter("budget_usd").and_then(Value::as_f64),
+            model: match cx.parameter("model").and_then(Value::as_str).map(str::trim) {
+                Some("cheapest") => cheapest_model(self.cli.agent()),
+                Some(model) if !model.is_empty() => Some(model.to_owned()),
+                _ => None,
+            },
             ..Policy::default()
         };
         if let Some(ms) = cx.parameter("timeout_ms").and_then(Value::as_u64) {

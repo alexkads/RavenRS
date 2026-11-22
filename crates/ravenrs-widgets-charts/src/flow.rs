@@ -623,6 +623,7 @@ pub struct FlowCanvas {
     minimap: bool,
     locked: bool,
     read_only: bool,
+    wheel_pans: bool,
     execution: Option<FlowRunView>,
     open_end: Option<Rc<Vec<(String, FlowNode)>>>,
     cables: bool,
@@ -671,6 +672,7 @@ impl FlowCanvas {
             minimap: true,
             locked: false,
             read_only: false,
+            wheel_pans: true,
             execution: None,
             open_end: None,
             cables: false,
@@ -915,6 +917,14 @@ impl FlowCanvas {
     /// so nothing unlocks it.
     pub fn read_only(mut self, read_only: bool) -> Self {
         self.read_only = read_only;
+        self
+    }
+
+    /// Whether the wheel and the two-finger swipe pan the diagram (on by default). Off, they
+    /// go to what holds the canvas, so a page scrolls past a diagram set in it instead of
+    /// stopping on it; dragging and the keys still pan.
+    pub fn pan_with_wheel(mut self, pans: bool) -> Self {
+        self.wheel_pans = pans;
         self
     }
 
@@ -2685,7 +2695,16 @@ impl Surface {
 
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Surface {
+    /// Paints the canvas inside its frame. `BuildCx::clip` keeps the nodes, which are children,
+    /// inside the canvas, but not what the canvas paints itself: a connection to a node out of
+    /// view, a cable's sag or a line being drawn would cross whatever stands beside it.
     fn paint(&self, frame: Rect, time: f64, scene: &mut Scene) {
+        scene.push_clip(frame);
+        self.paint_inside(frame, time, scene);
+        scene.pop_clip();
+    }
+
+    fn paint_inside(&self, frame: Rect, time: f64, scene: &mut Scene) {
         let p = &self.palette;
         let at = |q: Point| Point::new(frame.x() + q.x, frame.y() + q.y);
         scene.push_quad(Quad::new(frame, p.canvas));
@@ -3275,8 +3294,10 @@ impl View for FlowCanvas {
                 moved.memory.pointer.set(Some(Point::new(at.x - frame.x(), at.y - frame.y())));
             }),
         );
-        let wheeled = flow.clone();
-        cx.on_wheel(root, Rc::new(move |delta| wheeled.pan_by(delta.x, delta.y)));
+        if self.wheel_pans {
+            let wheeled = flow.clone();
+            cx.on_wheel(root, Rc::new(move |delta| wheeled.pan_by(delta.x, delta.y)));
+        }
         let pinched = flow.clone();
         cx.on_pinch(
             root,
@@ -3801,6 +3822,8 @@ impl View for NodeBox {
                 .selected(self.selected)
                 .disabled(node.status == FlowNodeStatus::Disabled),
         );
+        // Found by its key, which stays the same when the diagram moves or grows.
+        cx.test_id(root, &format!("node:{}", node.id));
         let modifiers = cx.modifiers();
         let (dragged, id) = (self.flow.clone(), node.id.clone());
         cx.on_drag(root, Rc::new(move |d| dragged.on_node_drag(&id, d.phase, d.position, modifiers.get())));
@@ -4218,6 +4241,8 @@ impl View for PortDot {
                 .description(self.description.clone())
                 .selected(matches!(state, PortState::Source | PortState::Handle)),
         );
+        // Found by the node's key and the port's id, which do not move with the diagram.
+        cx.test_id(node, &format!("port:{}:{}", self.end.node, self.end.port));
         let (dragged, end) = (self.flow.clone(), self.end.clone());
         cx.on_drag(node, Rc::new(move |d| dragged.on_port_drag(&end, d.phase, d.position)));
         let (keyed, end) = (self.flow.clone(), self.end.clone());

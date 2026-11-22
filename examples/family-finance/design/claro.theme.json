@@ -1,0 +1,21 @@
+{
+  "base": "Raven Light",
+  "color": {
+    "accent": "#7ac70c",
+    "accent-hover": "#8bd61e",
+    "accent-pressed": "#6ab006",
+    "bg-000": "#f4f9e6",
+    "bg-300": "#e9f3d2",
+    "border": "#d8e6ba",
+    "danger": "#c81e3a",
+    "focus-ring": "#4d7c0f",
+    "ink": "#15230d",
+    "ink-muted": "#4c5c3d",
+    "on-accent": "#142204",
+    "success": "#15803d",
+    "warning": "#b45309"
+  },
+  "name": "Raven Finanças Claro",
+  "radius": {},
+  "type": {}
+}

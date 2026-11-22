@@ -16,6 +16,10 @@ The `FlowCanvas` draws a diagram, and its debugger (`FlowRun`) moves tokens thro
 | `Item`, `ItemRef` | What passes along a connection: a JSON value, the files it carries and where it came from. `Item::derive` makes a new item from another; an item passed on unchanged is traced to where it was. |
 | `to_graph`, `from_graph`, `Catalog::run_rules`, `card`, `port_name` | The bridge to the canvas. A flow is drawn as a `FlowGraph` with each node's setup in its card's `data` (under `GRAPH_KEY`), so copying, pasting and undoing on the canvas keep it; `from_graph` reads the drawing back on its own, and the debugger gets rules from the catalog. `card` draws a node of a kind with its ports, the same for `to_graph` and for an app's toolbox. On the canvas a port's id is unique within its node, so an input that shares its name with an output (`main`, in most kinds) is drawn as `in:main`, and `port_name` gives the name back. |
 
+The bridge to the canvas is the feature `canvas`, on by default. With `default-features = false` the
+crate has no `ravenrs-graphics` in its tree: a server, or a plugin of Raven CI compiled on its own,
+runs flows without building any drawing.
+
 ## How a run treats each node
 
 - A **trigger** runs with no input. Any other node runs only when items reached it; otherwise it is *skipped*.

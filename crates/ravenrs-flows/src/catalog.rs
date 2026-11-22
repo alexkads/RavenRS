@@ -127,6 +127,7 @@ pub struct NodeContext<'a> {
     events: Arc<BTreeMap<String, Vec<Item>>>,
     woken: Option<Wake>,
     nodes: Arc<BTreeMap<String, Value>>,
+    run: Option<Arc<str>>,
 }
 
 impl<'a> NodeContext<'a> {
@@ -146,7 +147,20 @@ impl<'a> NodeContext<'a> {
             events: Arc::default(),
             woken: None,
             nodes: Arc::default(),
+            run: None,
         }
+    }
+
+    /// The same context, in the run `id`.
+    pub fn in_run(mut self, id: Option<Arc<str>>) -> Self {
+        self.run = id;
+        self
+    }
+
+    /// The id of the run the node is in, when its host gave one ([`Executor::run_id`](crate::Executor::run_id)):
+    /// how a node finds what its host keeps for the run, such as the folder and the log of a build.
+    pub fn run_id(&self) -> Option<&str> {
+        self.run.as_deref()
     }
 
     /// The same context, with the events that came for the run, by name.

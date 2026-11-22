@@ -1,0 +1,7 @@
+scenario: O cenário que não mudou vem do cache
+open Raven Test Studio                                       | Abrir o Studio testado
+click #run                                                   | Rodar
+click #run                                                   | Rodar de novo
+mention #cache-note = Do cache                               | Veio do cache
+click #run-fresh                                             | Rodar sem cache
+check #summary = 5 de 5 passos passaram                       | Rodou de verdade

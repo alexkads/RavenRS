@@ -17,7 +17,7 @@ A voz roda na máquina de quem usa, sem serviço pago (memória `ia-sempre-local
 | Números, dinheiro e datas por extenso antes de falar | `examples/family-finance/src/ui/spoken.rs` |
 | Narração gravada dos filmes do Raven Finanças | `examples/family-finance/assets/treinamentos/narracao.voz` |
 | Como ela é gravada e empacotada | `record_narration` e `pack_narration` em `examples/family-finance/tests/suite/training.rs` |
-| Vídeos do canal | `examples/channel-video/src/main.rs` |
+| Vídeos do canal | `tools/raven-channel-video/src/main.rs` |
 
 ## Qual voz em cada uso
 

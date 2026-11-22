@@ -16,7 +16,7 @@ O endereço canônico é **https://ravenrs.vercel.app**. O GitHub Pages (https:/
 | Docs | `site/docs/`, com o Markdown do repositório renderizado no build |
 | Playground | `site/playground/`, sobre o build da galeria |
 | SEO: metadados, sitemap, robots | `site/seo/`, `scripts/check-site-seo.mjs`, `scripts/test-site-seo.mjs`, `docs/SITE_SEO.md` |
-| Demonstrações do Centro de Recursos | o modo `vitrine` e o `componentes` do `examples/feature-center` (#587) |
+| Demonstrações do Centro de Recursos | o modo `vitrine` e o `componentes` do `tools/raven-feature-center` (#587) |
 
 ## Montar e servir localmente
 

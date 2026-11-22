@@ -7,6 +7,7 @@ mod feature_center;
 mod lint;
 mod report;
 mod server;
+mod tooling;
 
 use rmcp::ServiceExt;
 

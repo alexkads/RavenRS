@@ -5,25 +5,31 @@
 //! around one. Every write goes through a [`SecuredObjectSpace`], so what a person cannot do on the
 //! screens they cannot do here, and every read leaves as that person can see it.
 //!
-//! Tokens live in memory: restarting the service asks everyone to sign in again. It speaks plain
+//! Tokens live in memory, shared by the threads that answer ([`ApiOptions::workers`]): restarting
+//! the service asks everyone to sign in again. It speaks plain
 //! HTTP, so anything beyond the machine it runs on belongs behind something that does TLS.
 
 mod hooks;
 mod http;
 mod json;
 mod keys;
+mod live;
 mod openapi;
 mod pattern;
+mod shared;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 pub use hooks::{
     ORGANIZATION_HEADER, SIGNATURE_HEADER, WEBHOOK_EVENT, Webhook, WebhookContext, WebhookHandler, sign,
-    webhook_event_entity,
+    verify, webhook_event_entity,
 };
 pub use http::{ApiOptions, router, router_with, serve, serve_with};
+pub use keys::{IssuedKey, issue_key, revoke_key};
+pub use live::{LiveChannels, LiveEvent};
 use ravenrs_app::{
     APP_SETTING, AuditSettings, AuditTrail, AuditedObjectSpace, AuthError, Authenticator, CONTEXT_DELETE,
     CONTEXT_SAVE, Credentials, Criteria, EntityInfo, FieldKind, Object, ObjectSpace, Operation,
@@ -34,6 +40,7 @@ use ravenrs_app::{
 use serde_json::{Map, Value as Json, json};
 
 use crate::json::{apply, exposed, from_json, key_from_path, object_to_json};
+use crate::shared::{Shared, Signed};
 
 const DEFAULT_TOP: usize = 100;
 const MOST_TOP: usize = 1000;
@@ -54,7 +61,6 @@ const SIGN_INS_A_MINUTE: u32 = 20;
 const ALL_ADDRESSES: u32 = 10;
 /// The longest password anyone is asked to compare.
 const MOST_PASSWORD: usize = 1024;
-const MINUTE: Duration = Duration::from_secs(60);
 /// The most a setting holds.
 const MOST_SETTING: usize = 64 * 1024;
 
@@ -133,7 +139,38 @@ pub struct ApiResponse {
     pub status: u16,
     /// The body.
     pub body: Json,
+    /// A body that is not JSON, with its `Content-Type`: what a [`fallback`](ApiService::fallback)
+    /// answers for the text of metrics, say. When it is there, it is what is sent, and `body` is not.
+    pub raw: Option<(String, Vec<u8>)>,
 }
+
+impl ApiResponse {
+    /// `body` as JSON, with `status`.
+    pub fn json(status: u16, body: Json) -> Self {
+        Self { status, body, raw: None }
+    }
+
+    /// `bytes` of the type `content_type`, with `status`.
+    pub fn raw(status: u16, content_type: impl Into<String>, bytes: Vec<u8>) -> Self {
+        Self { status, body: Json::Null, raw: Some((content_type.into(), bytes)) }
+    }
+}
+
+/// Who sent a request, as a [`fallback`](ApiService::fallback) is told.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct Caller {
+    /// Their name.
+    pub name: String,
+    /// The names of their roles.
+    pub roles: Vec<String>,
+    /// Whether one of their roles is administrative.
+    pub administrator: bool,
+}
+
+/// What a [`fallback`](ApiService::fallback) is given: the request, and a way to know who sent it,
+/// asked only when it matters (a public route does not ask).
+pub type Fallback = Rc<dyn Fn(&ApiRequest, &mut dyn FnMut() -> Option<Caller>) -> Option<ApiResponse>>;
 
 /// What a request's answer is when it does not work out.
 #[derive(Debug)]
@@ -178,7 +215,20 @@ impl Failure {
         if let (Some(operation), Some(object)) = (self.operation, body.as_object_mut()) {
             object.insert("operation".to_owned(), json!(operation));
         }
-        ApiResponse { status: self.status, body }
+        ApiResponse::json(self.status, body)
+    }
+}
+
+impl std::fmt::Display for Failure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} ({}): {}", self.status, self.code, self.message)
+    }
+}
+
+impl Failure {
+    /// The HTTP status it answers with.
+    pub fn status(&self) -> u16 {
+        self.status
     }
 }
 
@@ -247,15 +297,15 @@ pub struct ApiService {
     hidden: BTreeSet<String>,
     endpoints: BTreeMap<String, Endpoint>,
     words: RuleWords,
+    /// What this thread made of each session it saw: only a cache, since `shared` says which are good.
     sessions: HashMap<String, Session>,
+    shared: Arc<Shared>,
     lifetime: Duration,
-    tries: HashMap<String, u32>,
-    tries_since: Instant,
     sign_ins_a_minute: u32,
-    swept: Instant,
     settings: Option<Rc<dyn SettingsStore>>,
     declared: BTreeMap<String, SettingAccess>,
     hooks: BTreeMap<String, Webhook>,
+    fallback: Option<Fallback>,
 }
 
 impl std::fmt::Debug for ApiService {
@@ -324,14 +374,13 @@ impl ApiService {
             endpoints: BTreeMap::new(),
             words: RuleWords::default(),
             sessions: HashMap::new(),
+            shared: Arc::default(),
             lifetime: Duration::from_secs(SESSION_HOURS * 3600),
-            tries: HashMap::new(),
-            tries_since: Instant::now(),
             sign_ins_a_minute: SIGN_INS_A_MINUTE,
-            swept: Instant::now(),
             settings,
             declared: BTreeMap::new(),
             hooks: BTreeMap::new(),
+            fallback: None,
         })
     }
 
@@ -400,6 +449,31 @@ impl ApiService {
         self
     }
 
+    /// Asks `fallback` first, for every request: what an application whose routes
+    /// change while it runs (the plugins of a CI, switched on and off) answers on its own paths.
+    /// It is given the request and a way to know who sent it, which checks the token as every
+    /// route does and gives `None` for no one; it answers, or says `None` and the request goes on
+    /// to the routes of the API. A path that no one signed in should reach without a token has to
+    /// be opened in [`ApiOptions::open`](crate::ApiOptions::open) too.
+    pub fn fallback(
+        mut self,
+        fallback: impl Fn(&ApiRequest, &mut dyn FnMut() -> Option<Caller>) -> Option<ApiResponse> + 'static,
+    ) -> Self {
+        self.fallback = Some(Rc::new(fallback));
+        self
+    }
+
+    /// Who sent `request`, by its token or key; `None` for no one or a token that is not good.
+    fn caller_of(&mut self, request: &ApiRequest) -> Option<Caller> {
+        let (context, _) = self.session_of(request).ok()?;
+        let identity = context.identity();
+        Some(Caller {
+            name: identity.name.clone(),
+            roles: identity.roles.iter().map(|role| role.name().to_owned()).collect(),
+            administrator: identity.roles.iter().any(Role::is_administrative),
+        })
+    }
+
     /// Adds something of the application's own, run with the permissions of whoever calls it.
     pub fn endpoint(
         mut self,
@@ -412,8 +486,14 @@ impl ApiService {
 
     /// Answers a request.
     pub fn handle(&mut self, request: ApiRequest) -> ApiResponse {
+        if let Some(fallback) = self.fallback.clone() {
+            let mut who = || self.caller_of(&request);
+            if let Some(answer) = fallback(&request, &mut who) {
+                return answer;
+            }
+        }
         match self.route(&request) {
-            Ok((status, body)) => ApiResponse { status, body },
+            Ok((status, body)) => ApiResponse::json(status, body),
             Err(failure) => failure.into_response(),
         }
     }
@@ -429,6 +509,7 @@ impl ApiService {
             }
             ("POST", ["api", "auth", "revoke"]) => {
                 if let Some(token) = &request.bearer {
+                    self.shared.close(token);
                     self.sessions.remove(token);
                 }
                 return Ok((200, json!({})));
@@ -517,18 +598,11 @@ impl ApiService {
     /// Counts a try that costs the hash of a password, or refuses it. Only what gets this far counts,
     /// so a body that means nothing does not use anyone's turn.
     fn count_try(&mut self, request: &ApiRequest) -> Result<(), Failure> {
-        let now = Instant::now();
-        if now.duration_since(self.tries_since) >= MINUTE {
-            self.tries.clear();
-            self.tries_since = now;
-        }
-        let all: u32 = self.tries.values().sum();
         let client = request.client.clone().unwrap_or_default();
-        let mine = self.tries.entry(client).or_insert(0);
-        if *mine >= self.sign_ins_a_minute || all >= self.sign_ins_a_minute.saturating_mul(ALL_ADDRESSES) {
+        let most = self.sign_ins_a_minute;
+        if !self.shared.count_try(&client, most, most.saturating_mul(ALL_ADDRESSES)) {
             return Err(Failure::new(429, "too_many", "Too many tries. Try again soon."));
         }
-        *mine += 1;
         Ok(())
     }
 
@@ -553,22 +627,15 @@ impl ApiService {
                 }
             })?;
         let must_change_password = identity.must_change_password;
-        let author = identity.name.clone();
-        let mut context =
-            SecurityContext::new(identity, self.directory.clone(), self.entities.clone(), self.merge);
-        let trail = self.audit.clone().map(|settings| {
-            let trail = Rc::new(AuditTrail::new(settings, move || author.clone()));
-            trail.write_with(self.space.clone());
-            trail
-        });
-        if let Some(trail) = &trail {
-            context = context.with_audit_trail(trail.clone());
-        }
+        let signed = Signed {
+            user: identity.key.clone(),
+            author: identity.name.clone(),
+            expires: now + self.lifetime,
+        };
+        let session = self.session_for(identity, &signed);
         let token = token();
-        self.sessions.insert(
-            token.clone(),
-            Session { context: Rc::new(context), trail, expires: now + self.lifetime },
-        );
+        self.shared.open(token.clone(), signed);
+        self.sessions.insert(token.clone(), session);
         Ok((
             200,
             json!({
@@ -588,23 +655,26 @@ impl ApiService {
             return self.session_of_key(token);
         }
         let now = Instant::now();
-        if now.duration_since(self.swept) >= MINUTE {
-            self.sessions.retain(|_, session| session.expires > now);
-            self.swept = now;
-        }
-        let session = self.sessions.get(token).ok_or_else(Failure::unauthorized)?;
-        if session.expires <= now {
+        // The shared table says whether the token is good, so signing out or a new password on
+        // another thread counts here too. What this thread keeps is only what it built from it.
+        let Some(signed) = self.shared.session(token, now) else {
             self.sessions.remove(token);
+            self.sessions.retain(|_, session| session.expires > now);
             return Err(Failure::unauthorized());
-        }
+        };
         // Who they are is read each time, so a role lost or a user turned off counts now. Someone
         // who cannot sign in any more has no session either, whatever a route goes on to check.
-        let (context, trail) = (session.context.clone(), session.trail.clone());
-        let key = context.identity().key;
-        if self.directory.identity_by_key(&key).map_err(Failure::from)?.is_none() {
+        let Some(identity) = self.directory.identity_by_key(&signed.user).map_err(Failure::from)? else {
+            self.shared.close(token);
             self.sessions.remove(token);
             return Err(Failure::unauthorized());
+        };
+        if !self.sessions.contains_key(token) {
+            let session = self.session_for(identity, &signed);
+            self.sessions.insert(token.to_owned(), session);
         }
+        let session = self.sessions.get(token).ok_or_else(Failure::unauthorized)?;
+        let (context, trail) = (session.context.clone(), session.trail.clone());
         context.reload().map_err(Failure::from)?;
         Ok((context, trail))
     }
@@ -634,8 +704,31 @@ impl ApiService {
         // The new password ends the other sessions the old one opened. Keys are made apart, and stay.
         let key = session.0.identity().key;
         let kept = request.bearer.clone().unwrap_or_default();
+        self.shared.close_others(&key, &kept);
         self.sessions.retain(|token, other| *token == kept || other.context.identity().key != key);
         Ok((200, json!({})))
+    }
+
+    /// What this thread needs for a session: the security context and the audit trail, which hold
+    /// `Rc`s and so are built again on each thread that sees the session.
+    fn session_for(&self, identity: ravenrs_app::Identity, signed: &Signed) -> Session {
+        let author = signed.author.clone();
+        let mut context =
+            SecurityContext::new(identity, self.directory.clone(), self.entities.clone(), self.merge);
+        let trail = self.audit.clone().map(|settings| {
+            let trail = Rc::new(AuditTrail::new(settings, move || author.clone()));
+            trail.write_with(self.space.clone());
+            trail
+        });
+        if let Some(trail) = &trail {
+            context = context.with_audit_trail(trail.clone());
+        }
+        Session { context: Rc::new(context), trail, expires: signed.expires }
+    }
+
+    /// Joins the threads that answer with this one, so they share who is signed in.
+    pub(crate) fn share(&mut self, shared: Arc<Shared>) {
+        self.shared = shared;
     }
 
     fn space_for(&self, session: &(Rc<SecurityContext>, Option<Rc<AuditTrail>>)) -> Box<dyn ObjectSpace> {

@@ -60,7 +60,7 @@ fn the_same_items_show_four_ways_and_the_field_chosen_stays() {
     assert!(says(&mut ui, "total: 10"), "the second item's tree, its branches closed");
 
     press(&mut ui, "Schema");
-    assert!(says(&mut ui, "▸ cliente.nome"), "the field chosen stays chosen in the schema");
+    assert!(says(&mut ui, "→ cliente.nome"), "the field chosen stays chosen in the schema");
     assert!(says(&mut ui, "Field chosen: cliente.nome"));
     assert!(says(&mut ui, "desconto"), "a field one item lacks");
     assert!(says(&mut ui, "1 of 2"), "is in one of two");

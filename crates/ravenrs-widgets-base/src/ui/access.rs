@@ -16,6 +16,8 @@ const ROOT_ID: u64 = 1;
 #[doc(hidden)]
 pub struct AccessMap {
     nodes: HashMap<u64, NodeId>,
+    #[cfg(feature = "e2e-source")]
+    sources: HashMap<u64, &'static std::panic::Location<'static>>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -32,6 +34,9 @@ impl Ui {
             map: HashMap::new(),
             focus: None,
             active: None,
+            pending_test_tag: None,
+            #[cfg(feature = "e2e-source")]
+            sources: HashMap::new(),
         };
         builder.nodes.push(AccessNode::new(
             ROOT_ID,
@@ -53,7 +58,15 @@ impl Ui {
         for root in roots {
             builder.visit(root, &mut children, None);
         }
-        let Builder { mut nodes, map, focus, active, .. } = builder;
+        let Builder {
+            mut nodes,
+            map,
+            focus,
+            active,
+            #[cfg(feature = "e2e-source")]
+            sources,
+            ..
+        } = builder;
         // What is being carried between components, said as it changes.
         if let Some(words) = self.carry_status() {
             // Out of the way of the ids widgets get.
@@ -69,7 +82,11 @@ impl Ui {
         {
             node.active_descendant = Some(active);
         }
-        self.access_map = AccessMap { nodes: map };
+        self.access_map = AccessMap {
+            nodes: map,
+            #[cfg(feature = "e2e-source")]
+            sources,
+        };
         AccessTree { root: ROOT_ID, nodes, focus }
     }
 
@@ -88,13 +105,89 @@ impl Ui {
             .collect()
     }
 
+    /// The deepest node of the latest [`Ui::access_tree`] under `point`, as the pointer would
+    /// find it: what a click there lands on. Tests use it to tell that something covers the
+    /// node they mean to click.
+    pub fn access_node_at(&self, point: Point) -> Option<u64> {
+        let mut at = self.hit_test(point)?.0 as usize;
+        let mut parent = vec![usize::MAX; self.elements.len()];
+        for (i, e) in self.elements.iter().enumerate() {
+            for child in &e.children {
+                if let Some(slot) = parent.get_mut(child.0 as usize) {
+                    *slot = i;
+                }
+            }
+        }
+        let ids: HashMap<usize, u64> =
+            self.access_map.nodes.iter().map(|(id, node)| (node.0 as usize, *id)).collect();
+        loop {
+            if let Some(id) = ids.get(&at) {
+                return Some(*id);
+            }
+            at = *parent.get(at)?;
+            if at == usize::MAX {
+                return None;
+            }
+        }
+    }
+
+    /// The frames of the parts that scroll around the node `id` of the latest
+    /// [`Ui::access_tree`], the nearest first. A [`ScrollView`](crate::ScrollView) has no
+    /// node of its own in the tree, so this is how tests learn what hides a node inside the
+    /// window and where to turn the wheel to show it.
+    pub fn scroll_frames(&self, id: u64) -> Vec<Rect> {
+        let Some(node) = self.access_map.nodes.get(&id) else { return Vec::new() };
+        let mut parent = vec![usize::MAX; self.elements.len()];
+        for (i, e) in self.elements.iter().enumerate() {
+            for child in &e.children {
+                if let Some(slot) = parent.get_mut(child.0 as usize) {
+                    *slot = i;
+                }
+            }
+        }
+        let mut frames = Vec::new();
+        let mut at = node.0 as usize;
+        while let Some(&up) = parent.get(at) {
+            if up == usize::MAX {
+                break;
+            }
+            if self.elements[up].scroll {
+                frames.push(self.screen_frame(up));
+            }
+            at = up;
+        }
+        frames
+    }
+
     /// Performs an action assistive technology asked for on the node with
     /// this id (from the latest [`Ui::access_tree`]). Returns true if the UI
     /// needs a redraw.
     pub fn perform_action(&mut self, id: u64, action: AccessAction) -> bool {
+        self.perform(id, action, None)
+    }
+
+    /// Performs [`AccessAction::SetValue`] with this text on the node with this id, for a node
+    /// that declared it with [`BuildCx::on_access`](crate::BuildCx::on_access). Returns true if
+    /// the UI needs a redraw.
+    pub fn set_access_value(&mut self, id: u64, value: &str) -> bool {
+        self.perform(id, AccessAction::SetValue, Some(value))
+    }
+
+    fn perform(&mut self, id: u64, action: AccessAction, value: Option<&str>) -> bool {
         let Some(node) = self.access_map.nodes.get(&id).copied() else { return false };
         let Some(element) = self.elements.get(node.0 as usize) else { return false };
         let widget = element.widget;
+        // What the node declared it does comes first.
+        if let Some((actions, handler)) = &element.access
+            && actions.contains(&action)
+        {
+            let handler = handler.clone();
+            if handler(action, value) {
+                self.needs_build = true;
+                return self.needs_redraw();
+            }
+            return false;
+        }
         match action {
             AccessAction::Click => {
                 if let Some(handler) = element.on_click.clone() {
@@ -114,6 +207,12 @@ impl Ui {
                     handler(&key, Modifiers::default());
                 }
             }
+            // A node that opens, closes or is chosen with a click and declares nothing else
+            // does it with that click, as screen readers did before these actions existed.
+            AccessAction::Expand | AccessAction::Collapse | AccessAction::Select => {
+                let Some(handler) = element.on_click.clone() else { return false };
+                handler();
+            }
             _ => return false,
         }
         self.needs_redraw()
@@ -128,6 +227,30 @@ impl Ui {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+impl Ui {
+    /// Where this node's test id was declared, or its instrumented view was constructed, as of the latest
+    /// [`Self::access_tree`]. Returns `None` without `e2e-source`; not sent to screen readers.
+    pub fn test_source(&self, id: u64) -> Option<&'static std::panic::Location<'static>> {
+        #[cfg(feature = "e2e-source")]
+        {
+            self.access_map.sources.get(&id).copied()
+        }
+        #[cfg(not(feature = "e2e-source"))]
+        {
+            let _ = id;
+            None
+        }
+    }
+}
+
+#[derive(Clone)]
+struct TestTag {
+    id: std::rc::Rc<str>,
+    #[cfg(feature = "e2e-source")]
+    source: Option<&'static std::panic::Location<'static>>,
+}
+
 struct Builder<'a> {
     ui: &'a Ui,
     nodes: Vec<AccessNode>,
@@ -137,6 +260,11 @@ struct Builder<'a> {
     focus: Option<u64>,
     /// The highlighted option of a combobox-style list.
     active: Option<u64>,
+    /// A test id from an element that shows nothing of its own, waiting for the first node
+    /// inside it.
+    pending_test_tag: Option<TestTag>,
+    #[cfg(feature = "e2e-source")]
+    sources: HashMap<u64, &'static std::panic::Location<'static>>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -152,6 +280,23 @@ impl Builder<'_> {
 
     /// Adds `node`'s accessible content to `out`. Text goes to `name` instead
     /// when an ancestor takes its name from its content.
+    /// The test id a new node takes: its element's own, or one waiting from a container.
+    fn claim_test_tag(
+        &mut self,
+        own: Option<TestTag>,
+        id: u64,
+        #[cfg(feature = "e2e-source")] view_source: Option<&'static std::panic::Location<'static>>,
+    ) -> Option<String> {
+        let tag = own.or(self.pending_test_tag.take());
+        #[cfg(feature = "e2e-source")]
+        if let Some(source) = tag.as_ref().and_then(|tag| tag.source).or(view_source) {
+            self.sources.insert(id, source);
+        }
+        #[cfg(not(feature = "e2e-source"))]
+        let _ = id;
+        tag.map(|tag| tag.id.to_string())
+    }
+
     fn visit(&mut self, node: NodeId, out: &mut Vec<u64>, mut name: Option<&mut String>) {
         let ui = self.ui;
         let i = node.0 as usize;
@@ -160,6 +305,11 @@ impl Builder<'_> {
         if semantics.is_some_and(|s| s.hidden) {
             return;
         }
+        let own_tag = e.test_id.as_ref().map(|id| TestTag {
+            id: id.clone(),
+            #[cfg(feature = "e2e-source")]
+            source: e.test_source,
+        });
         if semantics.is_none()
             && let Some(text) = &e.text
         {
@@ -178,6 +328,12 @@ impl Builder<'_> {
                     let id = self.id_for(e.widget);
                     let mut label = AccessNode::new(id, Role::Label, ui.screen_frame(i));
                     label.name = Some(text);
+                    label.test_id = self.claim_test_tag(
+                        own_tag,
+                        id,
+                        #[cfg(feature = "e2e-source")]
+                        e.view_source,
+                    );
                     self.map.insert(id, node);
                     self.nodes.push(label);
                     out.push(id);
@@ -187,8 +343,14 @@ impl Builder<'_> {
         }
         let focusable = e.focus_radius.is_some();
         if semantics.is_none() && !focusable {
+            // A container passes its test id to the first node inside it.
+            let before = self.nodes.len();
+            let outer = own_tag.map(|tag| self.pending_test_tag.replace(tag));
             for child in &e.children {
                 self.visit(*child, out, name.as_deref_mut());
+            }
+            if let Some(outer) = outer {
+                self.pending_test_tag = if self.nodes.len() > before { None } else { outer };
             }
             return;
         }
@@ -197,6 +359,12 @@ impl Builder<'_> {
         let index = self.nodes.len();
         let mut a = AccessNode::new(id, role, ui.screen_frame(i));
         a.focusable = focusable;
+        a.test_id = self.claim_test_tag(
+            own_tag,
+            id,
+            #[cfg(feature = "e2e-source")]
+            e.view_source,
+        );
         if let Some(s) = semantics {
             a.name = s.name.clone();
             a.description = s.description.clone();
@@ -209,6 +377,7 @@ impl Builder<'_> {
             a.read_only = s.read_only;
             a.modal = s.modal;
             a.level = s.level;
+            a.protected = s.protected;
             if s.active {
                 self.active = Some(id);
             }
@@ -225,6 +394,14 @@ impl Builder<'_> {
         if e.on_key.is_some() && matches!(role, Role::Slider | Role::SpinButton) {
             a.actions.extend([AccessAction::Increment, AccessAction::Decrement]);
         }
+        if let Some((actions, _)) = &e.access {
+            for action in actions {
+                if !a.actions.contains(action) {
+                    a.actions.push(*action);
+                }
+            }
+        }
+        a.busy = e.busy || e.busy_signal.as_ref().is_some_and(crate::context::BusySignal::is_busy);
         self.map.insert(id, node);
         self.nodes.push(a);
         let mut content = e.text.as_deref().map(readable).unwrap_or_default();
@@ -265,6 +442,21 @@ fn readable(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::readable;
+
+    #[test]
+    #[cfg(not(feature = "e2e-source"))]
+    fn default_builds_do_not_record_view_origins() {
+        use crate::{Button, Text, Ui, VStack};
+        let mut ui = Ui::new(
+            VStack::new((Button::new("Save"), Text::new("Plain"))),
+            ravenrs_style::Theme::raven_light(),
+        );
+        ui.update();
+        let tree = ui.access_tree();
+        for node in &tree.nodes {
+            assert!(ui.test_source(node.id).is_none());
+        }
+    }
 
     #[test]
     fn readable_text_drops_icons_and_collapses_spaces() {

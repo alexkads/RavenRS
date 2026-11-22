@@ -7,7 +7,7 @@ use ravenrs_app::{Application, EntityInfo, ModelError, Object, ObjectSpace, Valu
 use ravenrs_layout::Align;
 use ravenrs_reactive::{Binding, State};
 use ravenrs_widgets::{
-    AnyView, BuildCx, Button, ButtonStyle, Dialog, IconName, Keyed, NodeId, ScrollView, VStack, View,
+    AnyView, BuildCx, Button, ButtonStyle, Dialog, IconName, Keyed, NodeId, ScrollView, VStack, View, ViewExt,
 };
 
 use crate::session::{FormCaption, Session, SpaceFactory, Words};
@@ -212,9 +212,15 @@ impl View for EntityForm {
             .action(
                 Button::new(inner.session.words().cancel.clone())
                     .style(ButtonStyle::Secondary)
-                    .on_click(move || open.set(false)),
+                    .on_click(move || open.set(false))
+                    .test_id("form:cancel"),
             )
-            .action(Button::new(text.save.clone()).icon(IconName::Check).on_click(move || saving.save()));
+            .action(
+                Button::new(text.save.clone())
+                    .icon(IconName::Check)
+                    .on_click(move || saving.save())
+                    .test_id("form:save"),
+            );
         if let Some(description) = text.description.clone() {
             dialog = dialog.description(description);
         }

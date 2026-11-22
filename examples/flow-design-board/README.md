@@ -35,3 +35,16 @@ python3 -m http.server -d examples/flow-design-board/web 8080
 ```
 
 On Linux and Windows, run `cargo run -p flow-design-board --release` and check that you can drag a shape onto a frame and turn it by its handle; hide a piece in Camadas and show it again; Exportar as PNG; Salvar, close and open again.
+
+## End-to-end tests (Raven Test Studio)
+
+The scenarios of this example are in `tests/e2e/`, as `.raventest` files the Raven Test Studio reads: the sample board has twelve pieces; named and saved, it shows on the list. The app brings them (`SCENARIOS`), and `tests/scenarios.rs` plays them on every `cargo test`.
+
+To run them as the Studio does, with the app in a process of its own, no window and no cache:
+
+```bash
+raven-test-studio --project examples/flow-design-board --run-all --no-cache --format json --out target/e2e/flow-design-board
+```
+
+The app answers the Studio when opened with `--e2e-serve`, on data in memory: the files it keeps on disk are never opened. Its name on the channel, which the `open` block of a scenario uses, is "Design board" (`[package.metadata.ravenrs.e2e]` in `Cargo.toml`). A step that fails says the step, why, and the screen of the app at that moment; with `--film` the report keeps a film of the failure.
+

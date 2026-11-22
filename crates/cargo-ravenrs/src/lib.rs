@@ -1,12 +1,16 @@
 //! Offline project generation and version-matched AI tooling for RavenRS.
 mod ai;
+pub mod e2e;
+mod e2e_install;
 mod mcp;
 mod project;
-mod versions;
+mod template;
+pub mod versions;
 
 pub use ai::configure_ai;
 pub use mcp::doctor;
-pub use project::{new_project, project_files};
+pub use project::new_project;
+pub use template::project_files;
 pub use versions::{Declared, ravenrs_versions};
 
 /// Version of the generator executable.

@@ -109,7 +109,7 @@ Só para saber se a aplicação continua funcionando, com janela de verdade num 
 ./scripts/vm-linux.sh test family-finance
 ```
 
-Liga a VM `ravenrs-linux`, instala o compilador, os pacotes `-dev` e o Rust, copia este checkout, compila, abre o app sob o `twm`, confirma que ele continua vivo depois de 30 s e salva uma captura da tela. Leva uns 10 minutos, porque compila do zero. Olhe a captura com a ferramenta de leitura de imagem, porque processo vivo não prova que desenhou. Repita com outros exemplos, como `feature-center` e `component-gallery`. O título da janela sai com acentos trocados: é o `twm`, não o app.
+Liga a VM `ravenrs-linux`, instala o compilador, os pacotes `-dev` e o Rust, copia este checkout, compila, abre o app sob o `twm`, confirma que ele continua vivo depois de 30 s e salva uma captura da tela. Leva uns 10 minutos, porque compila do zero. Olhe a captura com a ferramenta de leitura de imagem, porque processo vivo não prova que desenhou. Repita com outros exemplos, como `raven-feature-center` e `component-gallery`. O título da janela sai com acentos trocados: é o `twm`, não o app.
 
 **Sempre termine com `stop`, mesmo depois de uma falha:**
 

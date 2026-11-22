@@ -14,6 +14,7 @@ keywords = ["gui", "ui", "widgets", "components"]
 categories = ["gui"]
 
 [dependencies]
+ravenrs-e2e = { workspace = true, optional = true }
 ravenrs-widgets-base.workspace = true
 ravenrs-widgets-kit.workspace = true
 ravenrs-core.workspace = true
@@ -23,6 +24,10 @@ ravenrs-style.workspace = true
 ravenrs-live = { workspace = true, optional = true }
 
 [features]
+# The stories of its components, for RavenComponentBook (`book::stories`).
+book = ["ravenrs-widgets-base/book", "ravenrs-widgets-kit/book"]
+# `testing::SchedulerDriver`, for tests written with ravenrs-e2e.
+testing = ["dep:ravenrs-e2e"]
 live = ["dep:ravenrs-live", "ravenrs-widgets-base/live", "ravenrs-widgets-kit/live", "ravenrs-core/live", "ravenrs-style/live", "ravenrs-layout/live"]
 
 [dev-dependencies]

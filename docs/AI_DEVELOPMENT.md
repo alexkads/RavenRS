@@ -54,7 +54,7 @@ for configuration and the project's generated skill for the available tools and 
 
 Before implementing a screen, an assistant should inspect the relevant component, its
 example and feature requirements. `feature_center` tells where the
-[feature center](../examples/feature-center/README.md) shows the component with all its
+[feature center](../tools/raven-feature-center/README.md) shows the component with all its
 features, and the command that opens that page alone, so the behavior can be seen before
 it is copied. Prefer semantic design tokens to ad hoc values. For
 record-oriented screens, inspect [records and forms](APP-FRAMEWORK.md) before building

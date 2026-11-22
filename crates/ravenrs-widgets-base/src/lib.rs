@@ -5,6 +5,8 @@
 //! same names. The modules are public only so the crates of the components can reach the parts
 //! they share; they are hidden from the documentation and are not a stable API.
 
+/// The stories of the components, re-exported by `ravenrs_widgets::book`.
+pub mod book;
 #[doc(hidden)]
 pub mod button;
 #[doc(hidden)]
@@ -29,6 +31,8 @@ pub mod date;
 pub mod display;
 #[doc(hidden)]
 pub mod dock_side;
+
+pub mod drive;
 #[doc(hidden)]
 pub mod extras;
 #[doc(hidden)]
@@ -127,13 +131,14 @@ pub use choice::{
 pub use clipboard::{Clipboard, ClipboardProvider, MemoryClipboard};
 pub use color_picker::ColorPicker;
 pub use context::{
-    ActivityObserver, BuildCx, Carrying, Drag, DragHandler, DragPayload, DragPhase, DrawFn, DropCheck,
-    DropHandler, KeyHandler, LiveFn, NodeId, Paint, PaintCx, Placement, QuadPaint, RichFn, Semantics,
-    UiActivity, WidgetId,
+    AccessHandler, ActivityObserver, BuildCx, BusySignal, Carrying, Drag, DragHandler, DragPayload,
+    DragPhase, DrawFn, DropCheck, DropHandler, KeyHandler, LiveFn, NodeId, Paint, PaintCx, Placement,
+    QuadPaint, RichFn, Semantics, UiActivity, WidgetId,
 };
 pub use date::{Date, days_in_month, is_leap_year};
 pub use display::{Alert, AlertAction, Avatar, Badge, Divider, ProgressBar, Section, Skeleton, Stat, Tone};
 pub use dock_side::DockSide;
+pub use drive::{Driving, UiDriver};
 pub use extras::{
     AccessibleControl, Carousel, FormField, InputOtp, Menubar, Rule, Spinner, SplitHandle, SplitPane,
     SplitPanes, Splitter, validate,
@@ -158,7 +163,7 @@ pub use labels::Labels;
 pub use link_service::{LinkOpener, Links};
 pub use links::Link;
 pub use localized::Localized;
-pub use modifiers::{Faded, Styled, ViewExt};
+pub use modifiers::{Faded, Styled, TestId, ViewExt};
 pub use motion::Collapse;
 pub use motion_spec::Motion;
 pub use overlay::{Dialog, DropdownMenu, HelpTip, MenuItem, Popover, Select, Tooltip};

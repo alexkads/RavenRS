@@ -90,6 +90,9 @@ These run when the view asks for them, usually from an event handler such as `on
 - **`SystemNotifier`:** a notification in the system's place: the Notification Center on macOS, a toast on Windows, the notification server on Linux. `send` **waits** for the system to answer, so call it from another thread. `Ok` means the system took the notification, not that the person saw it, because they may have notifications turned off.
 - **`SystemTray`**, given to `AppIdentity::close_to_tray`:
   - Closing the window keeps the app running behind an icon beside the clock. The icon's menu opens the window again or really quits.
+  - Between those two go the app's own entries, a `TrayMenu` from `ravenrs-core` ([#643](https://github.com/alexkads/RavenRS/issues/643)): its state at the top (`TrayEntry::status`), things to do (`item`, with `enabled`, `detail` and `shortcut`), choices with a check mark (`check`), submenus and separators. Give it with `SystemTray::menu`, keep a clone, and `set` it whenever the app's state changes, from any thread. The icon redraws only when the entries differ, so a screen may set them on every build.
+  - A choice reaches `SystemTray::on_select` with its id, on the interface's thread, and the screen builds again even with the window closed. An id that starts with `open:` opens the window first, for an entry whose answer is on screen.
+  - `ravenrs-app-update` gives the update's entries (`Updater::tray_entries`: "Reiniciar para atualizar / Versão X pronta" and the news) and does what they say (`Updater::tray_select`).
   - Opening the app a second time, from the launcher or the Dock, brings the same window back instead of starting a second copy over the same data. Copies find each other on a local port derived from the app's id and the user's name, so two people on one computer each keep their own app.
   - It needs `AppIdentity::icon`, because the tray has nothing else to show.
 

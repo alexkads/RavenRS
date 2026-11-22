@@ -8,7 +8,7 @@ use ravenrs::prelude::*;
 use ravenrs_flows::Catalog;
 
 use crate::casa::{self, Casa};
-use ravenrs_app_update::{News, NoticeAction, UpdateStatus, Updater};
+use ravenrs_app_update::Updater;
 
 mod editor;
 mod execucoes;
@@ -47,6 +47,8 @@ struct Screens {
     run_shown: State<Option<String>>,
     days: State<Option<f64>>,
     news: State<usize>,
+    /// The news dialog the update's notice opens, as every RavenRS app shows it.
+    news_dialog: ravenrs_app_update::ui::NewsDialog,
     message: State<String>,
     confirm: ConfirmDialog,
 }
@@ -86,6 +88,10 @@ impl RavenFlows {
             run_shown: State::new(None),
             days: State::new(Some(30.0)),
             news: State::new(0),
+            news_dialog: ravenrs_app_update::ui::NewsDialog::new().on_open_file(|log| {
+                // A log that does not open leaves its end on screen, in the details.
+                let _ = ravenrs::native::open_with_system(log);
+            }),
             message: State::new(String::new()),
             confirm: ConfirmDialog::new(),
         };
@@ -133,7 +139,7 @@ impl View for RavenFlows {
             (FLOWS, Some(id)) => self.editor(cx, &id),
             (FLOWS, None) => self.flows(),
             (RUNS, _) => self.runs(),
-            _ => self.settings(),
+            _ => self.settings(&cx.links()),
         };
         let status = self.status_bar();
         cx.child(
@@ -143,6 +149,7 @@ impl View for RavenFlows {
                     .grow(1.0),
                 status,
                 s.confirm.clone(),
+                s.news_dialog.view(&self.updater),
             ))
             .spacing(0.0)
             .align(Align::Stretch)
@@ -268,7 +275,7 @@ impl RavenFlows {
     }
 
     /// The settings: theme, how long runs are kept, the version and its news.
-    fn settings(&self) -> AnyView {
+    fn settings(&self, links: &Links) -> AnyView {
         let s = self.s.clone();
         let casa = self.casa.clone();
         let prune = {
@@ -306,8 +313,11 @@ impl RavenFlows {
                 ))
                 .spacing(8.0)
                 .align(Align::Center),
-                self.failure(),
-                ReleaseNotes::new(release_notes(self.updater.timeline()), s.news.binding()).height(360.0),
+                ReleaseNotes::new(
+                    ravenrs_app_update::ui::release_notes(&self.updater, links),
+                    s.news.binding(),
+                )
+                .height(360.0),
             ))
             .spacing(16.0)
             .padding(24.0)
@@ -317,83 +327,18 @@ impl RavenFlows {
     }
 }
 
-/// The news of every version, newest first, in the format Raven Finanças keeps them:
-/// what changed, who made it and the issues it closed.
-pub fn release_notes(timeline: Vec<News>) -> Vec<ReleaseNote> {
-    timeline
-        .into_iter()
-        .map(|news| {
-            let issues: Vec<String> = news.issues.iter().map(|n| format!("#{n}")).collect();
-            ReleaseNote::new(news.versao, news.titulo)
-                .date(news.data.unwrap_or_default())
-                .changes(news.novidades)
-                .section("Quem contribuiu", news.contribuidores.join(", "))
-                .section("Issues resolvidas", issues.join(", "))
-        })
-        .collect()
-}
-
 impl RavenFlows {
-    /// The status bar: the version, what the updater says with its buttons, and the last
-    /// message of the app.
+    /// The status bar: the version, which opens its news, what the updater says with its
+    /// buttons, as every RavenRS app shows them, and the last message of the app.
     fn status_bar(&self) -> StatusBar {
-        let page = self.s.page.clone();
+        let dialog = &self.s.news_dialog;
         let bar = StatusBar::new()
-            .left((StatusBar::action(format!("Raven Flows {}", crate::VERSION))
-                .on_click(move || page.set(SETTINGS)),))
+            .left((ravenrs_app_update::ui::version_button(
+                format!("Raven Flows · versão {}", crate::VERSION),
+                &self.updater,
+                dialog,
+            ),))
             .right((StatusBar::text(self.s.message.get()).truncate(),));
-        let Some(notice) = self.updater.notice() else { return bar };
-        let buttons: Vec<Button> = notice.actions.iter().map(|&action| self.notice_button(action)).collect();
-        let bar = bar.center((
-            StatusBar::text(notice.text).foreground(Semantic::Ink).truncate().grow(1.0),
-            HStack::new(buttons).spacing(4.0),
-        ));
-        if notice.important { bar.center_tone(Tone::Warning) } else { bar }
-    }
-
-    /// A button of the updater's notice, doing what Raven Finanças does with it.
-    fn notice_button(&self, action: NoticeAction) -> Button {
-        let (updater, page) = (self.updater.clone(), self.s.page.clone());
-        let button = StatusBar::action(action.label());
-        let button = if action.is_primary() { button.style(ButtonStyle::Primary) } else { button };
-        button.on_click(move || match action {
-            NoticeAction::News | NoticeAction::HowToUpdate | NoticeAction::Details => page.set(SETTINGS),
-            NoticeAction::Update | NoticeAction::Retry => {
-                if let Some(news) = updater.status().news().cloned() {
-                    updater.install(news);
-                }
-            }
-            NoticeAction::Reopen => updater.reopen(),
-            NoticeAction::CheckAgain => updater.ask(),
-            NoticeAction::Later | NoticeAction::Close => updater.dismiss(),
-        })
-    }
-
-    /// Why the last update failed, where it stopped, the end of the installer's log and how
-    /// to install by hand; nothing when it did not fail.
-    fn failure(&self) -> AnyView {
-        let UpdateStatus::Failed(_, reason) = self.updater.status() else {
-            return Box::new(Spacer::new().height(0.0));
-        };
-        let stage = self.updater.stage().map(|s| format!(" Parou em: {s}.")).unwrap_or_default();
-        let tail = crate::versao::APP.installer_log_tail(12).unwrap_or_default();
-        Box::new(
-            VStack::new((
-                Alert::new(
-                    "A atualização não deu certo",
-                    format!("{reason}.{stage} A versão em uso continua funcionando."),
-                )
-                .tone(Tone::Danger),
-                CodeEditor::new(State::new(tail).binding())
-                    .language(CodeLanguage::Plain)
-                    .read_only(true)
-                    .rows(8),
-                Text::new(format!("Para instalar à mão: {}", crate::versao::APP.install_command()))
-                    .style(TextStyle::Callout)
-                    .foreground(Semantic::InkMuted),
-            ))
-            .spacing(8.0)
-            .align(Align::Stretch),
-        )
+        ravenrs_app_update::ui::with_notice(bar, &self.updater, dialog)
     }
 }
