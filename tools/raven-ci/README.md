@@ -273,6 +273,23 @@ A plugin in Rust with the standard traits can also be compiled and installed by 
 no new `raven-ci`: `raven-ci plugins compilar PASTA`. The section "Um plugin Rust compilado pelo
 sistema" of that page explains it, and [plugins/exemplo-rust](plugins/exemplo-rust) is the example.
 
+## Feito com RavenRS: the memory it takes
+
+Measured with `tools/raven-ci/scripts/medir-memoria.sh` on 22/11/2026: binaries built in release,
+the resident memory (RSS) as `ps` says it, on a Mac with Apple silicon (arm64, macOS 27.2). The
+same script runs on Linux; those numbers come with the week beside Jenkins (V-03 of #803).
+
+| | Server (`raven-ci servir`) | Agent (`raven-ci-agent`) |
+|---|---|---|
+| Idle, no agent connected | 13.8 MiB | — |
+| Idle, one agent connected | 34.4 MiB | 15.6 MiB |
+| Highest while a build runs on the agent | 35.9 MiB | 16.3 MiB |
+| Size of the program | 13.6 MiB | 7.7 MiB |
+
+The Jenkins it replaces, at home with two jobs, held 596 MB in its controller and 250 MB in its
+agent, idle. The server is under its goal of 60 MB; the agent is 1.3 MiB above its goal of 15 MB,
+and why the server grows by 21 MiB when the first agent connects is being looked at.
+
 ## Install it
 
 ```bash
