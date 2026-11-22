@@ -209,6 +209,7 @@ RAVEN_CI_AGENT_TOKEN=rva_… raven-ci-agent --servidor http://ci.local:8080 --no
 | `workspace-cleanup` | build hook | refuses a build when the disk of its folder has less free space than `workspace.min_free_gb` (5 GB unless said) |
 | `api-trigger` | trigger, route | `POST /api/ci/run` with `{"job", "parameters"}` asks for a build of a job whose `triggers` say `{"id": "api"}`, for someone with the role `Executores` or an administrator |
 | `cron` | trigger | `cron` (a schedule in a time zone, or `every = "1h"`) and `poll` (`git ls-remote` of a branch every `5m`, a build when it moved) |
+| `webhook-github` | trigger, route | `POST /hooks/github`, public, for the webhook of a repository: a job with `{"id": "github-webhook", "repository": "dono/repo", "secret": "NOME"}` takes only what the secret of the credential `NOME` signed (`X-Hub-Signature-256`, checked before the body is read). With `branch`, a push to it asks for a build; without it, a push or a pull request (`opened`, `synchronize`, `reopened`, `closed`) asks for the scan of a job of many branches. A delivery sent again does nothing; a wrong signature is 401 with a line in the log |
 | `credentials` | credential kinds | `token`, `user-password` and `ssh-key`, sealed by name in the core's vault (`raven-ci credencial criar NOME --tipo token`, the fields in JSON on the input); a plugin reads one with `Host::secret`, and every log hides it |
 | `github` | branch source, status | a job of many branches over a GitHub repository: the branches chosen and the open pull requests (forks left out), each with the pipeline of its own head, built merged onto its target, with the status sent to its commit |
 | `docker` | steps, credential kind | `container` (a stage with `container = { image }`): the script in the image with the build's folder mounted and the agent's user, no file of root left; `docker-build`/`docker-push` with a `registry` credential; `compose` up with the wait for health; every container, network, volume and compose project of the build removed at its end, however it ends. Docker or Podman, through their command |
@@ -284,6 +285,9 @@ curl -fsSL https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven
 - `crates/raven-ci-plugin-format-jenkinsfile/tests`: Jenkinsfiles converted and read by
   `format-toml`, each part not converted on its line, the command, and a converted pipeline run
   for real with the same log as the TOML written by hand.
+- `crates/raven-ci-plugin-webhook-github/tests`: signed and unsigned deliveries, a secret of one
+  repository naming another, a delivery sent twice, pull requests that move and ones that do not;
+  `tests/suite/webhook.rs` does it on `raven-ci servir` with a credential of the vault.
 - `crates/raven-ci-plugin-shell/tests`: the step `sh`, with scripts for `sh` and for `cmd`.
 - `crates/raven-ci-plugin-git/tests`: a real repository made by the test, cloned by `file://`.
 - `crates/raven-ci-plugin-lock/tests`: two executors, a holder outside, a program left running.

@@ -29,6 +29,7 @@ raven-ci-plugin-kubernetes = { path = "crates/raven-ci-plugin-kubernetes" }
 raven-ci-plugin-lock = { path = "crates/raven-ci-plugin-lock" }
 raven-ci-plugin-shell = { path = "crates/raven-ci-plugin-shell" }
 raven-ci-plugin-workspace = { path = "crates/raven-ci-plugin-workspace" }
+raven-ci-plugin-webhook-github = { path = "crates/raven-ci-plugin-webhook-github" }
 ravenrs-app-server.workspace = true
 ravenrs-app-update.workspace = true
 # plugins compilar: runs cargo and the plugin it built.

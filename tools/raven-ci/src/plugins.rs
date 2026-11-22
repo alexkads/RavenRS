@@ -20,6 +20,7 @@ use raven_ci_plugin_junit::JunitPlugin;
 use raven_ci_plugin_kubernetes::KubernetesPlugin;
 use raven_ci_plugin_lock::LockPlugin;
 use raven_ci_plugin_shell::ShellPlugin;
+use raven_ci_plugin_webhook_github::WebhookGithubPlugin;
 use raven_ci_plugin_workspace::WorkspacePlugin;
 
 /// Every plugin compiled in, in the order they are listed.
@@ -33,6 +34,7 @@ pub fn builtin() -> Vec<Arc<dyn CiPlugin>> {
         Arc::new(WorkspacePlugin::new()),
         Arc::new(ApiTriggerPlugin::new()),
         Arc::new(CronPlugin::new()),
+        Arc::new(WebhookGithubPlugin::new()),
         Arc::new(CredentialsPlugin),
         Arc::new(GithubPlugin::new()),
         Arc::new(DockerPlugin::new()),

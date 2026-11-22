@@ -105,6 +105,10 @@ impl Route {
     }
 
     /// Reached by anyone, as a webhook is.
+    ///
+    /// Its path starts with `/hooks/` (`/hooks/github`): that is the only prefix the server lets
+    /// in with no sign-in. A public route on another path is answered 500, saying so, so a route
+    /// meant to be closed is never opened by a mistake in its path.
     pub fn public(mut self) -> Self {
         self.public = true;
         self
