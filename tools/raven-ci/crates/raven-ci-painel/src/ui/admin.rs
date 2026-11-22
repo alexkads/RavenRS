@@ -55,8 +55,9 @@ pub(super) fn plugins(s: &Rc<S>) -> AnyView {
             let (name, enabled) = text.rsplit_once('|').unwrap_or((&text, "false"));
             let (name, enabled) = (name.to_owned(), enabled == "true");
             let s = s.clone();
+            let label = format!("Ligar {name}");
             let binding = Binding::new(move || enabled, move |want: bool| switch(&s, &name, want));
-            Box::new(Toggle::new(binding).small().label(if enabled { "Ligado" } else { "Desligado" }))
+            Box::new(Toggle::new(binding).small().accessible_name(label))
         }
     };
     let open = {
@@ -86,7 +87,17 @@ pub(super) fn plugins(s: &Rc<S>) -> AnyView {
                 };
                 Box::new(Badge::new(state).tone(tone))
             }),
-            GridColumn::text("Ligado").width(140.0).template(toggle),
+            GridColumn::text("Ligado")
+                .width(90.0)
+                // The cell says the state; the switch in it is the one called "Ligar …".
+                .format(|value| {
+                    if value.key_text().ends_with("|true") {
+                        "ligado".to_owned()
+                    } else {
+                        "desligado".to_owned()
+                    }
+                })
+                .template(toggle),
         ],
     )
     .key_column(0)

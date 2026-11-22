@@ -48,7 +48,7 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
         .map(|(line, why)| CodeDiagnostic::error(*line, 0, 0, why.clone()))
         .collect();
     let editor = CodeEditor::new(s.config_text.binding())
-        .language(CodeLanguage::Plain)
+        .language(if format == "toml" { CodeLanguage::Toml } else { CodeLanguage::Plain })
         .line_numbers(true)
         .diagnostics(diagnostics)
         .rows(20);

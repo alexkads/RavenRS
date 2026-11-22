@@ -363,7 +363,7 @@ pub(super) fn dispatch_dialog(s: &Rc<S>) -> AnyView {
             .width(460.0)
             .close_on_backdrop(false)
             .content(
-                VStack::new((ParameterForm::new(fields, s.dispatch_values.binding()), problem))
+                VStack::new((ParameterForm::new(fields, s.dispatch_values.binding()).live(true), problem))
                     .spacing(12.0)
                     .align(Align::Stretch),
             )
