@@ -125,6 +125,7 @@ demonstrations! {
     colecoes => "Coleções",
     dados_da_loja => "Dados da loja",
     caixa_de_exemplo => "Caixa de exemplo",
+    api_web => "API web",
     leitores_de_tela_e_teclado => "Leitores de tela e teclado",
     pessoas => "Pessoas",
     eventos => "Eventos",

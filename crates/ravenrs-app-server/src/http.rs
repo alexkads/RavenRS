@@ -237,7 +237,8 @@ pub fn router(make: impl Fn() -> Result<ApiService, String> + Send + Sync + 'sta
 }
 
 /// The same, with these options. Each of its [`ApiOptions::workers`] calls `make` once, on its own
-/// thread; if any fails, so does this.
+/// thread, and only after the one before it has made its service, so what `make` puts in place the
+/// first time (people, sample records) is there for the next; if any fails, so does this.
 pub fn router_with(
     options: ApiOptions,
     make: impl Fn() -> Result<ApiService, String> + Send + Sync + 'static,
@@ -263,14 +264,12 @@ pub fn router_with(
             drop(made);
             work(service, &waiting);
         })?;
-    }
-    drop(made);
-    for _ in 0..options.workers {
         started
             .recv()
             .map_err(|_| io::Error::other("the service stopped while starting"))?
             .map_err(io::Error::other)?;
     }
+    drop(made);
     Ok(Router::new()
         .fallback(handle)
         .layer(DefaultBodyLimit::max(BODY_LIMIT))

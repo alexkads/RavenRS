@@ -44,6 +44,7 @@ These accounts exist only here. The password of all three is `raven-demo`.
 | Segurança | The same documents as each of the three people |
 | Auditoria | Each mode side by side, a field left out, changes in collections |
 | Acessibilidade | Names and descriptions for screen readers from the model, the focus order of a form, an action that says its keys and announces what it did |
+| Servidor | API web: the options of the web API, `ApiOptions`, with the origins a browser may call from and how many threads answer at the same time (`new`, `allow_origin`, `workers`); desktop only |
 | Balcão | Dados da loja, a record that is one of a kind and opens on its form, and Caixa de exemplo, a counter window with its notice and function keys inside the center (`cargo run -p raven-feature-center -- caixa` opens it on its own) |
 | Registros prontos | Pessoas, Eventos, Países and Endereços from `ravenrs-app-library`, with their rules |
 | Relatórios | Reports people design and keep, and panels |
