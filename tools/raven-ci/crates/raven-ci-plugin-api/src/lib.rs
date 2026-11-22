@@ -129,7 +129,7 @@ pub use credential::CredentialKind;
 pub use error::CiError;
 pub use hook::BuildHook;
 pub use host::Host;
-pub use http::{HttpRequest, HttpResponse, Route};
+pub use http::{HttpRequest, HttpResponse, ROLE_ADMIN, ROLE_READ, ROLE_RUN, Route};
 pub use permission::Permission;
 pub use pipeline::{FormatError, PLUGIN_KEY, Pipeline, PipelineFormat, PostSteps, PostWhen, STAGE_KEY, Use};
 pub use plugin::{CiPlugin, Migration, Point, points_of};

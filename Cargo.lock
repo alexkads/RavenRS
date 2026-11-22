@@ -6013,10 +6013,13 @@ dependencies = [
  "raven-ci-plugin-lock",
  "raven-ci-plugin-shell",
  "raven-ci-plugin-workspace",
+ "ravenrs-app-server",
  "ravenrs-app-update",
  "ravenrs-process",
  "serde",
  "serde_json",
+ "tokio",
+ "ureq",
 ]
 
 [[package]]
@@ -6025,6 +6028,8 @@ version = "0.1.0"
 dependencies = [
  "raven-ci-plugin-api",
  "ravenrs-app",
+ "ravenrs-app-server",
+ "ravenrs-app-sqlite",
  "ravenrs-flows",
  "ravenrs-flows-runtime",
  "ravenrs-metrics",

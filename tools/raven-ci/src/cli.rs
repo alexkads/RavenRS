@@ -14,6 +14,10 @@ pub const USAGE: &str = "uso: raven-ci [--dados PASTA] [--plugins PASTA]… [--f
   plugins info NOME       versão, dependências, permissões, configuração e memória
   plugins ligar NOME      liga o plugin
   plugins desligar NOME   desliga o plugin e os que precisam dele
+  servir [--endereco HOST:PORTA] [--executores N]
+                          o servidor: HTTP com login, executores e gatilhos
+  usuario criar NOME [--papel Executores|Leitores|Administradores]
+                          cria quem pode entrar; a senha vem na entrada
   <comando> ...           um comando que um plugin ligado traz
   --self-test             confere o núcleo com um plugin falso de cada ponto
   --versao                a versão";
@@ -122,6 +126,15 @@ impl Invocation {
                 }
             }
             ["plugins", ..] => {
+                write(out, &format!("{USAGE}\n"))?;
+                Ok(2)
+            }
+            ["servir", args @ ..] => crate::server::serve(ci, &self.data, args, out),
+            ["usuario", "criar", name, args @ ..] => {
+                let stdin = std::io::stdin();
+                crate::server::create_user(&self.data, name, args, &mut stdin.lock(), out)
+            }
+            ["usuario", ..] => {
                 write(out, &format!("{USAGE}\n"))?;
                 Ok(2)
             }

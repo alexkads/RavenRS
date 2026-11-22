@@ -11,6 +11,10 @@ publish = false
 [dependencies]
 raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
 ravenrs-app.workspace = true
+# The HTTP API: signing in, keys, and the routes of the plugins through its fallback.
+ravenrs-app-server.workspace = true
+# People and roles, in a file each thread of the server opens.
+ravenrs-app-sqlite.workspace = true
 ravenrs-flows.workspace = true
 ravenrs-flows-runtime.workspace = true
 ravenrs-metrics.workspace = true

@@ -33,6 +33,7 @@
 //! # Ok::<(), raven_ci_plugin_api::CiError>(())
 //! ```
 
+pub mod api;
 pub mod external;
 mod host;
 mod lifecycle;
@@ -562,6 +563,51 @@ impl Ci {
             forgotten += self.prune_job(&job)?;
         }
         Ok(forgotten)
+    }
+}
+
+impl Ci {
+    /// Starts every trigger the jobs' settings name, as `{"triggers": [{"id": "cron", ...}]}`,
+    /// each with its entry as its settings and this core to ask for builds with; what could not be
+    /// watched, in words, also written to the server's log. Call it again after jobs or plugins
+    /// change: each trigger is told to stop watching the job first.
+    pub fn watch_triggers(self: &Arc<Self>) -> Vec<String> {
+        let mut problems = Vec::new();
+        let jobs = match self.jobs() {
+            Ok(jobs) => jobs,
+            Err(e) => return vec![format!("os jobs: {e}")],
+        };
+        let triggers: Vec<_> = self.registry.on().iter().flat_map(|plugin| plugin.triggers()).collect();
+        for job in &jobs {
+            for trigger in &triggers {
+                trigger.unwatch(&job.name);
+            }
+            for entry in lifecycle::uses(&job.settings, "triggers") {
+                let id = entry.get("id").and_then(Value::as_str).unwrap_or_default().to_owned();
+                let said = match triggers.iter().find(|trigger| trigger.id() == id) {
+                    Some(trigger) => match trigger.watch(&job.name, &entry, self.clone()) {
+                        Ok(()) => None,
+                        Err(e) => Some(format!("o gatilho {id} de {}: {e}", job.name)),
+                    },
+                    None => Some(format!("o gatilho {id} de {}: falta o plugin que o traz", job.name)),
+                };
+                if let Some(said) = said {
+                    self.log.write(&said);
+                    problems.push(said);
+                }
+            }
+        }
+        problems
+    }
+
+    /// Stops every trigger watching every job: what the server does before it stops.
+    pub fn unwatch_triggers(&self) {
+        let names = self.jobs().map(|jobs| jobs.into_iter().map(|job| job.name).collect::<Vec<_>>());
+        for trigger in self.registry.on().iter().flat_map(|plugin| plugin.triggers()) {
+            for name in names.iter().flatten() {
+                trigger.unwatch(name);
+            }
+        }
     }
 }
 

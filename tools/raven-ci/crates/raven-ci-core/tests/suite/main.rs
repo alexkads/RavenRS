@@ -2,6 +2,7 @@
 //! JSON-RPC, the model of jobs and builds, the queue, and the life of a build around its steps.
 #![allow(clippy::expect_used, clippy::print_stderr, reason = "tests fail loudly and say what they skip")]
 
+mod api;
 mod common;
 mod external;
 mod lifecycle;

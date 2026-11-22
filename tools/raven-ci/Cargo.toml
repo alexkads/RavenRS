@@ -17,12 +17,16 @@ raven-ci-plugin-git = { path = "crates/raven-ci-plugin-git" }
 raven-ci-plugin-lock = { path = "crates/raven-ci-plugin-lock" }
 raven-ci-plugin-shell = { path = "crates/raven-ci-plugin-shell" }
 raven-ci-plugin-workspace = { path = "crates/raven-ci-plugin-workspace" }
+ravenrs-app-server.workspace = true
 ravenrs-app-update.workspace = true
+# The runtime of the HTTP server, small: two threads.
+tokio = { workspace = true, features = ["rt-multi-thread", "net", "signal", "macros"] }
 serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
 ravenrs-process.workspace = true
+ureq = { version = "3.5", default-features = false }
 
 [lints]
 workspace = true

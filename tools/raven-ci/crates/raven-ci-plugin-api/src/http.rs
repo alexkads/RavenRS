@@ -21,6 +21,23 @@ pub struct HttpRequest {
     pub body: Vec<u8>,
     /// Who it came from, when it was signed in or carried a key.
     pub actor: Option<String>,
+    /// The roles of who it came from: [`ROLE_ADMIN`], [`ROLE_RUN`], [`ROLE_READ`] or others the
+    /// administrator made.
+    pub roles: Vec<String>,
+}
+
+/// The role of who runs the server: everything.
+pub const ROLE_ADMIN: &str = "Administradores";
+/// The role of who asks for builds, cancels and repeats them.
+pub const ROLE_RUN: &str = "Executores";
+/// The role of who only reads jobs, builds and logs.
+pub const ROLE_READ: &str = "Leitores";
+
+impl HttpRequest {
+    /// Whether who sent it may ask for builds: an administrator, or someone with [`ROLE_RUN`].
+    pub fn may_run(&self) -> bool {
+        self.actor.is_some() && self.roles.iter().any(|role| role == ROLE_ADMIN || role == ROLE_RUN)
+    }
 }
 
 /// What a route answers.
@@ -59,8 +76,10 @@ pub type Handler = Arc<dyn Fn(&HttpRequest) -> HttpResponse + Send + Sync>;
 /// method and path another plugin took, naming both. Unless [`public`](Self::public), only a
 /// person signed in or a key reaches it, and [`HttpRequest::actor`] says who.
 ///
-/// **How to write one.** Keep the path under the plugin's name (`/api/github/hook`). A webhook is
-/// public and checks its own signature.
+/// **How to write one.** Keep the path under the plugin's name (`/api/github/...`). A webhook is
+/// public, lives under `/hooks/` (`/hooks/github`), the only paths the server lets in with no
+/// token, and checks its own signature. A route that changes something checks who may do it, as
+/// [`HttpRequest::may_run`] says.
 #[derive(Clone)]
 pub struct Route {
     /// `GET`, `POST`.

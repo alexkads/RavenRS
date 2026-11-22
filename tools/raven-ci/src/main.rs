@@ -6,6 +6,8 @@
 //! raven-ci plugins info NOME [--format json]
 //! raven-ci plugins ligar NOME
 //! raven-ci plugins desligar NOME
+//! raven-ci servir [--endereco HOST:PORTA] [--executores N]
+//! echo SENHA | raven-ci usuario criar NOME [--papel PAPEL]
 //! raven-ci <comando de um plugin> ...
 //! raven-ci --self-test
 //! raven-ci --versao
@@ -18,6 +20,7 @@
 mod cli;
 mod plugins;
 mod self_test;
+mod server;
 mod versao;
 
 fn main() {

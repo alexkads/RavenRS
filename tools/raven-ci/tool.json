@@ -30,6 +30,14 @@
       "does": "Switches the plugin off, with the plugins that need it, and says which."
     },
     {
+      "command": "raven-ci servir [--endereco HOST:PORTA] [--executores N]",
+      "does": "Sobe o servidor: HTTP com login (GET /health aberto, /api/ci/jobs, /api/ci/build, /api/ci/log?after= e as rotas dos plugins), os executores e os gatilhos dos jobs. Diz o endereço na primeira linha e para com Ctrl+C ou SIGTERM."
+    },
+    {
+      "command": "echo SENHA | raven-ci usuario criar NOME [--papel Executores|Leitores|Administradores]",
+      "does": "Cria quem pode entrar no servidor; o primeiro é administrador. A senha vem na primeira linha da entrada."
+    },
+    {
       "command": "raven-ci <comando de plugin> ...",
       "does": "Runs a subcommand a plugin brings, such as `raven-ci hello Ana` from the example plugin."
     },

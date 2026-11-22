@@ -177,7 +177,7 @@ fn as_variable(value: &Value) -> String {
 }
 
 /// The list in `settings[key]`: an array of objects, or one object.
-fn uses(settings: &Value, key: &str) -> Vec<Value> {
+pub(crate) fn uses(settings: &Value, key: &str) -> Vec<Value> {
     match settings.get(key) {
         Some(Value::Array(items)) => items.clone(),
         Some(item @ Value::Object(_)) => vec![item.clone()],
