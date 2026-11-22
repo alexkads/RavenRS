@@ -381,6 +381,33 @@ fn a_piece_the_library_does_not_have_is_pointed_out() {
     assert!(said[3].contains("no option \"Neon\""), "{said:#?}");
 }
 
+const FERMATA: &str = include_str!("../fixtures/fermata-workspace.rcb.json");
+
+#[test]
+fn the_workspace_of_fermata_is_built_as_it_was_drawn() {
+    // The board 01 of the Fermata UX, as the browser laid it out: icons beyond the sample, a menu
+    // button with its own label and icon, and selects that fill their column (#831).
+    let replay = raven_component_book::replay::replay(FERMATA).expect("a screen");
+    assert_eq!(replay.compared, 23);
+    assert!(replay.divergences.is_empty(), "{:#?}", replay.divergences);
+}
+
+#[test]
+fn any_icon_of_the_set_is_a_setting_the_replay_takes() {
+    // The cards offer a sample of icons; the card of Icon lists all of them (#831).
+    let screen = r#"{"elements": [
+        {"rcb": "Button/Secondary", "args": {"label": "Nota", "icon": "file-text"}, "box": [0, 0, 112, 40]},
+        {"rcb": "Badge/Warning", "args": {"text": "rodando", "icon": "loader-circle"}, "box": [0, 0, 86, 22]},
+        {"rcb": "Button/Secondary", "args": {"icon": "no-such-icon"}, "box": [0, 0, 87, 40]}
+    ]}"#;
+    let replay = raven_component_book::replay::replay(screen).expect("a screen");
+    let said: Vec<String> = replay.divergences.iter().map(ToString::to_string).collect();
+    assert_eq!(replay.compared, 2, "{said:#?}");
+    let refused: Vec<&String> = said.iter().filter(|s| s.contains("no option")).collect();
+    assert_eq!(refused.len(), 1, "{said:#?}");
+    assert!(refused[0].contains("\"no-such-icon\""), "{said:#?}");
+}
+
 #[test]
 fn the_replay_exits_with_one_when_a_piece_diverges() {
     let dir = std::env::temp_dir().join(format!("rcb-replay-{}", std::process::id()));

@@ -15,6 +15,7 @@
 //! which stretches its children as a column does, and compares the size it takes with the box.
 //! The places of the pieces are the design's: what is compared is what each piece is.
 
+use ravenrs::prelude::IconName;
 use ravenrs::widgets::book::{ArgValue, Args, Control, Meta};
 use serde_json::Value;
 
@@ -64,7 +65,10 @@ fn arg_value(meta: &Meta, name: &str, v: &Value) -> Result<ArgValue, String> {
         Control::Number { .. } => ArgValue::Number(v.as_f64().ok_or_else(wrong)?),
         Control::Choice(options) => {
             let chosen = v.as_str().ok_or_else(wrong)?;
-            if !options.contains(&chosen) {
+            // `icon` offers a sample in the cards; the card of `Icon` lists every one, and a
+            // design may use any of them (#831).
+            let any_icon = name == "icon" && IconName::ALL.iter().any(|icon| icon.name() == chosen);
+            if !options.contains(&chosen) && !any_icon {
                 return Err(format!(
                     "\"{name}\" has no option \"{chosen}\" (it has: {})",
                     options.join(", ")
