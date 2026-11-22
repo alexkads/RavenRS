@@ -166,11 +166,11 @@ fn stat(label: &str, value: String, detail: String) -> AnyView {
 
 /// The badge of a build's status.
 pub(super) fn status_badge(status: &str) -> AnyView {
-    Box::new(
-        Badge::new(texto::status_words(status))
-            .tone(texto::status_tone(status))
-            .icon(texto::status_icon(status)),
-    )
+    let badge = Badge::new(texto::status_words(status))
+        .tone(texto::status_tone(status))
+        .icon(texto::status_icon(status));
+    // An interrupted build has a color of its own, apart from failing and cancelling.
+    Box::new(if status == "interrupted" { badge.color(texto::INTERRUPTED) } else { badge })
 }
 
 /// The durations of the last builds, oldest first, as a line.

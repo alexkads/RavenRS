@@ -11,8 +11,18 @@ pub fn status_words(status: &str) -> &'static str {
         "failed" => "Falhou",
         "cancelled" => "Cancelado",
         "timed_out" => "Passou do prazo",
+        "interrupted" => "Interrompido",
         _ => "Sem build",
     }
+}
+
+/// The color of its own of a build whose agent went away (`interrupted`): neither a failure's nor
+/// a cancellation's, as the coordination of the agents (Fase 3) asked.
+pub const INTERRUPTED: ravenrs::prelude::Color = ravenrs::prelude::Color::rgb(0.62, 0.45, 0.92);
+
+/// Whether a build with this status ended.
+pub fn ended(status: &str) -> bool {
+    !matches!(status, "queued" | "running" | "")
 }
 
 /// The tone of a build's badge.
@@ -33,6 +43,7 @@ pub fn status_icon(status: &str) -> IconName {
         "succeeded" => IconName::Check,
         "failed" | "timed_out" => IconName::X,
         "queued" => IconName::Clock,
+        "interrupted" => IconName::Zap,
         _ => IconName::Minus,
     }
 }
@@ -131,5 +142,7 @@ mod tests {
         assert_eq!(clock(15 * 3_600_000 + 7 * 60_000), "15:07");
         assert_eq!(status_words("succeeded"), "Passou");
         assert_eq!(stage_words("pending"), "esperando");
+        assert_eq!(status_words("interrupted"), "Interrompido");
+        assert!(ended("interrupted") && !ended("running"));
     }
 }

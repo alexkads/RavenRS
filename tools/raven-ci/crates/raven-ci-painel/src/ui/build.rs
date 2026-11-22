@@ -142,6 +142,7 @@ fn run_view(stages: &[Json], reason: Option<&str>, running: bool) -> FlowRunView
             "running" => FlowNodeStatus::Running,
             "skipped" => FlowNodeStatus::Skipped,
             "cancelled" => FlowNodeStatus::Cancelled,
+            "interrupted" => FlowNodeStatus::Warning("interrompido: o agente sumiu".to_owned()),
             _ => FlowNodeStatus::Waiting("esperando".to_owned()),
         };
         view.node(format!("estagio-{i}"), FlowNodeRun::new(status))
@@ -205,6 +206,7 @@ pub(super) fn page(s: &Rc<S>, job: &str, number: u64) -> AnyView {
     let progress = ProgressBar::new(share).label(label).percent().tone(match status.as_str() {
         "failed" | "timed_out" => Tone::Danger,
         "succeeded" => Tone::Success,
+        "interrupted" | "cancelled" => Tone::Neutral,
         _ => Tone::Accent,
     });
 
