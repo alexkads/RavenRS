@@ -56,6 +56,7 @@ cargo run -p raven-ci -- --plugins tools/raven-ci/plugins plugins listar
 | `raven-ci plugins listar` | every plugin: version, origin, state (on, off, refused with why) and points |
 | `raven-ci plugins info NOME` | one plugin: dependencies, permissions declared and granted, configuration, memory, audit |
 | `raven-ci plugins ligar NOME` / `desligar NOME` | switches it, and says what else changed |
+| `raven-ci plugins compilar PASTA` | builds a plugin written in Rust with the standard traits (`cargo build --release`, a target of its own removed at the end) and installs it in `plugins/<nome>/`; refuses one that asks for another `raven-ci-plugin-api` |
 | `raven-ci <comando>` | a command a plugin brings, such as `raven-ci hello Ana` |
 | `raven-ci servir [--endereco HOST:PORTA] [--executores N]` | the server: HTTP with sign-in (`/health` open; `/api/ci/jobs`, `build`, `log?after=`, `queue` and the routes of the plugins behind a token), the executors and the triggers of the jobs; it stops on Ctrl+C or `SIGTERM` |
 | `echo SENHA \| raven-ci usuario criar NOME [--papel P]` | someone who may sign in; the first is an administrator, then `Executores` (asks for builds) or `Leitores` (reads) |
@@ -125,6 +126,10 @@ The whole format is in the documentation of `crates/raven-ci-plugin-format-toml`
 [docs/writing-a-plugin.md](docs/writing-a-plugin.md) explains both kinds, the manifest of an
 external plugin, its protocol and how to test it. The example is [plugins/hello](plugins/hello),
 in Python with only its standard library.
+
+A plugin in Rust with the standard traits can also be compiled and installed by the system, with
+no new `raven-ci`: `raven-ci plugins compilar PASTA`. The section "Um plugin Rust compilado pelo
+sistema" of that page explains it, and [plugins/exemplo-rust](plugins/exemplo-rust) is the example.
 
 ## Install it
 

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "examples/*", "tools/*", "tools/*/crates/*"]
+members = ["crates/*", "examples/*", "tools/*", "tools/*/crates/*", "tools/raven-ci/plugins/exemplo-rust"]
 # Applications of their own, opened and built apart: they prove a package works outside this workspace.
 exclude = ["examples/contracts"]
 

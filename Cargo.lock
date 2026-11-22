@@ -6023,6 +6023,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "toml",
  "ureq",
 ]
 
@@ -6046,15 +6047,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "raven-ci-exemplo-rust"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-flows",
+ "serde_json",
+]
+
+[[package]]
 name = "raven-ci-plugin-api"
 version = "0.1.0"
 dependencies = [
+ "base64 0.23.1",
  "raven-ci-plugin-api",
  "ravenrs-app",
  "ravenrs-app-i18n",
  "ravenrs-flows",
  "serde",
  "serde_json",
+ "toml",
 ]
 
 [[package]]
