@@ -11,10 +11,10 @@ use serde_json::{Value, json};
 
 const PASSWORD: &str = "senha-de-teste-do-servidor";
 
-struct Running {
-    child: Child,
-    address: String,
-    dir: PathBuf,
+pub(crate) struct Running {
+    pub(crate) child: Child,
+    pub(crate) address: String,
+    pub(crate) dir: PathBuf,
 }
 
 impl Drop for Running {
@@ -25,13 +25,13 @@ impl Drop for Running {
     }
 }
 
-fn raven(dir: &PathBuf) -> Command {
+pub(crate) fn raven(dir: &PathBuf) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_raven-ci"));
     command.arg("--dados").arg(dir);
     command
 }
 
-fn create_user(dir: &PathBuf, name: &str, role: &str) -> String {
+pub(crate) fn create_user(dir: &PathBuf, name: &str, role: &str) -> String {
     let mut child = raven(dir)
         .args(["usuario", "criar", name, "--papel", role])
         .stdin(Stdio::piped())
@@ -45,8 +45,16 @@ fn create_user(dir: &PathBuf, name: &str, role: &str) -> String {
 }
 
 fn start(name: &str) -> Running {
+    start_with(name, |_| {})
+}
+
+/// The server on a free port, with `prepare` run on its folder of data before it starts (to keep
+/// jobs there, as the configuration as code of O-02 will).
+pub(crate) fn start_with(name: &str, prepare: impl FnOnce(&std::path::Path)) -> Running {
     let dir = std::env::temp_dir().join(format!("raven-ci-servir-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("a folder");
+    prepare(&dir);
     assert!(create_user(&dir, "ana", "Leitores").contains("Administradores"), "the first is an admin");
     let mut child = raven(&dir)
         .args(["servir", "--endereco", "127.0.0.1:0"])
@@ -78,7 +86,7 @@ fn get(running: &Running, path: &str, token: Option<&str>) -> (u16, Value) {
     (status, serde_json::from_str(&text).unwrap_or(Value::Null))
 }
 
-fn token(running: &Running, name: &str) -> String {
+pub(crate) fn token(running: &Running, name: &str) -> String {
     let mut answer = agent()
         .post(&format!("http://{}/api/auth/token", running.address))
         .header("Content-Type", "application/json")

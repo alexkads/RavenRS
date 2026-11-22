@@ -6009,6 +6009,7 @@ dependencies = [
  "raven-ci-core",
  "raven-ci-plugin-api",
  "raven-ci-plugin-api-trigger",
+ "raven-ci-plugin-artifacts",
  "raven-ci-plugin-azure-devops",
  "raven-ci-plugin-credentials",
  "raven-ci-plugin-cron",
@@ -6066,6 +6067,19 @@ dependencies = [
  "raven-ci-plugin-api",
  "ravenrs-app",
  "ravenrs-app-server",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-artifacts"
+version = "0.1.0"
+dependencies = [
+ "glob",
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
  "serde_json",
 ]
 

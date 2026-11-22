@@ -109,8 +109,11 @@ pub fn read(xml: &str) -> Result<Suites, Error> {
                             text: String::new(),
                         };
                         if let Some(case) = &mut case {
-                            case.outcome =
-                                if which == b"failure" { Outcome::Failure(problem) } else { Outcome::Error(problem) };
+                            case.outcome = if which == b"failure" {
+                                Outcome::Failure(problem)
+                            } else {
+                                Outcome::Error(problem)
+                            };
                         }
                         if !empty {
                             into = Target::Problem;
@@ -145,8 +148,9 @@ pub fn read(xml: &str) -> Result<Suites, Error> {
             }
             Event::End(tag) => match tag.local_name().as_ref() {
                 b"failure" | b"error" if into == Target::Problem => {
-                    if let Some(Case { outcome: Outcome::Failure(problem) | Outcome::Error(problem), .. }) =
-                        &mut case
+                    if let Some(Case {
+                        outcome: Outcome::Failure(problem) | Outcome::Error(problem), ..
+                    }) = &mut case
                     {
                         problem.text = std::mem::take(&mut text);
                     }

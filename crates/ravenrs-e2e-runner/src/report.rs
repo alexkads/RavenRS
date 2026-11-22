@@ -375,8 +375,9 @@ impl Report {
             }
             // A build server shows the film next to the suite, as JUnit's attachments say.
             if !report.films.is_empty() {
-                suite = suite
-                    .system_out(report.films.iter().map(|film| format!("[[ATTACHMENT|{film}]]\n")).collect::<String>());
+                suite = suite.system_out(
+                    report.films.iter().map(|film| format!("[[ATTACHMENT|{film}]]\n")).collect::<String>(),
+                );
             }
             suites = suites.suite(suite);
         }

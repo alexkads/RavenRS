@@ -156,6 +156,18 @@ impl BuildScope {
         scopes().lock().unwrap_or_else(PoisonError::into_inner).get(run).cloned()
     }
 
+    /// The scope of the build `number` of `job`, while it runs: what a point called outside a step
+    /// but during the build (a [`Publisher`](crate::Publisher), which gets only the
+    /// [`BuildInfo`](crate::BuildInfo)) uses to write to the build's log.
+    pub fn of_build(job: &str, number: u64) -> Option<Arc<Self>> {
+        scopes()
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .values()
+            .find(|scope| scope.context.job == job && scope.context.number == number)
+            .cloned()
+    }
+
     /// The items that reached the node of `cx`, on its output `main`: what a step that changes
     /// nothing in them gives, so the next step gets them.
     pub fn pass_on(cx: &NodeContext<'_>) -> Ports {

@@ -38,8 +38,8 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
 use raven_ci_plugin_api::{
-    Checkout, CheckoutRequest, CiError, CiPlugin, CommitState, CommitStatus, Host, Permission, Reference, Scm,
-    StatusReporter,
+    Checkout, CheckoutRequest, CiError, CiPlugin, CommitState, CommitStatus, Host, Permission, Reference,
+    Scm, StatusReporter,
 };
 use raven_ci_plugin_git::{IDENTITY, checkout_with, credential};
 use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, Module, ModuleManifest};
@@ -209,7 +209,8 @@ impl Client {
         if let Some(authorization) = &self.authorization {
             request = request.header("Authorization", authorization);
         }
-        let answer = request.call().map_err(|e| CiError::unavailable(format!("o Azure DevOps não respondeu: {e}")))?;
+        let answer =
+            request.call().map_err(|e| CiError::unavailable(format!("o Azure DevOps não respondeu: {e}")))?;
         read(answer)
     }
 
@@ -252,7 +253,10 @@ fn read(mut answer: ureq::http::Response<ureq::Body>) -> Result<Value, CiError> 
 
 impl Azure {
     fn host(&self) -> Result<Arc<dyn Host>, CiError> {
-        lock(&self.state).host.clone().ok_or_else(|| CiError::unavailable("o plugin azure-devops não está ligado"))
+        lock(&self.state)
+            .host
+            .clone()
+            .ok_or_else(|| CiError::unavailable("o plugin azure-devops não está ligado"))
     }
 
     /// The credential `name`, read through the host.
@@ -304,7 +308,9 @@ impl Scm for Azure {
                 let source = pull
                     .get("sourceRefName")
                     .and_then(Value::as_str)
-                    .ok_or_else(|| CiError::failed(format!("o Azure DevOps não disse de onde vem o PR {number}")))?
+                    .ok_or_else(|| {
+                        CiError::failed(format!("o Azure DevOps não disse de onde vem o PR {number}"))
+                    })?
                     .to_owned();
                 log(&format!("o PR {number} vem de {source}"));
                 source
@@ -346,7 +352,8 @@ impl StatusReporter for Azure {
         if let Some(url) = &status.url {
             body["targetUrl"] = json!(url);
         }
-        let pull = settings.get("pull_request").and_then(Value::as_u64).or_else(|| self.pull_of(&status.commit));
+        let pull =
+            settings.get("pull_request").and_then(Value::as_u64).or_else(|| self.pull_of(&status.commit));
         let path = match pull {
             Some(number) => format!("/pullRequests/{number}/statuses"),
             None => format!("/commits/{}/statuses", status.commit),

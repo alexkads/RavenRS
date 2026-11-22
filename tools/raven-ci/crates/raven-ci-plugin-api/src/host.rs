@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use serde_json::Value;
 
-use crate::{CiError, Permission};
+use crate::{AttachmentInfo, CiError, Permission};
 
 /// What the core offers a plugin that is switched on, given to [`CiPlugin::start`](crate::CiPlugin::start).
 ///
@@ -55,4 +55,25 @@ pub trait Host: Send + Sync {
 
     /// Writes a line to the server's log, with the plugin's name.
     fn log(&self, line: &str);
+
+    /// What the builds of `job` left of `kind` (`artifact`, `junit`): of the build `number`, or of
+    /// every build of the job kept when `None`, the newest build first and, in a build, in the
+    /// order they were kept. What a route that downloads artifacts or shows the trend of tests
+    /// reads. A host that keeps no builds answers [`CiError::Unavailable`], as this default does.
+    fn attachments(
+        &self,
+        job: &str,
+        number: Option<u64>,
+        kind: &str,
+    ) -> Result<Vec<AttachmentInfo>, CiError> {
+        let _ = (job, number, kind);
+        Err(CiError::unavailable("este núcleo não dá os anexos dos builds aos plugins"))
+    }
+
+    /// The attachment `id`, with its bytes. [`CiError::Unavailable`] when there is no such
+    /// attachment, its bytes went with the retention, or the host keeps no builds.
+    fn attachment(&self, id: i64) -> Result<(AttachmentInfo, Vec<u8>), CiError> {
+        let _ = id;
+        Err(CiError::unavailable("este núcleo não dá os anexos dos builds aos plugins"))
+    }
 }

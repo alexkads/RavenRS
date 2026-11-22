@@ -216,9 +216,7 @@ pub fn checkout_with(
                     .merge(&head, &format!("Merge do PR {number} em {target} (Raven CI)"))
                     .map_err(said)?
                 {
-                    Merge::Merged(commit) => {
-                        Ok(Checkout { commit, branch: None, merged_onto: Some(onto) })
-                    }
+                    Merge::Merged(commit) => Ok(Checkout { commit, branch: None, merged_onto: Some(onto) }),
                     Merge::Conflict(files) => Err(CiError::failed(format!(
                         "o PR {number} conflita com {target} em: {}",
                         files.join(", ")

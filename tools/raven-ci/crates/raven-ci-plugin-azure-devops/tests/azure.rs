@@ -215,7 +215,8 @@ fn a_pull_request_is_fetched_from_its_source_merged_built_and_told_on_the_pull_r
 
     let basic = Credential::basic("raven-ci", PAT).http_authorization().to_owned();
     let sent = statuses(&devops);
-    let states: Vec<(&str, &str)> = sent.iter().map(|(path, state, ..)| (path.as_str(), state.as_str())).collect();
+    let states: Vec<(&str, &str)> =
+        sent.iter().map(|(path, state, ..)| (path.as_str(), state.as_str())).collect();
     assert_eq!(
         states,
         [("/pullRequests/7/statuses", "pending"), ("/pullRequests/7/statuses", "succeeded")],
@@ -226,7 +227,11 @@ fn a_pull_request_is_fetched_from_its_source_merged_built_and_told_on_the_pull_r
         assert_eq!(body["context"], json!({ "name": "raven-ci", "genre": "raven-ci" }));
     }
     let asked = devops.lock().expect("lock").asked.clone();
-    assert!(asked.iter().any(|(m, p, a, _)| m == "GET" && p.contains("/pullRequests/7?api-version=7.1") && a == &basic));
+    assert!(
+        asked
+            .iter()
+            .any(|(m, p, a, _)| m == "GET" && p.contains("/pullRequests/7?api-version=7.1") && a == &basic)
+    );
     assert_ne!(main, "", "the commit of main");
 }
 
@@ -249,7 +254,12 @@ fn a_branch_is_told_on_its_commit_and_a_pat_refused_says_so() {
     ci.save_job(JobSpec::new("ramo", "toml", pipeline).settings(settings)).expect("the job");
     ci.request_build(BuildRequest::new("ramo", "teste")).expect("asked");
     ci.work_until_idle("e1").expect("runs");
-    assert_eq!(ci.builds("ramo").expect("builds")[0].status, BuildStatus::Succeeded, "{}", texts(&ci, "ramo"));
+    assert_eq!(
+        ci.builds("ramo").expect("builds")[0].status,
+        BuildStatus::Succeeded,
+        "{}",
+        texts(&ci, "ramo")
+    );
     let sent = statuses(&devops);
     let commit_path = format!("/commits/{main}/statuses");
     assert!(sent.iter().all(|(path, ..)| path == &commit_path), "{sent:?}");

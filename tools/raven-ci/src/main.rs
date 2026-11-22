@@ -8,6 +8,8 @@
 //! raven-ci plugins desligar NOME
 //! raven-ci servir [--endereco HOST:PORTA] [--executores N]
 //! echo SENHA | raven-ci usuario criar NOME [--papel PAPEL]
+//! raven-ci rodar JOB [--param NOME=VALOR]... [--esperar]
+//! raven-ci status JOB [NUMERO] | log JOB NUMERO [--seguir] | resumo | evidencia JOB NUMERO PASTA
 //! raven-ci <comando de um plugin> ...
 //! raven-ci --self-test
 //! raven-ci --versao
@@ -19,6 +21,7 @@
 
 mod cli;
 mod plugins;
+mod remote;
 mod self_test;
 mod server;
 mod versao;

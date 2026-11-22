@@ -97,6 +97,29 @@ impl Attachment {
     }
 }
 
+/// An [`Attachment`] the core keeps, as a plugin reads it back through
+/// [`Host::attachments`](crate::Host::attachments): everything but the bytes, which come with
+/// [`Host::attachment`](crate::Host::attachment).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct AttachmentInfo {
+    /// Its id, to read the bytes.
+    pub id: i64,
+    /// The job of the build it is of.
+    pub job: String,
+    /// The number of the build.
+    pub number: u64,
+    /// What kind it is: `artifact`, `junit`.
+    pub kind: String,
+    /// Its name, as a path.
+    pub name: String,
+    /// Its type.
+    pub mime: String,
+    /// Its size in bytes.
+    pub size: u64,
+    /// What a screen shows at a glance.
+    pub summary: Value,
+}
+
 /// A way of taking things from a build when its steps end: artifacts, test results, images.
 ///
 /// **Its role.** What a build leaves is not in the core: each kind of thing comes from a

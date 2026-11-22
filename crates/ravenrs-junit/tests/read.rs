@@ -42,7 +42,9 @@ fn surefire_a_failure_an_error_cdata_and_entities() {
     let suite = &suites.suites[0];
     assert_eq!((suite.name.as_str(), suite.time_ms), ("com.loja.CarrinhoTest", Some(52)));
     assert_eq!(suite.cases.len(), 3);
-    let Outcome::Failure(problem) = &suite.cases[1].outcome else { panic!("a failure: {:?}", suite.cases[1]) };
+    let Outcome::Failure(problem) = &suite.cases[1].outcome else {
+        panic!("a failure: {:?}", suite.cases[1])
+    };
     assert_eq!(problem.kind.as_deref(), Some("org.opentest4j.AssertionFailedError"));
     assert_eq!(problem.message.as_deref(), Some("expected: <90> but was: <100>"));
     assert!(problem.text.contains("CarrinhoTest.java:31"), "{problem:?}");

@@ -197,11 +197,15 @@ impl Ci {
             None => None,
         };
         let secrets = Arc::new(credentials::Either { vault: credentials.clone(), given: options.secrets });
+        let runtime = Arc::new(runtime);
+        // The hosts of plugins read attachments through the store; the blobs are the queue's.
+        let blobs = runtime.clone();
+        store.read_blobs_with(Arc::new(move |blob| blobs.blob(blob).map_err(runtime_error)));
         let registry = Registry::new(store.clone(), plugins_dir, secrets, log.clone());
         Ok(Self {
             store,
             registry,
-            runtime: RwLock::new(Arc::new(runtime)),
+            runtime: RwLock::new(runtime),
             log,
             requests: Mutex::default(),
             temporary,

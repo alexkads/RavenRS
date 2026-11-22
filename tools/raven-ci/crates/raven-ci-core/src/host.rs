@@ -5,7 +5,8 @@ use std::fmt;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use raven_ci_plugin_api::{CiError, Host, Migration, Permission};
+use raven_ci_plugin_api::{AttachmentInfo, CiError, Host, Migration, Permission};
+use ravenrs_flows::BinaryRef;
 use rusqlite::{Connection, params};
 use serde_json::Value;
 
@@ -212,5 +213,24 @@ impl Host for PluginHost {
 
     fn log(&self, line: &str) {
         self.log.write(&format!("[{}] {line}", self.plugin));
+    }
+
+    fn attachments(
+        &self,
+        job: &str,
+        number: Option<u64>,
+        kind: &str,
+    ) -> Result<Vec<AttachmentInfo>, CiError> {
+        crate::model::attachment_infos(&self.store.db(), job, number, kind)
+    }
+
+    fn attachment(&self, id: i64) -> Result<(AttachmentInfo, Vec<u8>), CiError> {
+        let (info, location) = crate::model::attachment_with_blob(&self.store.db(), id)?;
+        let blob = BinaryRef { mime: info.mime.clone(), size: info.size, location };
+        let bytes = self
+            .store
+            .blob(&blob)?
+            .ok_or_else(|| CiError::unavailable(format!("os bytes do anexo {id} já foram apagados")))?;
+        Ok((info, bytes))
     }
 }
