@@ -216,7 +216,7 @@ The widgets are ten crates, and applications see one: `ravenrs-widgets`. `ravenr
 | `counter` | `KeyBar`, `ScanField`: keys always in sight and a field for a scanner, with nothing about shops |
 | `grid/` | `DataGrid`: `query` (pure pipeline), `model`, `view` |
 
-Examples use the public API, among them `feature-center`, every feature of the application framework, and: `hello-world`, `component-gallery` (one demo per component), `report-designer` and `family-finance`, a desktop app on SQLite that also finds what is missing in the framework. The design tokens are defined in [docs/design-system](docs/design-system), and `ravenrs-style` mirrors them value for value.
+Examples use the public API, among them `raven-feature-center`, every feature of the application framework, and: `hello-world`, `component-gallery` (one demo per component), `report-designer` and `family-finance`, a desktop app on SQLite that also finds what is missing in the framework. The design tokens are defined in [docs/design-system](docs/design-system), and `ravenrs-style` mirrors them value for value.
 
 ## 4. The frame pipeline
 

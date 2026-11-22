@@ -2,7 +2,7 @@
 # Builds an example (or a tool, such as the feature center) for the browser into
 # examples/<name>/web/pkg or tools/<name>/web/pkg.
 # Usage: scripts/build-web.sh [example-name] [cargo flags...]   (default: hello-world)
-#        scripts/build-web.sh feature-center --no-default-features --features widgets,playground
+#        scripts/build-web.sh raven-feature-center --no-default-features --features widgets,playground
 # Requires: rustup target add wasm32-unknown-unknown
 #           cargo install wasm-bindgen-cli --version 0.2.130   (must match Cargo.toml)
 # Optional: wasm-opt (binaryen) to shrink the output further.

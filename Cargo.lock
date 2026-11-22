@@ -2360,41 +2360,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b97b65636e5b9ef369943878ac74335ba1c55c1cb6adbf1e2c293c624248d693"
 
 [[package]]
-name = "feature-center"
-version = "0.1.0"
-dependencies = [
- "component-gallery",
- "console_error_panic_hook",
- "image",
- "pollster",
- "ravenrs",
- "ravenrs-app",
- "ravenrs-app-a11y",
- "ravenrs-app-i18n",
- "ravenrs-app-library",
- "ravenrs-app-remote",
- "ravenrs-app-report",
- "ravenrs-app-server",
- "ravenrs-app-sqlite",
- "ravenrs-app-ui",
- "ravenrs-app-update",
- "ravenrs-core",
- "ravenrs-criteria",
- "ravenrs-render",
- "ravenrs-report",
- "ravenrs-report-label",
- "ravenrs-style",
- "ravenrs-widgets",
- "rusqlite",
- "rust_decimal",
- "serde_json",
- "tokio",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
-]
-
-[[package]]
 name = "fiat-crypto"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5908,6 +5873,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "raven-feature-center"
+version = "0.1.1"
+dependencies = [
+ "component-gallery",
+ "console_error_panic_hook",
+ "image",
+ "pollster",
+ "ravenrs",
+ "ravenrs-app",
+ "ravenrs-app-a11y",
+ "ravenrs-app-i18n",
+ "ravenrs-app-library",
+ "ravenrs-app-remote",
+ "ravenrs-app-report",
+ "ravenrs-app-server",
+ "ravenrs-app-sqlite",
+ "ravenrs-app-ui",
+ "ravenrs-app-update",
+ "ravenrs-core",
+ "ravenrs-criteria",
+ "ravenrs-render",
+ "ravenrs-report",
+ "ravenrs-report-label",
+ "ravenrs-style",
+ "ravenrs-widgets",
+ "rusqlite",
+ "rust_decimal",
+ "serde_json",
+ "tokio",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "raven-flows"
 version = "0.1.1"
 dependencies = [
@@ -6685,8 +6685,8 @@ dependencies = [
  "calculator",
  "component-gallery",
  "family-finance",
- "feature-center",
  "pollster",
+ "raven-feature-center",
  "ravenrs-app-ui",
  "ravenrs-core",
  "ravenrs-layout",

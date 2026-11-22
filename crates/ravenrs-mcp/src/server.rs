@@ -338,7 +338,7 @@ impl RavenServer {
     }
 
     #[tool(
-        description = "Where the feature center (tools/feature-center, the showcase every component enters with all its features) shows a component: shown, with its page, the page's id and file, the features it calls and the command and address that open that page alone; or waiting, with the issue its page comes with and the methods it has. With no name, lists them with counts.",
+        description = "Where the feature center (tools/raven-feature-center, the showcase every component enters with all its features) shows a component: shown, with its page, the page's id and file, the features it calls and the command and address that open that page alone; or waiting, with the issue its page comes with and the methods it has. With no name, lists them with counts.",
         annotations(read_only_hint = true, open_world_hint = false)
     )]
     fn feature_center(&self, Parameters(input): Parameters<FeatureCenter>) -> CallToolResult {

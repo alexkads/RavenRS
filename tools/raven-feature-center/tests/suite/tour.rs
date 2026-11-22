@@ -11,8 +11,8 @@ use ravenrs_core::{AccessAction, Role, Size};
 use ravenrs_style::Theme;
 use ravenrs_widgets::Ui;
 
-use feature_center::seed::PASSWORD;
-use feature_center::{memory_database, watched};
+use raven_feature_center::seed::PASSWORD;
+use raven_feature_center::{memory_database, watched};
 
 type Space = Rc<dyn Fn() -> Box<dyn ObjectSpace>>;
 
@@ -220,7 +220,7 @@ fn every_demonstration_opens(center: &mut Center) {
 fn the_same_center_answers_as_a_web_api_with_the_same_permissions() {
     use ravenrs_app_server::ApiRequest;
     use serde_json::json;
-    let mut api = feature_center::api_service(None).expect("it starts");
+    let mut api = raven_feature_center::api_service(None).expect("it starts");
     let mut token_of = |name: &str| {
         let body = json!({ "name": name, "password": PASSWORD });
         let answer = api.handle(ApiRequest::new("POST", "/api/auth/token").json(&body));
@@ -279,7 +279,7 @@ fn every_demonstration_opens_in_sqlite_and_what_was_done_is_there_the_next_time(
     let file = folder.join("centro.db");
     let _ = std::fs::remove_file(&file);
     let open = |file: std::path::PathBuf| -> Space {
-        let database = feature_center::sqlite_database(&file).unwrap_or_else(|why| panic!("{why}"));
+        let database = raven_feature_center::sqlite_database(&file).unwrap_or_else(|why| panic!("{why}"));
         Rc::new(move || Box::new(database.space()) as Box<dyn ObjectSpace>)
     };
     let mut center = Center::over(open(file.clone()), "ana");
@@ -652,7 +652,7 @@ fn the_model_editor_changes_a_caption_for_the_administrator_only() {
 }
 
 /// Draws a list in each theme, to look at a change on the real screens:
-/// `FC_SCREENSHOTS=folder cargo test -p feature-center --test tour draw_the_lists`.
+/// `FC_SCREENSHOTS=folder cargo test -p raven-feature-center --test tour draw_the_lists`.
 #[test]
 fn draw_the_lists() {
     use ravenrs_render::{GpuContext, Renderer, wgpu};
@@ -753,7 +753,7 @@ impl Counter {
     fn open(change: impl FnOnce(ravenrs_app_ui::App) -> ravenrs_app_ui::App) -> Self {
         let session = Rc::new(RefCell::new(None));
         let keep = session.clone();
-        let app = change(feature_center::actions::counter_app())
+        let app = change(raven_feature_center::actions::counter_app())
             .with_session(move |seen| *keep.borrow_mut() = Some(seen.clone()));
         let mut ui = Ui::new(app.build().expect("it puts together"), Theme::raven_dark());
         ui.set_viewport(Size::new(1200.0, 800.0), 1.0);
@@ -858,7 +858,7 @@ fn alt_and_a_letter_adds_up_in_the_background_with_no_cent_lost() {
 #[test]
 fn a_decimal_field_keeps_what_it_was_given() {
     use ravenrs_app::{BusinessObject, FieldValue};
-    let info = feature_center::model::CounterProduct::entity_info();
+    let info = raven_feature_center::model::CounterProduct::entity_info();
     let price = info.fields.iter().find(|field| field.name == "price").expect("the field");
     assert!(matches!(price.kind, ravenrs_app::FieldKind::Decimal(_)));
     let exact: rust_decimal::Decimal = "0.30".parse().expect("a number");
@@ -880,7 +880,7 @@ fn the_keys_can_be_listed_and_the_window_locked() {
     counter.type_in("0000");
     counter.key(ravenrs_core::Key::Enter);
     assert!(counter.says("Caixa bloqueado"), "a wrong one stays locked");
-    counter.type_in(feature_center::actions::COUNTER_PIN);
+    counter.type_in(raven_feature_center::actions::COUNTER_PIN);
     counter.key(ravenrs_core::Key::Enter);
     assert!(counter.says("Próximo número"), "the right one gets back");
 }
@@ -908,7 +908,7 @@ fn stored_report(c: &Center, name: &str) -> (Object, ravenrs_report::Report) {
 #[test]
 fn labels_go_in_columns_with_a_mark_for_each_code_and_turn_into_printer_language() {
     let c = Center::memory("ana");
-    let (record, report) = stored_report(&c, feature_center::seed::LABELS_REPORT);
+    let (record, report) = stored_report(&c, raven_feature_center::seed::LABELS_REPORT);
     assert!(report.columns.as_ref().is_some_and(|columns| columns.count > 1), "columns on a sheet");
     let mut product = (c.space)().find("EditorsDemo", &Value::Number(1.0)).expect("reads").expect("there");
     product.set("gtin", "7891000100103".to_owned());
@@ -929,7 +929,7 @@ fn labels_go_in_columns_with_a_mark_for_each_code_and_turn_into_printer_language
 #[test]
 fn a_receipt_is_one_long_page_with_its_printer_and_commands_in_place() {
     let mut c = Center::memory("ana");
-    let (record, report) = stored_report(&c, feature_center::seed::RECEIPT_REPORT);
+    let (record, report) = stored_report(&c, raven_feature_center::seed::RECEIPT_REPORT);
     assert!(report.continuous);
     assert_eq!(report.printer.as_ref().map(|printer| printer.language.as_str()), Some("ESC/POS"));
     let rows = (c.space)().query("EditableList", &Query::all()).expect("reads");
@@ -1129,9 +1129,9 @@ impl ravenrs_app_remote::Transport for AtOnce {
 
 #[test]
 fn over_a_server_the_counter_window_has_its_control_too() {
-    let service = Rc::new(RefCell::new(feature_center::api_service(None).expect("it starts")));
+    let service = Rc::new(RefCell::new(raven_feature_center::api_service(None).expect("it starts")));
     let client = ravenrs_app_remote::RemoteClient::new("http://centro", AtOnce(service));
-    let mut ui = Ui::new(feature_center::remote_over(client).expect("it opens"), Theme::raven_dark());
+    let mut ui = Ui::new(raven_feature_center::remote_over(client).expect("it opens"), Theme::raven_dark());
     ui.set_viewport(Size::new(1600.0, 1200.0), 1.0);
     let mut c = Window(ui);
     c.type_into("Nome", "ana");
@@ -1336,7 +1336,7 @@ fn the_cables_show_eight_uses_and_plug_in_each() {
     let mut c = Center::memory("ana");
     c.press("Cabos");
     for (name, cables) in
-        feature_center::widgets::graficos::cabos::USES.iter().zip([2, 3, 2, 1, 4, 3, 0, 1, 1])
+        raven_feature_center::widgets::graficos::cabos::USES.iter().zip([2, 3, 2, 1, 4, 3, 0, 1, 1])
     {
         c.activate(name);
         assert_eq!(c.ui.cables().ids().len(), cables, "{name}: {:?}", c.texts());
@@ -1347,7 +1347,7 @@ fn the_cables_show_eight_uses_and_plug_in_each() {
 fn the_patch_panel_turns_around_retracts_pairs_and_checks() {
     let mut c = Center::memory("ana");
     c.press("Painel de tomadas");
-    for (name, cables) in feature_center::widgets::graficos::painel::USES.iter().zip([1, 0, 0]) {
+    for (name, cables) in raven_feature_center::widgets::graficos::painel::USES.iter().zip([1, 0, 0]) {
         c.activate(name);
         assert_eq!(c.ui.cables().ids().len(), cables, "{name}: {:?}", c.texts());
     }
@@ -1361,7 +1361,7 @@ fn the_patch_panel_turns_around_retracts_pairs_and_checks() {
 
 #[test]
 fn the_dock_refuses_to_close_unsaved_work_keeps_its_arrangement_and_takes_three_uses() {
-    use feature_center::widgets::doca::area::{UNSAVED, USES};
+    use raven_feature_center::widgets::doca::area::{UNSAVED, USES};
     let mut c = Center::memory("ana");
     c.press("Doca");
     assert!(c.says("Editor de código"), "the label: {:?}", c.texts());
@@ -1489,7 +1489,7 @@ fn text_shows_the_type_scale_and_keeps_truncated_and_reactive_content_accessible
         assert!(c.has_name(name), "{name}: {:?}", c.texts());
     }
     assert!(
-        c.has_name(feature_center::widgets::basicos::texto::LONG),
+        c.has_name(raven_feature_center::widgets::basicos::texto::LONG),
         "truncation preserves the accessible name"
     );
     let tree = c.ui.access_tree();
@@ -1523,9 +1523,9 @@ fn text_shows_the_type_scale_and_keeps_truncated_and_reactive_content_accessible
     let right = glyphs("À direita")[0].glyphs[0].x;
     assert!(left < center && center < right, "the three alignments move the painted text");
     let visible: usize =
-        glyphs(feature_center::widgets::basicos::texto::LONG).iter().map(|run| run.glyphs.len()).sum();
+        glyphs(raven_feature_center::widgets::basicos::texto::LONG).iter().map(|run| run.glyphs.len()).sum();
     assert!(
-        visible > 0 && visible < feature_center::widgets::basicos::texto::LONG.chars().count() / 2,
+        visible > 0 && visible < raven_feature_center::widgets::basicos::texto::LONG.chars().count() / 2,
         "truncation limits the painted line, not the accessible text"
     );
     assert!(c.says("Vinculado: 0") && c.says("Calculado: 0"));

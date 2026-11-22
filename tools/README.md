@@ -26,7 +26,7 @@ The tools of RavenRS: apps that people install and use to build with RavenRS, ma
 | Tool | What it does |
 |---|---|
 | [RavenComponentBook](raven-component-book) (RCB) | The stories of every component, as Storybook keeps them, measured from what RavenRS paints and exported as JSON and as the design system of Claude Design |
-| [Raven Centro de Recursos](feature-center) | Every public component and every feature of the application framework, one small demonstration each, with a tour; the showcase every component change goes into |
+| [Raven Feature Center](raven-feature-center) (RFC) | Every public component and every feature of the application framework, one small demonstration each, with a tour; the showcase every component change goes into |
 | [Raven Test Studio](raven-test-studio) (RTS) | End-to-end tests of RavenRS apps as flows of blocks, reported to a person or to the AI that asked; it tests itself |
 
 ## Install one
