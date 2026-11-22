@@ -230,6 +230,11 @@ impl AgentSite {
         self.outbox.close();
     }
 
+    /// Writes `text` to the build's log, as the core.
+    pub fn log_line(&self, text: &str) {
+        self.log.line("", text);
+    }
+
     /// Cancels its steps, saying `reason`: someone asked on the server, or a limit passed.
     pub fn cancel_steps(&self, reason: &str) {
         if !self.token.is_cancelled() {

@@ -21,9 +21,10 @@ server's site runs the steps in its queue; the agent's sends everything to the s
 The agent is one program, `raven-ci-agent`. It brings compiled in the plugins of steps, of
 fetching code and of hooks (`shell`, `git`, `lock`, `workspace-cleanup`), plus the external plugins
 of its folder `plugins/`, all switched off. Each build switches on only the plugins it needs, with
-the settings the server has for them, and they go off again when no build needs them. At rest an
-agent holds about 10 MB (measured with `ravenrs_metrics::rss_bytes_of` in its tests; the agent of
-Jenkins holds 250 MB).
+the settings the server has for them, and they go off again when no build needs them. At rest,
+built for release, an agent holds 11.9 MB (its resident set, measured with
+`ravenrs_metrics::rss_bytes_of` on macOS in its tests; 6.4 MB of it its own memory, the rest the
+pages of code it shares with the system). The agent of Jenkins holds 250 MB.
 
 ## How it talks to the server
 

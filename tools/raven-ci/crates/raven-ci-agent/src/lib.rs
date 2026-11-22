@@ -155,6 +155,7 @@ struct Agent {
     running: Mutex<HashMap<String, Arc<AgentSite>>>,
     /// The folders of builds a life before left, by run: given back or forgotten.
     left: Mutex<HashMap<String, PathBuf>>,
+    watching: Arc<limits::Watching>,
     doorbell: Arc<Doorbell>,
     stopping: Arc<AtomicBool>,
 }
@@ -316,8 +317,11 @@ impl Agent {
             environment,
         ));
         self.running.lock().unwrap_or_else(PoisonError::into_inner).insert(run.clone(), site.clone());
-        let watch =
-            self.config.limits.watch(&self.ci.workspace(&task.order.job, task.order.number), site.clone());
+        let watch = self.config.limits.watch(
+            &self.ci.workspace(&task.order.job, task.order.number),
+            site.clone(),
+            &self.watching,
+        );
         let order = &task.order;
         say(&self.config.name, &format!("{} #{}", order.job, order.number));
         match self.plugins.take(&task.plugins) {
@@ -381,6 +385,7 @@ pub fn run(config: Config, stopping: Arc<AtomicBool>) -> Result<(), String> {
         plugins,
         running: Mutex::default(),
         left: Mutex::new(left_behind(&ci_workspaces)),
+        watching: Arc::default(),
         doorbell: Arc::new(Doorbell::default()),
         stopping: stopping.clone(),
     });

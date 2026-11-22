@@ -12,7 +12,7 @@ fn main() {
     if args.is_empty() || args.iter().any(|a| a == "--ajuda" || a == "--help") {
         println!(
             "raven-ci-agent --servidor URL --nome NOME [--token T] [--pasta DIR] [--rotulos a,b] [--executores N]\n\
-             [--nucleos N] [--memoria 4G] [--disco 20G]\n\n\
+             [--nucleos N] [--memoria 4G] [--disco 20G] [--disco-livre 5G] [--vigia-ms 2000]\n\n\
              O token de uso único também vem em {}.",
             raven_ci_agent::TOKEN_VAR
         );

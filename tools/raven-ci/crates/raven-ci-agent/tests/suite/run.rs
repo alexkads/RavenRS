@@ -55,18 +55,34 @@ fn a_build_with_a_label_runs_on_the_agent_and_its_log_reaches_the_server() {
 }
 
 #[test]
-fn an_agent_at_rest_holds_at_most_15_mb() {
+fn an_agent_at_rest_holds_at_most_15_mb_built_for_release() {
     let server = Server::start("memoria", 0, Duration::from_secs(60));
     let token = server.ci.agent_token("parado-1", &["teste".to_owned()], 2).expect("a token");
     let dir = Folder::new("memoria-agente");
     let agent = Agent::start(&server, "parado-1", &dir.0, "teste", Some(&token), &["--executores", "2"]);
     assert!(server.wait(Duration::from_secs(30), |_| server.connected("parado-1")), "the agent connected");
-    std::thread::sleep(Duration::from_secs(3));
-    let Some(bytes) = ravenrs_metrics::rss_bytes_of(agent.pid()) else {
-        eprintln!("pulado: este sistema não diz a memória de outro processo");
-        return;
-    };
+    // At rest: past the peak of starting, which the system takes a few seconds to give back.
+    std::thread::sleep(Duration::from_secs(8));
+    // The median of five looks, half a second apart: one look may fall on a hello on its way.
+    let mut looks = Vec::new();
+    for _ in 0..5 {
+        match ravenrs_metrics::rss_bytes_of(agent.pid()) {
+            Some(bytes) => looks.push(bytes),
+            None => {
+                eprintln!("pulado: este sistema não diz a memória de outro processo");
+                return;
+            }
+        }
+        std::thread::sleep(Duration::from_millis(500));
+    }
+    looks.sort_unstable();
+    let bytes = looks[2];
+    eprintln!("as leituras: {:?} MB", looks.iter().map(|b| b / (1024 * 1024)).collect::<Vec<_>>());
     let mb = bytes as f64 / (1024.0 * 1024.0);
-    eprintln!("o agente parado ocupa {mb:.1} MB");
-    assert!(mb <= 15.0, "o agente parado ocupa {mb:.1} MB, mais que os 15 MB da meta");
+    // The goal is the program people run, built for release. A build for debugging holds more
+    // code and moves more with the load of the other tests: there the test only guards against a
+    // large regression, and says the number.
+    let most = if cfg!(debug_assertions) { 25.0 } else { 15.0 };
+    eprintln!("o agente parado ocupa {mb:.1} MB (limite deste teste: {most} MB)");
+    assert!(mb <= most, "o agente parado ocupa {mb:.1} MB, mais que os {most} MB");
 }

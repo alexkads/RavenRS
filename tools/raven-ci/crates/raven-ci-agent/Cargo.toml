@@ -31,7 +31,7 @@ raven-ci-plugin-workspace = { path = "../raven-ci-plugin-workspace" }
 ravenrs-app-remote = { path = "../../../../crates/ravenrs-app-remote", default-features = false }
 ravenrs-flows.workspace = true
 ravenrs-flows-runtime.workspace = true
-ravenrs-metrics.workspace = true
+ravenrs-metrics = { workspace = true, features = ["disk", "process"] }
 ravenrs-process.workspace = true
 serde.workspace = true
 serde_json.workspace = true

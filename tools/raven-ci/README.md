@@ -88,13 +88,15 @@ moves:
 
 ## Build agents
 
-The server can leave its builds to agents: `raven-ci-agent`, a program of about 10 MB at rest that
+The server can leave its builds to agents: `raven-ci-agent`, a program of about 12 MB at rest that
 connects out to the server (HTTP and SSE, nothing open where it runs), takes builds by a lease of
 the queue and runs them with only the plugins each one needs. A job asks for one with
 `agent = { label = "linux" }`; with no agent connected that has the label, a template brings one up
 (`agent-local` on this machine, as another user; `agent-remote` on another, through SSH). An agent
 that falls comes back and resumes its build; one that does not leaves it interrupted after the
-grace time. See [Build agents](docs/agents.md).
+grace time. Each agent may have limits of cores, memory (a cgroup of its own on Linux, and a watch
+of its processes everywhere) and disk: `--nucleos 4 --memoria 8G --disco 50G`. See
+[Build agents](docs/agents.md).
 
 ```text
 raven-ci agentes token linux-1 --rotulos linux
