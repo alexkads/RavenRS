@@ -35,7 +35,8 @@ impl NodeKind for Say {
             build.log(&step, &format!("{name}={value}"));
         }
         if let Some(file) = cx.parameter("file").and_then(Value::as_str) {
-            std::fs::write(build.context().workspace.join(file), "feito").map_err(|e| NodeError::new(e.to_string()))?;
+            std::fs::write(build.context().workspace.join(file), "feito")
+                .map_err(|e| NodeError::new(e.to_string()))?;
         }
         if cx.parameter("fail").and_then(Value::as_bool) == Some(true) {
             return Err(NodeError::new("falhou, como pedido"));
@@ -78,7 +79,9 @@ impl PipelineFormat for Json {
         let value: Value = serde_json::from_str(text).map_err(|e| vec![FormatError::whole(e.to_string())])?;
         let steps = value["steps"].as_array().cloned().unwrap_or_default();
         let mut pipeline = Pipeline::new(chain(job, &steps), "start");
-        for (when, name) in [(PostWhen::Always, "always"), (PostWhen::Success, "success"), (PostWhen::Failure, "failure")] {
+        for (when, name) in
+            [(PostWhen::Always, "always"), (PostWhen::Success, "success"), (PostWhen::Failure, "failure")]
+        {
             if let Some(steps) = value["post"][name].as_array() {
                 pipeline.post.push(PostSteps { when, flow: chain(job, steps), start: "start".to_owned() });
             }
@@ -88,8 +91,10 @@ impl PipelineFormat for Json {
             pipeline.publishers.push(Use::new(id, id, json!({})));
         }
         if let Some(environment) = value["environment"].as_object() {
-            pipeline.environment =
-                environment.iter().map(|(k, v)| (k.clone(), v.as_str().unwrap_or_default().to_owned())).collect();
+            pipeline.environment = environment
+                .iter()
+                .map(|(k, v)| (k.clone(), v.as_str().unwrap_or_default().to_owned()))
+                .collect();
         }
         pipeline.timeout_ms = value["timeout_ms"].as_u64();
         Ok(pipeline)
@@ -106,7 +111,10 @@ impl Module for Ciclo {
     }
 
     fn manifest(&self) -> ModuleManifest {
-        ModuleManifest::new().version("1.0.0").unwrap_or_default().capability(Permission::Secrets.capability())
+        ModuleManifest::new()
+            .version("1.0.0")
+            .unwrap_or_default()
+            .capability(Permission::Secrets.capability())
     }
 }
 
@@ -164,14 +172,16 @@ fn a_step_writes_lines_to_the_log_of_its_build_in_order_with_its_step() {
         lines.iter().filter(|l| l.step == "s1").map(|l| (l.step.as_str(), l.text.as_str())).collect();
     assert_eq!(of_step, [("s1", "um"), ("s1", "dois"), ("s1", "três")]);
     let after = lines.iter().find(|l| l.text == "dois").expect("dois").seq;
-    let rest: Vec<String> = ci.build_log("site", n, after).expect("log").into_iter().map(|l| l.text).collect();
+    let rest: Vec<String> =
+        ci.build_log("site", n, after).expect("log").into_iter().map(|l| l.text).collect();
     assert_eq!(rest.first().map(String::as_str), Some("três"), "reading after a line gives what came next");
 }
 
 #[test]
 fn a_secret_a_plugin_read_is_hidden_in_the_log_kept() {
     let Setup { ci, .. } = setup();
-    ci.save_job(job("site", json!({ "steps": [{ "lines": ["o token é s3cr3t-valor, viu"] }] }))).expect("saved");
+    ci.save_job(job("site", json!({ "steps": [{ "lines": ["o token é s3cr3t-valor, viu"] }] })))
+        .expect("saved");
     let n = ci.request_build(BuildRequest::new("site", "teste")).expect("asked").number;
     ci.work_until_idle("e1").expect("runs");
     let all = texts(&ci, "site", n).join("\n");
@@ -208,7 +218,8 @@ fn the_code_is_fetched_before_the_first_step_and_its_commit_gets_pending_then_th
 fn a_build_whose_code_cannot_be_fetched_fails_before_any_step_saying_why() {
     let Setup { ci, .. } = setup();
     let settings = json!({ "scm": { "id": "svn", "url": "x" } });
-    ci.save_job(job("velho", json!({ "steps": [{ "file": "nunca.txt" }] })).settings(settings)).expect("saved");
+    ci.save_job(job("velho", json!({ "steps": [{ "file": "nunca.txt" }] })).settings(settings))
+        .expect("saved");
     let n = ci.request_build(BuildRequest::new("velho", "teste")).expect("asked").number;
     ci.work_until_idle("e1").expect("runs");
     let build = ci.build("velho", n).expect("build");
@@ -278,8 +289,11 @@ fn the_folder_of_a_build_is_gone_when_it_ends_also_when_it_failed_or_was_cancell
     assert!(wrote.iter().any(|l| l.starts_with("build pasta #1 em ")), "{wrote:?}");
 
     // A job that keeps its folder keeps it.
-    ci.save_job(job("fica", json!({ "steps": [{ "file": "a.txt" }] })).settings(json!({ "workspace": { "keep": true } })))
-        .expect("saved");
+    ci.save_job(
+        job("fica", json!({ "steps": [{ "file": "a.txt" }] }))
+            .settings(json!({ "workspace": { "keep": true } })),
+    )
+    .expect("saved");
     let kept = ci.request_build(BuildRequest::new("fica", "teste")).expect("asked").number;
     ci.work_until_idle("e1").expect("runs");
     assert!(ci.workspace("fica", kept).join("a.txt").exists());
@@ -302,7 +316,9 @@ fn every_step_gets_the_variables_of_its_build_and_of_its_pipeline() {
         "steps": [{ "show": "MODO" }, { "show": "BUILD_NUMBER" }, { "show": "BRANCH_NAME" }, { "show": "E2E" }],
     });
     ci.save_job(job("repo/PR-7", pipeline)).expect("saved");
-    let n = ci.request_build(BuildRequest::new("repo/PR-7", "teste").parameter("E2E", json!(true))).expect("asked");
+    let n = ci
+        .request_build(BuildRequest::new("repo/PR-7", "teste").parameter("E2E", json!(true)))
+        .expect("asked");
     ci.work_until_idle("e1").expect("runs");
     let log = texts(&ci, "repo/PR-7", n.number);
     for wanted in ["MODO=rapido", "BUILD_NUMBER=1", "BRANCH_NAME=PR-7", "E2E=true"] {
@@ -313,8 +329,11 @@ fn every_step_gets_the_variables_of_its_build_and_of_its_pipeline() {
 #[test]
 fn a_rerun_does_what_the_first_build_did_around_its_steps() {
     let Setup { ci, .. } = setup();
-    ci.save_job(job("de-novo", json!({ "steps": [{ "lines": ["x"] }], "post": { "always": [{ "lines": ["post"] }] } })))
-        .expect("saved");
+    ci.save_job(job(
+        "de-novo",
+        json!({ "steps": [{ "lines": ["x"] }], "post": { "always": [{ "lines": ["post"] }] } }),
+    ))
+    .expect("saved");
     let n = ci.request_build(BuildRequest::new("de-novo", "teste")).expect("asked").number;
     ci.work_until_idle("e1").expect("runs");
     let again = ci.rebuild("de-novo", n, None).expect("again");

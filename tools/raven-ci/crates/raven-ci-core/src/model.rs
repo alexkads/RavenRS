@@ -73,12 +73,15 @@ pub(crate) fn prepare(conn: &Connection) -> Result<(), CiError> {
     conn.execute_batch(SCHEMA).map_err(db)?;
     // A file made before the build kept what its pipeline said besides the flow.
     let has_extras: bool = conn
-        .query_row("SELECT COUNT(*) > 0 FROM pragma_table_info('ci_builds') WHERE name = 'extras'", [], |row| {
-            row.get(0)
-        })
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM pragma_table_info('ci_builds') WHERE name = 'extras'",
+            [],
+            |row| row.get(0),
+        )
         .map_err(db)?;
     if !has_extras {
-        conn.execute_batch("ALTER TABLE ci_builds ADD COLUMN extras TEXT NOT NULL DEFAULT '{}'").map_err(db)?;
+        conn.execute_batch("ALTER TABLE ci_builds ADD COLUMN extras TEXT NOT NULL DEFAULT '{}'")
+            .map_err(db)?;
     }
     Ok(())
 }
@@ -624,13 +627,23 @@ pub(crate) fn insert_log(conn: &Connection, job: &str, number: u64, line: &LogLi
     Ok(())
 }
 
-pub(crate) fn log_after(conn: &Connection, job: &str, number: u64, after: u64) -> Result<Vec<LogLine>, CiError> {
+pub(crate) fn log_after(
+    conn: &Connection,
+    job: &str,
+    number: u64,
+    after: u64,
+) -> Result<Vec<LogLine>, CiError> {
     let mut stmt = conn
         .prepare("SELECT seq, step, at_ms, text FROM ci_log WHERE job = ?1 AND number = ?2 AND seq > ?3 ORDER BY seq")
         .map_err(db)?;
     let rows = stmt
         .query_map(params![job, number as i64, after as i64], |row| {
-            Ok(LogLine { seq: row.get::<_, i64>(0)? as u64, step: row.get(1)?, at_ms: row.get(2)?, text: row.get(3)? })
+            Ok(LogLine {
+                seq: row.get::<_, i64>(0)? as u64,
+                step: row.get(1)?,
+                at_ms: row.get(2)?,
+                text: row.get(3)?,
+            })
         })
         .map_err(db)?;
     rows.collect::<Result<_, _>>().map_err(db)

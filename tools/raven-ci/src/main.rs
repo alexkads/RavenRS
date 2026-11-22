@@ -16,6 +16,7 @@
 #![allow(clippy::print_stdout, clippy::print_stderr, reason = "a tool run from the terminal")]
 
 mod cli;
+mod plugins;
 mod self_test;
 mod versao;
 

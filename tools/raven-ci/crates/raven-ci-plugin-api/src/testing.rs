@@ -665,11 +665,7 @@ impl PipelineFormat for FakeLines {
             flow = flow.node(node).connect(&previous, "main", &id, "main");
             previous = id;
         }
-        if errors.is_empty() {
-            Ok(Pipeline::new(flow, "start"))
-        } else {
-            Err(errors)
-        }
+        if errors.is_empty() { Ok(Pipeline::new(flow, "start")) } else { Err(errors) }
     }
 }
 

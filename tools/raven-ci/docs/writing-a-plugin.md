@@ -134,6 +134,57 @@ is told and keeps the audit, and a fake plugin for every point to put next to yo
 `raven-ci-core` (`tools/raven-ci/crates/raven-ci-core/tests/suite`) show a core in memory running
 builds with them.
 
+## A step and its build
+
+A step is a `NodeKind` of `ravenrs-flows`, which knows nothing of builds. What a step of a CI needs
+(the folder the code is in, the log people read while it runs, the variables of the build) the core
+keeps in a `BuildScope`, one per build that runs, and a step finds the scope of its build with
+`BuildScope::of(cx)`:
+
+```rust
+use raven_ci_plugin_api::BuildScope;
+use ravenrs_flows::{NodeContext, NodeError, NodeKind, NodeSpec, Ports};
+
+struct Where;
+
+impl NodeKind for Where {
+    fn spec(&self) -> NodeSpec {
+        NodeSpec::new("where", 1).input("main").output("main")
+    }
+    fn execute(&self, cx: &NodeContext<'_>) -> Result<Ports, NodeError> {
+        let build = BuildScope::of(cx)?;
+        build.log(&cx.node().id, &format!("na pasta {}", build.context().workspace.display()));
+        Ok(BuildScope::pass_on(cx))
+    }
+}
+```
+
+- **`context()`**: the job, the number, the folder (`workspace`) and the run.
+- **`log(step, line)`**: a line in the build's log, kept in the core's file as it comes, with every
+  secret hidden as `****` (the secrets plugins read, and what `hide` was told).
+- **`environment()`**: what the programs of the step get: `JOB_NAME`, `BUILD_NUMBER`,
+  `BRANCH_NAME`, `WORKSPACE`, `GIT_COMMIT` when code was fetched, the parameters of the build and
+  the `environment` of the pipeline.
+- **`at_end(what, undo)`**: something to undo when the build ends, however it ends, after its post
+  steps and publishers: a lock to let go, a container or a pod to remove. The last asked runs
+  first.
+- **`pass_on(cx)`**: the items that reached the step, for the next one. A step that changes
+  nothing in them gives them on, so every step finds the build.
+
+Around the steps the core does the rest of a build's life, in this order: it makes the folder
+(`espacos/<job>/<number>`), fetches the code with the `scm` the job's settings name, sends
+`pending` to each `status` and tells each `notify` that the build started; then the steps run,
+then the `post` steps (`always`, then `success` or `failure`), then the publishers of the pipeline;
+then what `at_end` was asked, the final status, the notices, and the folder is removed (unless
+the job's settings say `workspace.keep`). What fails after the steps goes to the log and does not
+change how the build ended.
+
+A format marks each node with the plugin its kind comes from (`PLUGIN_KEY`), so a pipeline that
+needs a plugin switched off is refused saying "falta o plugin shell" before anything goes to the
+queue. The plugins `shell` (`crates/raven-ci-plugin-shell`) and `format-toml`
+(`crates/raven-ci-plugin-format-toml`) are the first real ones, and the place to look when writing a
+step or a format.
+
 ## A plugin in any language
 
 An external plugin is a program that speaks JSON-RPC 2.0 on its standard input and output, one

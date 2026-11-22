@@ -12,6 +12,8 @@ publish = false
 raven-ci-core = { path = "crates/raven-ci-core" }
 # The fake plugins: the self-test plugs one of each extension point in.
 raven-ci-plugin-api = { path = "crates/raven-ci-plugin-api", features = ["testing"] }
+raven-ci-plugin-format-toml = { path = "crates/raven-ci-plugin-format-toml" }
+raven-ci-plugin-shell = { path = "crates/raven-ci-plugin-shell" }
 ravenrs-app-update.workspace = true
 serde.workspace = true
 serde_json.workspace = true

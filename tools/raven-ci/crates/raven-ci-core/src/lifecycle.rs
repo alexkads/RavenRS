@@ -197,7 +197,12 @@ impl Ci {
 
     /// Runs the build of `row`, which `worker` took from the queue, with everything around its
     /// steps (see the [module](self)).
-    pub(crate) fn run_build(&self, runtime: &Arc<Runtime>, row: &BuildRow, worker: &str) -> Result<(), CiError> {
+    pub(crate) fn run_build(
+        &self,
+        runtime: &Arc<Runtime>,
+        row: &BuildRow,
+        worker: &str,
+    ) -> Result<(), CiError> {
         let settings = self.job(&row.job).map(|job| job.settings).unwrap_or(Value::Null);
         let extras = Extras::from_value(&row.extras);
         let logger = Arc::new(BuildLogger::new(self.store.clone(), &row.job, row.number, self.log.clone())?);
@@ -270,7 +275,8 @@ impl Ci {
         }
         executed?;
 
-        let status = self.build(&row.job, row.number).map(|build| build.status).unwrap_or(BuildStatus::Failed);
+        let status =
+            self.build(&row.job, row.number).map(|build| build.status).unwrap_or(BuildStatus::Failed);
         let passed = status == BuildStatus::Succeeded;
         if status.ended() {
             self.post(&extras, row, passed, &logger);
@@ -288,7 +294,12 @@ impl Ci {
     }
 
     /// Fetches the code the job's settings name; the commit, or `None` when they name no `scm`.
-    fn fetch(&self, settings: &Value, context: &BuildContext, logger: &BuildLogger) -> Result<Option<String>, CiError> {
+    fn fetch(
+        &self,
+        settings: &Value,
+        context: &BuildContext,
+        logger: &BuildLogger,
+    ) -> Result<Option<String>, CiError> {
         let Some(scm) = settings.get("scm") else { return Ok(None) };
         let scm: ScmUse = serde_json::from_value(scm.clone())
             .map_err(|e| CiError::settings("scm", format!("não deu para ler: {e}")))?;
@@ -298,7 +309,9 @@ impl Ci {
             .iter()
             .flat_map(|plugin| plugin.scms())
             .find(|candidate| candidate.id() == scm.id)
-            .ok_or_else(|| CiError::unavailable(format!("falta o plugin {}: o job busca o código com ele", scm.id)))?;
+            .ok_or_else(|| {
+                CiError::unavailable(format!("falta o plugin {}: o job busca o código com ele", scm.id))
+            })?;
         let request = CheckoutRequest {
             url: scm.url,
             reference: scm.reference.unwrap_or_else(|| Reference::Branch(context.head().to_owned())),
@@ -387,18 +400,32 @@ impl Ci {
                 .run();
             for (node, part) in &run.nodes {
                 if part.status == NodeStatus::Failed {
-                    logger.core(&format!("post {when}: o passo {node} falhou: {}", part.error.clone().unwrap_or_default()));
+                    logger.core(&format!(
+                        "post {when}: o passo {node} falhou: {}",
+                        part.error.clone().unwrap_or_default()
+                    ));
                 }
             }
         }
     }
 
     /// Takes from the folder what each publisher of the pipeline finds, and keeps it.
-    fn publish(&self, extras: &Extras, row: &BuildRow, info: &BuildInfo, workspace: &Path, logger: &BuildLogger) {
+    fn publish(
+        &self,
+        extras: &Extras,
+        row: &BuildRow,
+        info: &BuildInfo,
+        workspace: &Path,
+        logger: &BuildLogger,
+    ) {
         let on = self.registry.on();
         for wanted in &extras.publishers {
             let Some(publisher) = on.iter().flat_map(|p| p.publishers()).find(|p| p.id() == wanted.id) else {
-                logger.core(&format!("publicador {}: falta o plugin {}", wanted.id, wanted.plugin.as_deref().unwrap_or(&wanted.id)));
+                logger.core(&format!(
+                    "publicador {}: falta o plugin {}",
+                    wanted.id,
+                    wanted.plugin.as_deref().unwrap_or(&wanted.id)
+                ));
                 continue;
             };
             match publisher.publish(info, &wanted.settings, workspace) {
@@ -433,7 +460,9 @@ fn finish(workspace: &Path, keep: bool, logger: &BuildLogger) {
     }
 }
 
-/// The parameters of a build as the item its flow starts with.
+/// The item a build's flow starts with: its job, and the values of its parameters under
+/// `params`, which an expression of the flow reads as `[params.E2E]`. Not `parameters`: in the
+/// criteria language `[Parameters.X]` is the older spelling of `?X`, a parameter of the query.
 pub(crate) fn start_item(job: &str, parameters: &Map<String, Value>) -> Item {
-    Item::new(json!({ "job": job, "parameters": Value::Object(parameters.clone()) }))
+    Item::new(json!({ "job": job, "params": Value::Object(parameters.clone()) }))
 }

@@ -23,7 +23,8 @@
 //!   program is stopped with every program it started.
 //!
 //! It ends well when the program ends with code 0, and fails with "o comando terminou com o
-//! código N" otherwise. It passes on the items it got, so the next step finds its build.
+//! código N" otherwise: a failure worth trying again when its node has a `retry`, so the run
+//! tries it again. It passes on the items it got, so the next step finds its build.
 //!
 //! # How to use it
 //!
@@ -159,6 +160,11 @@ impl NodeKind for Sh {
         }
         match end {
             End::Code(0) => Ok(BuildScope::pass_on(cx)),
+            // With a retry on its node, a command that failed is worth trying again, as in a
+            // `retry` of a Jenkinsfile; without, it is not.
+            End::Code(code) if cx.node().retry.is_some() => {
+                Err(NodeError::retryable(format!("o comando terminou com o código {code}")))
+            }
             End::Code(code) => Err(NodeError::new(format!("o comando terminou com o código {code}"))),
             End::Signal(signal) => Err(NodeError::new(format!("o comando foi morto pelo sinal {signal}"))),
             End::TimedOut => Err(NodeError::timed_out("o comando passou do prazo e foi parado")),

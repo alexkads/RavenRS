@@ -73,11 +73,15 @@ pub trait BuildLog: Send + Sync {
     fn hide(&self, value: &str);
 }
 
+/// What is undone when a build ends: a lock let go, a container removed.
+type AtEnd = Box<dyn FnOnce() + Send>;
+
 /// What a step finds of the build it runs in. See the [module](self).
 pub struct BuildScope {
     context: BuildContext,
     log: Arc<dyn BuildLog>,
     environment: BTreeMap<String, String>,
+    at_end: Mutex<Vec<(String, AtEnd)>>,
 }
 
 impl std::fmt::Debug for BuildScope {
@@ -98,7 +102,24 @@ fn scopes() -> &'static Mutex<HashMap<String, Arc<BuildScope>>> {
 impl BuildScope {
     /// The scope of the build `context`, writing to `log`, whose steps get `environment`.
     pub fn new(context: BuildContext, log: Arc<dyn BuildLog>, environment: BTreeMap<String, String>) -> Self {
-        Self { context, log, environment }
+        Self { context, log, environment, at_end: Mutex::default() }
+    }
+
+    /// Runs `undo` when the build ends, however it ends (passed, failed, cancelled, out of
+    /// time), after its post steps and publishers: what a step that leaves something behind
+    /// (a lock it holds, a container, a pod) uses so nothing outlives the build. What was asked
+    /// last runs first; `what` goes to the log before it runs.
+    pub fn at_end(&self, what: impl Into<String>, undo: impl FnOnce() + Send + 'static) {
+        self.at_end.lock().unwrap_or_else(PoisonError::into_inner).push((what.into(), Box::new(undo)));
+    }
+
+    /// Runs what [`at_end`](Self::at_end) was asked, last first, saying each in the log.
+    fn end(&self) {
+        let undos = std::mem::take(&mut *self.at_end.lock().unwrap_or_else(PoisonError::into_inner));
+        for (what, undo) in undos.into_iter().rev() {
+            self.log.line("", &format!("no fim do build: {what}"));
+            undo();
+        }
     }
 
     /// Which build it is.
@@ -126,7 +147,8 @@ impl BuildScope {
     /// The scope of the build the node of `cx` runs in.
     pub fn of(cx: &NodeContext<'_>) -> Result<Arc<Self>, NodeError> {
         let run = cx.run_id().ok_or_else(|| NodeError::new("o passo rodou fora de um build"))?;
-        Self::find(run).ok_or_else(|| NodeError::new(format!("o run {run} não é de um build que está rodando")))
+        Self::find(run)
+            .ok_or_else(|| NodeError::new(format!("o run {run} não é de um build que está rodando")))
     }
 
     /// The scope of the build whose run is `run`, while it runs.
@@ -141,7 +163,8 @@ impl BuildScope {
     }
 }
 
-/// Keeps a build's scope while it is held: dropped, the scope goes.
+/// Keeps a build's scope while it is held: dropped, what the steps asked to undo at the end runs
+/// and the scope goes.
 #[derive(Debug)]
 #[must_use = "the scope goes when the guard is dropped"]
 pub struct ScopeGuard {
@@ -150,7 +173,10 @@ pub struct ScopeGuard {
 
 impl Drop for ScopeGuard {
     fn drop(&mut self) {
-        scopes().lock().unwrap_or_else(PoisonError::into_inner).remove(&self.run);
+        let scope = scopes().lock().unwrap_or_else(PoisonError::into_inner).remove(&self.run);
+        if let Some(scope) = scope {
+            scope.end();
+        }
     }
 }
 
@@ -220,7 +246,15 @@ mod tests {
         scope.hide("segredo");
         scope.log("a", "o segredo é segredo");
         assert_eq!(log.texts(), ["o **** é ****"]);
+        let undone = Arc::new(Mutex::new(Vec::new()));
+        for name in ["trava", "contêiner"] {
+            let undone = undone.clone();
+            scope.at_end(format!("soltar {name}"), move || undone.lock().expect("lock").push(name));
+        }
+        drop(scope);
         drop(guard);
         assert!(BuildScope::find("run-scope-test").is_none());
+        assert_eq!(*undone.lock().expect("lock"), ["contêiner", "trava"], "the last asked runs first");
+        assert!(log.texts().contains(&"no fim do build: soltar trava".to_owned()));
     }
 }

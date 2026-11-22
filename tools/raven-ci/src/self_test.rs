@@ -147,7 +147,33 @@ pub fn run() -> Result<String, String> {
     ci.enable_plugin("fake-step").map_err(said)?;
     check(ci.request_build(BuildRequest::new("autoteste/passa", "autoteste")).is_ok(), "o passo não voltou")?;
 
+    let real = builtin_build()?;
     Ok(format!(
-        "Autoteste: {count} plugins falsos, um por ponto de extensão, ligados e usados; um build passou, outro falhou como devia, e um plugin desligou e voltou sem reiniciar"
+        "Autoteste: {count} plugins falsos, um por ponto de extensão, ligados e usados; um build passou, outro falhou como devia, e um plugin desligou e voltou sem reiniciar; {real}"
     ))
+}
+
+/// A build of a `.raven-ci.toml` with a real `sh`, through the plugins compiled in.
+fn builtin_build() -> Result<String, String> {
+    let ci = Ci::in_memory().map_err(said)?;
+    for plugin in crate::plugins::builtin() {
+        ci.add_plugin(plugin);
+    }
+    ci.apply_plugins().map_err(said)?;
+    let pipeline = "[[stages]]\nname = \"Autoteste\"\nsteps = [\"echo raven-ci-autoteste\"]\n";
+    ci.save_job(JobSpec::new("autoteste/toml", "toml", pipeline)).map_err(said)?;
+    let number = ci.request_build(BuildRequest::new("autoteste/toml", "autoteste")).map_err(said)?.number;
+    ci.work_until_idle("autoteste").map_err(said)?;
+    let build = ci.build("autoteste/toml", number).map_err(said)?;
+    check(
+        build.status == BuildStatus::Succeeded,
+        &format!("o build do .raven-ci.toml ficou {:?}: {:?}", build.status, build.reason),
+    )?;
+    let log = ci.build_log("autoteste/toml", number, 0).map_err(said)?;
+    check(
+        log.iter().any(|line| line.text.trim() == "raven-ci-autoteste"),
+        "o sh não escreveu no log do build",
+    )?;
+    check(!ci.workspace("autoteste/toml", number).exists(), "a pasta do build ficou")?;
+    Ok("e um .raven-ci.toml rodou um sh de verdade, com o log e a pasta apagada no fim".to_owned())
 }

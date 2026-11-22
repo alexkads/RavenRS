@@ -6008,6 +6008,8 @@ version = "0.1.0"
 dependencies = [
  "raven-ci-core",
  "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
  "ravenrs-app-update",
  "ravenrs-process",
  "serde",
@@ -6040,6 +6042,19 @@ dependencies = [
  "ravenrs-flows",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-format-toml"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-flows",
+ "serde_json",
+ "toml",
 ]
 
 [[package]]

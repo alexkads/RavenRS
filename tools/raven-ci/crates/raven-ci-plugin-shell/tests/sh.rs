@@ -42,7 +42,8 @@ fn build(environment: &[(&str, &str)]) -> Build {
     let log = Arc::new(MemoryLog::new());
     let environment: BTreeMap<String, String> =
         environment.iter().map(|(k, v)| ((*k).to_owned(), (*v).to_owned())).collect();
-    let context = BuildContext { job: "site".into(), number: 1, workspace: workspace.clone(), run: run.clone() };
+    let context =
+        BuildContext { job: "site".into(), number: 1, workspace: workspace.clone(), run: run.clone() };
     let guard = enter(BuildScope::new(context, log.clone(), environment));
     Build { log, workspace, run, _guard: guard }
 }
@@ -131,7 +132,8 @@ fn a_secret_the_script_prints_is_hidden_in_the_log() {
 #[test]
 fn the_command_runs_in_the_folder_of_the_build_with_its_variables() {
     let build = build(&[("BUILD_NUMBER", "1")]);
-    let run = run_in(&build, sh(&script("pwd; echo \"n=$BUILD_NUMBER\"", "cd & echo n=%BUILD_NUMBER%")), None);
+    let run =
+        run_in(&build, sh(&script("pwd; echo \"n=$BUILD_NUMBER\"", "cd & echo n=%BUILD_NUMBER%")), None);
     assert_eq!(run.nodes["sh"].status, NodeStatus::Done, "{:?}", run.nodes["sh"].error);
     let texts: Vec<String> = build.log.texts().into_iter().map(|t| t.trim().to_owned()).collect();
     let folder = std::fs::canonicalize(&build.workspace).expect("the folder");
@@ -145,8 +147,11 @@ fn the_server_environment_does_not_reach_the_command() {
     // Cargo gives the tests this variable; the server's environment stands for it here.
     let Ok(leaked) = std::env::var("CARGO_MANIFEST_DIR") else { return };
     let build = build(&[]);
-    let run =
-        run_in(&build, sh(&script("echo \"v=${CARGO_MANIFEST_DIR:-}\"", "echo v=%CARGO_MANIFEST_DIR%")), None);
+    let run = run_in(
+        &build,
+        sh(&script("echo \"v=${CARGO_MANIFEST_DIR:-}\"", "echo v=%CARGO_MANIFEST_DIR%")),
+        None,
+    );
     assert_eq!(run.nodes["sh"].status, NodeStatus::Done, "{:?}", run.nodes["sh"].error);
     assert!(!build.log.texts().join("\n").contains(&leaked), "{:?}", build.log.texts());
 }

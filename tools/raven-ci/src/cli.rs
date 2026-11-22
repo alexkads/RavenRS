@@ -61,6 +61,9 @@ impl Invocation {
     /// Runs it, writing to `out`; the exit code.
     pub fn run(&self, out: &mut dyn Write) -> Result<i32, CiError> {
         let ci = Ci::open(&self.data)?;
+        for plugin in crate::plugins::builtin() {
+            ci.add_plugin(plugin);
+        }
         ci.discover_plugins(&self.data.join(PLUGINS_DIR));
         for dir in &self.plugin_dirs {
             ci.discover_plugins(dir);
