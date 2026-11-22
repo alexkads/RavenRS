@@ -18,6 +18,9 @@ pub mod replay;
 pub mod tokens;
 pub mod versao;
 
+/// The scenarios of `tests/e2e/`, which the book gives Raven Test Studio when it serves them.
+pub const SCENARIOS: [&str; 1] = [include_str!("../tests/e2e/abrir.raventest")];
+
 use std::rc::Rc;
 
 use ravenrs::prelude::*;

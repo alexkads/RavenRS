@@ -9,6 +9,11 @@ rust-version.workspace = true
 license.workspace = true
 publish = false
 
+# What Raven Test Studio opens: the name its scenarios open and the binary that serves them.
+[package.metadata.ravenrs.e2e]
+app = "RavenComponentBook"
+binary = "raven-component-book"
+
 [dependencies]
 ravenrs = { workspace = true, features = ["tray", "book"] }
 ravenrs-app-update = { workspace = true, features = ["ui"] }
@@ -24,9 +29,9 @@ swash.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tracing-subscriber.workspace = true
-
-[dev-dependencies]
+# The test channel, closed until the book is opened with --e2e-serve.
 ravenrs-e2e.workspace = true
+ravenrs-e2e-wire = { workspace = true, features = ["serve"] }
 
 [lints]
 workspace = true

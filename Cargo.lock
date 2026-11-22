@@ -6026,6 +6026,7 @@ dependencies = [
  "ravenrs-app-ui",
  "ravenrs-app-update",
  "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "ravenrs-movie",
  "serde_json",
  "swash",
