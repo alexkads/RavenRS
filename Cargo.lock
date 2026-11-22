@@ -6165,6 +6165,7 @@ dependencies = [
 name = "ravenrs-app-remote"
 version = "27.1.28"
 dependencies = [
+ "js-sys",
  "ravenrs-app",
  "ravenrs-app-i18n",
  "ravenrs-app-server",
@@ -6176,6 +6177,7 @@ dependencies = [
  "ravenrs-style",
  "ravenrs-widgets",
  "serde_json",
+ "tokio",
  "ureq",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -6218,6 +6220,7 @@ name = "ravenrs-app-server"
 version = "27.1.28"
 dependencies = [
  "axum",
+ "futures-util",
  "ravenrs-app",
  "ravenrs-app-testkit",
  "ravenrs-criteria",

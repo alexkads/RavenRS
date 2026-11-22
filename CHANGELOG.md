@@ -59,6 +59,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- The live channel: `ravenrs-app-server` streams events as they happen at `GET /api/live/{topic}`, as Server-Sent Events, from a `LiveChannels` the application publishes to from any thread (`open`, `publish`, `ApiOptions::live`). Each topic keeps its last 256 events for whoever comes back with `Last-Event-ID`, and sends `gap` when some are gone. The streams take none of the threads that answer, and end when their token does. `ravenrs-app-remote` listens with `RemoteClient::listen`, on the desktop and in the browser (`LiveFeed`, `SseParser`), coming back from the last event when the stream is lost (#810).
+
 - `hello-world`, `calculator`, `quick-app`, `tutorial-tasks` and `tasks-sqlite` have scenarios of the Raven Test Studio in `tests/e2e/`, served with `--e2e-serve` and played on every `cargo test` by `tests/scenarios.rs` (#702). `Scenario::play` in `ravenrs-e2e-wire` plays a scenario on a session in the same process. The display of the calculator is `display`.
 
 - The application framework is in the testability contract of the RTS (#739): an `ActionButton` is `action:<id>`, whatever its caption says in the language on screen; a `DataGrid` with rows on a server (`DataGrid::remote`, the remote `ListView`) is busy while a page is on its way, and `RemoteRows::is_loading` says so. With this, every type of the feature center keeps the contract or has no screen.

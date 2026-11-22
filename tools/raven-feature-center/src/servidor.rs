@@ -1,11 +1,12 @@
 //! The web API of the center, as `ravenrs_app_server::ApiOptions` sets it up: which pages may call
-//! it from a browser, and how many requests it answers at the same time.
+//! it from a browser, how many requests it answers at the same time, and the live channel it streams
+//! events on.
 //!
 //! The page builds the options the way `src/bin/api.rs` does and shows what the server gets, so the
 //! tour can check each choice. Desktop only: the server does not run in a browser.
 
 use ravenrs::prelude::*;
-use ravenrs_app_server::ApiOptions;
+use ravenrs_app_server::{ApiOptions, LiveChannels};
 
 /// The control registered in the center.
 pub const ID: &str = "ApiOptionsDemo";
@@ -13,13 +14,26 @@ pub const ID: &str = "ApiOptionsDemo";
 pub const PAGE: &str = "API web";
 /// How many threads answer the center's API when it keeps its records in a file.
 pub const WORKERS_WITH_A_FILE: usize = 4;
+/// The topic of the live channel the center opens.
+pub const TOPIC: &str = "avisos";
+
+/// The center's live channel, with its one topic open.
+pub fn channels() -> LiveChannels {
+    let channels = LiveChannels::new();
+    channels.open(TOPIC);
+    channels
+}
 
 /// The options as `src/bin/api.rs` builds them, from what the page has.
-pub fn options(origins: &[String], workers: i32) -> ApiOptions {
+pub fn options(origins: &[String], workers: i32, live: Option<&LiveChannels>) -> ApiOptions {
     let threads = usize::try_from(workers).unwrap_or(0);
-    origins
+    let options = origins
         .iter()
-        .fold(ApiOptions::new().workers(threads), |options, origin| options.allow_origin(origin.clone()))
+        .fold(ApiOptions::new().workers(threads), |options, origin| options.allow_origin(origin.clone()));
+    match live {
+        Some(channels) => options.live(channels.clone()),
+        None => options,
+    }
 }
 
 /// Every feature of `ApiOptions` on one page.
@@ -31,6 +45,18 @@ impl View for ApiOptionsPage {
         let origin = cx.use_state(String::new);
         let origins = cx.use_state(Vec::<String>::new);
         let workers = cx.use_state(|| 1_i32);
+        let live = cx.use_state(|| false);
+        let published = cx.use_state(|| 0_u64);
+        let channels = cx.use_state(channels);
+        let (sending, counted) = (channels.clone(), published.clone());
+        let publish = move || {
+            let next = counted.get() + 1;
+            if let Some(id) = sending.get().publish(TOPIC, "aviso", serde_json::json!({ "numero": next })) {
+                counted.set(id);
+            }
+        };
+        let shown_published = published.clone();
+        let (shown_live, shown_channels) = (live.clone(), channels.clone());
         let (typed, kept) = (origin.clone(), origins.clone());
         let allow = move || {
             let text = typed.get().trim().to_owned();
@@ -85,8 +111,27 @@ impl View for ApiOptionsPage {
                 .spacing(8.0)
                 .align(Align::Start),
                 VStack::new((
+                    Text::new("Canal ao vivo").style(TextStyle::Headline),
+                    Text::new(
+                        "O servidor transmite os eventos de cada tópico em /api/live/{tópico}, para quem pode ler                          /api/me. Quem volta depois de cair recebe o que perdeu, a partir do último que ouviu.",
+                    )
+                    .foreground(Semantic::InkMuted),
+                    Toggle::new(live.binding()).label("Ligar o canal ao vivo"),
+                    Button::new("Publicar evento").style(ButtonStyle::Secondary).on_click(publish),
+                    Text::dynamic(move || match shown_published.get() {
+                        0 => format!("Nenhum evento publicado em {TOPIC}."),
+                        id => format!("Último evento publicado em {TOPIC}: #{id}."),
+                    }),
+                ))
+                .spacing(8.0)
+                .align(Align::Start),
+                VStack::new((
                 Text::new("O que o servidor recebe").style(TextStyle::Headline),
-                Text::dynamic(move || format!("{:?}", options(&shown_origins.get(), shown_workers.get()))),
+                Text::dynamic(move || {
+                    let channels = shown_channels.get();
+                    let live = shown_live.get().then_some(&channels);
+                    format!("{:?}", options(&shown_origins.get(), shown_workers.get(), live))
+                }),
                 Text::new("Como abrir").style(TextStyle::Headline),
                 Text::new(format!(
                     "cargo run -p raven-feature-center --bin api -- centro.db abre a API sobre um arquivo, com \
