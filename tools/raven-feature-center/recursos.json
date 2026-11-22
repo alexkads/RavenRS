@@ -37,7 +37,7 @@
 {"crate": "ravenrs-app-report", "tipo": "StoredReportsModule", "pendente": true, "issue": 579, "conhecidos": ["new", "predefined"]},
 {"crate": "ravenrs-app-requests", "tipo": "RequestsModule", "pendente": true, "issue": 579, "conhecidos": ["decide", "declared_entities", "delegate", "delegated_roles", "new", "policy", "roles_of", "steps", "submit", "tasks_for"]},
 {"crate": "ravenrs-app-requests", "tipo": "Step", "pendente": true, "issue": 579, "conhecidos": ["due_in", "new", "when"]},
-{"crate": "ravenrs-app-server", "tipo": "ApiOptions", "pagina": "API web", "recursos": ["allow_origin", "new", "workers"]},
+{"crate": "ravenrs-app-server", "tipo": "ApiOptions", "pagina": "API web", "recursos": ["allow_origin", "live", "new", "workers"]},
 {"crate": "ravenrs-app-server", "tipo": "ApiRequest", "pendente": true, "issue": 579, "conhecidos": ["bearer", "bytes", "client", "header", "json", "new", "query"]},
 {"crate": "ravenrs-app-server", "tipo": "ApiService", "pendente": true, "issue": 579, "conhecidos": ["audit", "authenticator", "endpoint", "handle", "hide", "new", "role_merge", "rule_words", "session_lifetime", "setting", "sign_ins_a_minute", "title", "webhook"]},
 {"crate": "ravenrs-app-server", "tipo": "Webhook", "pendente": true, "issue": 579, "conhecidos": ["new", "secret"]},

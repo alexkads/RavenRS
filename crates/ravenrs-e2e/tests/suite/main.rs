@@ -9,6 +9,7 @@ mod base_rest;
 mod collections;
 mod declared;
 mod find;
+mod imaging_chat;
 mod kit;
 mod reach;
 mod snapshot;

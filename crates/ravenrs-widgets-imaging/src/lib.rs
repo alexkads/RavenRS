@@ -21,6 +21,8 @@ pub mod imaging;
 #[cfg(feature = "lottie")]
 #[doc(hidden)]
 pub mod lottie;
+#[cfg(feature = "testing")]
+pub mod testing;
 
 pub use imaging::{
     BoxHandle, BoxTransform, ColorWheel, CompareMode, CompareSide, CompareView, CompositionGuide,

@@ -304,6 +304,12 @@ impl RemoteRows {
         self.held.borrow().total
     }
 
+    /// Whether a page is still on its way from the server: the grid says it is busy meanwhile,
+    /// and a test waits for it with no `sleep`.
+    pub fn is_loading(&self) -> bool {
+        !self.held.borrow().in_flight.is_empty()
+    }
+
     #[doc(hidden)]
     pub fn error(&self) -> Option<String> {
         self.held.borrow().error.clone()

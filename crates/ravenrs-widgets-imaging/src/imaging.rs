@@ -9,8 +9,8 @@ use std::rc::Rc;
 
 use ravenrs_animation::Spring;
 use ravenrs_core::{
-    Color, CursorIcon, ImageData, ImageQuad, Key, PathElement, PathFill, Point, Quad, Rect, Role, Scene,
-    Size, monotone_slopes,
+    AccessAction, Color, CursorIcon, ImageData, ImageQuad, Key, PathElement, PathFill, Point, Quad, Rect,
+    Role, Scene, Size, monotone_slopes,
 };
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, Observer, State};
@@ -806,6 +806,13 @@ impl View for ColorWheel {
         if self.disabled {
             return node;
         }
+        // Takes a color as `#ff0000`: its hue and saturation, as the wheel shows them.
+        let typed = self.value.clone();
+        cx.on_access(node, &[AccessAction::SetValue], move |_, text| {
+            let Some(chosen) = text.and_then(hue_saturation_of_hex) else { return false };
+            typed.set(chosen);
+            true
+        });
         cx.focusable(node, self.diameter / 2.0);
         cx.cursor(node, CursorIcon::Pointer);
         let (dragged, modifiers) = (self.value.clone(), cx.modifiers());
@@ -2025,4 +2032,27 @@ impl View for Minimap {
         );
         node
     }
+}
+
+/// The hue and saturation of a color written `#rrggbb`, as HSV has them; `None` for anything else.
+fn hue_saturation_of_hex(text: &str) -> Option<HueSaturation> {
+    let hex = text.trim().trim_start_matches('#');
+    if hex.len() != 6 {
+        return None;
+    }
+    let channel = |at: usize| u8::from_str_radix(hex.get(at..at + 2)?, 16).ok().map(|v| f32::from(v) / 255.0);
+    let (r, g, b) = (channel(0)?, channel(2)?, channel(4)?);
+    let (max, min) = (r.max(g).max(b), r.min(g).min(b));
+    let delta = max - min;
+    let hue = if delta == 0.0 {
+        0.0
+    } else if max == r {
+        60.0 * ((g - b) / delta).rem_euclid(6.0)
+    } else if max == g {
+        60.0 * ((b - r) / delta + 2.0)
+    } else {
+        60.0 * ((r - g) / delta + 4.0)
+    };
+    let saturation = if max == 0.0 { 0.0 } else { delta / max };
+    Some(HueSaturation::new(hue, saturation))
 }
