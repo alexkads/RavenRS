@@ -24,6 +24,9 @@ pub enum CodeLanguage {
     /// Rust: keywords, types, strings, numbers, comments, attributes and macros.
     #[default]
     Rust,
+    /// TOML: tables, keys, strings, numbers, booleans and comments, as a `.raven-ci.toml` or a
+    /// `Cargo.toml` (#902).
+    Toml,
 }
 
 /// Something found at a place in the code: what [`CodeEditor::diagnostics`] marks and
@@ -365,6 +368,7 @@ impl View for CodeEditor {
         let highlight: Option<Highlighter> = match self.language {
             CodeLanguage::Plain => None,
             CodeLanguage::Rust => Some(Rc::new(highlight_rust)),
+            CodeLanguage::Toml => Some(Rc::new(highlight_toml)),
         };
         let marks: Vec<LineMark> = self
             .diagnostics
@@ -713,6 +717,89 @@ pub fn offset_of(text: &str, line: usize, column: usize) -> usize {
     text.chars().count()
 }
 
+/// The colored stretches of TOML `text`, by character: tables, keys, strings, numbers, booleans
+/// and comments, in the colors [`highlight_rust`] gives the same kinds of thing.
+fn highlight_toml(text: &str) -> Vec<(usize, usize, Semantic)> {
+    let chars: Vec<char> = text.chars().collect();
+    let mut spans: Vec<(usize, usize, Semantic)> = Vec::new();
+    let mut i = 0;
+    // At the start of a line, or after `{` or `,` in an inline table: a key may come.
+    let mut key_may_come = true;
+    while i < chars.len() {
+        let c = chars[i];
+        let start = i;
+        let semantic = if c == '#' {
+            while i < chars.len() && chars[i] != '\n' {
+                i += 1;
+            }
+            Some(Semantic::InkMuted)
+        } else if c == '"' || c == '\'' {
+            let triple = chars.get(i + 1) == Some(&c) && chars.get(i + 2) == Some(&c);
+            i += if triple { 3 } else { 1 };
+            while i < chars.len() {
+                if triple && chars[i] == c && chars.get(i + 1) == Some(&c) && chars.get(i + 2) == Some(&c) {
+                    i += 3;
+                    break;
+                }
+                if !triple && (chars[i] == c || chars[i] == '\n') {
+                    i += usize::from(chars[i] == c);
+                    break;
+                }
+                i += if c == '"' && chars[i] == '\\' { 2 } else { 1 };
+            }
+            i = i.min(chars.len());
+            key_may_come = false;
+            Some(Semantic::Success)
+        } else if c == '[' && key_may_come {
+            while i < chars.len() && chars[i] != '\n' && chars[i] != '#' {
+                i += 1;
+                if chars[i - 1] == ']' && chars.get(i) != Some(&']') {
+                    break;
+                }
+            }
+            Some(Semantic::Chart4)
+        } else if c.is_ascii_digit()
+            || ((c == '-' || c == '+') && chars.get(i + 1).is_some_and(char::is_ascii_digit))
+        {
+            i += 1;
+            while i < chars.len()
+                && (chars[i].is_ascii_alphanumeric() || matches!(chars[i], '_' | '.' | '-' | ':' | '+'))
+            {
+                i += 1;
+            }
+            Some(Semantic::Chart3)
+        } else if c.is_alphanumeric() || c == '_' || c == '-' {
+            while i < chars.len() && (chars[i].is_alphanumeric() || matches!(chars[i], '_' | '-' | '.')) {
+                i += 1;
+            }
+            let word: String = chars[start..i].iter().collect();
+            if key_may_come {
+                key_may_come = false;
+                Some(Semantic::Chart2)
+            } else if word == "true" || word == "false" {
+                Some(Semantic::FocusRing)
+            } else {
+                None
+            }
+        } else {
+            i += 1;
+            match c {
+                '\n' | '{' | ',' => key_may_come = true,
+                '=' | '[' => key_may_come = false,
+                _ => {}
+            }
+            None
+        };
+        if let Some(semantic) = semantic {
+            match spans.last_mut() {
+                Some((_, end, last)) if *end == start && *last == semantic => *end = i,
+                _ => spans.push((start, i, semantic)),
+            }
+        }
+    }
+    spans
+}
+
 /// The colored stretches of Rust code, as char indices. It reads tokens, not syntax, so
 /// it never fails: unfinished strings and comments color to the end.
 pub fn highlight_rust(text: &str) -> Vec<(usize, usize, Semantic)> {
@@ -792,4 +879,37 @@ pub fn highlight_rust(text: &str) -> Vec<(usize, usize, Semantic)> {
         }
     }
     spans
+}
+
+#[cfg(test)]
+mod toml_tests {
+    use super::*;
+
+    /// The kind each stretch of `text` is colored as, with its text.
+    fn kinds(text: &str) -> Vec<(String, Semantic)> {
+        let chars: Vec<char> = text.chars().collect();
+        highlight_toml(text).into_iter().map(|(a, b, kind)| (chars[a..b].iter().collect(), kind)).collect()
+    }
+
+    #[test]
+    fn toml_colors_tables_keys_strings_numbers_booleans_and_comments() {
+        let found = kinds("# o pipeline\n[[stages]]\nname = \"Testes\"\nretry = 2\nparallel = true\n");
+        assert!(found.contains(&("# o pipeline".to_owned(), Semantic::InkMuted)), "{found:?}");
+        assert!(found.contains(&("[[stages]]".to_owned(), Semantic::Chart4)), "{found:?}");
+        assert!(found.contains(&("name".to_owned(), Semantic::Chart2)), "{found:?}");
+        assert!(found.contains(&("\"Testes\"".to_owned(), Semantic::Success)), "{found:?}");
+        assert!(found.contains(&("2".to_owned(), Semantic::Chart3)), "{found:?}");
+        assert!(found.contains(&("true".to_owned(), Semantic::FocusRing)), "{found:?}");
+    }
+
+    #[test]
+    fn a_hash_inside_a_string_is_not_a_comment_and_inline_tables_have_keys() {
+        let found = kinds("cor = \"#ff0\"\npasso = { sh = \"echo\" }\n");
+        assert!(found.contains(&("\"#ff0\"".to_owned(), Semantic::Success)), "{found:?}");
+        assert!(!found.iter().any(|(_, kind)| *kind == Semantic::InkMuted), "no comment: {found:?}");
+        assert!(
+            found.contains(&("sh".to_owned(), Semantic::Chart2)),
+            "the key of an inline table: {found:?}"
+        );
+    }
 }
