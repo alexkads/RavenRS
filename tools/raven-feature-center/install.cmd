@@ -40,7 +40,7 @@ $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 $Fonte = if ($env:RFC_FONTE) { $env:RFC_FONTE } else { "https://github.com/alexkads/RavenRS/archive/refs/heads/master.tar.gz" }
 $Casa = if ($env:RFC_CASA) { $env:RFC_CASA } else { "$env:USERPROFILE\.raven-feature-center" }
-$Destino = if ($env:RFC_DESTINO) { $env:RFC_DESTINO } else { "$env:LOCALAPPDATA\Programs\RavenCentrodeRecursos" }
+$Destino = if ($env:RFC_DESTINO) { $env:RFC_DESTINO } else { "$env:LOCALAPPDATA\Programs\RavenFeatureCenter" }
 $Alvo = if ($env:RFC_TARGET) { $env:RFC_TARGET } else { "$Casa\target" }
 
 function Correr([scriptblock]$bloco) {
@@ -202,7 +202,7 @@ CARGO_TARGET_DIR="${RFC_TARGET:-$CASA/target}"
 export CARGO_TARGET_DIR
 ( cd "$CODIGO" && RAVEN_FEATURE_CENTER_INSTALLED=1 cargo build --release -p raven-feature-center )
 
-BINARIO="$CARGO_TARGET_DIR/release/feature-center"
+BINARIO="$CARGO_TARGET_DIR/release/raven-feature-center"
 RESPOSTA="$("$BINARIO" --versao 2>/dev/null | head -1 || true)"
 if [ -z "$RESPOSTA" ]; then
   erro "o app novo não abriu (--versao); o instalado continua como estava"
@@ -222,7 +222,7 @@ if [ "$(uname -s)" = Darwin ]; then
   MONTADO="$CASA/$NOME.app"
   rm -rf "${MONTADO:?}"
   mkdir -p "$MONTADO/Contents/MacOS" "$MONTADO/Contents/Resources"
-  cp "$BINARIO" "$MONTADO/Contents/MacOS/feature-center"
+  cp "$BINARIO" "$MONTADO/Contents/MacOS/raven-feature-center"
   cp "$CODIGO/tools/raven-feature-center/assets/icon.icns" "$MONTADO/Contents/Resources/icon.icns"
   # CFBundleVersion changes on every install: that is what makes macOS read the icon again.
   cat > "$MONTADO/Contents/Info.plist" <<PLIST
@@ -282,8 +282,8 @@ PLIST
 else
   DESTINO="${RFC_DESTINO:-$HOME/.local}"
   mkdir -p "$DESTINO/bin" "$DESTINO/share/applications" "$DESTINO/share/icons/hicolor/256x256/apps"
-  cp "$CODIGO/tools/raven-feature-center/assets/icon.png" "$DESTINO/share/icons/hicolor/256x256/apps/feature-center.png"
-  INSTALADO="$DESTINO/bin/feature-center"
+  cp "$CODIGO/tools/raven-feature-center/assets/icon.png" "$DESTINO/share/icons/hicolor/256x256/apps/raven-feature-center.png"
+  INSTALADO="$DESTINO/bin/raven-feature-center"
   # `mv` is atomic on the same disk, so the installed binary is never half written.
   install -m 755 "$BINARIO" "$INSTALADO.novo" \
     || { rm -f "$INSTALADO.novo"; erro "não consegui copiar o app novo; o instalado continua como estava"; exit 1; }
@@ -292,7 +292,7 @@ else
   fi
   mv -f "$INSTALADO.novo" "$INSTALADO" \
     || { rm -f "$INSTALADO.novo"; erro "a troca falhou; o instalado continua como estava"; exit 1; }
-  cat > "$DESTINO/share/applications/feature-center.desktop" <<DESKTOP
+  cat > "$DESTINO/share/applications/raven-feature-center.desktop" <<DESKTOP
 [Desktop Entry]
 Type=Application
 Name=$NOME
