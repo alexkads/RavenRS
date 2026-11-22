@@ -108,8 +108,10 @@ pub type AccessHandler = Rc<dyn Fn(ravenrs_core::AccessAction, Option<&str>) -> 
 /// thread, a request to a remote `ObjectSpace`. Setting it needs no rebuild; the next
 /// accessibility tree reads it. Cloning gives the same signal.
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct BusySignal(std::sync::Arc<std::sync::atomic::AtomicBool>);
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl BusySignal {
     /// A signal that starts free.
     pub fn new() -> Self {

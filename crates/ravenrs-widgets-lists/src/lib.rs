@@ -27,6 +27,6 @@ pub mod tree;
 pub use inspector::{DataInspector, PathStep, SAMPLE, field_path};
 pub use lists::{
     DayMark, DocumentTab, DocumentTabs, FileBrowser, FileEntry, FileSort, FileSortColumn, Filmstrip,
-    FilmstripCell, PagedDocumentView, SortableList, VirtualList, YearView,
+    FilmstripCell, LogBuffer, LogView, PagedDocumentView, SortableList, VirtualList, YearView,
 };
 pub use tree::{TreeNode, TreeView};

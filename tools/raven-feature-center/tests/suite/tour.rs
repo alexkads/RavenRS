@@ -1596,4 +1596,49 @@ fn the_web_api_page_builds_the_options_the_server_gets() {
     }
     assert!(c.says("Pedido: 0. Conta como 1"), "{:?}", c.texts());
     assert!(c.says("workers: 1"), "zero is one: {:?}", c.texts());
+
+    // live: the channel goes to the server, and what is published gets its id.
+    assert!(c.says("live: None"), "{:?}", c.texts());
+    c.activate("Ligar o canal ao vivo");
+    assert!(c.says("topics: [\"avisos\"]"), "{:?}", c.texts());
+    assert!(c.says("Nenhum evento publicado em avisos."), "{:?}", c.texts());
+    c.press("Publicar evento");
+    c.press("Publicar evento");
+    assert!(c.says("Último evento publicado em avisos: #2."), "{:?}", c.texts());
+}
+
+#[test]
+fn the_build_log_shows_colors_folds_its_stages_searches_and_points_at_a_line() {
+    let mut c = Center::memory("ana");
+    c.press("Log de build");
+    assert!(c.says("Checkout"), "the stages: {:?}", c.texts());
+    assert!(c.says("PASS") && c.says("FAIL"), "the lines: {:?}", c.texts());
+    assert!(!c.texts().iter().any(|text| text.contains('\u{1b}')), "no ANSI code shows");
+    assert!(c.says("Log do build 42") || c.has_name("Log do build 42"), "its label: {:?}", c.texts());
+
+    // The search marks the lines that hold it.
+    c.type_into("Buscar no log", "fail");
+    assert!(c.says("1 linhas com o termo"), "{:?}", c.texts());
+
+    // A stage folds and says how much it hides.
+    c.press("Checkout");
+    assert!(c.says("2 linhas dobradas"), "{:?}", c.texts());
+    assert!(!c.says("HEAD is now at"), "its lines are hidden");
+    c.press("Checkout · 2 linhas dobradas");
+    assert!(c.says("HEAD is now at"), "and come back");
+
+    // A line is pointed at by its number.
+    c.press("Apontar a linha 2");
+    assert!(c.says("Linha apontada: 2."), "{:?}", c.texts());
+
+    // A new line comes, and the settings change what shows.
+    c.press("Chegar linha nova");
+    assert!(c.says("nova::linha_1"), "{:?}", c.texts());
+    assert!(c.says("8 linhas no log."), "{:?}", c.texts());
+    c.activate("Números das linhas");
+    assert!(!c.has_name("Apontar a linha 2"), "no numbers");
+    c.activate("Busca");
+    assert!(!c.has_name("Buscar no log") && !c.says("linhas com o termo"), "no search field");
+    c.activate("Seguir o fim");
+    assert!(c.says("Ir para o fim") || c.has_name("Ir para o fim"), "the way back to the end stays");
 }

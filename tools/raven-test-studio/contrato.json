@@ -2230,6 +2230,22 @@
   },
   {
    "crate": "ravenrs-widgets-lists",
+   "tipo": "LogView",
+   "rts": {
+    "ids": [
+     "line:<numero>",
+     "number:<numero>",
+     "section:<numero>"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-lists",
    "tipo": "VirtualList",
    "rts": {
     "ids": [

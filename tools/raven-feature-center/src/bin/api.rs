@@ -13,7 +13,11 @@ fn main() -> std::io::Result<()> {
         // Records in memory belong to one thread; a file is opened again by each.
         let workers = if file.is_some() { raven_feature_center::servidor::WORKERS_WITH_A_FILE } else { 1 };
         let origins: Vec<String> = std::env::var("RAVEN_API_ORIGIN").into_iter().collect();
-        let options = raven_feature_center::servidor::options(&origins, workers as i32);
+        let options = raven_feature_center::servidor::options(
+            &origins,
+            workers as i32,
+            Some(&raven_feature_center::servidor::channels()),
+        );
         ravenrs_app_server::serve_with(listener, options, move || {
             raven_feature_center::api_service(file.as_deref())
         })

@@ -118,6 +118,7 @@ pub fn stories() -> Vec<Meta> {
 
 /// The value of one setting of a story.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ArgValue {
     /// Words, as a label or a placeholder.
     Text(String),
@@ -129,6 +130,7 @@ pub enum ArgValue {
     Choice(String),
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ArgValue {
     /// One of the options of a [`Control::Choice`].
     pub fn choice(name: impl Into<String>) -> Self {
@@ -171,6 +173,7 @@ impl From<f64> for ArgValue {
 
 /// How the book lets a person change a setting.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Control {
     /// A text field.
     Text,
@@ -192,6 +195,7 @@ pub enum Control {
 /// A setting of a component that a story can change: its name, what it does, how it is changed
 /// and its value when a story does not say.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ArgType {
     /// The name, as the builder method it maps to: `label`, `style`, `disabled`.
     pub name: &'static str,
@@ -203,6 +207,7 @@ pub struct ArgType {
     pub default: ArgValue,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ArgType {
     /// Words, changed in a text field.
     pub fn text(name: &'static str, default: &str) -> Self {
@@ -243,8 +248,10 @@ impl ArgType {
 
 /// The values of the settings of a story, by name.
 #[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Args(BTreeMap<String, ArgValue>);
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Args {
     /// No setting changed.
     pub fn new() -> Self {
@@ -307,6 +314,7 @@ pub type Render = Rc<dyn Fn(&Args) -> AnyView>;
 
 /// A named state of a component: the settings it changes over the defaults.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Story {
     /// The name, as the book lists it: Primary, Disabled.
     pub name: &'static str,
@@ -323,6 +331,7 @@ impl std::fmt::Debug for Story {
 
 /// How a component takes space along one axis.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Extent {
     /// Stretches to what its parent gives it.
     Fill,
@@ -332,6 +341,7 @@ pub enum Extent {
     Fixed(f32),
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Extent {
     /// The word the book writes for it: `fill`, `hug` or `fixed`.
     pub fn word(self) -> &'static str {
@@ -347,6 +357,7 @@ impl Extent {
 /// a limit the layout does not show at the widths the book measures. What is left out is read
 /// from the component, laid out in parents of three widths.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Sizing {
     /// Along the width; `None` reads it from the layout.
     pub width: Option<Extent>,
@@ -358,6 +369,7 @@ pub struct Sizing {
     pub max_width: Option<f32>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Sizing {
     /// Nothing declared: everything is read from the layout.
     pub fn new() -> Self {
@@ -391,6 +403,7 @@ impl Sizing {
 
 /// A component in the book: where it sits, what it is, its settings and its stories.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Meta {
     /// Where it sits, family first: `"Actions/Button"`.
     pub title: &'static str,
@@ -415,6 +428,7 @@ impl std::fmt::Debug for Meta {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Meta {
     /// A component at `title` (`"Actions/Button"`), drawn by `render` from its settings.
     pub fn new(title: &'static str, render: impl Fn(&Args) -> AnyView + 'static) -> Self {

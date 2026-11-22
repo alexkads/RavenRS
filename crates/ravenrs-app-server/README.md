@@ -17,4 +17,4 @@ serve(listener, || {
 # }
 ```
 
-See the [application framework guide](../../docs/APP-FRAMEWORK.md) for the routes. It speaks plain HTTP: put it behind something that does TLS before leaving the machine.
+`LiveChannels` with `ApiOptions::live` streams events at `GET /api/live/{topic}`, as Server-Sent Events. See the [application framework guide](../../docs/APP-FRAMEWORK.md) for the routes. It speaks plain HTTP: put it behind something that does TLS before leaving the machine.
