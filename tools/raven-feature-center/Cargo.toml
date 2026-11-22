@@ -34,6 +34,11 @@ widgets = []
 # The examples to edit and run, from the component gallery until #579 brings them here.
 playground = ["dep:component-gallery"]
 
+# How Raven Test Studio (RTS) finds and opens this tool on the test channel (--e2e-serve).
+[package.metadata.ravenrs.e2e]
+app = "Raven Feature Center"
+binary = "raven-feature-center"
+
 [dependencies]
 serde_json.workspace = true
 ravenrs = { workspace = true, features = ["tray"] }
@@ -53,6 +58,9 @@ rust_decimal = { version = "1", default-features = false, features = ["std"], op
 component-gallery = { path = "../../examples/component-gallery", default-features = false, optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# The test channel, closed until the tool is opened with --e2e-serve.
+ravenrs-e2e.workspace = true
+ravenrs-e2e-wire = { workspace = true, features = ["serve"] }
 ravenrs-app-server = { workspace = true, optional = true }
 tokio = { version = "1.54", default-features = false, features = ["net", "rt-multi-thread"], optional = true }
 ravenrs-app-sqlite = { workspace = true, optional = true }

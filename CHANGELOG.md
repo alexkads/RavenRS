@@ -59,6 +59,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- The Raven Feature Center, Raven Code, Raven Movie Editor and Raven Report Designer have scenarios of the Raven Test Studio in `tests/e2e/` and answer it with `--e2e-serve` (#702, fifth lot). Raven Code edits and saves on a sample project of its own (`sample_in`, `e2e_session`; the editor of each file is `editor:<path>`), and Raven Movie Editor saves a chapter into a folder of its own, reopened by its test.
+
 - Raven Finanças has four more scenarios of the Raven Test Studio (an income, an entry with no amount, changing months and paying a bill), and its test in a process of its own opens one app per scenario, as the Studio does. `raven-flows` and `mini-pdv` have scenarios too, `raven-flows` in a folder of its own under the temporary folder with runs done at once (#702, fourth lot).
 
 - `flow-chat-bot`, `flow-design-board`, `flow-whiteboard`, `bpmn-editor` and `dock-workbench` have scenarios of the Raven Test Studio in `tests/e2e/`, served with `--e2e-serve` on data in memory (#702, third lot).

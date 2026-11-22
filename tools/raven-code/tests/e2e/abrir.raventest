@@ -1,0 +1,7 @@
+scenario: Raven Code: editar e salvar um arquivo
+// No projeto de exemplo, numa pasta só desta sessão: troca o texto de src/main.rs e salva tudo.
+open Raven Code                                                     | Abrir o Raven Code
+check #panel:src/main.rs = main.rs                                  | O main.rs abre no editor
+fill #editor:src/main.rs = fn main() { println!("Ola, RTS"); }      | Trocar o texto do main.rs
+click Save all                                                      | Salvar tudo
+check #editor:src/main.rs = fn main() { println!("Ola, RTS"); }     | O editor mostra o texto novo

@@ -25,3 +25,4 @@ fn it_opens_every_way_with_no_window() {
     let said = raven_feature_center::self_test().expect("the self-test");
     assert!(said.contains("4 modos"), "{said}");
 }
+mod scenarios;

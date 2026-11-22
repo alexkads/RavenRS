@@ -18,6 +18,21 @@
 //! in the file and Ctrl+H replaces, Ctrl+Shift+F searches the project, Ctrl+Space suggests,
 //! F12 goes to a definition, and Ctrl+Tab goes back to the panel used before.
 
+/// The scenarios of Raven Test Studio the tool brings, one per file of `tests/e2e/`: the Studio
+/// gets them when it opens the tool with `--e2e-serve`, and the tests play them.
+pub const SCENARIOS: [&str; 1] = [include_str!("../tests/e2e/abrir.raventest")];
+
+/// The editor a test drives: the sample project in a folder of its own under the system's
+/// temporary folder, emptied first, so what a scenario edits and saves is nobody else's.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn e2e_session(name: &str) -> std::io::Result<ravenrs_e2e::E2e> {
+    let folder = std::env::temp_dir().join(format!("raven-code-e2e-{}-{name}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&folder);
+    let project = sample_in(&folder)?;
+    Ok(ravenrs_e2e::E2e::new(RavenCode::new(project), ravenrs::prelude::Theme::raven_dark())
+        .viewport(ravenrs::prelude::Size::new(1440.0, 900.0), 1.0))
+}
+
 pub mod app;
 pub mod cargo;
 pub mod config;
@@ -51,7 +66,13 @@ pub fn self_test() -> Result<String, String> {
 
 /// The sample project, copied into a temporary folder the first time and opened from there.
 pub fn sample() -> io::Result<Project> {
-    let folder = std::env::temp_dir().join("raven-code-sample");
+    sample_in(std::env::temp_dir().join("raven-code-sample"))
+}
+
+/// The sample project, written into `folder` and opened from there: a test gives it a folder of
+/// its own, so what it edits and saves is nobody else's.
+pub fn sample_in(folder: impl Into<PathBuf>) -> io::Result<Project> {
+    let folder = folder.into();
     project::write_sample(&folder)?;
     Project::open(folder)
 }

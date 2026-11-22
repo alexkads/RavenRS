@@ -6010,6 +6010,8 @@ dependencies = [
  "pollster",
  "ravenrs",
  "ravenrs-app-update",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "ravenrs-process",
  "serde_json",
  "tracing-subscriber",
@@ -6051,6 +6053,8 @@ dependencies = [
  "ravenrs-app-update",
  "ravenrs-core",
  "ravenrs-criteria",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "ravenrs-render",
  "ravenrs-report",
  "ravenrs-report-label",
@@ -6090,6 +6094,8 @@ version = "0.1.0"
 dependencies = [
  "ravenrs",
  "ravenrs-app-update",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
 ]
 
 [[package]]
@@ -6100,6 +6106,8 @@ dependencies = [
  "js-sys",
  "ravenrs",
  "ravenrs-app-update",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "ravenrs-report-designer",
  "tracing",
  "tracing-subscriber",

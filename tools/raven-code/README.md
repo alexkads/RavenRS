@@ -39,3 +39,14 @@ From a checkout: `cargo run -p raven-code`.
 ## As a product
 
 It follows [tools/README.md](../README.md): its own version (`Cargo.toml`), the news of each version (`novidades.json`, `historico-de-novidades.json`), the installer made from `crates/ravenrs-app-update/install.cmd.in` (`install.cmd`), `--versao` and `--self-test`, and `tests/suite/`, which runs both on the binary.
+
+## End-to-end tests (Raven Test Studio)
+
+The scenarios of this tool are in `tests/e2e/`, as `.raventest` files the Raven Test Studio reads: on the sample project, written into a folder of its own under the temporary folder (`e2e_session`), it replaces the text of `src/main.rs` and saves all; the test then reads the file on disk. The editor of each file is `editor:<path>`. The tool brings them (`SCENARIOS`), and `tests/suite/scenarios.rs` plays them on every `cargo test`.
+
+```bash
+raven-test-studio --project tools/raven-code --run-all --no-cache --format json --out target/e2e/raven-code
+```
+
+The tool answers the Studio when opened with `--e2e-serve`, with no window; its name on the channel is "Raven Code" (`[package.metadata.ravenrs.e2e]` in `Cargo.toml`).
+

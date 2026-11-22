@@ -8,6 +8,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("{}", raven_code::versao::VERSION);
         return Ok(());
     }
+    // A test tool such as Raven Test Studio drives the editor with no window (`--e2e-serve`), on
+    // the sample project in a folder of its own: nothing the person keeps is opened.
+    if arguments.iter().any(|arg| arg == ravenrs_e2e_wire::SERVE_FLAG) {
+        let hello = ravenrs_e2e_wire::Hello::of("Raven Code").scenarios(raven_code::SCENARIOS);
+        let served = raven_code::e2e_session("canal").and_then(|session| {
+            ravenrs_e2e_wire::serve_filmed(hello, session, ravenrs::movie::ChannelFilm::default())
+        });
+        if let Err(error) = served {
+            eprintln!("o canal de teste parou: {error}");
+            std::process::exit(1);
+        }
+        return Ok(());
+    }
     if arguments.iter().any(|a| a == "--self-test") {
         match raven_code::self_test() {
             Ok(said) => println!("{said}"),

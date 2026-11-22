@@ -97,3 +97,14 @@ The center can also be the window of that server: build it with `RAVEN_API_URL=h
 `tests/suite/tour.rs` goes through all of this, as each of the three people, in memory and in SQLite.
 
 Every component of the library is shown here, with every feature (#579). A component that is new or changes gets its page in the same pull request: the skill `ravenrs-feature-center` says how. `recursos.json` lists each component, the page that shows it and the features it calls. `scripts/feature-center-coverage.py` checks that list against the code, and `scripts/check.sh` runs it. In `tests/suite/accessibility.rs`, `every_demonstration_has_a_step_in_the_tour` checks that every page of the navigation has a step in the tour.
+
+## End-to-end tests (Raven Test Studio)
+
+The scenarios of this tool are in `tests/e2e/`, as `.raventest` files the Raven Test Studio reads: in the showcase, in memory, Ana is filled in at the door; it signs in, goes to the buttons, counts an activation and pins. The test session opens the showcase (`--modo vitrine`), so nothing goes to the SQLite file of the whole center. The tool brings them (`SCENARIOS`), and `tests/suite/scenarios.rs` plays them on every `cargo test`.
+
+```bash
+raven-test-studio --project tools/raven-feature-center --run-all --no-cache --format json --out target/e2e/raven-feature-center
+```
+
+The tool answers the Studio when opened with `--e2e-serve`, with no window; its name on the channel is "Raven Feature Center" (`[package.metadata.ravenrs.e2e]` in `Cargo.toml`).
+

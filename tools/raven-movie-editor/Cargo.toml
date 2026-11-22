@@ -7,7 +7,14 @@ rust-version.workspace = true
 license.workspace = true
 publish = false
 
+# How Raven Test Studio (RTS) finds and opens this tool on the test channel (--e2e-serve).
+[package.metadata.ravenrs.e2e]
+app = "Raven Movie Editor"
+binary = "raven-movie-editor"
+
 [dependencies]
+ravenrs-e2e.workspace = true
+ravenrs-e2e-wire = { workspace = true, features = ["serve"] }
 ravenrs-app-update.workspace = true
 ravenrs = { workspace = true, features = ["tray"] }
 
