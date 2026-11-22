@@ -308,3 +308,192 @@ raven-ci hello Ana
 
 `raven-ci plugins desligar hello` switches it off without touching the folder, and `ligar` brings it
 back.
+
+## Um plugin Rust compilado pelo sistema
+
+A plugin compiled into `raven-ci` only arrives with a new `raven-ci`. The same plugin, unchanged,
+can instead be a program of its own that the server builds and installs:
+
+```bash
+raven-ci plugins compilar caminho/do/meu-plugin
+raven-ci plugins listar
+```
+
+It is still written with the standard traits (`CiPlugin` and its points, as in
+[A plugin in Rust](#a-plugin-in-rust)); only its `main` changes. The server reaches it as an
+external plugin, over the protocol below, so it may crash, hang or leak without taking the server
+down, and it can be added, updated or removed while the server runs. The example is
+[`plugins/exemplo-rust`](../plugins/exemplo-rust): a step, a publisher, a trigger and a pipeline
+format, which the tests of the tool compile with the command.
+
+### The crate
+
+```toml
+[package]
+name = "meu-plugin"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# The version is what `plugins compilar` checks before it builds; `serve` is the main of a plugin.
+raven-ci-plugin-api = { path = "…/RavenRS/tools/raven-ci/crates/raven-ci-plugin-api", version = "0.1", features = ["serve"] }
+ravenrs-app = { path = "…/RavenRS/crates/ravenrs-app" }
+ravenrs-flows = { path = "…/RavenRS/crates/ravenrs-flows" }
+```
+
+```rust
+fn main() {
+    raven_ci_plugin_api::serve(MeuPlugin::default());
+}
+```
+
+`raven-ci-plugin-api` is not on crates.io, so it comes by `path` (a checkout of RavenRS) or by
+`git`. A crate inside the RavenRS checkout is a member of its workspace, as the example is.
+
+The example inherits nothing from the workspace (no `edition.workspace`, no `[lints] workspace`,
+no `workspace = true` dependency): it is a plugin of someone else, and copied out of the repository
+it compiles as it is, once its `path`s point to a checkout of RavenRS or become `git`. It is a
+member of the workspace only so that, inside the repository, its build reuses what the workspace
+already compiled.
+
+### What `plugins compilar` does
+
+1. **Checks the API before building.** It reads the `Cargo.toml`: a crate that asks for a
+   `raven-ci-plugin-api` this server does not accept is refused with both versions, *o plugin pede a
+   raven-ci-plugin-api ^2 (a partir da 2.0.0 e abaixo da 3.0.0), e este Raven CI tem a 0.1.0*, and
+   nothing is built.
+2. **Builds** with `cargo build --release`, with a `CARGO_TARGET_DIR` of its own under the folder of
+   data, removed at the end whether it passed or not. With no `cargo` on the machine, it says so.
+3. **Asks the binary for its `plugin.toml`** with `--manifesto`. `serve` writes it from the
+   `ModuleManifest` (name, version, permissions, requirements) and from the points the plugin
+   offers, with their ids, plus `api`, the version of `raven-ci-plugin-api` it was built with. The
+   points are asked **without `start`**, so a plugin returns them from its constructor, as every
+   plugin of the house does.
+4. **Installs** the binary and the `plugin.toml` in `plugins/<name>/` of the folder of data, each
+   written beside and renamed over the old one. The server finds it there the next time it lists
+   or applies plugins.
+
+When the server starts the program it checks again: the name and version `initialize` answers have
+to be those of the `plugin.toml`, and an `api` it does not accept stops the program.
+
+### What `serve` does
+
+- A thread reads the standard input. Each call of the server runs on a thread of its own, so a
+  call that asks the host, and a host that asks the plugin back, never waits on itself.
+- `initialize` starts the plugin with a `Host` that asks the server (`host/*`): the server checks
+  each permission and keeps the audit, exactly as for a plugin compiled in. A secret read this way
+  is hidden in every log.
+- `step/execute` runs the node with a `BuildScope` of the build it runs in (job, number, folder,
+  variables), so `BuildScope::of(cx)` works as it does in the server; what the step writes to it
+  goes to the log of the build, hidden. `at_end` does not cross the protocol: undo in the step.
+- `trigger/watch` gives the trigger a `Builds` whose `request` and `scan` are `host/request_build`
+  and `host/scan`, which the server answers at any time, not only during a call.
+
+### What the server does with an external plugin that watches jobs
+
+A plugin whose trigger watches a job is never stopped for being idle. When its program falls, the
+server starts it again (at most three times a minute) and sends `trigger/watch` again for every job
+it watched, so a schedule or a poll goes on.
+
+### Every point, over the protocol
+
+Each point is declared in the `plugin.toml` with its ids, so the server knows what a plugin offers
+without starting it; what it has to know before asking (the form of a credential, the method and
+path of a route) is declared there too. A plugin in any language can declare and answer them; `serve`
+does it for a plugin in Rust.
+
+```toml
+[[scms]]
+id = "svn"
+
+[[publishers]]
+id = "relatorio"
+
+[[pipeline_formats]]
+id = "linhas"
+file_names = [".linhas"]
+
+[[routes]]
+method = "POST"
+path = "/hooks/meu"
+public = true
+
+[[credential_kinds]]
+id = "token-meu"
+caption = "Token do Meu"
+fields = [
+  { name = "usuario", kind = "text" },
+  { name = "token", kind = "text", secret = true, required = true },
+]
+
+[[config]]                    # the configuration of the plugin, the same vocabulary
+name = "url"
+kind = "text"
+required = true
+```
+
+The tables of ids alone are `scms`, `branch_sources`, `triggers`, `publishers`, `status_reporters`,
+`notifiers`, `agent_launchers` and `build_hooks`. A field has a `kind` (`text`, `long_text`, `integer`,
+`decimal`, `money`, `boolean`, `date`, `date_time`, `color`, `criteria`, or `enum` with `options =
+[{ code = "a", caption = "A" }]`), and may be `secret`, `required`, have `min`, `max` and a `pattern`:
+the vocabulary `check_settings` understands. A form of `ravenrs-app` with a kind or rule outside it
+(an image, a reference, a rule of criteria) cannot be served, and `--manifesto` says which field.
+
+| Method | Params | Answers |
+|---|---|---|
+| `scm/checkout` | `id`, `request` (url, reference, workspace, depth, credential, merge_onto_target) | the `Checkout`; lines for the build go as `host/build_log` |
+| `branch_source/discover` | `id`, `settings` | the heads: `[{name, kind, commit}]` |
+| `branch_source/file` | `id`, `settings`, `head`, `path` | the text, or `null` |
+| `publisher/publish` | `id`, `build`, `settings`, `workspace` | `[{kind, name, mime, summary, base64}]`, or `file` (a path in `.raven-ci-anexos/` of the workspace, which the server reads and removes) instead of `base64` for big ones |
+| `status/report` | `id`, `status`, `settings` | nothing |
+| `notifier/notify` | `id`, `event`, `settings` | nothing |
+| `credential/hidden` | `id`, `credential` | the values a log hides; the secret fields are hidden as well |
+| `credential/secret` | `id`, `credential` | what a plugin that reads the credential gets |
+| `hook/before` | `id`, `build`, `settings` | nothing, or an error that refuses the build |
+| `hook/after` | `id`, `build`, `status`, `settings` | nothing |
+| `route/handle` | `route` (the path declared), `request` (method, path, query, headers, `body` in base64, actor, roles) | `{status, content_type, body}`, the body in base64 |
+| `trigger/watch` | `id`, `job`, `settings` | nothing, or a settings error the job shows |
+| `trigger/unwatch` | `id`, `job` | nothing |
+| `format/read` | `id`, `job`, `text` | `{pipeline}` (the `FlowDefinition` in JSON, `start`, `parameters` as fields, `environment`, `post`, `publishers`, `timeout_ms`, `keep_builds`, `agent`) or `{errors: [{line, message}]}` |
+| `agent/launch` | `id`, `request` | `{agent, name}`: `agent` is the handle of the two below |
+| `agent/alive` | `id`, `agent` | `true` or `false` |
+| `agent/stop` | `id`, `agent` | nothing |
+| `step/execute` | `kind`, `version`, `node`, `parameters`, `inputs`, `build` (`context` and `environment`, inside a build) | `{outputs}` |
+| `cli/run` | `command`, `args` | `{code, output}` |
+
+What the plugin asks the server, besides `host/log`, `host/settings`, `host/secret` and
+`host/data_dir`:
+
+| Method | Params | Answers | Needs |
+|---|---|---|---|
+| `host/database` | none | the path of its SQLite file | `disk` |
+| `host/granted` | none | the permissions granted, by name | nothing |
+| `host/require` | `permission`, `what` | nothing, or the refusal, which goes to the audit | the permission |
+| `host/build_log` | `call` (the `id` of the call in progress), `step`, `line`; a notification | nothing | nothing |
+| `host/hide` | `call`, `value`; a notification | nothing | nothing |
+| `host/request_build` | `trigger`, `watched` (the job it watches), `request` (a `BuildRequest`) | the number of the build | a job its trigger watches |
+| `host/scan` | `trigger`, `watched`, `job` | what changed, in words | a job its trigger watches |
+| `host/attachments` | `job`, `number` (or `null` for every build kept), `kind` | what the builds left, without the bytes: `[{id, job, number, kind, name, mime, size, summary}]` | nothing |
+| `host/attachment` | `id` | `{info, base64}`: the attachment and its bytes | nothing |
+
+An error carries `data` that says what it is, so it crosses whole: a refusal of the host is still
+*não tem a permissão* on the other side, and a settings error is still the field and the reason.
+
+```json
+{"code":-32000,"message":"a configuração porteiro: sem espaço","data":{"kind":"settings","field":"porteiro","reason":"sem espaço"}}
+```
+
+`kind` is `denied` (with `plugin`, `permission`, `what`), `settings` (`field`, `reason`),
+`unavailable` or `failed` (`what`).
+
+### Compiling faster, and on a busy machine
+
+`raven-ci plugins compilar PASTA --debug` builds in the profile dev: quicker to compile, slower to
+run, for trying a plugin out. The whole environment goes to `cargo`, so `CARGO_BUILD_JOBS=3 raven-ci
+plugins compilar …` keeps a build from taking every core. With `RAVEN_CI_CARGO_TARGET=PASTA`, the
+build uses that folder and keeps it, so the next build of the same plugin only compiles what
+changed; without it, each build has a folder of its own, removed at the end. The tests of the tool
+compile the example with `--debug`, three jobs and a folder kept in the target of the tests.
+
+The API depends on `ravenrs-flows` without its feature `canvas`, and so should a plugin: then no
+drawing (`ravenrs-graphics`) goes into its tree.

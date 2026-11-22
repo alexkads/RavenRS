@@ -23,6 +23,10 @@ raven-ci-plugin-shell = { path = "crates/raven-ci-plugin-shell" }
 raven-ci-plugin-workspace = { path = "crates/raven-ci-plugin-workspace" }
 ravenrs-app-server.workspace = true
 ravenrs-app-update.workspace = true
+# plugins compilar: runs cargo and the plugin it built.
+ravenrs-process.workspace = true
+# plugins compilar: reads the Cargo.toml of the plugin and the plugin.toml it writes.
+toml = { version = "1", default-features = false, features = ["parse", "serde", "std"] }
 # The runtime of the HTTP server, small: two threads.
 tokio = { workspace = true, features = ["rt-multi-thread", "net", "signal", "macros"] }
 serde.workspace = true

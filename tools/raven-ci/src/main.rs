@@ -6,6 +6,7 @@
 //! raven-ci plugins info NOME [--format json]
 //! raven-ci plugins ligar NOME
 //! raven-ci plugins desligar NOME
+//! raven-ci plugins compilar PASTA
 //! raven-ci servir [--endereco HOST:PORTA] [--executores N]
 //! echo SENHA | raven-ci usuario criar NOME [--papel PAPEL]
 //! raven-ci <comando de um plugin> ...
@@ -18,6 +19,7 @@
 #![allow(clippy::print_stdout, clippy::print_stderr, reason = "a tool run from the terminal")]
 
 mod cli;
+mod compilar;
 mod plugins;
 mod self_test;
 mod server;

@@ -14,6 +14,8 @@ pub const USAGE: &str = "uso: raven-ci [--dados PASTA] [--plugins PASTA]… [--f
   plugins info NOME       versão, dependências, permissões, configuração e memória
   plugins ligar NOME      liga o plugin
   plugins desligar NOME   desliga o plugin e os que precisam dele
+  plugins compilar PASTA  compila um plugin em Rust (traits padrão) e o instala
+                          [--debug] no perfil dev, mais rápido de compilar
   servir [--endereco HOST:PORTA] [--executores N]
                           o servidor: HTTP com login, executores e gatilhos
   usuario criar NOME [--papel Executores|Leitores|Administradores]
@@ -56,6 +58,8 @@ impl Invocation {
                 },
                 // What comes after a command belongs to it, flags included.
                 _ if !words.is_empty() && words[0] != "plugins" => words.push(arg.clone()),
+                // The one option of a word of plugins: plugins compilar PASTA --debug.
+                "--debug" if words.first().is_some_and(|w| w == "plugins") => words.push(arg.clone()),
                 flag if flag.starts_with("--") => return Err(format!("opção desconhecida: {flag}")),
                 _ => words.push(arg.clone()),
             }
@@ -128,6 +132,12 @@ impl Invocation {
                         Ok(2)
                     }
                 }
+            }
+            ["plugins", "compilar", folder] => {
+                crate::compilar::run(std::path::Path::new(folder), &self.data, false, out)
+            }
+            ["plugins", "compilar", "--debug", folder] | ["plugins", "compilar", folder, "--debug"] => {
+                crate::compilar::run(std::path::Path::new(folder), &self.data, true, out)
             }
             ["plugins", ..] => {
                 write(out, &format!("{USAGE}\n"))?;
