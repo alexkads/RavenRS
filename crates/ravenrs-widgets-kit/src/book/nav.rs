@@ -3,19 +3,57 @@
 use ravenrs_reactive::State;
 use ravenrs_style::Semantic;
 use ravenrs_widgets_base::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
-use ravenrs_widgets_base::{AnyView, Text};
+use ravenrs_widgets_base::{AnyView, ButtonSize, Text, VStack};
 
 use crate::{Tabs, TabsVariant};
 
-fn tabs(args: &Args) -> AnyView {
-    let tab = State::new(args.number("selected") as usize);
+fn size(args: &Args) -> ButtonSize {
+    match args.choice("size") {
+        "Small" => ButtonSize::Small,
+        "Large" => ButtonSize::Large,
+        _ => ButtonSize::Medium,
+    }
+}
+
+/// The bar the settings describe, before any tab is added.
+fn bar(args: &Args, tab: &State<usize>) -> Tabs {
     let variant =
         if args.choice("variant") == "Segmented" { TabsVariant::Segmented } else { TabsVariant::Underline };
-    let mut tabs = Tabs::new(tab.binding()).variant(variant);
-    for name in args.text("tabs").split(',').map(str::trim).filter(|n| !n.is_empty()) {
-        tabs = tabs.tab(name, Text::new(format!("The content of {name}.")).foreground(Semantic::InkMuted));
+    Tabs::new(tab.binding()).variant(variant).size(size(args)).disabled(args.bool("disabled"))
+}
+
+fn names(args: &Args) -> Vec<String> {
+    args.text("tabs").split(',').map(str::trim).filter(|n| !n.is_empty()).map(String::from).collect()
+}
+
+fn tabs(args: &Args) -> AnyView {
+    let tab = State::new(args.number("selected") as usize);
+    let mut tabs = bar(args, &tab);
+    for name in names(args) {
+        let content = Text::new(format!("The content of {name}.")).foreground(Semantic::InkMuted);
+        tabs = tabs.tab(name, content);
     }
     Box::new(tabs)
+}
+
+/// Tabs added with `item`: the bar alone, for an app that shows what goes with the open
+/// tab somewhere else, such as a toolbar over a list.
+fn bar_only(args: &Args) -> AnyView {
+    let tab = State::new(args.number("selected") as usize);
+    let mut tabs = bar(args, &tab);
+    for name in names(args) {
+        tabs = tabs.item(name);
+    }
+    Box::new(tabs)
+}
+
+/// The three sizes, one bar under the other.
+fn all_sizes(args: &Args) -> AnyView {
+    let bars: Vec<AnyView> = ["Small", "Medium", "Large"]
+        .into_iter()
+        .map(|chosen| bar_only(&args.clone().with("size", ArgValue::choice(chosen))))
+        .collect();
+    Box::new(VStack::new(bars).spacing(16.0))
 }
 
 impl ComponentBook for Tabs {
@@ -28,10 +66,15 @@ impl ComponentBook for Tabs {
             )
             .arg(ArgType::number("selected", 0.0, 0.0, 5.0, 1.0))
             .arg(ArgType::choice("variant", &["Underline", "Segmented"], "Underline"))
+            .arg(ArgType::choice("size", &["Small", "Medium", "Large"], "Medium"))
+            .arg(ArgType::bool("disabled", false).description("The open tab cannot change."))
             .story("Underline", Args::new())
             .story(
                 "Segmented",
                 Args::new().with("variant", ArgValue::choice("Segmented")).with("selected", 1.0),
             )
+            .story_with("All sizes", Args::new(), all_sizes)
+            .story("Disabled", Args::new().with("disabled", true).with("selected", 1.0))
+            .story_with("Tabs without content", Args::new(), bar_only)
     }
 }
