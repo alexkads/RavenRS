@@ -59,6 +59,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `ravenrs-git`, git for RavenRS services over the git installed: shallow `clone`, `fetch` with refspecs, `fetch_pull_request` (`refs/pull/N/head` as `<remote>/pr/N`), `checkout` with no branch, `rev_parse`, `ls_remote`, and `merge`, which names the files of a conflict and undoes it. A `Credential` goes in the child's environment as `http.extraHeader`, never as an argument nor in the remote's address, and every command runs without the user's git configuration and never asks for a password (#817).
+
 - Lists, scheduler, dock and charts are in the testability contract of the RTS (#740): document tabs are `tab:<id>`, the tabs of a `Ribbon` `tab:<title>`, the items of a `SortableList` with a key `item:<key>`, the days of a `YearView` and an `EventCalendar` `day:<yyyy-mm-dd>`, calendar events `event:<id>` and timeline items `item:<id>`. `FileBrowser` and `Filmstrip` keep the `row:<key>` of their list.
 
 - The components of `ravenrs-widgets-kit` are in the testability contract of the RTS (#738): tabs are `tab:<label>` and take `Select`; the items and sections of a `Sidebar` are `item:<label>` and `section:<title>` (sections open and close with `Expand` and `Collapse`); breadcrumbs are `crumb:<label>`, wizard steps `step:<n>`, uploaded files `file:<name>` and the remove buttons of a `TagBox` `remove:<tag>`; `Disclosure`, `TagBox` and `LookupField` open and close with `Expand` and `Collapse`; `TextArea` takes `SetValue`. `IconTile` gets a story with a label; `QuadField` has no screen.

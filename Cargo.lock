@@ -6481,6 +6481,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-git"
+version = "27.1.28"
+dependencies = [
+ "ravenrs-process",
+ "tempfile",
+]
+
+[[package]]
 name = "ravenrs-graphics"
 version = "27.1.28"
 dependencies = [
