@@ -57,6 +57,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- The input controls of `ravenrs-widgets-base` keep the testability contract of the RTS (#737, first lot): `TextField`, `Slider`, `Combobox`, `DatePicker` and `InputOtp` take `SetValue`; `Select`, `Combobox` and `DatePicker` open and close with `Expand` and `Collapse`; the options of `Select`, `Combobox` and `RadioGroup` are `option:<value>` and take `Select`; the days of the calendar are `day:<yyyy-mm-dd>` and take `Select`. `ravenrs-e2e` says so when a component refuses a value or an action.
+
 - The testability contract of the Raven Test Studio is checked: `tools/raven-test-studio/contrato.json` has an entry for each type of the feature center (test ids, actions, driver and scenario, `sem_tela`, or pending with its issue), and `scripts/rts-coverage.py`, in `check.sh`, refuses a type with none, a test id numbered by position and an action the code and the contract disagree on. The Studio's run log has the ids `log:N` (#736).
 
 - Accessible actions `SetValue`, `Expand`, `Collapse`, `Select`, `ScrollIntoView`, `ShowMenu` and `Dismiss`, declared with `BuildCx::on_access`, and `AccessNode::busy`, set with `BuildCx::busy` or `busy_while` and a `BusySignal` for work away from the `Ui`. AccessKit gets them as themselves (Expand and Collapse are no longer a click) and the browser gets `aria-busy`. `ravenrs-e2e` has `set_value`, `show_menu`, `dismiss` and `perform`, waits for a busy node before acting, and `.raventest` reads `set-value`, `show-menu` and `dismiss`. `Chat` is busy while it waits for an answer (#735).

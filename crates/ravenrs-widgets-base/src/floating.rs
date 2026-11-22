@@ -8,7 +8,7 @@ use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 use ravenrs_animation::Transition;
-use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Key, Point, Role, Size};
+use ravenrs_core::{AccessAction, Border, Color, CursorIcon, Effect, Insets, Key, Point, Role, Size};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
@@ -1325,6 +1325,27 @@ impl View for Combobox {
                 h.set(0);
                 o.update(|x| *x = !*x);
             }),
+        );
+        // Opened and closed as by a click, and given a value by the text of one of its options.
+        let (shown, options, chosen) = (open.clone(), self.options.clone(), self.selected.clone());
+        cx.on_access(
+            node,
+            &[AccessAction::Expand, AccessAction::Collapse, AccessAction::SetValue],
+            move |action, text| match action {
+                AccessAction::SetValue => {
+                    let wanted = text.unwrap_or_default().trim().to_lowercase();
+                    let Some(i) = options.iter().position(|o| o.to_lowercase() == wanted) else {
+                        return false;
+                    };
+                    chosen.set(Some(i));
+                    shown.set(false);
+                    true
+                }
+                _ => {
+                    shown.set(action == AccessAction::Expand);
+                    true
+                }
+            },
         );
         cx.focusable(node, theme.radii.md);
         cx.cursor(node, CursorIcon::Pointer);

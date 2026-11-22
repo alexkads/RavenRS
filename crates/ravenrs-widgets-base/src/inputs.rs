@@ -3,7 +3,8 @@
 use std::rc::Rc;
 
 use ravenrs_core::{
-    Border, Color, CursorIcon, Effect, Insets, Key, LinearGradient, Point, Quad, Rect, Role, Scene, Shadow,
+    AccessAction, Border, Color, CursorIcon, Effect, Insets, Key, LinearGradient, Point, Quad, Rect, Role,
+    Scene, Shadow,
 };
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::Binding;
@@ -44,6 +45,11 @@ impl ChoiceOption {
     fn wire(&self, cx: &mut BuildCx<'_>, node: NodeId, radius: f32) {
         let (selected, index) = (self.selected.clone(), self.index());
         make_interactive(cx, node, radius, Rc::new(move || selected.set(index)));
+        let chosen = self.selected.clone();
+        cx.on_access(node, &[AccessAction::Select], move |_, _| {
+            chosen.set(index);
+            true
+        });
         let selected = self.selected.clone();
         self.roving.wire(cx, node, Some(Rc::new(move |i| selected.set(i))));
     }
@@ -354,6 +360,8 @@ impl View for RadioOption {
         let label = util::label(cx, &self.label, TextStyle::Body, None, theme.color(Semantic::Ink));
         let node = row(cx, &[circle, label]);
         cx.semantics(node, Semantics::new(Role::RadioButton).selected(on).toggled(on));
+        // Found by its label, which stays with it when the options change order.
+        cx.test_id(node, &format!("option:{}", self.label));
         self.choice.wire(cx, node, 6.0);
         node
     }
@@ -639,6 +647,15 @@ impl View for SliderTrack<'_> {
         }
         cx.semantics(node, semantics);
         let snap = move |v: f32| ((v - min) / step).round() * step + min;
+        // Takes a number as its value, on its steps and inside its range, as a test asks.
+        let typed = slider.value.clone();
+        cx.on_access(node, &[AccessAction::SetValue], move |_, text| {
+            let Some(v) = text.and_then(|t| t.trim().replace(',', ".").parse::<f32>().ok()) else {
+                return false;
+            };
+            typed.set(snap(v.clamp(min, max)).clamp(min, max));
+            true
+        });
         let drag_value = slider.value.clone();
         cx.on_drag(
             node,

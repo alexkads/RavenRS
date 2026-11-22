@@ -524,8 +524,10 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "Checkbox",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
@@ -564,8 +566,16 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "Combobox",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "option:<valor>"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse",
+     "SetValue",
+     "Select"
+    ]
    }
   },
   {
@@ -596,8 +606,16 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "DatePicker",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "day:<aaaa-mm-dd>"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse",
+     "SetValue",
+     "Select"
+    ]
    }
   },
   {
@@ -716,8 +734,10 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "InputOtp",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": [
+     "SetValue"
+    ]
    }
   },
   {
@@ -812,8 +832,12 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "RadioGroup",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "option:<valor>"
+    ],
+    "acoes": [
+     "Select"
+    ]
    }
   },
   {
@@ -868,8 +892,15 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "Select",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "option:<valor>"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse",
+     "Select"
+    ]
    }
   },
   {
@@ -892,8 +923,12 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "Slider",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": [
+     "Increment",
+     "Decrement",
+     "SetValue"
+    ]
    }
   },
   {
@@ -996,8 +1031,11 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "TextField",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": [
+     "Focus",
+     "SetValue"
+    ]
    }
   },
   {
@@ -1036,8 +1074,10 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "Toggle",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {

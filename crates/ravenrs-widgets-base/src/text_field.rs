@@ -1,7 +1,7 @@
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Insets, Key, Modifiers, Quad, Rect, Role};
+use ravenrs_core::{AccessAction, Border, Color, CursorIcon, Insets, Key, Modifiers, Quad, Rect, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::Semantic;
@@ -937,6 +937,14 @@ impl View for TextField {
         cx.semantics(node, state.semantics(semantics));
         if state.disabled {
             return node;
+        }
+        if state.accepts_input() {
+            // Takes the whole text at once, as a screen reader or a test asks, with no typing.
+            let value = self.value.clone();
+            cx.on_access(node, &[AccessAction::SetValue], move |_, text| {
+                value.set(text.unwrap_or_default().to_owned());
+                true
+            });
         }
 
         let (value, submit, cancel) = (self.value.clone(), self.on_submit.clone(), self.on_cancel.clone());
