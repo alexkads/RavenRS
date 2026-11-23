@@ -32,6 +32,7 @@
 
 use std::fmt;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::{Connection, OpenFlags, OptionalExtension};
@@ -153,10 +154,18 @@ pub struct KeptCopy {
     pub sequence: u32,
 }
 
+/// What a [`Backups`] copies: a database of this library, or a bare connection of an application
+/// that keeps its own tables (Raven CI's core, #917).
+#[derive(Clone)]
+enum Source {
+    Database(SqliteDatabase),
+    Connection(Rc<Connection>),
+}
+
 /// Backups of one database. See [`SqliteDatabase::backups`].
 #[derive(Clone)]
 pub struct Backups {
-    database: SqliteDatabase,
+    source: Source,
     stamp: BackupStamp,
     folder: Option<PathBuf>,
     keep: usize,
@@ -205,6 +214,42 @@ fn remove_database_files(path: &Path) {
     }
 }
 
+/// Copies the backup at `backup` to `target` as a plain database, without the stamp that made it
+/// a backup: for an application that puts its files back itself, with nothing open on them (Raven
+/// CI's `backup restaurar`, #917). It never overwrites a file, and checks the backup first.
+pub fn unstamped_copy(backup: &Path, target: &Path) -> Result<(), BackupError> {
+    if target.exists() {
+        return Err(BackupError::Exists(target.to_owned()));
+    }
+    {
+        let file = Connection::open_with_flags(backup, OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .map_err(|_| BackupError::NotABackup)?;
+        let stamped: bool = file
+            .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1")
+            .and_then(|mut statement| statement.exists([STAMP]))
+            .map_err(|_| BackupError::NotABackup)?;
+        if !stamped {
+            return Err(BackupError::NotABackup);
+        }
+        let ok: String =
+            file.query_row("PRAGMA quick_check", [], |row| row.get(0)).map_err(|_| BackupError::Damaged)?;
+        if ok != "ok" {
+            return Err(BackupError::Damaged);
+        }
+    }
+    if let Some(folder) = target.parent().filter(|folder| !folder.as_os_str().is_empty()) {
+        std::fs::create_dir_all(folder).map_err(storage)?;
+    }
+    std::fs::copy(backup, target).map_err(storage)?;
+    let unstamp =
+        Connection::open(target).and_then(|copy| copy.execute_batch(&format!("DROP TABLE {STAMP}; VACUUM;")));
+    if let Err(e) = unstamp {
+        remove_database_files(target);
+        return Err(storage(e));
+    }
+    Ok(())
+}
+
 /// Backups of a SQLite database.
 pub trait SqliteBackups {
     /// Backups of this database, stamped with this.
@@ -213,7 +258,16 @@ pub trait SqliteBackups {
 
 impl SqliteBackups for SqliteDatabase {
     fn backups(&self, stamp: BackupStamp) -> Backups {
-        Backups { database: self.clone(), stamp, folder: None, keep: COPIES_KEPT }
+        Backups { source: Source::Database(self.clone()), stamp, folder: None, keep: COPIES_KEPT }
+    }
+}
+
+/// A bare connection: the same backups, of every table it has, for an application that does not
+/// map its tables through [`SqliteDatabase`]. A connection that only reads can save and inspect;
+/// restoring writes.
+impl SqliteBackups for Rc<Connection> {
+    fn backups(&self, stamp: BackupStamp) -> Backups {
+        Backups { source: Source::Connection(Rc::clone(self)), stamp, folder: None, keep: COPIES_KEPT }
     }
 }
 
@@ -232,7 +286,10 @@ impl Backups {
     }
 
     fn connection(&self) -> &Connection {
-        self.database.backend().connection()
+        match &self.source {
+            Source::Database(database) => database.backend().connection(),
+            Source::Connection(connection) => connection,
+        }
     }
 
     /// The file of the database in use, if it is in one.
@@ -366,7 +423,9 @@ impl Backups {
         };
         self.take_all_from(path)?;
         // Keys are counted again from what is there now.
-        self.database.forget_next_keys();
+        if let Source::Database(database) = &self.source {
+            database.forget_next_keys();
+        }
         Ok((info, copy))
     }
 
