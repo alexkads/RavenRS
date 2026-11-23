@@ -1366,7 +1366,8 @@ impl Ci {
                             launched.template.clone().or_else(|| launched.build.clone()).unwrap_or_default();
                         failed.push(key);
                         if let Some(run) = &launched.build {
-                            let words = words.unwrap_or_else(|| "o processo dele acabou sem dizer por quê".to_owned());
+                            let words = words
+                                .unwrap_or_else(|| "o processo dele acabou sem dizer por quê".to_owned());
                             died.push((run.clone(), launched.name.clone(), launched.tries, words));
                         }
                     }

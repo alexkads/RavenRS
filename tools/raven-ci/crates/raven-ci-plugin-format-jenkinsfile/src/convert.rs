@@ -1072,8 +1072,11 @@ fn step_toml(step: &Step) -> String {
         fields.push(format!("retry = {retry}"));
     }
     if !step.credentials.is_empty() {
-        let bound: Vec<String> =
-            step.credentials.iter().map(|(variable, value)| format!("{} = {value}", toml_key(variable))).collect();
+        let bound: Vec<String> = step
+            .credentials
+            .iter()
+            .map(|(variable, value)| format!("{} = {value}", toml_key(variable)))
+            .collect();
         fields.push(format!("credentials = {{ {} }}", bound.join(", ")));
     }
     format!("{{ {} }}", fields.join(", "))

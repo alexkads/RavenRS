@@ -384,8 +384,16 @@ fn audit_grid(audit: &Json, height: f32) -> AnyView {
 /// fields of the kind with whether each is secret and long.
 const KINDS: [(&str, &str, &[(&str, &str, bool, bool)]); 4] = [
     ("token", "Token", &[("token", "Valor do token", true, false)]),
-    ("user-password", "Usuário e senha", &[("user", "Usuário", false, false), ("password", "Senha", true, false)]),
-    ("ssh-key", "Chave SSH", &[("private_key", "Chave privada", true, true), ("passphrase", "Frase da chave", true, false)]),
+    (
+        "user-password",
+        "Usuário e senha",
+        &[("user", "Usuário", false, false), ("password", "Senha", true, false)],
+    ),
+    (
+        "ssh-key",
+        "Chave SSH",
+        &[("private_key", "Chave privada", true, true), ("passphrase", "Frase da chave", true, false)],
+    ),
     ("arquivo", "Arquivo secreto", &[("content", "Conteúdo do arquivo", true, true)]),
 ];
 
@@ -399,7 +407,8 @@ pub(super) fn credentials(s: &Rc<S>) -> AnyView {
         .into_iter()
         .flatten()
         .map(|c| {
-            let used: Vec<&str> = c["used_by"].as_array().into_iter().flatten().filter_map(Json::as_str).collect();
+            let used: Vec<&str> =
+                c["used_by"].as_array().into_iter().flatten().filter_map(Json::as_str).collect();
             vec![
                 c["name"].as_str().unwrap_or_default().to_owned().into(),
                 c["kind"].as_str().unwrap_or_default().to_owned().into(),
@@ -500,7 +509,9 @@ pub(super) fn credentials(s: &Rc<S>) -> AnyView {
     let form = Card::new(
         VStack::new((
             Text::new("Nova credencial").style(TextStyle::Headline),
-            Text::new("Um nome que já existe tem o valor girado.").style(TextStyle::Caption).foreground(Semantic::InkMuted),
+            Text::new("Um nome que já existe tem o valor girado.")
+                .style(TextStyle::Caption)
+                .foreground(Semantic::InkMuted),
             TextField::new(s.cred_name.binding()).placeholder("Nome da credencial"),
             Select::new(s.cred_kind.binding(), captions).label("Tipo"),
             TextField::new(s.cred_description.binding()).placeholder("Para quê (opcional)"),

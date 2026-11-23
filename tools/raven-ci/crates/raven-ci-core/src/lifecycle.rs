@@ -290,7 +290,11 @@ impl Ci {
             }
             core(log.as_ref(), &format!("build {} #{} em {}", order.job, order.number, workspace.display()));
             if let Some(from) = &extras.pipeline_from {
-                let at = if from.commit.is_empty() { String::new() } else { format!(" no commit {}", from.commit) };
+                let at = if from.commit.is_empty() {
+                    String::new()
+                } else {
+                    format!(" no commit {}", from.commit)
+                };
                 core(log.as_ref(), &format!("pipeline: {} do repositório, em {}{at}", from.file, from.head));
             }
             if let Err(reason) = self.hooks_before(settings, &context) {

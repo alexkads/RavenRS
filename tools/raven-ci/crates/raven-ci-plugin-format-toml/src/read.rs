@@ -134,7 +134,10 @@ impl Reader<'_> {
             let fine = name.chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
                 && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
             if !fine {
-                self.error(&key.span(), format!("credentials: {name:?} não é nome de variável (letras, números e _)"));
+                self.error(
+                    &key.span(),
+                    format!("credentials: {name:?} não é nome de variável (letras, números e _)"),
+                );
                 continue;
             }
             match value.get_ref() {
@@ -334,11 +337,14 @@ impl Read<'_> {
                 if let Some(level) = fields.get("nice").and_then(|n| self.reader.integer(n, "nice")) {
                     def = def.parameter("nice", json!(level));
                 }
-                if let Some(keep) = fields.get("keep_daemons").and_then(|k| self.reader.boolean(k, "keep_daemons")) {
+                if let Some(keep) =
+                    fields.get("keep_daemons").and_then(|k| self.reader.boolean(k, "keep_daemons"))
+                {
                     if def.kind == "sh" {
                         def = def.parameter("keep_daemons", json!(keep));
                     } else {
-                        self.reader.error(&fields["keep_daemons"].span(), "keep_daemons só vale num passo sh");
+                        self.reader
+                            .error(&fields["keep_daemons"].span(), "keep_daemons só vale num passo sh");
                     }
                 }
                 if let Some(credentials) = fields.get("credentials") {
@@ -351,7 +357,8 @@ impl Read<'_> {
                         all.extend(own);
                         def = def.parameter("credentials", Value::Object(all));
                     } else {
-                        self.reader.error(&credentials.span(), "credentials só vale num passo sh, por enquanto");
+                        self.reader
+                            .error(&credentials.span(), "credentials só vale num passo sh, por enquanto");
                     }
                 }
                 def
@@ -428,7 +435,8 @@ impl Read<'_> {
         if let Some(credentials) = fields.get("credentials") {
             options.credentials = self.reader.credentials(credentials);
             if fields.contains_key("container") {
-                self.reader.error(&credentials.span(), "credentials ainda não vale num estágio com container");
+                self.reader
+                    .error(&credentials.span(), "credentials ainda não vale num estágio com container");
             }
         }
         if let Some(container) = fields.get("container")

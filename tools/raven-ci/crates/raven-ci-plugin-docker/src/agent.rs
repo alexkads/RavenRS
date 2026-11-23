@@ -101,7 +101,9 @@ impl AgentPlan {
             other => texts(other),
         };
         let said_network = settings.get("network").and_then(Value::as_str).map(str::to_owned);
-        let in_args = extra.iter().any(|a| a == "--network" || a == "--net" || a.starts_with("--network=") || a.starts_with("--net="));
+        let in_args = extra.iter().any(|a| {
+            a == "--network" || a == "--net" || a.starts_with("--network=") || a.starts_with("--net=")
+        });
         let loopback = on_loopback(&request.server);
         let (network, server) = match (said_network, in_args, loopback, linux) {
             (Some(network), _, _, _) => (Some(network), request.server.clone()),
@@ -295,7 +297,8 @@ mod tests {
 
     #[test]
     fn another_image_without_the_agent_is_refused_saying_what_to_do() {
-        let refused = AgentPlan::read(&request(json!({ "image": "node:24-bookworm-slim" })), 0).expect_err("refused");
+        let refused =
+            AgentPlan::read(&request(json!({ "image": "node:24-bookworm-slim" })), 0).expect_err("refused");
         let said = refused.to_string();
         assert!(said.contains("agent_binary") && said.contains(AGENT_IMAGE), "{said}");
     }
@@ -330,7 +333,10 @@ mod tests {
         assert!(!desktop.iter().any(|a| a == "--network"), "{desktop:?}");
 
         let elsewhere = AgentPlan::read_on(&request(json!({})), 0, true).expect("a plan").args();
-        assert!(has(&elsewhere, "--servidor", "http://ci.casa:8080") && !elsewhere.iter().any(|a| a == "--network"));
+        assert!(
+            has(&elsewhere, "--servidor", "http://ci.casa:8080")
+                && !elsewhere.iter().any(|a| a == "--network")
+        );
 
         let mut said = on_loopback.clone();
         said.settings = json!({ "args": ["--network", "ci"] });

@@ -112,10 +112,7 @@ impl Credentials {
     /// The vault of the folder of data `dir`, made the first time.
     pub(crate) fn open(dir: &Path, store: Arc<Store>, log: Arc<ServerLog>) -> Result<Self, CiError> {
         store.db().execute_batch(SCHEMA).map_err(db)?;
-        let has_description = store
-            .db()
-            .prepare("SELECT description FROM ci_credentials LIMIT 0")
-            .is_ok();
+        let has_description = store.db().prepare("SELECT description FROM ci_credentials LIMIT 0").is_ok();
         if !has_description {
             store.db().execute_batch(DESCRIPTION).map_err(db)?;
         }
@@ -264,11 +261,13 @@ impl Secrets for Credentials {
 
     fn hidden(&self, asked: &str) -> Vec<String> {
         let (name, _) = field_of(asked);
-        self.sealed(name).map(|sealed| {
-            let mut hidden = sealed.hidden;
-            hidden.push(sealed.secret);
-            hidden
-        }).unwrap_or_default()
+        self.sealed(name)
+            .map(|sealed| {
+                let mut hidden = sealed.hidden;
+                hidden.push(sealed.secret);
+                hidden
+            })
+            .unwrap_or_default()
     }
 }
 

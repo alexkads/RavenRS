@@ -261,9 +261,12 @@ impl Sh {
         let Some(asked) = asked.as_object().filter(|asked| !asked.is_empty()) else {
             return Ok((Vec::new(), SecretFiles(None)));
         };
-        let host = self.host.lock().unwrap_or_else(PoisonError::into_inner).clone().ok_or_else(|| {
-            NodeError::new("o passo sh só lê credenciais com o plugin shell ligado")
-        })?;
+        let host = self
+            .host
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+            .ok_or_else(|| NodeError::new("o passo sh só lê credenciais com o plugin shell ligado"))?;
         let mut variables = Vec::new();
         let mut files = SecretFiles(None);
         for (name, wanted) in asked {
@@ -287,13 +290,13 @@ impl Sh {
                 },
                 _ => return Err(NodeError::new(format!("credentials.{name}: diga o nome da credencial"))),
             };
-            let value = host
-                .secret(credential)
-                .map_err(|e| NodeError::new(format!("credentials.{name}: {e}")))?;
+            let value =
+                host.secret(credential).map_err(|e| NodeError::new(format!("credentials.{name}: {e}")))?;
             let value = match file {
                 None => value,
                 Some(file_name) => {
-                    if file_name.is_empty() || file_name.contains(['/', '\\']) || file_name.starts_with("..") {
+                    if file_name.is_empty() || file_name.contains(['/', '\\']) || file_name.starts_with("..")
+                    {
                         return Err(NodeError::new(format!(
                             "credentials.{name}: o nome do arquivo {file_name:?} não serve"
                         )));
@@ -364,7 +367,8 @@ impl NodeKind for Sh {
         }
         let asked = cx.parameter("credentials").cloned().unwrap_or(Value::Null);
         // The files stay until this function returns: after the program, however it ended.
-        let (variables, _files) = self.credentials(&asked, &build, &step).inspect_err(|why| log(&why.message))?;
+        let (variables, _files) =
+            self.credentials(&asked, &build, &step).inspect_err(|why| log(&why.message))?;
         for (name, value) in variables {
             spec = spec.env(name, value);
         }

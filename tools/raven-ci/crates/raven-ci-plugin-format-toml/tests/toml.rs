@@ -360,9 +360,8 @@ fn what_a_command_leaves_running_goes_with_its_step_unless_it_keeps_it() {
     ci.add_plugin(Arc::new(TomlFormatPlugin));
     ci.add_plugin(Arc::new(ShellPlugin::new()));
     ci.apply_plugins().expect("on");
-    let pipeline = format!(
-        "[[stages]]\nname = \"Daemon\"\nsteps = ['sh -c \"sleep 600; : {marker}\" & echo deixei']\n"
-    );
+    let pipeline =
+        format!("[[stages]]\nname = \"Daemon\"\nsteps = ['sh -c \"sleep 600; : {marker}\" & echo deixei']\n");
     ci.save_job(JobSpec::new("daemon", "toml", pipeline)).expect("saved");
     let started = std::time::Instant::now();
     let n = ci.request_build(BuildRequest::new("daemon", "teste")).expect("asked").number;

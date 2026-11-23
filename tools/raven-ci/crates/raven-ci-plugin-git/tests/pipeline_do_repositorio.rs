@@ -134,7 +134,11 @@ fn a_job_of_many_branches_over_plain_git_takes_each_pipeline_from_its_own_branch
     assert!(ci.job("repo/dev").expect("dev").pipeline.contains("dev-mudou"));
     assert!(ci.job("repo/main").expect("main").pipeline.contains("pipeline-da-main"));
     ci.work_until_idle("e1").expect("runs");
-    assert!(log_of(&ci, "repo/dev", 2).contains(&"dev-mudou".to_owned()), "{:#?}", log_of(&ci, "repo/dev", 2));
+    assert!(
+        log_of(&ci, "repo/dev", 2).contains(&"dev-mudou".to_owned()),
+        "{:#?}",
+        log_of(&ci, "repo/dev", 2)
+    );
 }
 
 #[test]
@@ -157,7 +161,9 @@ fn a_job_of_one_branch_runs_the_jenkinsfile_of_its_tip_and_says_where_it_came_fr
     assert_eq!(ci.build("loja/main", n).expect("build").status, BuildStatus::Succeeded, "{log:#?}");
     assert!(log.contains(&"do-jenkinsfile".to_owned()), "{log:#?}");
     assert!(
-        log.iter().any(|line| line.contains(&format!("pipeline: Jenkinsfile do repositório, em main no commit {tip}"))),
+        log.iter()
+            .any(|line| line
+                .contains(&format!("pipeline: Jenkinsfile do repositório, em main no commit {tip}"))),
         "{log:#?}"
     );
 
@@ -180,9 +186,12 @@ fn the_source_git_reads_a_file_with_a_credential_that_shows_nowhere() {
     let origin = Origin::new();
     let data = folder("dados");
     let plugin = GitPlugin::new();
-    let host = FakeHost::new("git", &[Permission::Process, Permission::Network, Permission::Secrets, Permission::Disk])
-        .with_secret("privado", "usuario:token-muito-secreto")
-        .with_dir(&data.0);
+    let host = FakeHost::new(
+        "git",
+        &[Permission::Process, Permission::Network, Permission::Secrets, Permission::Disk],
+    )
+    .with_secret("privado", "usuario:token-muito-secreto")
+    .with_dir(&data.0);
     plugin.start(Arc::new(host)).expect("starts");
     let source = plugin.branch_sources()[0].clone();
     let settings = json!({ "url": origin.url(), "credential": "privado", "branches": "main" });

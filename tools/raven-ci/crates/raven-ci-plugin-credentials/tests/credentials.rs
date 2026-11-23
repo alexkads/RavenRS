@@ -80,7 +80,8 @@ fn a_token_is_sealed_listed_with_no_value_and_never_in_clear_on_disk() {
     assert_eq!(listed[0].created_by.as_deref(), Some("ana"));
     assert!(!everything_in(&disk.0).contains("ghp_segredo_123456789"), "the token is in clear somewhere");
     // Saved again, it is rotated: still one, with the new value.
-    ci.save_credential("github", "token", &json!({ "token": "ghp_outro_987654321" }), None, None).expect("rotated");
+    ci.save_credential("github", "token", &json!({ "token": "ghp_outro_987654321" }), None, None)
+        .expect("rotated");
     assert_eq!(ci.credentials().expect("listed").len(), 1);
     ci.delete_credential("github", None).expect("deleted");
     assert!(ci.credentials().expect("listed").is_empty());
@@ -120,16 +121,19 @@ fn a_credential_used_in_a_step_is_hidden_in_the_log_with_what_its_kind_derives()
 #[test]
 fn fields_that_do_not_fit_the_kind_and_a_kind_no_plugin_brings_are_refused() {
     let (_disk, ci) = ci("recusa");
-    let missing =
-        ci.save_credential("x", "user-password", &json!({ "user": "robo" }), None, None).expect_err("no password");
+    let missing = ci
+        .save_credential("x", "user-password", &json!({ "user": "robo" }), None, None)
+        .expect_err("no password");
     assert!(missing.to_string().contains("password"), "{missing}");
-    let unknown =
-        ci.save_credential("x", "token", &json!({ "token": "t", "cor": "azul" }), None, None).expect_err("a field");
+    let unknown = ci
+        .save_credential("x", "token", &json!({ "token": "t", "cor": "azul" }), None, None)
+        .expect_err("a field");
     assert!(unknown.to_string().contains("cor"), "{unknown}");
     let kind = ci.save_credential("x", "kubeconfig", &json!({}), None, None).expect_err("no such kind");
     assert!(kind.to_string().contains("kubeconfig"), "{kind}");
-    let name =
-        ci.save_credential("../fora", "token", &json!({ "token": "t-123456" }), None, None).expect_err("a name");
+    let name = ci
+        .save_credential("../fora", "token", &json!({ "token": "t-123456" }), None, None)
+        .expect_err("a name");
     assert!(name.to_string().contains("não serve"), "{name}");
 }
 
@@ -144,10 +148,22 @@ fn a_step_gets_the_credentials_it_names_as_variables_and_a_file_that_goes_at_its
     let (disk, ci) = ci("passo");
     ci.save_credential("feed", "token", &json!({ "token": "npm_segredo_abcdef" }), Some("o feed"), None)
         .expect("token");
-    ci.save_credential("deploy", "user-password", &json!({ "user": "robo", "password": "senha-forte-42" }), None, None)
-        .expect("user and password");
-    ci.save_credential("kube", "arquivo", &json!({ "content": "apiVersion: v1\nsenha-do-kube-0123456789\n" }), None, None)
-        .expect("a file");
+    ci.save_credential(
+        "deploy",
+        "user-password",
+        &json!({ "user": "robo", "password": "senha-forte-42" }),
+        None,
+        None,
+    )
+    .expect("user and password");
+    ci.save_credential(
+        "kube",
+        "arquivo",
+        &json!({ "content": "apiVersion: v1\nsenha-do-kube-0123456789\n" }),
+        None,
+        None,
+    )
+    .expect("a file");
     let pipeline = r#"
 [[stages]]
 name = "Usa"
@@ -159,7 +175,8 @@ steps = [
   'test ! -e "$(cat onde.txt)" && echo o-arquivo-saiu',
 ]
 "#;
-    ci.save_job(JobSpec::new("app", "toml", pipeline).settings(json!({ "workspace": { "keep": true } }))).expect("saved");
+    ci.save_job(JobSpec::new("app", "toml", pipeline).settings(json!({ "workspace": { "keep": true } })))
+        .expect("saved");
     let n = ci.request_build(BuildRequest::new("app", "teste")).expect("asked").number;
     ci.work_until_idle("e1").expect("runs");
     let log: Vec<String> = ci.build_log("app", n, 0).expect("log").into_iter().map(|l| l.text).collect();
@@ -177,12 +194,14 @@ steps = [
 name = "Falha"
 steps = [{ sh = 'echo "$KUBE" > ../onde-falhou.txt; exit 3', credentials = { KUBE = { file = "kube" } } }]
 "#;
-    ci.save_job(JobSpec::new("falha", "toml", failing).settings(json!({ "workspace": { "keep": true } }))).expect("saved");
+    ci.save_job(JobSpec::new("falha", "toml", failing).settings(json!({ "workspace": { "keep": true } })))
+        .expect("saved");
     let n = ci.request_build(BuildRequest::new("falha", "teste")).expect("asked").number;
     ci.work_until_idle("e1").expect("runs");
     assert_eq!(ci.build("falha", n).expect("build").status, BuildStatus::Failed);
     let workspace = disk.0.join("espacos").join("falha").join(n.to_string());
-    let path = std::fs::read_to_string(workspace.parent().expect("above").join("onde-falhou.txt")).expect("the path");
+    let path = std::fs::read_to_string(workspace.parent().expect("above").join("onde-falhou.txt"))
+        .expect("the path");
     assert!(!Path::new(path.trim()).exists(), "the file of a failed step stayed: {path}");
     assert!(!Path::new(&format!("{}.segredos", workspace.display())).exists());
 

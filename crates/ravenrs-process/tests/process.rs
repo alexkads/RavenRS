@@ -190,18 +190,24 @@ fn what_a_child_left_in_the_background_is_stopped_with_its_group() {
             .is_ok_and(|s| s.success())
     };
     let started = Instant::now();
-    let running = Spec::new("sh").args(["-c", "sleep 30 & echo pronto"]).stop_leftovers().spawn().expect("starts");
+    let running =
+        Spec::new("sh").args(["-c", "sleep 30 & echo pronto"]).stop_leftovers().spawn().expect("starts");
     let control = running.control();
     let output = running.wait();
     assert_eq!(output.end, End::Code(0));
     assert_eq!(output.stdout, vec!["pronto".to_owned()]);
-    assert!(started.elapsed() < Duration::from_secs(10), "it did not wait for the sleep: {:?}", started.elapsed());
+    assert!(
+        started.elapsed() < Duration::from_secs(10),
+        "it did not wait for the sleep: {:?}",
+        started.elapsed()
+    );
     assert_eq!(control.leftovers(), vec!["sleep".to_owned()]);
     assert!(!alive(control.pid()), "nothing of the group is left");
 
     // Without it, the group stays, and stop_group stops it apart. The sleep writes nowhere, so
     // the child is seen to end.
-    let running = Spec::new("sh").args(["-c", "sleep 30 >/dev/null 2>&1 & echo pronto"]).spawn().expect("starts");
+    let running =
+        Spec::new("sh").args(["-c", "sleep 30 >/dev/null 2>&1 & echo pronto"]).spawn().expect("starts");
     let control = running.control();
     assert_eq!(running.wait().end, End::Code(0));
     assert!(control.leftovers().is_empty());

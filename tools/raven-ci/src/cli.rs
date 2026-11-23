@@ -195,7 +195,13 @@ impl Invocation {
                     )?;
                     return Ok(2);
                 };
-                match ci.save_credential(name, kind, &fields, description, std::env::var("USER").ok().as_deref()) {
+                match ci.save_credential(
+                    name,
+                    kind,
+                    &fields,
+                    description,
+                    std::env::var("USER").ok().as_deref(),
+                ) {
                     Ok(()) => {
                         write(out, &format!("{name}: guardada no cofre, do tipo {kind}\n"))?;
                         Ok(0)
@@ -232,16 +238,18 @@ impl Invocation {
                 }
                 Ok(0)
             }
-            ["credencial", "apagar", name] => match ci.delete_credential(name, std::env::var("USER").ok().as_deref()) {
-                Ok(()) => {
-                    write(out, &format!("{name}: revogada e apagada\n"))?;
-                    Ok(0)
+            ["credencial", "apagar", name] => {
+                match ci.delete_credential(name, std::env::var("USER").ok().as_deref()) {
+                    Ok(()) => {
+                        write(out, &format!("{name}: revogada e apagada\n"))?;
+                        Ok(0)
+                    }
+                    Err(why) => {
+                        write(out, &format!("{why}\n"))?;
+                        Ok(2)
+                    }
                 }
-                Err(why) => {
-                    write(out, &format!("{why}\n"))?;
-                    Ok(2)
-                }
-            },
+            }
             ["credencial", ..] => {
                 write(out, &format!("{USAGE}\n"))?;
                 Ok(2)

@@ -228,10 +228,7 @@ fn what_it_cannot_convert_is_listed_on_its_line_and_the_rest_is_written() {
     let conversion = convert(PENDING);
     assert!(!conversion.complete());
     let pending: Vec<(usize, &str)> = conversion.pending().map(|n| (n.line, n.what.as_str())).collect();
-    assert_eq!(
-        pending,
-        [(12, "script { }"), (16, "${currentBuild.number}")]
-    );
+    assert_eq!(pending, [(12, "script { }"), (16, "${currentBuild.number}")]);
     // The rest is converted, and the notes are comments the TOML still reads.
     let pipeline = TomlFormat.read("x", &conversion.toml).expect(&conversion.toml);
     let scripts: Vec<String> = sh_steps(&pipeline).into_iter().map(|(_, s, _)| s).collect();
@@ -242,7 +239,12 @@ fn what_it_cannot_convert_is_listed_on_its_line_and_the_rest_is_written() {
     let note = conversion.notes.iter().find(|n| n.what == "withCredentials").expect("a note");
     assert_eq!(note.kind, NoteKind::Warning);
     assert!(note.why.contains("tem que existir no cofre: token"), "{}", note.why);
-    let node = pipeline.flow.nodes.iter().find(|n| n.parameters.get("script") == Some(&serde_json::json!("deploy"))).expect("deploy");
+    let node = pipeline
+        .flow
+        .nodes
+        .iter()
+        .find(|n| n.parameters.get("script") == Some(&serde_json::json!("deploy")))
+        .expect("deploy");
     assert_eq!(node.parameters["credentials"], serde_json::json!({ "T": "token" }));
 }
 
@@ -503,7 +505,12 @@ pipeline {
     let conversion = convert(text);
     assert!(conversion.complete(), "{:#?}", conversion.notes);
     let pipeline = TomlFormat.read("x", &conversion.toml).expect(&conversion.toml);
-    let publish = pipeline.flow.nodes.iter().find(|n| n.parameters.get("script") == Some(&serde_json::json!("publica"))).expect("publica");
+    let publish = pipeline
+        .flow
+        .nodes
+        .iter()
+        .find(|n| n.parameters.get("script") == Some(&serde_json::json!("publica")))
+        .expect("publica");
     assert_eq!(
         publish.parameters["credentials"],
         serde_json::json!({
@@ -515,7 +522,12 @@ pipeline {
             "FRASE": "deploy-key:passphrase",
         })
     );
-    let before = pipeline.flow.nodes.iter().find(|n| n.parameters.get("script") == Some(&serde_json::json!("antes"))).expect("antes");
+    let before = pipeline
+        .flow
+        .nodes
+        .iter()
+        .find(|n| n.parameters.get("script") == Some(&serde_json::json!("antes")))
+        .expect("antes");
     assert!(before.parameters.get("credentials").is_none(), "only the steps inside get them");
     let note = conversion.notes.iter().find(|n| n.what == "withCredentials").expect("a note");
     assert!(note.why.contains("deploy-key, github-alexkads, kube, npm"), "{}", note.why);

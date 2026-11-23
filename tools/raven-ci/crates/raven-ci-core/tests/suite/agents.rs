@@ -9,8 +9,8 @@ use std::time::Duration;
 use raven_ci_core::agents::{AgentLine, End, Hello, Join, LogBatch, ROLE_AGENT};
 use raven_ci_core::{Ci, CiOptions, Executors, JobSpec, api};
 use raven_ci_plugin_api::{
-    AgentLauncher, Attachment, BuildRequest, BuildStatus, CiPlugin, FormatError, LaunchRequest, LaunchedAgent,
-    PLUGIN_KEY, Pipeline, PipelineFormat, ROLE_ADMIN, ROLE_READ, STAGE_KEY, Use,
+    AgentLauncher, Attachment, BuildRequest, BuildStatus, CiPlugin, FormatError, LaunchRequest,
+    LaunchedAgent, PLUGIN_KEY, Pipeline, PipelineFormat, ROLE_ADMIN, ROLE_READ, STAGE_KEY, Use,
 };
 use ravenrs_app::{Module, ModuleManifest};
 use ravenrs_app_server::ApiRequest;
@@ -136,7 +136,10 @@ impl AgentLauncher for Dying {
     fn id(&self) -> &str {
         "morre"
     }
-    fn launch(&self, request: &LaunchRequest) -> Result<Box<dyn LaunchedAgent>, raven_ci_plugin_api::CiError> {
+    fn launch(
+        &self,
+        request: &LaunchRequest,
+    ) -> Result<Box<dyn LaunchedAgent>, raven_ci_plugin_api::CiError> {
         let name = request.settings["name"].as_str().unwrap_or("morto").to_owned();
         Ok(Box::new(Dead(name)))
     }
@@ -425,7 +428,8 @@ fn a_build_whose_agents_die_before_coming_in_fails_after_three_tries_saying_why(
     assert!(ci.agents().expect("agents").is_empty(), "the agents of the build left the list");
 
     // The launcher's settings may give more tries.
-    let more = job(&ci, "apps/paciente", json!({ "launcher": "morre", "with": { "tentativas": 5 }, "steps": [{}] }));
+    let more =
+        job(&ci, "apps/paciente", json!({ "launcher": "morre", "with": { "tentativas": 5 }, "steps": [{}] }));
     for _ in 0..4 {
         ci.tick_agents();
         clock.advance(31_000);

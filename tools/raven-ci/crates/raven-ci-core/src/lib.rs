@@ -353,7 +353,12 @@ impl Ci {
         let mut pipeline = format.read(&job.name, text).map_err(|errors| {
             let said: Vec<String> = errors.iter().map(ToString::to_string).collect();
             let whence = from_scm.as_ref().map(|(_, _, from)| format!(" ({} do repositório)", from.file));
-            CiError::failed(format!("o pipeline de {}{}: {}", job.name, whence.unwrap_or_default(), said.join("; ")))
+            CiError::failed(format!(
+                "o pipeline de {}{}: {}",
+                job.name,
+                whence.unwrap_or_default(),
+                said.join("; ")
+            ))
         })?;
         pipeline.flow.id = job.name.clone();
         let on: Vec<String> = self.registry.on().iter().map(|plugin| plugin.name().to_owned()).collect();
@@ -783,7 +788,12 @@ impl Ci {
         let existed = self.credentials()?.iter().any(|credential| credential.name == name);
         let done = self.seal_credential(name, kind, fields, description, by);
         let what = if existed { "girar" } else { "criar" };
-        self.store.audit(&who_did(by), Permission::Secrets, &format!("{what} a credencial {name} ({kind})"), done.is_ok());
+        self.store.audit(
+            &who_did(by),
+            Permission::Secrets,
+            &format!("{what} a credencial {name} ({kind})"),
+            done.is_ok(),
+        );
         done
     }
 
@@ -846,7 +856,12 @@ impl Ci {
     /// Revokes the credential `name` and forgets it; `by` is who did it, and the audit says it.
     pub fn delete_credential(&self, name: &str, by: Option<&str>) -> Result<(), CiError> {
         let done = self.vault().and_then(|vault| vault.delete(name));
-        self.store.audit(&who_did(by), Permission::Secrets, &format!("apagar a credencial {name}"), done.is_ok());
+        self.store.audit(
+            &who_did(by),
+            Permission::Secrets,
+            &format!("apagar a credencial {name}"),
+            done.is_ok(),
+        );
         done
     }
 }

@@ -309,8 +309,14 @@ pub fn server_with(folder: &Path, extra: Vec<Arc<dyn CiPlugin>>) -> Result<(Arc<
     // Docker is switched off: the build of imagens-base waits for it, and the panel says so.
     ci.disable_plugin("docker").map_err(|e| failed(&e))?;
     // A credential a job names, for the grid of Credenciais (#922).
-    ci.save_credential("npm-feed", "token", &json!({ "token": "npm_demonstracao_123456" }), Some("feed npm privado"), None)
-        .map_err(|e| failed(&e))?;
+    ci.save_credential(
+        "npm-feed",
+        "token",
+        &json!({ "token": "npm_demonstracao_123456" }),
+        Some("feed npm privado"),
+        None,
+    )
+    .map_err(|e| failed(&e))?;
     let users = users_file(folder);
     create_user(&users, "ana", PASSWORD, ROLE_READ).map_err(|e| failed(&e))?;
     create_user(&users, "bia", PASSWORD, ROLE_RUN).map_err(|e| failed(&e))?;

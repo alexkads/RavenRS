@@ -81,7 +81,8 @@ impl Ci {
         };
         // The format of the children is the file's: a `Jenkinsfile` is read as one even when the
         // model's own pipeline is TOML.
-        let format = file.as_deref().and_then(|file| self.format_of_file(file)).unwrap_or(model.format.clone());
+        let format =
+            file.as_deref().and_then(|file| self.format_of_file(file)).unwrap_or(model.format.clone());
         let mut changes = Vec::new();
         let prefix = format!("{job}/");
         for head in &heads {
@@ -191,9 +192,9 @@ impl Ci {
         })?;
         let id = scm.get("id").and_then(Value::as_str).unwrap_or("git").to_owned();
         let source = self.source(&id)?;
-        let file = named.or_else(|| self.first_file_of(&job.format)).ok_or_else(|| {
-            CiError::settings("scm.file", "diga o arquivo do pipeline no repositório")
-        })?;
+        let file = named
+            .or_else(|| self.first_file_of(&job.format))
+            .ok_or_else(|| CiError::settings("scm.file", "diga o arquivo do pipeline no repositório"))?;
         let format = self.format_of_file(&file).unwrap_or_else(|| job.format.clone());
         let reference: Option<Reference> =
             scm.get("reference").cloned().and_then(|value| serde_json::from_value(value).ok());
@@ -204,15 +205,13 @@ impl Ci {
                 kind: HeadKind::PullRequest { number, target, from_fork: false },
                 commit: String::new(),
             },
-            Some(Reference::Commit(commit)) => {
-                Head { name: commit.clone(), kind: HeadKind::Branch, commit }
-            }
+            Some(Reference::Commit(commit)) => Head { name: commit.clone(), kind: HeadKind::Branch, commit },
             Some(Reference::Branch(branch)) => self.tip(&source, &scm, &branch)?,
             Some(_) | None => self.tip(&source, &scm, &branch_of_name())?,
         };
-        let text = source.file(&scm, &head, &file)?.ok_or_else(|| {
-            CiError::failed(format!("o repositório não tem {file} em {}", head.name))
-        })?;
+        let text = source
+            .file(&scm, &head, &file)?
+            .ok_or_else(|| CiError::failed(format!("o repositório não tem {file} em {}", head.name)))?;
         let from = PipelineFrom { file, commit: head.commit.clone(), head: head.name.clone() };
         Ok(Some((format, text, from)))
     }

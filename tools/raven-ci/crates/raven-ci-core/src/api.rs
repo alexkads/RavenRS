@@ -179,7 +179,10 @@ fn credentials(ci: &Ci, request: &ApiRequest, who: &mut dyn FnMut() -> Option<Ca
     let caller = match who() {
         None => return unauthorized(),
         Some(caller) if !caller.administrator => {
-            return json(403, &json!({ "error": "denied", "message": "só administradores cuidam das credenciais" }));
+            return json(
+                403,
+                &json!({ "error": "denied", "message": "só administradores cuidam das credenciais" }),
+            );
         }
         Some(caller) => caller,
     };

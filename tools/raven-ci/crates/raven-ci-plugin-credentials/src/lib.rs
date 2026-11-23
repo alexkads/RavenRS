@@ -149,7 +149,10 @@ impl CredentialKind for SshKey {
 /// Lines of a secret long enough to tell, hidden one by one: a secret leaks line by line as often
 /// as whole.
 fn telling_lines(text: &str) -> impl Iterator<Item = String> + '_ {
-    text.lines().map(str::trim).filter(|line| line.len() >= 16 && !line.starts_with("-----")).map(str::to_owned)
+    text.lines()
+        .map(str::trim)
+        .filter(|line| line.len() >= 16 && !line.starts_with("-----"))
+        .map(str::to_owned)
 }
 
 /// A secret file: a kubeconfig, an `.npmrc`, a certificate.
