@@ -42,7 +42,7 @@ trap 'rm -rf "$TOPO"' EXIT
 mkdir -p "$TOPO/SOURCES"
 cp "$ALVO/release/raven-ci" "$ALVO/release/raven-ci-agent" \
    "$FERRAMENTA/pacote/raven-ci.service" "$FERRAMENTA/pacote/raven-ci.sysusers" \
-   "$FERRAMENTA/README.md" "$TOPO/SOURCES/"
+   "$FERRAMENTA/pacote/agentes-de-outro-usuario.conf" "$FERRAMENTA/README.md" "$TOPO/SOURCES/"
 cp "$PAINEL" "$TOPO/SOURCES/painel.tar"
 
 echo "empacotando…"

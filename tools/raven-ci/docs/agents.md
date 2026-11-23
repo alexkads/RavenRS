@@ -167,13 +167,22 @@ raven-ci servir --executores 0
   ```
 
   The service of the RPM runs with `NoNewPrivileges=true`, and with it `sudo` cannot switch the
-  user: the launch is refused saying so. To have agents of another user, switch it off with a
-  drop-in (`sudo systemctl edit raven-ci`):
+  user: the launch is refused saying so. To have agents of another user, the RPM brings a drop-in
+  that switches it off, and the private `/tmp` with it:
+
+  ```bash
+  sudo mkdir -p /etc/systemd/system/raven-ci.service.d
+  sudo cp /usr/share/raven-ci/agentes-de-outro-usuario.conf /etc/systemd/system/raven-ci.service.d/
+  sudo systemctl daemon-reload && sudo systemctl restart raven-ci
+  ```
 
   ```ini
   [Service]
   NoNewPrivileges=false
+  PrivateTmp=false
   ```
+
+  Why `PrivateTmp=false`: see [What a build leaves behind](#what-a-build-leaves-behind).
 
   On Windows a user of its own is not done yet, and the launch is refused saying so.
 
@@ -192,6 +201,44 @@ raven-ci agentes modelo mac --lancador agent-remote --rotulos mac \
 - `chave`: the name of a credential `ssh-key` of the vault; without it, the server's user's own
   keys. The key goes to a file readable only by its owner and is removed when the agent stops.
 - `ssh`: the program; `ssh` by default, which Linux, macOS and Windows 10+ have.
+
+## What a build leaves behind
+
+Nothing a build starts outlives it, on the server or on an agent:
+
+- **The processes of a step.** Each `sh` runs in a process group of its own. When the command
+  ends, what it left running in the background (`sleep 600 &`, the server of `sccache` a
+  `cargo build` started) is stopped at once, and the log names it: `o comando deixou 1
+  processo(s) rodando (sccache); parados`. A step with `keep_daemons = true` keeps them, and the
+  log says so. A daemon that leaves the group itself (`setsid`) is not reached; on Linux, a
+  template with limits (A-04) holds the agent in a cgroup of its own.
+- **The containers and pods** of `docker` and `kubernetes`, by their label.
+- **The folder** of the build and the secret files of its steps (`<pasta>.segredos`), at its end.
+
+What runs where, on the server of the RPM:
+
+| What | Its user | Its mount namespace and `/tmp` | Its CPU priority |
+|---|---|---|---|
+| the server | `raven-ci` | the service's: a private `/tmp` (`PrivateTmp=true`) | `CPUWeight=50`, `IOWeight=50`: a smaller share of the machine, with the nice of the machine (0) |
+| a build on the server's own executors | `raven-ci` | the service's | the server's |
+| an agent of `agent-local` with no `usuario` | `raven-ci` | the service's | the server's |
+| an agent of `agent-local` with `usuario` | that user, through `sudo` | the service's, unless the drop-in above switches `PrivateTmp` off | nice 0 |
+| an agent of `agent-remote`, or one started by hand | its own | its machine's | its own |
+
+The private `/tmp` matters when a tool of the machine keeps something there for everyone: the
+server of `sccache` (port 4226) is one per user, shared by Jenkins, scripts and Raven CI. Started
+by a build in the service's `/tmp`, it kept that `/tmp` after the service restarted, and every
+user of `sccache` failed with `Failed to create temp dir` until `sccache --stop-server` (#931).
+Now the step stops the server it started; and with the drop-in, a build sees the machine's `/tmp`,
+as on a node of Jenkins.
+
+The service used to say `Nice=10`, and every build inherited it: `nice -n 10` in a step gave 19,
+and a test that checks its own priority failed where Jenkins passed. The weights protect the
+machine by the cgroup instead, and a step sees the nice of the machine.
+
+After `systemctl restart raven-ci`: the server and the agents of `agent-local` it started stop
+(the agents are taken down with what they started); a build that was running is interrupted and
+taken up again by the next agent of its label; nothing of it stays running.
 
 ## Limits
 

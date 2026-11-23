@@ -18,7 +18,8 @@ const PIPELINE: &[&str] = &["timeout", "keep", "agent"];
 const STAGE: &[&str] =
     &["name", "steps", "parallel", "when", "timeout", "retry", "lock", "nice", "container", "credentials"];
 const WHEN: &[&str] = &["branch", "pull_request", "parameter"];
-const STEP: &[&str] = &["sh", "cargo", "uses", "with", "name", "timeout", "retry", "nice", "credentials"];
+const STEP: &[&str] =
+    &["sh", "cargo", "uses", "with", "name", "timeout", "retry", "nice", "credentials", "keep_daemons"];
 const CREDENTIAL_FILE: &[&str] = &["file", "name"];
 const PARAMETER: &[&str] = &["name", "type", "default", "description", "choices"];
 const BRANCH: &[&str] = &["name", "steps"];
@@ -332,6 +333,13 @@ impl Read<'_> {
                 }
                 if let Some(level) = fields.get("nice").and_then(|n| self.reader.integer(n, "nice")) {
                     def = def.parameter("nice", json!(level));
+                }
+                if let Some(keep) = fields.get("keep_daemons").and_then(|k| self.reader.boolean(k, "keep_daemons")) {
+                    if def.kind == "sh" {
+                        def = def.parameter("keep_daemons", json!(keep));
+                    } else {
+                        self.reader.error(&fields["keep_daemons"].span(), "keep_daemons só vale num passo sh");
+                    }
                 }
                 if let Some(credentials) = fields.get("credentials") {
                     let own = self.reader.credentials(credentials);

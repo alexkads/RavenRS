@@ -29,7 +29,12 @@
 //!   step ends, failed or cancelled too. On an agent the value comes from the server (`segredo`),
 //!   which audits it;
 //! - when the build is cancelled or the step's time limit (`timeout_ms` of its node) passes, the
-//!   program is stopped with every program it started.
+//!   program is stopped with every program it started;
+//! - when it ends on its own, what it left running in the background (`sleep 600 &`, a server of
+//!   `sccache` started by the build) is stopped too, at once, and the log names it (#931): nothing
+//!   of a build outlives it, nor keeps the mount namespace or the `/tmp` of a server that was
+//!   restarted since. With `keep_daemons = true` it stays, and the log says so. A daemon that
+//!   leaves the process group itself (`setsid`) is not reached.
 //!
 //! It ends well when the program ends with code 0, and fails with "o comando terminou com o
 //! código N" otherwise: a failure worth trying again when its node has a `retry`, so the run
@@ -126,6 +131,9 @@ pub struct Watched {
     pub end: End,
     /// The last lines of its errors, up to [`KEPT_ERRORS`], in order: what a failure says.
     pub errors: Vec<String>,
+    /// What it left running in the background and was stopped when it ended, by name, when its
+    /// spec said [`Spec::stop_leftovers`].
+    pub leftovers: Vec<String>,
 }
 
 impl Watched {
@@ -176,7 +184,7 @@ pub fn watch(
     };
     match stopped {
         Some(why) => Err(why),
-        None => Ok(Watched { end, errors: errors.into() }),
+        None => Ok(Watched { end, errors: errors.into(), leftovers: control.leftovers() }),
     }
 }
 
@@ -364,7 +372,21 @@ impl NodeKind for Sh {
             // A second guard: the run stops waiting at its deadline, and this stops the program.
             spec = spec.timeout(Duration::from_millis(ms));
         }
-        let end = watch(cx, spec, &log, &|| {})?.end;
-        ended(end, cx.node().retry.is_some()).map(|()| BuildScope::pass_on(cx))
+        // What the command leaves in the background goes with it (#931), unless the step keeps it.
+        let keep = cx.parameter("keep_daemons").and_then(Value::as_bool) == Some(true);
+        if !keep {
+            spec = spec.stop_leftovers();
+        }
+        let watched = watch(cx, spec, &log, &|| {})?;
+        if !watched.leftovers.is_empty() {
+            log(&format!(
+                "o comando deixou {} processo(s) rodando ({}); parados, como todo passo faz (keep_daemons = true os deixa)",
+                watched.leftovers.len(),
+                watched.leftovers.join(", ")
+            ));
+        } else if keep {
+            log("keep_daemons: o que o comando deixou rodando fica vivo depois do passo");
+        }
+        ended(watched.end, cx.node().retry.is_some()).map(|()| BuildScope::pass_on(cx))
     }
 }

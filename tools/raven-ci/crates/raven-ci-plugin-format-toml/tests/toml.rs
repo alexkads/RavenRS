@@ -343,3 +343,45 @@ fn the_keep_of_the_pipeline_keeps_that_many_builds_and_the_job_s_own_number_wins
     }
     assert_eq!(ci.builds("seu").expect("builds").len(), 3, "the job's own number wins");
 }
+
+/// What a command leaves in the background goes with the step, and the log names it; a step that
+/// says keep_daemons keeps it (#931).
+#[cfg(unix)]
+#[test]
+fn what_a_command_leaves_running_goes_with_its_step_unless_it_keeps_it() {
+    let marker = format!("raven-ci-daemon-{}", std::process::id());
+    let alive = || {
+        std::process::Command::new("pgrep")
+            .args(["-f", &marker])
+            .output()
+            .is_ok_and(|out| !out.stdout.is_empty())
+    };
+    let ci = Ci::in_memory().expect("a core");
+    ci.add_plugin(Arc::new(TomlFormatPlugin));
+    ci.add_plugin(Arc::new(ShellPlugin::new()));
+    ci.apply_plugins().expect("on");
+    let pipeline = format!(
+        "[[stages]]\nname = \"Daemon\"\nsteps = ['sh -c \"sleep 600; : {marker}\" & echo deixei']\n"
+    );
+    ci.save_job(JobSpec::new("daemon", "toml", pipeline)).expect("saved");
+    let started = std::time::Instant::now();
+    let n = ci.request_build(BuildRequest::new("daemon", "teste")).expect("asked").number;
+    ci.work_until_idle("e1").expect("runs");
+    let log: Vec<String> = ci.build_log("daemon", n, 0).expect("log").into_iter().map(|l| l.text).collect();
+    assert_eq!(ci.build("daemon", n).expect("build").status, BuildStatus::Succeeded, "{log:#?}");
+    assert!(started.elapsed() < std::time::Duration::from_secs(30), "the step waited for the daemon");
+    assert!(log.iter().any(|l| l.contains("o comando deixou") && l.contains("parados")), "{log:#?}");
+    assert!(!alive(), "the daemon outlived the build");
+
+    // Kept: it stays, and the log says so; the test stops it.
+    let kept = format!(
+        "[[stages]]\nname = \"Fica\"\nsteps = [{{ sh = 'sh -c \"sleep 600; : {marker}\" >/dev/null 2>&1 & echo deixei', keep_daemons = true }}]\n"
+    );
+    ci.save_job(JobSpec::new("fica", "toml", kept)).expect("saved");
+    let n = ci.request_build(BuildRequest::new("fica", "teste")).expect("asked").number;
+    ci.work_until_idle("e1").expect("runs");
+    let log: Vec<String> = ci.build_log("fica", n, 0).expect("log").into_iter().map(|l| l.text).collect();
+    assert!(log.iter().any(|l| l.contains("keep_daemons")), "{log:#?}");
+    assert!(alive(), "keep_daemons keeps it");
+    let _ = std::process::Command::new("pkill").args(["-f", &marker]).status();
+}

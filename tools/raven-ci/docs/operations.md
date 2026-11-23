@@ -122,6 +122,15 @@ settings = { min_free_gb = 10 }
 
 `url` is the address people reach the server at: the notices link to its panel.
 
+## What runs on the machine
+
+The service of the RPM runs as `raven-ci`, with a private `/tmp` and `CPUWeight=50`/`IOWeight=50`
+instead of a `Nice`, so the builds see the machine's priority. Agents of another user need the
+drop-in `/usr/share/raven-ci/agentes-de-outro-usuario.conf` (`NoNewPrivileges=false`,
+`PrivateTmp=false`). Nothing a build starts outlives it: see
+[What a build leaves behind](agents.md#what-a-build-leaves-behind), with what runs in which user,
+`/tmp` and priority, and what stays after a restart.
+
 ## Watching it
 
 - **Health**: `GET /health` answers `{"status":"ok"}` with no sign-in. The container's healthcheck

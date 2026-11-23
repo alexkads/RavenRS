@@ -17,7 +17,12 @@ Restart=on-failure
 RestartSec=5
 # Its goal is 60 MB; the limit leaves room for the builds the server runs itself.
 MemoryMax=256M
-Nice=10
+# The machine is protected by weight, not by Nice: a Nice=10 here passes to every build and agent
+# the server starts, and a test that runs `nice -n 10` then sees 19 (#931). The weight lowers the
+# service's share of the CPU and the disk against the rest of the machine, and the nice the steps
+# see is the machine's, as on a node of Jenkins.
+CPUWeight=50
+IOWeight=50
 NoNewPrivileges=true
 ProtectSystem=full
 PrivateTmp=true

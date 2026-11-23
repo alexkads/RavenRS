@@ -153,6 +153,7 @@ values; a value of the wrong kind is refused before the build starts.
 | `"cargo test"` | a command, run by `sh -e -c` (by `cmd /C` on Windows) | `shell` |
 | `{ sh = "./e2e.sh", name = "Ponta a ponta", timeout = "5m", retry = 2, nice = 10 }` | the same, with a name, a limit, tries again and a priority | `shell` |
 | `{ sh = "./publica.sh", credentials = { NPM_TOKEN = "npm" } }` | the same, with credentials of the vault as variables, added to the stage's | `shell` |
+| `{ sh = "./servico.sh &", keep_daemons = true }` | what the command leaves running stays after the step; without it, it is stopped when the command ends and the log names it | `shell` |
 | `{ cargo = "clippy -p site -- -D warnings" }` | `cargo` with each diagnostic in the log and in an attachment | `cargo` |
 | `{ uses = "plugin/passo", with = { … } }` | a step of any plugin, by its name and kind | the plugin named |
 

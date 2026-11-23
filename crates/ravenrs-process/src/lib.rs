@@ -21,6 +21,10 @@
 //! On Linux and macOS the child leads a process group of its own, so stopping it reaches what it
 //! started: first a polite stop (`TERM`), then, after [`GRACE`], a forced one (`KILL`). On Windows
 //! the child runs with no console window and `taskkill /T` stops the tree.
+//!
+//! A child that ends on its own may leave behind what it started in the background (`sleep 600 &`,
+//! a daemon such as the server of `sccache`): they stay in its group. [`stop_group`] stops them,
+//! as a step of a build does when it ends, so nothing of a build outlives it.
 
 use std::collections::BTreeMap;
 use std::ffi::OsString;
@@ -130,6 +134,7 @@ pub struct Spec {
     timeout: Option<Duration>,
     line_limit: usize,
     user: Option<String>,
+    leftovers: bool,
 }
 
 impl Spec {
@@ -143,6 +148,7 @@ impl Spec {
             allowed: Vec::new(),
             vars: BTreeMap::new(),
             stdin: false,
+            leftovers: false,
             timeout: None,
             line_limit: LINE_LIMIT,
             user: None,
@@ -211,6 +217,15 @@ impl Spec {
         self
     }
 
+    /// Stops what it leaves running in its group the moment it ends on its own ([`stop_group`]),
+    /// before waiting for its streams: a `sleep 600 &` holds the output open, and without this the
+    /// child would seem to run until the sleep ends. What was stopped is in
+    /// [`Control::leftovers`]. A step of a build asks for it, so nothing of a build outlives it.
+    pub fn stop_leftovers(mut self) -> Self {
+        self.leftovers = true;
+        self
+    }
+
     /// Cuts lines longer than `limit` bytes into lines of that length.
     pub fn line_limit(mut self, limit: usize) -> Self {
         self.line_limit = limit.max(1);
@@ -258,6 +273,7 @@ impl Spec {
             pid,
             stdin: Arc::new(Mutex::new(child.stdin.take())),
             stop: Arc::new(AtomicBool::new(false)),
+            leftovers: self.leftovers.then(|| Arc::new(Mutex::new(Vec::new()))),
         };
         let readers: Vec<_> = [
             child.stdout.take().map(|s| read_lines(s, send.clone(), Event::Out, self.line_limit)),
@@ -403,6 +419,11 @@ fn watch(
     // What it started is stopped too, even when it ended on its own leaving them behind.
     if forced.is_some() {
         stop_tree(control.pid, &mut child);
+    } else if let Some(left) = &control.leftovers {
+        let stopped = stop_group(control.pid);
+        if let Ok(mut left) = left.lock() {
+            *left = stopped;
+        }
     }
     control.close();
     for reader in readers {
@@ -453,6 +474,58 @@ fn stop_tree(pid: u32, child: &mut Child) {
     signal("-KILL");
     let _ = child.kill();
     let _ = child.wait();
+}
+
+/// Stops what is left of the process group of `pid`, the child of a [`Running`] that ended: what it
+/// started in the background and never waited for. A polite stop (`TERM`), then, after [`GRACE`],
+/// a forced one (`KILL`). It gives the names of the processes it found, one per process (none when
+/// the group had ended), so whoever asked can say what was left.
+///
+/// A process that left the group on purpose (`setsid`, as a daemon that detaches does) is not in
+/// it and stays. On Windows, where the tree of a child ended on its own is not kept, it does
+/// nothing and gives none.
+#[cfg(unix)]
+pub fn stop_group(pid: u32) -> Vec<String> {
+    if !group_alive(pid) {
+        return Vec::new();
+    }
+    let listed = Command::new("pgrep")
+        .args(["-l", "-g", &pid.to_string()])
+        .stderr(Stdio::null())
+        .output()
+        .map(|out| String::from_utf8_lossy(&out.stdout).into_owned())
+        .unwrap_or_default();
+    let mut names: Vec<String> = listed
+        .lines()
+        .filter_map(|line| line.split_once(' ').map(|(_, name)| name.trim().to_owned()))
+        .filter(|name| !name.is_empty())
+        .collect();
+    if names.is_empty() {
+        names.push("?".to_owned());
+    }
+    let group = format!("-{pid}");
+    let signal = |name: &str| {
+        let _ = Command::new("kill")
+            .args([name, "--", &group])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    };
+    signal("-TERM");
+    let until = Instant::now() + GRACE;
+    while Instant::now() < until && group_alive(pid) {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    if group_alive(pid) {
+        signal("-KILL");
+    }
+    names
+}
+
+/// On Windows the tree of a child that ended is not kept: nothing to stop.
+#[cfg(not(unix))]
+pub fn stop_group(_pid: u32) -> Vec<String> {
+    Vec::new()
 }
 
 /// Whether any process of the group `pid` still runs.
@@ -565,12 +638,19 @@ pub struct Control {
     pid: u32,
     stdin: Arc<Mutex<Option<ChildStdin>>>,
     stop: Arc<AtomicBool>,
+    leftovers: Option<Arc<Mutex<Vec<String>>>>,
 }
 
 impl Control {
     /// The child's process id.
     pub fn pid(&self) -> u32 {
         self.pid
+    }
+
+    /// With [`Spec::stop_leftovers`], once it ended: the names of what it had left running in its
+    /// group and was stopped, one per process. None otherwise.
+    pub fn leftovers(&self) -> Vec<String> {
+        self.leftovers.as_ref().and_then(|left| left.lock().ok().map(|left| left.clone())).unwrap_or_default()
     }
 
     /// Writes a line to its input, as typed in a terminal. False when its input is closed.
