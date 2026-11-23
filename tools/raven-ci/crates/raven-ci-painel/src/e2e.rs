@@ -245,6 +245,13 @@ default = "develop"
 description = "A branch que o build busca"
 
 [[parameters]]
+name = "E2E"
+type = "choice"
+choices = ["todos", "nenhum", "escolher suítes"]
+default = "todos"
+description = "Quais suítes de ponta a ponta rodam"
+
+[[parameters]]
 name = "UNIDADE"
 type = "bool"
 default = true

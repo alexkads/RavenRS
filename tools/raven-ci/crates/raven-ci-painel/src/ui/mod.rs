@@ -20,6 +20,10 @@ mod jobs;
 mod plugin;
 
 /// The role that administers the server.
+/// The margins of a page beside the sidebar, as the boards draw them: 24 above, 32 on the sides
+/// and below (T1).
+const PAGE_PADDING: Insets = Insets { top: 24.0, right: 32.0, bottom: 32.0, left: 32.0 };
+
 const ADMIN: &str = "Administradores";
 /// The role that runs builds.
 const RUN: &str = "Executores";
@@ -496,13 +500,21 @@ impl View for Painel {
             nada()
         };
         let status: AnyView = if s.phone() { nada() } else { Box::new(self.status_bar()) };
+        // The sidebar runs the height of the window; the page and its status bar sit beside it,
+        // with no gap (T1).
         cx.child(
             &VStack::new((
                 top,
-                HStack::new((self.sidebar(), ScrollView::new((content,)).grow(1.0)))
-                    .align(Align::Stretch)
-                    .grow(1.0),
-                status,
+                HStack::new((
+                    self.sidebar(),
+                    VStack::new((ScrollView::new((content,)).grow(1.0), status))
+                        .spacing(0.0)
+                        .align(Align::Stretch)
+                        .grow(1.0),
+                ))
+                .spacing(0.0)
+                .align(Align::Stretch)
+                .grow(1.0),
                 s.confirm.clone(),
                 jobs::dispatch_dialog(s),
                 self.palette(),

@@ -8,6 +8,24 @@ use ravenrs::core::AccessAction;
 use ravenrs::prelude::*;
 use ravenrs::render::{GpuContext, render_to_rgba, wgpu};
 
+/// The Jenkinsfile T5 converts: one stage runs free Groovy, which the converter leaves out.
+const JENKINSFILE: &str = "pipeline {
+  agent { label 'oficina' }
+  parameters {
+    string(name: 'BRANCH', defaultValue: 'develop')
+    booleanParam(name: 'UNIDADE', defaultValue: true)
+  }
+  stages {
+    stage('Instalar') { steps { sh 'pnpm install' } }
+    stage('Unidade') {
+      when { expression { params.UNIDADE } }
+      steps { sh 'pnpm test' }
+    }
+    stage('Resumo') { steps { script { gerarResumo() } } }
+  }
+  post { always { junit 'relatorio/*.xml' } }
+}";
+
 #[test]
 #[ignore = "draws pictures into the folder given"]
 fn pictures_of_the_screens() {
@@ -66,8 +84,24 @@ fn pictures_of_the_screens() {
     snap(&mut ui, "3-fila");
     press(&mut ui, "Plugins");
     snap(&mut ui, "4-plugins");
+    // The sheet of a plugin, as T4 draws it open beside the grid.
+    open_row(&mut ui, "docker");
+    snap(&mut ui, "4b-plugin-ficha");
+    press(&mut ui, "Fechar");
     press(&mut ui, "Configuração");
     snap(&mut ui, "5-configuracao");
+    // The converter with the Jenkinsfile of T5.
+    press(&mut ui, "Converter Jenkinsfile");
+    settle(&mut ui);
+    let editor = ui
+        .access_tree()
+        .nodes
+        .iter()
+        .find(|n| n.role == ravenrs::core::Role::TextInput)
+        .expect("the editor of the Jenkinsfile")
+        .id;
+    ui.set_access_value(editor, JENKINSFILE);
+    snap(&mut ui, "5b-conversor");
     press(&mut ui, "Travas");
     snap(&mut ui, "6-pagina-de-plugin");
     press(&mut ui, "Usuários e papéis");

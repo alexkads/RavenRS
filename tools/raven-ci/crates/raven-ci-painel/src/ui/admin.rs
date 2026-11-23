@@ -69,6 +69,7 @@ pub(super) fn plugins(s: &Rc<S>) -> AnyView {
             Box::new(Toggle::new(binding).small().accessible_name(label))
         }
     };
+    let row_count = rows.len();
     let open = {
         let s = s.clone();
         move |row: &Vec<Cell>| open_sheet(&s, &row[0].key_text())
@@ -111,10 +112,11 @@ pub(super) fn plugins(s: &Rc<S>) -> AnyView {
     .striped(true)
     .toolbar(false)
     .filter_row(false)
-    .on_row_open(open.clone())
-    .row_action(GridRowAction::new("Ficha", IconName::Info, open))
+    // A double click or Enter on the row opens its sheet (I4).
+    .on_row_open(open)
     .empty_text("Nenhum plugin neste filtro.")
-    .height(360.0);
+    // As tall as its rows: the titles (38) and 36 a row; past twelve rows it scrolls.
+    .height(38.0 + 36.0 * row_count.clamp(1, 12) as f32 + 1.0);
     let refused: Vec<AnyView> = all
         .iter()
         .filter(|p| p["state"]["state"] == "refused")
@@ -164,7 +166,7 @@ pub(super) fn plugins(s: &Rc<S>) -> AnyView {
             add_plugin_dialog(s),
         ))
         .spacing(24.0)
-        .padding(32.0)
+        .padding(super::PAGE_PADDING)
         .align(Align::Stretch),
     )
 }

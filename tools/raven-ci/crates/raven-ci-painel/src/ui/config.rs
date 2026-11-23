@@ -87,7 +87,7 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
     };
     let save: AnyView = if s.admin() {
         let (s, job, format) = (s.clone(), names.get(pick).cloned().unwrap_or_default(), format.clone());
-        Box::new(Button::new("Salvar").icon(IconName::Check).shortcut("⌘ S").on_click(move || {
+        Box::new(Button::new("Salvar").icon(IconName::Check).on_click(move || {
             let name = if s.config_new.get() || job.is_empty() {
                 s.config_name.get().trim().to_owned()
             } else {
@@ -160,7 +160,7 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
     Box::new(
         VStack::new((PageHeader::new(title).description(description).action(save), body))
             .spacing(24.0)
-            .padding(32.0)
+            .padding(super::PAGE_PADDING)
             .align(Align::Stretch),
     )
 }
@@ -220,10 +220,10 @@ fn convert_view(s: &Rc<S>) -> AnyView {
                 .align(Align::Stretch),
         )
     } else {
+        // Two equal halves, as T5 draws them.
         Box::new(
-            HStack::new((column("JENKINSFILE", source), column(".RAVEN-CI.TOML · GERADO", made)))
-                .spacing(24.0)
-                .align(Align::Start),
+            Grid::new(2, (column("JENKINSFILE", source), column(".RAVEN-CI.TOML · GERADO", made)))
+                .spacing(24.0),
         )
     };
     let verdict: AnyView = match pending.first() {

@@ -169,6 +169,7 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
     };
 
     let grid_rows: Vec<Vec<ravenrs::prelude::Value>> = agent_rows(&occupancy);
+    let agents = grid_rows.len().clamp(1, 12);
     let grid = DataGrid::new(
         GridData::new(grid_rows),
         [
@@ -182,7 +183,8 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
     )
     .toolbar(false)
     .filter_row(false)
-    .height(240.0);
+    // As tall as its rows, as T3 draws it: the titles (38) and 36 a row.
+    .height(38.0 + 36.0 * agents as f32 + 1.0);
 
     let header = {
         let mut header = PageHeader::new("Fila e agentes").description(format!(
@@ -208,7 +210,7 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
             agent_dialog(s),
         ))
         .spacing(24.0)
-        .padding(32.0)
+        .padding(super::PAGE_PADDING)
         .align(Align::Stretch),
     )
 }

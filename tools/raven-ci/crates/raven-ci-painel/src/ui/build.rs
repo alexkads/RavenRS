@@ -348,8 +348,11 @@ pub(super) fn page(s: &Rc<S>, job: &str, number: u64) -> AnyView {
     };
 
     let main = VStack::new((tabs(s, &body, job, number),)).align(Align::Stretch).grow(1.0);
-    let aside = details(&body, now);
-    let lower: AnyView = if s.narrow() {
+    let aside = details(&body);
+    let lower: AnyView = if s.phone() {
+        // On a phone the log is the page; the details stay for a wider window (T7).
+        Box::new(main)
+    } else if s.narrow() {
         // In a narrow window the details go under the log (I7).
         Box::new(VStack::new((main, aside)).spacing(24.0).align(Align::Stretch))
     } else {
@@ -359,7 +362,7 @@ pub(super) fn page(s: &Rc<S>, job: &str, number: u64) -> AnyView {
     Box::new(
         VStack::new((breadcrumb, header, progress, diagram, lower, foot))
             .spacing(20.0)
-            .padding(if s.phone() { 16.0 } else { 32.0 })
+            .padding(if s.phone() { Insets::uniform(16.0) } else { super::PAGE_PADDING })
             .align(Align::Stretch),
     )
 }
@@ -477,20 +480,13 @@ fn actions(s: &Rc<S>, job: &str, number: u64, running: bool, phone: bool) -> Any
         ));
         return Box::new(VStack::new(buttons).spacing(12.0).align(Align::Stretch));
     }
-    let repeat = Button::new("Repetir")
-        .icon(IconName::RotateCcw)
-        .style(ButtonStyle::Secondary)
-        .shortcut("R")
-        .on_click(again);
+    let repeat =
+        Button::new("Repetir").icon(IconName::RotateCcw).style(ButtonStyle::Secondary).on_click(again);
     if running {
         Box::new(
             HStack::new((
                 repeat,
-                Button::new("Cancelar")
-                    .icon(IconName::Square)
-                    .style(ButtonStyle::Danger)
-                    .shortcut("⌘ .")
-                    .on_click(cancel),
+                Button::new("Cancelar").icon(IconName::Square).style(ButtonStyle::Danger).on_click(cancel),
             ))
             .spacing(8.0),
         )
@@ -619,7 +615,7 @@ fn parameters(values: &Json) -> AnyView {
 
 /// The details beside the log: the agent, the lock, the folder, the status on the pull request,
 /// how it went and why it did not pass, and the plugins of the build.
-fn details(body: &Json, now: i64) -> AnyView {
+fn details(body: &Json) -> AnyView {
     let build = &body["build"];
     let plugins: Vec<String> = body["plugins"]
         .as_array()
@@ -627,18 +623,12 @@ fn details(body: &Json, now: i64) -> AnyView {
         .flatten()
         .filter_map(|p| p.as_str().map(str::to_owned))
         .collect();
-    let mut rows = vec![
-        PropertyRow::new(
-            "Agente",
-            build["worker"].as_str().map(jobs::agent_words).unwrap_or_else(|| "—".to_owned()),
-        ),
-        PropertyRow::new("Estado", texto::status_words(build["status"].as_str().unwrap_or_default())),
-        PropertyRow::new("Gatilho", build["cause"].as_str().unwrap_or("—")),
-        PropertyRow::new("Pedido por", build["actor"].as_str().unwrap_or("o servidor")),
-    ];
-    if let Some(commit) = build["commit"].as_str() {
-        rows.push(PropertyRow::new("Commit", commit.chars().take(7).collect::<String>()));
-    }
+    // The rows T2 draws: the agent, the lock, the folder and the status on the pull request; the
+    // state, the trigger and the time are in the header.
+    let mut rows = vec![PropertyRow::new(
+        "Agente",
+        build["worker"].as_str().map(jobs::agent_words).unwrap_or_else(|| "—".to_owned()),
+    )];
     if plugins.iter().any(|p| p == "lock") {
         rows.push(PropertyRow::new("Trava", "pelo plugin lock"));
     }
@@ -652,10 +642,6 @@ fn details(body: &Json, now: i64) -> AnyView {
     if let Some(origin) = build["origin"].as_u64() {
         rows.push(PropertyRow::new("Repete", format!("o build #{origin}")));
     }
-    if let (Some(start), Some(end)) = (build["created_ms"].as_i64(), build["ended_ms"].as_i64()) {
-        rows.push(PropertyRow::new("Duração", texto::duration(end - start)));
-        rows.push(PropertyRow::new("Terminou", texto::ago(end, now)));
-    }
     if build["joined"].as_u64().unwrap_or(0) > 0 {
         rows.push(PropertyRow::new("Pedidos juntados", build["joined"].as_u64().unwrap_or(0).to_string()));
     }
@@ -667,10 +653,13 @@ fn details(body: &Json, now: i64) -> AnyView {
         VStack::new((Card::new(
             VStack::new((
                 Text::new("Detalhes").style(TextStyle::Headline),
-                VStack::new(rows).spacing(4.0).align(Align::Stretch),
+                VStack::new(rows).spacing(12.0).align(Align::Stretch),
                 reason,
+                Divider::horizontal(),
                 Text::new("PLUGINS NESTE BUILD").style(TextStyle::Caption).foreground(Semantic::InkMuted),
-                HStack::new(plugins.iter().map(|p| Badge::new(p.clone())).collect::<Vec<_>>()).spacing(6.0).wrap(),
+                HStack::new(plugins.iter().map(|p| Badge::new(p.clone()).tone(Tone::Neutral)).collect::<Vec<_>>())
+                    .spacing(6.0)
+                    .wrap(),
                 Text::new("Cada plugin pode pôr uma aba nesta página. O junit põe a aba Testes; o artifacts, a aba Artefatos.")
                     .style(TextStyle::Callout)
                     .foreground(Semantic::InkMuted),

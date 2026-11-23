@@ -95,6 +95,7 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
         };
 
     let rows: Vec<Vec<Cell>> = jobs.iter().map(|job| row_of(job, &waiting, now)).collect();
+    let rows_shown = rows.len().clamp(1, 12);
     let list: AnyView = if s.phone() {
         Box::new(VStack::new(rows.iter().map(|row| phone_card(s, row)).collect::<Vec<_>>()).spacing(12.0))
     } else {
@@ -122,13 +123,15 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
         .empty_text("Nenhum job ainda. Crie um com Novo job.")
         .name_column(2)
         .on_row_open(opener)
-        .height(420.0);
+        // As tall as its rows, as T1 draws it: the bar (50), the titles and the filters (38 each)
+        // and 36 a row; past twelve rows it scrolls.
+        .height(GRID_TOP + 36.0 * rows_shown as f32 + 1.0);
         Box::new(grid)
     };
     Box::new(
         VStack::new((header, numbers, notice, list))
             .spacing(24.0)
-            .padding(if s.phone() { 16.0 } else { 32.0 })
+            .padding(if s.phone() { Insets::uniform(16.0) } else { super::PAGE_PADDING })
             .align(Align::Stretch),
     )
 }
@@ -260,6 +263,9 @@ fn phone_card(s: &Rc<S>, row: &[Cell]) -> AnyView {
     )
 }
 
+/// How tall a grid is above its rows: the bar, the titles and the filters.
+const GRID_TOP: f32 = 50.0 + 38.0 + 38.0;
+
 /// A number of the top of the page, in a card.
 fn stat(label: &str, value: String, detail: String) -> AnyView {
     Box::new(Card::new(Stat::new(label, value).caption(detail)))
@@ -318,6 +324,9 @@ fn fields_of(s: &S, job: &str) -> Vec<ParamField> {
         .map(|p| {
             let name = p["name"].as_str().unwrap_or_default();
             let caption = p["caption"].as_str().filter(|c| !c.is_empty()).unwrap_or(name);
+            // A field says the parameter's name, as the steps read it (BRANCH, E2E); a switch says
+            // what it does (T6).
+            let label = if p["kind"] == "bool" { caption } else { name };
             let kind = match p["kind"].as_str() {
                 Some("bool") => ParamKind::Boolean,
                 Some("choice") => ParamKind::Choice(
@@ -331,7 +340,7 @@ fn fields_of(s: &S, job: &str) -> Vec<ParamField> {
                 ),
                 _ => ParamKind::Text,
             };
-            let field = ParamField::new(name, caption, kind);
+            let field = ParamField::new(name, label, kind);
             match &p["default"] {
                 Json::Bool(b) => field.default(*b),
                 Json::String(t) if !t.is_empty() => field.default(t.clone()),

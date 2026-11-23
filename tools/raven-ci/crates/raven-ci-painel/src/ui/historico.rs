@@ -82,7 +82,7 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
             grid,
         ))
         .spacing(24.0)
-        .padding(32.0)
+        .padding(super::PAGE_PADDING)
         .align(Align::Stretch),
     )
 }
