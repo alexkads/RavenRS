@@ -1,0 +1,27 @@
+[package]
+name = "raven-ci-plugin-explain"
+description = "The plugin explain of Raven CI: explains why a build failed with a model of AI that runs on the machine, out of the server's process, and keeps the explanation with the build."
+version = "0.1.0"
+edition.workspace = true
+# raven-ci-core, which the tests use, needs 1.89 (ravenrs-flows-runtime, rusqlite 0.41).
+rust-version = "1.89"
+license.workspace = true
+publish = false
+
+[dependencies]
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
+ravenrs-app.workspace = true
+# The program of the model, run as a child where there is no socket of systemd.
+ravenrs-process.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+raven-ci-core = { path = "../raven-ci-core" }
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api", features = ["testing"] }
+raven-ci-plugin-format-toml = { path = "../raven-ci-plugin-format-toml" }
+raven-ci-plugin-shell = { path = "../raven-ci-plugin-shell" }
+ravenrs-app-server.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

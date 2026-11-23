@@ -6275,6 +6275,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "raven-ci-plugin-explain"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-app-server",
+ "ravenrs-process",
+ "serde_json",
+]
+
+[[package]]
 name = "raven-ci-plugin-format-jenkinsfile"
 version = "0.1.0"
 dependencies = [

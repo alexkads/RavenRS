@@ -150,6 +150,22 @@ impl Store {
         })
     }
 
+    /// The same, with `enabled` for a plugin never set: what the plugin says of itself
+    /// ([`CiPlugin::on_from_the_start`](raven_ci_plugin_api::CiPlugin::on_from_the_start)).
+    pub fn plugin_or(&self, name: &str, enabled: bool) -> Result<PluginRow, CiError> {
+        let set: bool = self
+            .db()
+            .query_row("SELECT 1 FROM ci_plugins WHERE name = ?1", params![name], |_| Ok(true))
+            .optional()
+            .map_err(db)?
+            .unwrap_or(false);
+        let mut row = self.plugin(name)?;
+        if !set {
+            row.enabled = enabled;
+        }
+        Ok(row)
+    }
+
     /// Keeps `row` for `name`.
     pub fn set_plugin(&self, name: &str, row: &PluginRow) -> Result<(), CiError> {
         let revoked: Vec<&str> = row.revoked.iter().map(|p| p.name()).collect();

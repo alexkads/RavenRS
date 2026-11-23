@@ -976,6 +976,14 @@ impl host::Attachments for Ci {
     fn snapshot(&self) -> Result<raven_ci_plugin_api::CiSnapshot, CiError> {
         Ci::snapshot(self)
     }
+
+    fn summary(&self, job: &str, number: u64) -> Result<serde_json::Value, CiError> {
+        serde_json::to_value(Ci::summary(self, job, number)?).map_err(|e| CiError::failed(e.to_string()))
+    }
+
+    fn attach(&self, job: &str, number: u64, attachment: &Attachment) -> Result<i64, CiError> {
+        Ci::attach(self, job, number, attachment)
+    }
 }
 
 /// The plugin on that reads pipelines of the format `id`; empty when none does.

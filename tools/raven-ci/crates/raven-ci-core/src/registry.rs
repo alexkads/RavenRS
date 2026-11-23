@@ -217,7 +217,7 @@ impl Registry {
     pub fn apply(&self) -> Result<Vec<String>, CiError> {
         let mut inner = self.lock();
         let rows: Vec<PluginRow> =
-            inner.entries.iter().map(|entry| self.store.plugin(entry.name())).collect::<Result<_, _>>()?;
+            inner.entries.iter().map(|entry| self.store.plugin_or(entry.name(), entry.plugin.on_from_the_start())).collect::<Result<_, _>>()?;
         let enabled: Vec<usize> = (0..inner.entries.len()).filter(|&i| rows[i].enabled).collect();
         let entries: Vec<ModuleEntry> = enabled
             .iter()
@@ -325,10 +325,15 @@ impl Registry {
     }
 
     fn set(&self, name: &str, change: impl FnOnce(&mut PluginRow)) -> Result<(), CiError> {
-        if !self.lock().entries.iter().any(|entry| entry.name() == name) {
-            return Err(CiError::unavailable(format!("não há plugin com o nome {name}")));
-        }
-        let mut row = self.store.plugin(name)?;
+        let on_from_the_start = {
+            let inner = self.lock();
+            let Some(entry) = inner.entries.iter().find(|entry| entry.name() == name) else {
+                return Err(CiError::unavailable(format!("não há plugin com o nome {name}")));
+            };
+            entry.plugin.on_from_the_start()
+        };
+        // A plugin off from the start that is only configured stays off.
+        let mut row = self.store.plugin_or(name, on_from_the_start)?;
         change(&mut row);
         self.store.set_plugin(name, &row)
     }
@@ -481,7 +486,7 @@ impl Registry {
         state: PluginState,
     ) -> Result<PluginView, CiError> {
         let manifest = plugin.manifest();
-        let row = self.store.plugin(plugin.name())?;
+        let row = self.store.plugin_or(plugin.name(), plugin.on_from_the_start())?;
         let declared = Permission::declared(&manifest);
         let granted = declared.iter().copied().filter(|p| !row.revoked.contains(p)).collect();
         let points = match (&state, &external) {
