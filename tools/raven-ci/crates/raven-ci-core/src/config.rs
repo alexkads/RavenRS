@@ -256,10 +256,14 @@ impl Ci {
         }
         let wanted: Vec<&str> = config.jobs.iter().map(|job| job.name.as_str()).collect();
         for job in self.jobs()? {
-            // The job of a branch belongs to its job of many branches, whose scan makes and removes
-            // it: never "out of the file", and never removed here.
-            if wanted.contains(&job.name.as_str()) || job.settings.get(crate::multibranch::HEAD_KEY).is_some()
-            {
+            // The job of a branch belongs to its job of many branches (`<model>/<head>`), whose
+            // scan makes and removes it: while its model is in the file it is never "out of the
+            // file" nor removed here. When the model goes, it goes with it.
+            let of_a_model_kept = job.settings.get(crate::multibranch::HEAD_KEY).is_some()
+                && wanted
+                    .iter()
+                    .any(|model| job.name.strip_prefix(model).is_some_and(|rest| rest.starts_with('/')));
+            if wanted.contains(&job.name.as_str()) || of_a_model_kept {
                 continue;
             }
             if remove {
@@ -326,5 +330,10 @@ mod tests {
         assert!(said.iter().any(|line| line == "velho: removido"), "{said:?}");
         assert!(!said.iter().any(|line| line.starts_with("repo/main")), "{said:?}");
         assert!(ci.job("repo/main").is_ok(), "the branch stays");
+        // Without its model in the file, the branch goes with it.
+        let config = ServerConfig::parse("[[jobs]]\nname = \"outro\"\npipeline = \"x\"\n").expect("reads");
+        let said = ci.apply_config(&config, true).expect("applied");
+        assert!(said.iter().any(|line| line == "repo/main: removido"), "{said:?}");
+        assert!(ci.job("repo/main").is_err(), "the branch went with its model");
     }
 }
