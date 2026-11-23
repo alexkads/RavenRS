@@ -466,13 +466,21 @@ fn resumo(server: &Server, args: &Args, out: &mut dyn Write) -> Said {
     if rows.is_empty() {
         writeln!(out, "nenhum job")?;
     }
+    // The widest name and two spaces: the job of a branch (`repo/raven-ci-teste-mundo-real`)
+    // passes 32 letters and ran into its number.
+    let width =
+        rows.iter().map(|row| row["job"].as_str().unwrap_or_default().chars().count()).max().unwrap_or(0) + 2;
     for row in &rows {
         let name = row["job"].as_str().unwrap_or_default();
         match row["last"].as_u64() {
             Some(number) => {
-                writeln!(out, "{name:<32}#{number:<6}{}", words(row["status"].as_str().unwrap_or_default()))?;
+                writeln!(
+                    out,
+                    "{name:<width$}#{number:<6}{}",
+                    words(row["status"].as_str().unwrap_or_default())
+                )?;
             }
-            None => writeln!(out, "{name:<32}sem builds")?,
+            None => writeln!(out, "{name:<width$}sem builds")?,
         }
     }
     let waiting = queue.as_array().map_or(0, Vec::len);

@@ -20,9 +20,15 @@ path = "src/bin/raven-ci-ssh-falso.rs"
 [dependencies]
 raven-ci-core = { path = "../raven-ci-core" }
 raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
-# The plugins an agent brings compiled in: those of steps, code and hooks. The server's own
-# (formats, triggers, status, notices, credentials) stay on the server.
+# The plugins an agent brings compiled in: those of steps, code, hooks and publishers, since the
+# agent runs the steps and the publishers of its builds. The server's own (formats, triggers,
+# status, notices, credentials) stay on the server.
+raven-ci-plugin-artifacts = { path = "../raven-ci-plugin-artifacts" }
+raven-ci-plugin-cargo = { path = "../raven-ci-plugin-cargo" }
+raven-ci-plugin-docker = { path = "../raven-ci-plugin-docker" }
 raven-ci-plugin-git = { path = "../raven-ci-plugin-git" }
+raven-ci-plugin-junit = { path = "../raven-ci-plugin-junit" }
+raven-ci-plugin-kubernetes = { path = "../raven-ci-plugin-kubernetes" }
 raven-ci-plugin-lock = { path = "../raven-ci-plugin-lock" }
 raven-ci-plugin-shell = { path = "../raven-ci-plugin-shell" }
 raven-ci-plugin-workspace = { path = "../raven-ci-plugin-workspace" }

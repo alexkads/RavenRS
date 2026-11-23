@@ -479,6 +479,21 @@ impl Parser<'_> {
             _ => return self.fail("aqui esperava o nome de um bloco ou de um passo"),
         };
         self.pos += 1;
+        // A function of the file itself (`def naOficina(String comando) { … }`) is Groovy code: say
+        // so at the `def`, not at the typed argument the reading would stumble on.
+        if name == "def" {
+            let function = match self.peek() {
+                Some(Token { tok: Tok::Ident(function), .. }) => format!("def {function}"),
+                _ => "def".to_owned(),
+            };
+            return Err(Problem {
+                at: token.at,
+                message: format!(
+                    "{function} é código Groovy, que o pipeline declarativo não tem; ponha o que ela faz \
+                     num script do repositório e chame-o com sh"
+                ),
+            });
+        }
         let mut stmt = Stmt { name, at: token.at, args: Vec::new(), assigned: None, block: None };
         if self.is_sym('=') {
             self.pos += 1;

@@ -10,13 +10,21 @@ use raven_ci_core::{Ci, PluginState};
 use raven_ci_plugin_api::{CiError, CiPlugin};
 use serde_json::Value;
 
-/// Every plugin an agent brings compiled in: those of steps, of fetching code and of hooks.
+/// Every plugin an agent brings compiled in: those of steps, of fetching code, of hooks and the
+/// publishers. A build with `artifacts`, `junit`, a step `cargo`, a `container` or a `kubectl` asks
+/// the agent for their plugin, and the agent of 0.1.3, with only the first four, refused it
+/// ("este agente não tem o plugin artifacts").
 pub fn builtin() -> Vec<Arc<dyn CiPlugin>> {
     vec![
         Arc::new(raven_ci_plugin_shell::ShellPlugin::new()),
         Arc::new(raven_ci_plugin_git::GitPlugin::new()),
         Arc::new(raven_ci_plugin_lock::LockPlugin::new()),
         Arc::new(raven_ci_plugin_workspace::WorkspacePlugin::new()),
+        Arc::new(raven_ci_plugin_artifacts::ArtifactsPlugin::new()),
+        Arc::new(raven_ci_plugin_junit::JunitPlugin::new()),
+        Arc::new(raven_ci_plugin_cargo::CargoPlugin::new()),
+        Arc::new(raven_ci_plugin_docker::DockerPlugin::new()),
+        Arc::new(raven_ci_plugin_kubernetes::KubernetesPlugin::new()),
     ]
 }
 

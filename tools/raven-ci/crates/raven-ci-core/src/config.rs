@@ -226,7 +226,16 @@ impl Ci {
                 && self.store.plugin(name)?.settings != *settings
             {
                 self.configure_plugin(name, settings.clone())?;
-                changes.push(format!("plugin {name}: configuração aplicada"));
+                // A setting can leave the plugin refused (a folder it cannot make, say): said here,
+                // or the build that needs it is the first to tell, and only in the server's log.
+                match self.registry.info(name)?.state {
+                    PluginState::Refused(why) => {
+                        changes.push(format!(
+                            "plugin {name}: configuração aplicada, mas o plugin ficou recusado: {why}"
+                        ));
+                    }
+                    _ => changes.push(format!("plugin {name}: configuração aplicada")),
+                }
                 plugins_changed = true;
             }
         }
@@ -247,7 +256,10 @@ impl Ci {
         }
         let wanted: Vec<&str> = config.jobs.iter().map(|job| job.name.as_str()).collect();
         for job in self.jobs()? {
-            if wanted.contains(&job.name.as_str()) {
+            // The job of a branch belongs to its job of many branches, whose scan makes and removes
+            // it: never "out of the file", and never removed here.
+            if wanted.contains(&job.name.as_str()) || job.settings.get(crate::multibranch::HEAD_KEY).is_some()
+            {
                 continue;
             }
             if remove {
@@ -298,5 +310,21 @@ mod tests {
         assert!(twice.expect_err("refused").to_string().contains("duas vezes"));
         let none = JobConfig { name: "b".into(), ..JobConfig::default() }.spec().expect_err("no pipeline");
         assert!(none.to_string().contains("falta o pipeline"), "{none}");
+    }
+
+    /// The jobs a scan made for the branches of a job of many branches are not the file's to keep or
+    /// remove (#803, test of the real world: `aplicar --remover` would have removed each branch).
+    #[test]
+    fn the_jobs_of_branches_are_neither_out_of_the_file_nor_removed() {
+        let ci = Ci::in_memory().expect("a core");
+        let mut branch = JobSpec::new("repo/main", "toml", "x");
+        branch.settings = serde_json::json!({ (crate::multibranch::HEAD_KEY): { "commit": "abc" } });
+        ci.save_job(branch).expect("saved");
+        ci.save_job(JobSpec::new("velho", "toml", "x")).expect("saved");
+        let config = ServerConfig::parse("[[jobs]]\nname = \"repo\"\npipeline = \"x\"\n").expect("reads");
+        let said = ci.apply_config(&config, true).expect("applied");
+        assert!(said.iter().any(|line| line == "velho: removido"), "{said:?}");
+        assert!(!said.iter().any(|line| line.starts_with("repo/main")), "{said:?}");
+        assert!(ci.job("repo/main").is_ok(), "the branch stays");
     }
 }

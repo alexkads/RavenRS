@@ -80,6 +80,9 @@ pub fn serve(ci: Ci, data: &Path, args: &[&str], out: &mut dyn Write) -> Result<
         ci.set_agent_grace(Duration::from_secs(seconds));
     }
     let agents_url = flag(args, "--url-agentes")?.map(str::to_owned);
+    // The log of the server to its output, which systemd keeps: what went wrong with an agent or a
+    // plugin is read with `journalctl -u raven-ci`, with no panel.
+    ci.log().echo(true);
     // One live channel for everything: the topics of the agents, opened here, and the panel's.
     let channels = LiveChannels::new();
     ci.set_agent_live(channels.clone());
@@ -95,6 +98,19 @@ pub fn serve(ci: Ci, data: &Path, args: &[&str], out: &mut dyn Write) -> Result<
             eprintln!("config: {change}");
         }
     }
+    // The address first: a build already waiting for an agent when the server starts makes the
+    // first watch of the agents bring one up, and it has to connect to where this one listens
+    // (in 0.1.3 the watch came first, and the agent went to the default 127.0.0.1:8080).
+    let bound = std::net::TcpListener::bind(&address).map_err(|e| failed(format!("{address}: {e}")))?;
+    bound.set_nonblocking(true).map_err(failed)?;
+    let at = bound.local_addr().map_err(failed)?;
+    // Agents brought up on this machine reach it at its own address.
+    let reach = if at.ip().is_unspecified() {
+        format!("http://127.0.0.1:{}", at.port())
+    } else {
+        format!("http://{at}")
+    };
+    ci.set_agent_server(agents_url.as_deref().unwrap_or(&reach));
     let watching = ci.watch_agents(Duration::from_secs(1));
     for problem in ci.watch_triggers() {
         writeln!(out, "aviso: {problem}").map_err(failed)?;
@@ -105,16 +121,7 @@ pub fn serve(ci: Ci, data: &Path, args: &[&str], out: &mut dyn Write) -> Result<
     let users = api::users_file(data);
     let served: Result<(), CiError> = runtime.block_on(async {
         let stop = stopping()?;
-        let listener =
-            tokio::net::TcpListener::bind(&address).await.map_err(|e| failed(format!("{address}: {e}")))?;
-        let at = listener.local_addr().map_err(failed)?;
-        // Agents brought up on this machine reach it at its own address.
-        let reach = if at.ip().is_unspecified() {
-            format!("http://127.0.0.1:{}", at.port())
-        } else {
-            format!("http://{at}")
-        };
-        ci.set_agent_server(agents_url.as_deref().unwrap_or(&reach));
+        let listener = tokio::net::TcpListener::from_std(bound).map_err(failed)?;
         writeln!(out, "Raven CI em http://{at}, com {executors} executor(es)").map_err(failed)?;
         out.flush().map_err(failed)?;
         // The panel's topic on the same channel: what changed, from a watch of the core.

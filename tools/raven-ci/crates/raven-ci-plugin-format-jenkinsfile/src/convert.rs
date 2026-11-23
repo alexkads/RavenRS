@@ -416,6 +416,20 @@ impl Converter {
                         None => self.pending(arg.at, "numToKeepStr", "tem que ser um número"),
                     }
                 }
+                // The job keeps builds for days too: it goes there, as the triggers do.
+                Some(days @ ("daysToKeepStr" | "daysToKeep")) => {
+                    if let Some(text) = arg.value.text().filter(|t| !t.is_empty() && t != "-1") {
+                        match text.parse::<u64>() {
+                            Ok(days_n) => self.note(
+                                NoteKind::Ignored,
+                                arg.at,
+                                format!("logRotator: {days}"),
+                                format!("ponha keep_days = {days_n} no job: o pipeline só guarda o keep"),
+                            ),
+                            Err(_) => self.pending(arg.at, days, "tem que ser um número"),
+                        }
+                    }
+                }
                 Some(other) => {
                     let empty = arg.value.text().is_some_and(|t| t.is_empty() || t == "-1");
                     if !empty {
@@ -582,17 +596,28 @@ impl Converter {
                 "always" => "always",
                 "success" => "success",
                 "failure" => "failure",
+                // Jenkins runs `cleanup` after the other conditions, whatever the result: the
+                // `always` of Raven CI, where its steps go after those of `always`.
+                "cleanup" => "always",
                 _ => {
                     self.pending(
                         condition.at,
                         format!("post {{ {} }}", condition.name),
-                        "o post converte always, success e failure",
+                        "o post converte always, success, failure e cleanup",
                     );
                     continue;
                 }
             };
             let publishers = (self.out.artifacts.len(), self.out.junit.len());
-            let steps = self.steps(condition.body(), &Around::default(), &format!("post {when}"));
+            let steps = self.steps(condition.body(), &Around::default(), &format!("post {}", condition.name));
+            if condition.name == "cleanup" && !steps.is_empty() {
+                self.note(
+                    NoteKind::Warning,
+                    condition.at,
+                    "post { cleanup }",
+                    "virou always: roda em todo build, depois dos passos do always",
+                );
+            }
             if when != "always" && publishers != (self.out.artifacts.len(), self.out.junit.len()) {
                 self.note(
                     NoteKind::Warning,
@@ -602,7 +627,11 @@ impl Converter {
                 );
             }
             if !steps.is_empty() {
-                self.out.post.push((when, steps));
+                // One key per condition: a second `always =` would be a TOML that does not read.
+                match self.out.post.iter_mut().find(|(have, _)| *have == when) {
+                    Some((_, have)) => have.extend(steps),
+                    None => self.out.post.push((when, steps)),
+                }
             }
         }
     }

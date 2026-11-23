@@ -305,9 +305,11 @@ fn list(views: &[PluginView], problems: &[String]) -> String {
     if views.is_empty() {
         text.push_str("nenhum plugin: o núcleo sobe, mas não tem o que rodar\n");
     }
+    // The widest name and two spaces: `format-jenkinsfile` has 18 letters and ran into its version.
+    let width = views.iter().map(|view| view.name.chars().count()).max().unwrap_or(0) + 2;
     for view in views {
         text.push_str(&format!(
-            "{:<18}{:<9}{:<10}{:<11}{}\n",
+            "{:<width$}{:<9}{:<10}{:<11}{}\n",
             view.name,
             view.version.as_deref().unwrap_or("-"),
             origin(view),

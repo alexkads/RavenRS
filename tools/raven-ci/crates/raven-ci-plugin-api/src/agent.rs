@@ -115,6 +115,15 @@ impl AgentArgs {
     /// The arguments of an agent called `name` for `request`, running `executors` builds at once
     /// in `folder`.
     pub fn from_request(request: &LaunchRequest, name: &str, executors: u64, folder: &str) -> Self {
+        // The name the core gave the token to (`settings.name`), when it gave one: the token is
+        // for that name only. A launcher that names its container or pod otherwise (docker,
+        // kubernetes) sent that name instead, and the agent was refused at the door (401).
+        let name = request
+            .settings
+            .get("name")
+            .and_then(serde_json::Value::as_str)
+            .filter(|n| !n.is_empty())
+            .unwrap_or(name);
         Self {
             server: request.server.clone(),
             name: name.to_owned(),

@@ -399,3 +399,78 @@ fn without_format_toml_format_jenkinsfile_stays_out_with_why() {
     assert!(changes.iter().any(|c| c.contains("format-jenkinsfile")), "{changes:?}");
     assert_ne!(ci.registry().info("format-jenkinsfile").expect("listed").state, PluginState::On);
 }
+
+/// The `Jenkinsfile` of a real repository (the e-commerce's, at the Jenkins of the oficina): its
+/// options, `post { cleanup { deleteDir() } }` and a function of its own (#803, test of the real
+/// world).
+const REAL: &str = r##"
+pipeline {
+  agent { label 'oficina' }
+  options {
+    buildDiscarder(logRotator(numToKeepStr: '10', daysToKeepStr: '30'))
+    timeout(time: 3, unit: 'HOURS')
+  }
+  stages {
+    stage('api-lint') {
+      steps { sh 'make api-lint' }
+    }
+  }
+  post {
+    cleanup { deleteDir() }
+  }
+}
+
+def naOficina(String comando) {
+  sh """#!/usr/bin/env bash
+nice -n 10 ${comando}
+"""
+}
+"##;
+
+#[test]
+fn days_to_keep_goes_to_the_job_and_cleanup_with_delete_dir_needs_nothing() {
+    let conversion = convert(REAL);
+    let notes: Vec<(NoteKind, usize, &str, &str)> =
+        conversion.notes.iter().map(|n| (n.kind, n.line, n.what.as_str(), n.why.as_str())).collect();
+    assert!(
+        notes.contains(&(
+            NoteKind::Ignored,
+            5,
+            "logRotator: daysToKeepStr",
+            "ponha keep_days = 30 no job: o pipeline só guarda o keep",
+        )),
+        "{notes:#?}"
+    );
+    assert!(notes.iter().any(|n| n.0 == NoteKind::Ignored && n.2 == "deleteDir()"), "{notes:#?}");
+    assert!(!notes.iter().any(|n| n.2.contains("cleanup")), "{notes:#?}");
+    // The function of the file is said at its `def`, by its name, and is the one part left.
+    let pending: Vec<&raven_ci_plugin_format_jenkinsfile::Note> = conversion.pending().collect();
+    assert_eq!(pending.len(), 1, "{pending:#?}");
+    assert_eq!((pending[0].line, pending[0].column), (18, 1));
+    assert!(pending[0].why.starts_with("def naOficina é código Groovy"), "{}", pending[0].why);
+    assert!(conversion.toml.contains("keep = 10"), "{}", conversion.toml);
+}
+
+#[test]
+fn cleanup_joins_always_in_one_key_that_reads() {
+    let text = r#"
+pipeline {
+  agent any
+  stages {
+    stage('a') { steps { sh 'make' } }
+  }
+  post {
+    always { sh './coleta.sh' }
+    cleanup { sh './limpa.sh' }
+  }
+}
+"#;
+    let conversion = convert(text);
+    assert!(conversion.complete(), "{:#?}", conversion.notes);
+    assert_eq!(conversion.toml.matches("always =").count(), 1, "{}", conversion.toml);
+    let always = conversion.toml.split_once("always =").map_or("", |(_, after)| after);
+    let (coleta, limpa) = (always.find("coleta").unwrap_or(usize::MAX), always.find("limpa").unwrap_or(0));
+    assert!(coleta < limpa, "{always}");
+    assert!(conversion.notes.iter().any(|n| n.kind == NoteKind::Warning && n.what == "post { cleanup }"));
+    assert!(TomlFormat.read("a", &conversion.toml).is_ok(), "{}", conversion.toml);
+}

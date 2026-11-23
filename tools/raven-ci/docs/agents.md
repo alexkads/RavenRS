@@ -19,8 +19,9 @@ The life of a build is the same code on both sides: `Ci::run_order` with a `Buil
 server's site runs the steps in its queue; the agent's sends everything to the server.
 
 The agent is one program, `raven-ci-agent`. It brings compiled in the plugins of steps, of
-fetching code and of hooks (`shell`, `git`, `lock`, `workspace-cleanup`), plus the external plugins
-of its folder `plugins/`, all switched off. Each build switches on only the plugins it needs, with
+fetching code, of hooks and the publishers (`shell`, `git`, `lock`, `workspace-cleanup`,
+`artifacts`, `junit`, `cargo`, `docker`, `kubernetes`), plus the external plugins of its folder
+`plugins/`, all switched off. Each build switches on only the plugins it needs, with
 the settings the server has for them, and they go off again when no build needs them. Built for
 release, an agent connected and idle holds 15.6 MiB, and 16.3 MiB at the highest of a build
 (resident memory, measured by `tools/raven-ci/scripts/medir-memoria.sh` on 22/11/2026, macOS arm64;
@@ -149,14 +150,27 @@ raven-ci servir --executores 0
 ```
 
 - `programa`: the agent's program; by default `raven-ci-agent` beside `raven-ci`.
-- `pasta`: the agent's folder; by default `agentes/<name>` in the server's folder of data.
+- `pasta`: where each agent gets a folder of its own, `<pasta>/<name>`; by default
+  `agentes/<name>` in the server's folder of data. With `usuario` it has to be said, a folder that
+  user writes in (`/var/lib/raven-ci-agente`, say): the agent makes its folder there and keeps its
+  key in it, and the server's folder of data is not that user's to write in.
 - `usuario`: the user it runs as. As root, the server switches the user of the child itself. As
-  anyone else, it runs `sudo -n -u <user> --preserve-env=RAVEN_CI_AGENT_TOKEN --`, which fails at
-  once, saying so, when sudo has no rule for it. A rule that lets the server's user run the agent
-  as `ci` (`SETENV` lets the token through):
+  anyone else, it runs `sudo -n -u <user> --`, which fails at once, saying so, when sudo has no
+  rule for it. The token goes on the agent's input (`--token -`), not in its environment, which
+  `sudo` would write to the journal of the system. A rule that lets the server's user run the
+  agent as `ci`:
 
   ```text
-  raven ALL=(ci) NOPASSWD:SETENV: /usr/local/bin/raven-ci-agent
+  raven-ci ALL=(ci) NOPASSWD: /usr/bin/raven-ci-agent
+  ```
+
+  The service of the RPM runs with `NoNewPrivileges=true`, and with it `sudo` cannot switch the
+  user: the launch is refused saying so. To have agents of another user, switch it off with a
+  drop-in (`sudo systemctl edit raven-ci`):
+
+  ```ini
+  [Service]
+  NoNewPrivileges=false
   ```
 
   On Windows a user of its own is not done yet, and the launch is refused saying so.

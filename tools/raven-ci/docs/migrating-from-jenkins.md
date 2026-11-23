@@ -23,10 +23,10 @@ a `Jenkinsfile`, what has no counterpart, and how to switch without a day with n
 | "Build with Parameters", remote API | `POST /api/ci/run`, the panel's Disparar, `raven-ci rodar JOB --param NOME=VALOR` |
 | credentials | the vault: `raven-ci credencial criar NOME --tipo token\|user-password\|ssh-key` |
 | `junit`, `archiveArtifacts` | `junit = [...]` and `artifacts = [...]` in the pipeline |
-| `post { always / success / failure }` | `[post]` with `always`, `success`, `failure` |
+| `post { always / success / failure / cleanup }` | `[post]` with `always`, `success`, `failure`; `cleanup` joins `always`, after its steps |
 | `lock(…)` (Lockable Resources) | `lock = "nome"` on a stage |
 | `timeout`, `retry`, `when { branch }` | the same names on a stage |
-| `buildDiscarder(logRotator(numToKeepStr))` | `keep = N` |
+| `buildDiscarder(logRotator(numToKeepStr, daysToKeepStr))` | `keep = N` in the pipeline; the days go on the job, `keep_days = N` (the converter says the line) |
 | `cleanWs()` | nothing to write: the build's folder is removed at its end |
 | e-mail notices, a notice to another service | the notifiers `email` and `webhook-out`; `webhook-out` posts the JSON of Raven CI, signed, so a chat that expects its own format needs a small receiver in between |
 | JCasC, Job DSL | `raven-ci.toml`, the configuration as code (`raven-ci aplicar`) |
@@ -62,7 +62,7 @@ its line: a pipeline never runs with a part missing.
 
 | Jenkins | Why there is none | Instead |
 |---|---|---|
-| `script { }`, scripted pipelines (`node { }`), shared libraries | a pipeline is a description, not a program | move the logic into a script of the repository that a `sh` runs |
+| `script { }`, scripted pipelines (`node { }`), shared libraries, a `def` function of the file | a pipeline is a description, not a program | move the logic into a script of the repository that a `sh` runs; the converter names each `def` at its line |
 | `withCredentials` | secrets are not bound by hand | keep the secret in the vault; the plugin that needs it reads it by name, and every log hides it |
 | `bat`, `powershell` | there is one kind of command | `sh` runs in `cmd` on Windows |
 | `input` | a build never stops waiting for someone | split the pipeline in two jobs, the second started by a person |

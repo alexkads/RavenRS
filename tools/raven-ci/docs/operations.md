@@ -100,8 +100,9 @@ settings = { min_free_gb = 10 }
   at `/hooks/metrics` with `open = true` for a Prometheus with no token.
 - **Notices**: the plugins `email` and `webhook-out` tell of a build that failed, of one that passed
   again, or of every build, by what each job says in `notify`.
-- **Logs**: the server writes to its output; with the RPM, `journalctl -u raven-ci`; in the
-  container, `docker logs raven-ci-teste`. The log of each build is in the panel and at
+- **Logs**: the server writes to its output (an agent that would not come up, a plugin that did
+  not start, a notice that failed, each line of the agents it brought up); with the RPM,
+  `journalctl -u raven-ci`; in the container, `docker logs raven-ci-teste`. The log of each build is in the panel and at
   `/api/ci/log`.
 - **Memory**: about 14 MiB idle, 36 MiB with an agent and a build (see "Feito com RavenRS" in the
   README); `tools/raven-ci/scripts/medir-memoria.sh` measures it again on any machine.

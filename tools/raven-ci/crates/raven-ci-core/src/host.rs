@@ -64,6 +64,8 @@ impl Secrets for MemorySecrets {
 pub struct ServerLog {
     lines: Mutex<VecDeque<String>>,
     hidden: Mutex<BTreeSet<String>>,
+    /// Each line also to the standard error, where a service manager keeps it (`journalctl`).
+    echo: std::sync::atomic::AtomicBool,
 }
 
 /// How many lines the server keeps.
@@ -77,11 +79,21 @@ impl ServerLog {
     /// Writes `line`, with what has to be hidden hidden.
     pub fn write(&self, line: &str) {
         let line = self.hide(line);
+        if self.echo.load(std::sync::atomic::Ordering::Relaxed) {
+            eprintln!("{line}");
+        }
         let mut lines = lock(&self.lines);
         if lines.len() == KEPT_LINES {
             lines.pop_front();
         }
         lines.push_back(line);
+    }
+
+    /// Writes each line from now on to the standard error too, hidden as it is kept. The server
+    /// (`raven-ci servir`) does: in 0.1.3 its log lived only in memory, read by no route and no
+    /// output, so "subir um agente: …" or a plugin refused reached no one who runs it.
+    pub fn echo(&self, on: bool) {
+        self.echo.store(on, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// The lines kept, oldest first.
