@@ -3512,6 +3512,8 @@ method FlowCanvas::editable_titles
 method FlowCanvas::execution
 method FlowCanvas::grid
 method FlowCanvas::grow
+method FlowCanvas::height
+method FlowCanvas::hint
 method FlowCanvas::history
 method FlowCanvas::kind
 method FlowCanvas::label
@@ -3840,13 +3842,16 @@ method Link::new
 method Link::style
 method Links::open
 method Links::opened
+method List::compact
 method List::new
+method ListItem::action
 method ListItem::avatar
 method ListItem::icon
 method ListItem::new
 method ListItem::on_click
 method ListItem::selected
 method ListItem::subtitle
+method ListItem::tone
 method ListItem::trailing
 method LiveRunner::new
 method LiveRunner::with_registry
@@ -3860,6 +3865,7 @@ method LogBuffer::push
 method LogBuffer::section
 method LogBuffer::section_detail
 method LogBuffer::text
+method LogView::controls
 method LogView::download
 method LogView::follow_end
 method LogView::height
@@ -4038,6 +4044,7 @@ method Popover::placement
 method Popover::surface
 method ProgressBar::color
 method ProgressBar::detail
+method ProgressBar::detail_inline
 method ProgressBar::height
 method ProgressBar::label
 method ProgressBar::new
@@ -4178,11 +4185,13 @@ method ScanField::placeholder
 method Scheduler::avatars
 method Scheduler::can_drop
 method Scheduler::card
+method Scheduler::compact
 method Scheduler::event_detail
 method Scheduler::event_menu
 method Scheduler::events
 method Scheduler::fill_rows
 method Scheduler::lane_menu
+method Scheduler::legend
 method Scheduler::new
 method Scheduler::now
 method Scheduler::on_change
@@ -4193,6 +4202,7 @@ method Scheduler::ranges
 method Scheduler::read_only
 method Scheduler::resource_width
 method Scheduler::resources
+method Scheduler::resources_title
 method Scheduler::selection
 method Scheduler::toolbar
 method SchedulerEvent::done
@@ -4323,6 +4333,7 @@ method SidebarState::is_open
 method SidebarState::new
 method SidebarState::set_open
 method SidebarState::toggle
+method SidebarTrigger::icon
 method SidebarTrigger::new
 method Skeleton::block
 method Skeleton::circle
@@ -4393,6 +4404,7 @@ method Splitter::horizontal
 method Splitter::limits
 method Splitter::ratio
 method Splitter::vertical
+method Stat::caption
 method Stat::delta
 method Stat::delta_toned
 method Stat::large
@@ -4578,6 +4590,7 @@ method TitleBar::action
 method TitleBar::active
 method TitleBar::leading
 method TitleBar::maximized
+method TitleBar::mobile
 method TitleBar::new
 method TitleBar::on_close
 method TitleBar::on_context_menu

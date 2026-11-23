@@ -10,14 +10,22 @@
       "Fila e agentes mostra as últimas duas horas de cada executor e agente, o agente que saiu e o motivo de cada build na fila; Adicionar agente faz o token.",
       "Plugins com busca, a ficha de cada um e a configuração aplicada pela tela; o plugin que não carrega diz por quê.",
       "O conversor de Jenkinsfile mostra o TOML ao lado e leva à linha que não converteu; nova página Histórico com todos os builds.",
-      "No celular e em janela estreita, o menu recolhe e o build vira lista; a tela de um plugin agora se testa por cenário do Raven Test Studio ou teste de unidade."
+      "No celular e em janela estreita, o menu recolhe e o build vira lista; a tela de um plugin agora se testa por cenário do Raven Test Studio ou teste de unidade.",
+      "Correções do teste do mundo real: o agente roda artifacts, junit, cargo, docker e kubernetes; cada agente local tem a sua pasta e o token não vai mais para o journal; o journal do servidor mostra o agente que não sobe e o plugin recusado; e aplicar não apaga os jobs de branch de um modelo."
     ],
     "por_que_atualizar": "Para ver no painel o que cada build está fazendo, onde roda e por que espera, sem ir à linha de comando.",
     "contribuidores": [
       "Alex S S Fonseca"
     ],
     "issues": [
-      919
+      919,
+      923,
+      924,
+      925,
+      926,
+      927,
+      933,
+      935
     ]
   },
   {
