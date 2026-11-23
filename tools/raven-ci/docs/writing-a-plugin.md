@@ -134,6 +134,39 @@ is told and keeps the audit, and a fake plugin for every point to put next to yo
 `raven-ci-core` (`tools/raven-ci/crates/raven-ci-core/tests/suite`) show a core in memory running
 builds with them.
 
+## Testing its screens
+
+A plugin that puts a page in the menu or a tab on the page of a build is tested on the panel itself,
+with no window, in two ways (#919):
+
+- **Scenarios of Raven Test Studio.** Keep `.raventest` files in the plugin's `tests/e2e/` and give
+  them from `CiPlugin::scenarios`, with `include_str!`. The panel offers them with its own when the
+  plugin is on, so the Studio lists and plays them like any other.
+- **A test of the plugin's crate.** With `raven-ci-painel` as a dev-dependency,
+  `raven_ci_painel::e2e::play_plugin_scenarios(&plugin)` plays every scenario the plugin brings, each
+  on a panel of its own with the plugin on; `raven_ci_painel::e2e::with_plugin(plugin)` gives the
+  session (`ravenrs_e2e::E2e`) for a test that clicks and checks by hand.
+
+```rust
+impl CiPlugin for Travas {
+    fn scenarios(&self) -> Vec<String> {
+        vec![include_str!("../tests/e2e/travas.raventest").to_owned()]
+    }
+}
+
+#[test]
+fn the_page_of_the_locks_shows_who_holds_each() {
+    let plugin: Arc<dyn CiPlugin> = Arc::new(Travas);
+    assert_eq!(raven_ci_painel::e2e::play_plugin_scenarios(&plugin), Ok(1));
+}
+```
+
+The server of these sessions has jobs with builds, people (`ana`, administrator; `bia`, executor;
+`caio`, reader; the password is `raven_ci_painel::e2e::PASSWORD`), an agent and a build waiting:
+a scenario signs in and goes to the plugin's page. The plugin `demonstracao` of
+`crates/raven-ci-painel/src/e2e.rs` is the example: its scenario is
+`tests/e2e/plugins/demonstracao.raventest`.
+
 ## A step and its build
 
 A step is a `NodeKind` of `ravenrs-flows`, which knows nothing of builds. What a step of a CI needs

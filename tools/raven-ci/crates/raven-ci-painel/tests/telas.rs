@@ -60,6 +60,10 @@ fn pictures_of_the_screens() {
     snap(&mut ui, "7-usuarios");
     press(&mut ui, "Histórico");
     snap(&mut ui, "8-historico");
+    press(&mut ui, "Jobs");
+    press(&mut ui, "Disparar api-pedidos");
+    snap(&mut ui, "11-disparar");
+    press(&mut ui, "Cancelar");
     // The same build in a narrow window and on a phone (I7, T7).
     press(&mut ui, "Jobs");
     press(&mut ui, "Abrir o último build apps/site");

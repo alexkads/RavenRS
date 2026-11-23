@@ -132,8 +132,14 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
             return super::build::page(s, job, *number);
         }
     }
-    let axis =
-        State::new(TimeAxis::quarter_hours(TimePoint::from_minutes(now + 15 - 60 * i64::from(HOURS)), HOURS));
+    // The two hours fill the card: the window, less the menu, the margins and the names.
+    let menu = if s.narrow() { 72.0 } else { 248.0 };
+    let quarters = 4.0 * HOURS as f32;
+    let tick_width = ((s.width.get() - menu - 64.0 - 200.0) / quarters).max(48.0);
+    let axis = State::new(TimeAxis {
+        tick_width,
+        ..TimeAxis::quarter_hours(TimePoint::from_minutes(now + 15 - 60 * i64::from(HOURS)), HOURS)
+    });
     let open = {
         let s = s.clone();
         move |id: u64| {

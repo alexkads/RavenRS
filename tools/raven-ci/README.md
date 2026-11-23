@@ -294,13 +294,25 @@ The whole format is in the documentation of `crates/raven-ci-plugin-format-toml`
 ## The panel
 
 `crates/raven-ci-painel` is the panel, the same code on the desktop and in the browser, made only
-of RavenRS components. It runs no code of the server: it reads the API with `RemoteClient` and hears
-the topic `ci` of the live channel (`/api/live/ci`: `build`, `line` and `plugins`), so a build's log
-and status arrive with no reload. Its pages: Jobs (folders, last build, trend, Disparar), a build
-(stages on a `FlowCanvas`, the log in a `LogView`, tests, artifacts, parameters, Repetir and
-Cancelar), the queue and the executors on a `Scheduler`, the pipeline with its errors on their
-lines, plugins, credentials, people and the audit. A plugin puts a page in the menu or a tab on the
-page of a build through its model (`raven_ci_core::panel` says how), and leaves when switched off.
+of RavenRS components, as the design D-01 draws it (#919). It runs no code of the server: it reads
+the API with `RemoteClient` and hears the topic `ci` of the live channel (`/api/live/ci`: `build`,
+`line` and `plugins`), so a build's log and status arrive with no reload.
+
+| Page | What it shows |
+|---|---|
+| Jobs | the queue, what runs and in which stage, the agents and the memory; the notice of a plugin switched off that a build waits for; every job with its last build, agent, duration and the trend of the last ten, Abrir and Disparar on each row |
+| A build | the stages on a `FlowCanvas` with how each went and its time (a click shows only its log); the log in a `LogView` with a section per stage, `PASS`/`SLOW`/`FAIL` in their tones, "Seguir o fim" and "Baixar log"; tests, artifacts, parameters and the plugins of the build; the agent, the commit and Repetir/Cancelar |
+| Histórico | every build of the server, the newest first |
+| Fila e agentes | the last two hours on a `Scheduler`, a row per executor, agent and template (one that went away hatched); each build waiting with why, "Ligar o plugin" or "Subir na fila"; the agents with their labels and memory; "Adicionar agente" makes its token |
+| Plugins | search and filter, each plugin's `Toggle` ("Recusado" with its reason when it did not load), its sheet with what it depends on, its permissions and its settings (Aplicar, Desligar) |
+| Configuração | the pipeline of a job checked as you type, a new job, and Converter Jenkinsfile with the TOML beside it and each part not converted on its line |
+| Credenciais, Usuários e papéis | the vault's names, people and their roles, the audit |
+
+In a window narrower than 1100 pt the menu folds to icons and the details of a build go under its
+log; on a phone the menu hides behind a button and a build's stages become a list. A plugin puts a
+page in the menu or a tab on the page of a build through its model (`raven_ci_core::panel` says
+how), leaves when switched off, and brings the scenarios that test its screens (see "Testing its
+screens" in the guide of plugins).
 
 ```sh
 cargo run -p raven-ci-painel -- --servidor http://127.0.0.1:8080   # on the desktop
@@ -308,7 +320,10 @@ scripts/build-web.sh raven-ci                                        # for the b
 raven-ci servir --painel tools/raven-ci/web                          # then open /painel/
 ```
 
-Pictures of each page are in `docs/painel/`.
+Pictures of each page are in `docs/painel/`, drawn by
+`RAVEN_CI_TELAS=pasta cargo test -p raven-ci-painel --test telas -- --ignored` over the server of the
+tests: Jobs, a build (wide, narrow and on a phone), the queue, the plugins, the pipeline, a page of a
+plugin, people, the history and Disparar.
 
 ## Writing a plugin
 

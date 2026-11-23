@@ -53,10 +53,17 @@ fn render(args: &Args) -> AnyView {
             let mut it = Scheduler::new(axis.binding())
                 .resources(agents)
                 .events([
-                    SchedulerEvent::new(1, 1, at(14, 5), at(14, 22), "site #56").tone(Tone::Success).done(true),
-                    SchedulerEvent::new(2, 1, at(14, 48), at(15, 43), "ravenrs PR-803 #42 · running").tone(Tone::Accent),
-                    SchedulerEvent::new(3, 2, at(14, 27), at(14, 48), "loja-web #118").tone(Tone::Success).done(true),
-                    SchedulerEvent::new(4, 3, at(14, 0), at(14, 36), "api-pedidos #31 · failed").tone(Tone::Danger).done(true),
+                    SchedulerEvent::new(1, 1, at(14, 5), at(14, 22), "site #56")
+                        .tone(Tone::Success)
+                        .done(true),
+                    SchedulerEvent::new(2, 1, at(14, 48), at(15, 43), "ravenrs PR-803 #42 · running")
+                        .tone(Tone::Accent),
+                    SchedulerEvent::new(3, 2, at(14, 27), at(14, 48), "loja-web #118")
+                        .tone(Tone::Success)
+                        .done(true),
+                    SchedulerEvent::new(4, 3, at(14, 0), at(14, 36), "api-pedidos #31 · failed")
+                        .tone(Tone::Danger)
+                        .done(true),
                     SchedulerEvent::new(5, 3, at(14, 40), at(14, 46), "#12").tone(Tone::Warning).done(true),
                 ])
                 .now(at(15, 43));
@@ -77,7 +84,11 @@ fn render(args: &Args) -> AnyView {
                 .resources([
                     Resource::new(1, "Ana"),
                     Resource::new(2, "Bruno"),
-                    if arg_unavailable { Resource::new(3, "Carla").unavailable("On leave") } else { Resource::new(3, "Carla") },
+                    if arg_unavailable {
+                        Resource::new(3, "Carla").unavailable("On leave")
+                    } else {
+                        Resource::new(3, "Carla")
+                    },
                 ])
                 .events([
                     SchedulerEvent::new(1, 1, at(1), at(5), "Vacation").tone(Tone::Success),

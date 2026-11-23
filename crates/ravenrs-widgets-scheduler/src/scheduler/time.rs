@@ -427,7 +427,10 @@ mod tests {
         assert_eq!(ticks.len(), 8, "eight quarters in two hours");
         assert_eq!(ticks[1].start, TimePoint::at(date(2026, 11, 22), 14, 15));
         assert_eq!(axis.width(), 8.0 * 60.0);
-        assert_eq!(axis.snap(TimePoint::at(date(2026, 11, 22), 14, 8)), TimePoint::at(date(2026, 11, 22), 14, 10));
+        assert_eq!(
+            axis.snap(TimePoint::at(date(2026, 11, 22), 14, 8)),
+            TimePoint::at(date(2026, 11, 22), 14, 10)
+        );
         assert!(axis.zoomed_in().is_none(), "the nearest level");
     }
 

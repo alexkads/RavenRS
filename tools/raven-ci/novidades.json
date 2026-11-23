@@ -1,17 +1,20 @@
 {
-  "versao": "0.1.3",
-  "titulo": "Raven CI vira pacote RPM e não deixa agentes para trás.",
+  "versao": "0.1.4",
+  "titulo": "O painel do Raven CI fica como o design aprovado.",
   "importante": false,
   "novidades": [
-    "Pacote RPM para o Fedora: o servidor como serviço do sistema, o agente e o painel no navegador, instalados com um comando.",
-    "O servidor, ao parar, espera os agentes que ele lançou terminarem, em vez de deixá-los rodando sozinhos.",
-    "A memória medida: o servidor usa uns 36 MB com um agente e um build, e o agente uns 16 MB."
+    "Jobs diz o que espera e por quê, quem rodou cada build e avisa quando um plugin desligado segura a fila, com o atalho para ligá-lo.",
+    "A página do build mostra cada estágio com o tempo dele; um clique no estágio deixa só o log dele, e o log destaca PASS, SLOW e FAIL e pode ser baixado.",
+    "Fila e agentes mostra as últimas duas horas de cada executor e agente, o agente que saiu e o motivo de cada build na fila; Adicionar agente faz o token.",
+    "Plugins com busca, a ficha de cada um e a configuração aplicada pela tela; o plugin que não carrega diz por quê.",
+    "O conversor de Jenkinsfile mostra o TOML ao lado e leva à linha que não converteu; nova página Histórico com todos os builds.",
+    "No celular e em janela estreita, o menu recolhe e o build vira lista; a tela de um plugin agora se testa por cenário do Raven Test Studio ou teste de unidade."
   ],
-  "por_que_atualizar": "Para instalar o Raven CI como serviço no Fedora e parar o servidor sem deixar agentes órfãos.",
+  "por_que_atualizar": "Para ver no painel o que cada build está fazendo, onde roda e por que espera, sem ir à linha de comando.",
   "contribuidores": [
     "Alex S S Fonseca"
   ],
   "issues": [
-    908
+    919
   ]
 }

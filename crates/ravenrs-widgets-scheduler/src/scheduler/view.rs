@@ -41,6 +41,9 @@ const TODAY_TINT: f32 = 0.05;
 /// Where a name starts in a row taller than its bars: in line with the first bar.
 const NAME_TOP: f32 = 12.0;
 const ROW_PADDING: f32 = 4.0;
+/// The least height of a row whose name has a second line under it: both lines fit, and the
+/// name does not run into the next row (#919).
+const TWO_LINE_ROW: f32 = 46.0;
 const GROUP_HEIGHT: f32 = 30.0;
 const HEADER_ROW_HEIGHT: f32 = 26.0;
 const MIN_BAR_WIDTH: f32 = 6.0;
@@ -1079,15 +1082,20 @@ fn axis_title(labels: &Labels, axis: &TimeAxis, today: Option<crate::date::Date>
     let first = axis.start.date();
     let last = axis.end.plus_minutes(-1).max(axis.start).date();
     let day = |date| if Some(date) == today { labels.today.clone() } else { labels.short_date(date) };
-    if first != last {
-        return format!("{} – {}", labels.short_date(first), labels.short_date(last));
-    }
-    if matches!(axis.scale, TimeScale::Hours | TimeScale::QuarterHours) {
+    let hours = matches!(axis.scale, TimeScale::Hours | TimeScale::QuarterHours);
+    // A stretch of hours says them, even across midnight: "22/11, 22:45 – Hoje, 00:45".
+    if hours && axis.end.minutes() - axis.start.minutes() <= 24 * 60 {
         let (h1, m1) = axis.start.hour_minute();
         let (h2, m2) = axis.end.hour_minute();
-        // An axis that ends at midnight ends at 24:00 of its day, not at 00:00.
-        let h2 = if axis.end.date() != first && (h2, m2) == (0, 0) { 24 } else { h2 };
-        return format!("{}, {h1:02}:{m1:02} – {h2:02}:{m2:02}", day(first));
+        if first == last {
+            // An axis that ends at midnight ends at 24:00 of its day, not at 00:00.
+            let h2 = if axis.end.date() != first && (h2, m2) == (0, 0) { 24 } else { h2 };
+            return format!("{}, {h1:02}:{m1:02} – {h2:02}:{m2:02}", day(first));
+        }
+        return format!("{}, {h1:02}:{m1:02} – {}, {h2:02}:{m2:02}", day(first), day(axis.end.date()));
+    }
+    if first != last {
+        return format!("{} – {}", labels.short_date(first), labels.short_date(last));
     }
     day(first)
 }
@@ -1153,11 +1161,11 @@ fn hatching(cx: &mut BuildCx<'_>, frame: Rect, color: ravenrs_core::Color) -> No
                 // Each line is cut to the box, so none runs past its edges.
                 let (x0, x1) = (x.max(at.x()), (x + h).min(at.max_x()));
                 if x1 > x0 {
-                    let points = [
-                        Point::new(x0, at.max_y() - (x0 - x)),
-                        Point::new(x1, at.max_y() - (x1 - x)),
-                    ];
-                    paint.scene.push_path(ravenrs_core::PathFill::solid(util::stroke_outline(&points, 1.0), color));
+                    let points =
+                        [Point::new(x0, at.max_y() - (x0 - x)), Point::new(x1, at.max_y() - (x1 - x))];
+                    paint
+                        .scene
+                        .push_path(ravenrs_core::PathFill::solid(util::stroke_outline(&points, 1.0), color));
                 }
                 x += GAP;
             }
@@ -1222,7 +1230,10 @@ impl Scheduler {
             }
             for index in members {
                 let lanes = lanes_of.get(&self.resources[index].id).copied().unwrap_or(1);
-                let height = lanes as f32 * self.lane_height() + 2.0 * ROW_PADDING;
+                let mut height = lanes as f32 * self.lane_height() + 2.0 * ROW_PADDING;
+                if self.resources[index].subtitle.is_some() {
+                    height = height.max(TWO_LINE_ROW);
+                }
                 rows.push(Row::Resource { index, y, height });
                 y += height;
             }
@@ -1693,7 +1704,8 @@ impl View for Scheduler {
                             } else {
                                 Justify::Center
                             },
-                            spacing: AVATAR_GAP,
+                            // The name and its second line sit together; the gap is for an avatar.
+                            spacing: if self.avatars { AVATAR_GAP } else { 2.0 },
                             align: if self.avatars { Align::Center } else { Align::Stretch },
                             overflow_hidden: true,
                             ..LayoutStyle::stack(if self.avatars { Axis::Horizontal } else { Axis::Vertical })
@@ -1966,5 +1978,28 @@ impl View for GroupHeader {
         cx.focusable(node, radius);
         cx.cursor(node, CursorIcon::Pointer);
         node
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::date::Date;
+
+    fn day(d: u8) -> Date {
+        Date::new(2026, 11, d).unwrap_or_else(|| panic!("a real date"))
+    }
+
+    #[test]
+    fn the_title_says_the_hours_of_a_day_and_across_midnight() {
+        let labels = Labels::pt_br();
+        let today = Some(day(22));
+        let afternoon = TimeAxis::quarter_hours(TimePoint::at(day(22), 14, 0), 2);
+        assert_eq!(axis_title(&labels, &afternoon, today), "Hoje, 14:00 – 16:00");
+        let night = TimeAxis::quarter_hours(TimePoint::at(day(21), 22, 45), 2);
+        let said = axis_title(&labels, &night, today);
+        assert!(said.ends_with("22:45 – Hoje, 00:45"), "{said}");
+        let month = TimeAxis::days(day(1), 30);
+        assert!(axis_title(&labels, &month, today).contains(" – "), "two dates for a month");
     }
 }

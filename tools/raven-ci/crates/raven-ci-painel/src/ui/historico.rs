@@ -35,7 +35,11 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
                     .map(|c| c.chars().take(7).collect::<String>())
                     .unwrap_or_else(|| "—".to_owned())
                     .into(),
-                b["duration_ms"].as_i64().map_or_else(|| "—".to_owned(), texto::duration).into(),
+                b["duration_ms"]
+                    .as_i64()
+                    .filter(|_| b["status"] != "queued")
+                    .map_or_else(|| "—".to_owned(), texto::duration)
+                    .into(),
                 b["created_ms"].as_i64().map_or_else(|| "—".to_owned(), |t| texto::ago(t, now)).into(),
             ]
         })
