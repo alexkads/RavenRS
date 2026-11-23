@@ -62,8 +62,14 @@ pub struct Labels {
     pub log_name: String,
     /// The search field of a `LogView`.
     pub log_search: String,
-    /// The button that takes a `LogView` back to its last line and follows it again.
-    pub log_go_to_end: String,
+    /// The switch of a `LogView` that keeps it on its last line as lines come.
+    pub log_follow_end: String,
+    /// The button of a `LogView` that saves its lines as a file.
+    pub log_download: String,
+    /// What a `LogView` says while one section is shown alone; `{0}` is its title.
+    pub log_only: String,
+    /// The button of a `LogView` that shows every section again.
+    pub log_show_all: String,
     /// How many lines of a `LogView` hold what is searched; `{0}` is the count.
     pub log_matches: String,
     /// What a folded section of a `LogView` hides; `{0}` is how many lines.
@@ -1274,7 +1280,10 @@ impl Labels {
             list_name: texts.get("widgets.list_name"),
             log_name: texts.get("widgets.log_name"),
             log_search: texts.get("widgets.log_search"),
-            log_go_to_end: texts.get("widgets.log_go_to_end"),
+            log_follow_end: texts.get("widgets.log_follow_end"),
+            log_download: texts.get("widgets.log_download"),
+            log_only: texts.get("widgets.log_only"),
+            log_show_all: texts.get("widgets.log_show_all"),
             log_matches: texts.get("widgets.log_matches"),
             log_folded: texts.get("widgets.log_folded"),
             log_point_line: texts.get("widgets.log_point_line"),

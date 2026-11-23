@@ -238,7 +238,7 @@
 {"crate": "ravenrs-widgets-lists", "tipo": "PagedDocumentView", "pendente": true, "issue": 579, "conhecidos": ["height", "label", "new", "page", "zoom"]},
 {"crate": "ravenrs-widgets-lists", "tipo": "SortableList", "pendente": true, "issue": 579, "conhecidos": ["grip", "key", "label", "new", "on_reorder", "row_name", "spacing"]},
 {"crate": "ravenrs-widgets-lists", "tipo": "TreeView", "pendente": true, "issue": 579, "conhecidos": ["checked", "context_menu", "expanded", "filter", "height", "label", "new", "on_expand", "on_open", "row_height", "selected"]},
-{"crate": "ravenrs-widgets-lists", "tipo": "LogView", "pagina": "Log de build", "recursos": ["follow_end", "height", "label", "line_numbers", "new", "on_line", "searchable"]},
+{"crate": "ravenrs-widgets-lists", "tipo": "LogView", "pagina": "Log de build", "recursos": ["download", "follow_end", "height", "keyword", "label", "line_numbers", "new", "on_line", "only_section", "searchable"]},
 {"crate": "ravenrs-widgets-lists", "tipo": "VirtualList", "pendente": true, "issue": 579, "conhecidos": ["bare", "commands", "estimated_height", "follow_end", "height", "horizontal", "key", "label", "new", "on_activate", "on_visible", "padding", "probe", "row_align", "row_height", "row_heights", "row_name", "scroll_across", "scroll_to", "selection", "spacing"]},
 {"crate": "ravenrs-widgets-lists", "tipo": "YearView", "pendente": true, "issue": 579, "conhecidos": ["columns", "marks", "new", "on_month", "on_pick", "selected", "today"]},
 {"crate": "ravenrs-widgets-scheduler", "tipo": "EventCalendar", "pendente": true, "issue": 579, "conhecidos": ["events", "events_per_day", "hours", "new", "on_create", "on_event", "on_move", "today", "view"]},

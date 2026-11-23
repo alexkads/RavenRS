@@ -1761,7 +1761,7 @@ fn the_build_log_shows_colors_folds_its_stages_searches_and_points_at_a_line() {
             .iter()
             .find(|n| n.role == Role::ListItem && n.name.as_deref().is_some_and(|t| t.starts_with(&start)))
     };
-    let (long, next) = (item(8), item(7));
+    let (long, next) = (item(10), item(9));
     let long = long.expect("the long line").bounds;
     assert!(long.height() <= 20.5, "one line high: {long:?}");
     assert!(next.expect("the line before").bounds.max_y() <= long.origin.y + 0.5, "no overlap");
@@ -1770,11 +1770,15 @@ fn the_build_log_shows_colors_folds_its_stages_searches_and_points_at_a_line() {
     c.type_into("Buscar no log", "fail");
     assert!(c.says("1 linhas com o termo"), "{:?}", c.texts());
 
+    // Each stage says how it ran, and a line with no colors takes them from its first word.
+    assert!(c.says("· git · 8 s"), "{:?}", c.texts());
+    assert!(c.says("SLOW") && c.says("Baixar log"), "{:?}", c.texts());
+
     // A stage folds and says how much it hides.
-    c.press("Checkout");
-    assert!(c.says("2 linhas dobradas"), "{:?}", c.texts());
+    c.press("Checkout · git · 8 s");
+    assert!(c.says("· git · 8 s · 2 linhas dobradas"), "{:?}", c.texts());
     assert!(!c.says("HEAD is now at"), "its lines are hidden");
-    c.press("Checkout · 2 linhas dobradas");
+    c.press("Checkout · git · 8 s · 2 linhas dobradas");
     assert!(c.says("HEAD is now at"), "and come back");
 
     // A line is pointed at by its number.
@@ -1784,11 +1788,17 @@ fn the_build_log_shows_colors_folds_its_stages_searches_and_points_at_a_line() {
     // A new line comes, and the settings change what shows.
     c.press("Chegar linha nova");
     assert!(c.says("nova::linha_1"), "{:?}", c.texts());
-    assert!(c.says("9 linhas no log."), "{:?}", c.texts());
+    assert!(c.says("11 linhas no log."), "{:?}", c.texts());
+
+    // One stage alone, and back to every line.
+    c.activate("Só o estágio Testes");
+    assert!(c.says("Só Testes") && !c.says("HEAD is now at"), "{:?}", c.texts());
+    c.press("Mostrar tudo");
+    assert!(c.says("HEAD is now at"), "{:?}", c.texts());
     c.activate("Números das linhas");
     assert!(!c.has_name("Apontar a linha 2"), "no numbers");
     c.activate("Busca");
     assert!(!c.has_name("Buscar no log") && !c.says("linhas com o termo"), "no search field");
     c.activate("Seguir o fim");
-    assert!(c.says("Ir para o fim") || c.has_name("Ir para o fim"), "the way back to the end stays");
+    assert!(c.has_name("Seguir o fim"), "the switch stays, to follow again");
 }
