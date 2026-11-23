@@ -157,12 +157,12 @@ impl BranchSource for GitBranches {
             .run(&["fetch", "--no-tags", "--depth=1", "--", &url, &format!("+{source}:{local}")])
             .map_err(said);
         let has = |rev: &str| git.rev_parse(rev).is_ok();
-        let at = if !head.commit.is_empty() && has(&head.commit) {
-            head.commit.clone()
-        } else if !head.commit.is_empty()
-            && git.run(&["fetch", "--no-tags", "--depth=1", "--", &url, &head.commit]).is_ok()
-            && has(&head.commit)
-        {
+        // The commit found, when this repository has it or can fetch it; else the tip just fetched.
+        let at_commit = !head.commit.is_empty()
+            && (has(&head.commit)
+                || (git.run(&["fetch", "--no-tags", "--depth=1", "--", &url, &head.commit]).is_ok()
+                    && has(&head.commit)));
+        let at = if at_commit {
             head.commit.clone()
         } else {
             by_ref?;

@@ -142,15 +142,14 @@ impl Credentials {
         Ok(found.and_then(|(text, kind)| SecretRef::parse(&text).map(|secret| (secret, kind))))
     }
 
-    /// Seals `fields` of the kind `kind` as `name`, with what a plugin gets (`secret`) and a log
-    /// hides (`hidden`); rotates it when the name is there already.
+    /// Seals `fields` of the kind `kind` as `name`, with what a plugin gets and what a log hides
+    /// (`secret`, `hidden`); rotates it when the name is there already.
     pub(crate) fn save(
         &self,
         name: &str,
         kind: &str,
         fields: &Value,
-        secret: String,
-        hidden: Vec<String>,
+        (secret, hidden): (String, Vec<String>),
         description: Option<&str>,
         by: Option<&str>,
     ) -> Result<(), CiError> {

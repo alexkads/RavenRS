@@ -824,7 +824,7 @@ impl Ci {
         let mut hidden = found.hidden(fields);
         hidden.retain(|value| !value.is_empty());
         let description = description.map(str::trim).filter(|d| !d.is_empty());
-        self.vault()?.save(name, kind, fields, secret, hidden, description, by)
+        self.vault()?.save(name, kind, fields, (secret, hidden), description, by)
     }
 
     /// Every credential, with no value, each with the jobs and plugins that name it.

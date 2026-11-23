@@ -382,7 +382,10 @@ fn audit_grid(audit: &Json, height: f32) -> AnyView {
 
 /// The kinds of credential the form offers, in its order: the id, what people read, and the
 /// fields of the kind with whether each is secret and long.
-const KINDS: [(&str, &str, &[(&str, &str, bool, bool)]); 4] = [
+/// A field of a kind of credential: its name, what people read, whether it is secret and long.
+type KindField = (&'static str, &'static str, bool, bool);
+
+const KINDS: [(&str, &str, &[KindField]); 4] = [
     ("token", "Token", &[("token", "Valor do token", true, false)]),
     (
         "user-password",
