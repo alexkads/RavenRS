@@ -9,6 +9,7 @@
 )]
 
 mod agentes;
+mod backup;
 mod compilado;
 mod config;
 mod ia;

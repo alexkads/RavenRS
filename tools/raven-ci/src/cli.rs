@@ -15,6 +15,12 @@ pub const USAGE: &str = "uso: raven-ci [--dados PASTA] [--plugins PASTA]… [--f
   plugins ligar NOME      liga o plugin (na pasta de dados; com --servidor URL, no servidor no ar)
   plugins desligar NOME   desliga o plugin e os que precisam dele (idem)
   plugins compilar PASTA  compila um plugin em Rust (traits padrão) e o instala
+  backup criar [PASTA] [--com-chave]
+                          guarda jobs, builds, logs, anexos, usuários, credenciais e dados dos
+                          plugins, com o servidor no ar; sem PASTA, em <dados>/backups/
+  backup ver PASTA        o que um backup tem, conferido
+  backup restaurar PASTA  põe o backup no lugar, com o servidor parado; o que havia fica em
+                          antes-da-restauracao-<quando>/
                           [--debug] no perfil dev, mais rápido de compilar
   servir [--endereco HOST:PORTA] [--executores N]
                           o servidor: HTTP com login, executores e gatilhos
@@ -123,6 +129,13 @@ impl Invocation {
         }
         if let Some(said) = crate::ia::run(&self.words, self.json, out) {
             return said;
+        }
+        // A backup opens no core: a restore needs the folder with nothing open on it (#917).
+        if let [first, rest @ ..] = self.words.as_slice()
+            && first == "backup"
+        {
+            let rest: Vec<&str> = rest.iter().map(String::as_str).collect();
+            return crate::backup::run(&self.data, &rest, self.json, out);
         }
         if let [first, rest @ ..] = self.words.as_slice()
             && first == "servico"

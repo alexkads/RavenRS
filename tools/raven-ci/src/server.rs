@@ -68,6 +68,8 @@ fn stopping() -> Result<impl std::future::Future<Output = ()>, CiError> {
 /// build itself: agents do. With `--painel`, the panel for the browser (`scripts/build-web.sh
 /// raven-ci`) is served at `/painel/`.
 pub fn serve(ci: Ci, data: &Path, args: &[&str], out: &mut dyn Write) -> Result<i32, CiError> {
+    // One server per folder of data, and no restore under it (#917): held until this returns.
+    let _lock = raven_ci_core::backup::ServerLock::take(data)?;
     let address = flag(args, "--endereco")?.unwrap_or(DEFAULT_ADDRESS).to_owned();
     let executors: usize = match flag(args, "--executores")? {
         Some(n) => n.parse().map_err(|_| CiError::settings("--executores", "tem que ser um número"))?,

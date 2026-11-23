@@ -25,6 +25,7 @@
 
 mod agentes;
 mod apply;
+mod backup;
 mod chave;
 mod cli;
 mod cliente;
