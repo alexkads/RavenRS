@@ -46,6 +46,8 @@ const ROW_PADDING: f32 = 4.0;
 const TWO_LINE_ROW: f32 = 46.0;
 const GROUP_HEIGHT: f32 = 30.0;
 const HEADER_ROW_HEIGHT: f32 = 26.0;
+/// The one row of ticks of a compact scheduler.
+const COMPACT_HEADER_HEIGHT: f32 = 36.0;
 const MIN_BAR_WIDTH: f32 = 6.0;
 const HANDLE_WIDTH: f32 = 6.0;
 /// Rows and ticks built beyond the edges, so a quick scroll shows no gap.
@@ -226,6 +228,9 @@ pub struct Scheduler {
     resource_width: f32,
     read_only: bool,
     toolbar: bool,
+    compact: bool,
+    legend: Option<String>,
+    resources_title: Option<String>,
     fill_rows: bool,
     card: bool,
     avatars: bool,
@@ -262,6 +267,9 @@ impl Scheduler {
             resource_width: 200.0,
             read_only: false,
             toolbar: true,
+            compact: false,
+            legend: None,
+            resources_title: None,
             fill_rows: false,
             card: false,
             avatars: false,
@@ -361,6 +369,28 @@ impl Scheduler {
     /// The buttons to move through time and zoom (on by default).
     pub fn toolbar(mut self, show: bool) -> Self {
         self.toolbar = show;
+        self
+    }
+
+    /// A timeline that reads at a glance, as a build server shows its agents: one row of ticks
+    /// under the toolbar (the day is in its title), each resource's second line beside its name,
+    /// and the toolbar with the arrows and the title only. Off by default.
+    pub fn compact(mut self, compact: bool) -> Self {
+        self.compact = compact;
+        self
+    }
+
+    /// A few words at the end of the toolbar that say how to read the timeline (`A linha vertical
+    /// é agora`).
+    pub fn legend(mut self, text: impl Into<String>) -> Self {
+        self.legend = Some(text.into());
+        self
+    }
+
+    /// What the column of names is called above it; "Recursos" by default, in the language of
+    /// the labels.
+    pub fn resources_title(mut self, title: impl Into<String>) -> Self {
+        self.resources_title = Some(title.into());
         self
     }
 
@@ -1231,7 +1261,7 @@ impl Scheduler {
             for index in members {
                 let lanes = lanes_of.get(&self.resources[index].id).copied().unwrap_or(1);
                 let mut height = lanes as f32 * self.lane_height() + 2.0 * ROW_PADDING;
-                if self.resources[index].subtitle.is_some() {
+                if self.resources[index].subtitle.is_some() && !self.compact {
                     height = height.max(TWO_LINE_ROW);
                 }
                 rows.push(Row::Resource { index, y, height });
@@ -1282,9 +1312,27 @@ impl Scheduler {
         if !self.card {
             let title = axis_title(&labels, &axis, self.now.map(TimePoint::date));
             items.push(util::label(cx, &title, TextStyle::Headline, None, cx.theme().color(Semantic::Ink)));
-            items.extend(today_button);
+            if !self.compact {
+                items.extend(today_button);
+            }
         }
         items.push(cx.container(LayoutStyle { grow: 1.0, ..LayoutStyle::leaf() }, &[], Paint::None));
+        if let Some(legend) = &self.legend {
+            let muted = cx.theme().color(Semantic::InkMuted);
+            items.push(util::label(cx, legend, TextStyle::Callout, None, muted));
+        }
+        if self.compact {
+            return cx.container(
+                LayoutStyle {
+                    spacing: 6.0,
+                    align: Align::Center,
+                    padding: Insets::symmetric(8.0, 8.0),
+                    ..LayoutStyle::stack(Axis::Horizontal)
+                },
+                &items,
+                Paint::None,
+            );
+        }
         let mut out =
             IconButton::new(IconName::ZoomOut).label(labels.zoom_out.clone()).size(ButtonSize::Small);
         if let Some(farther) = axis.zoomed_out() {
@@ -1461,9 +1509,14 @@ impl View for Scheduler {
         let mut previous = None;
         let accent = theme.color(Semantic::Accent);
         let today = self.now.map(|now| now.date());
-        let header_height = 2.0 * HEADER_ROW_HEIGHT;
+        let compact = self.compact;
+        let (header_height, tick_top, tick_height) = if compact {
+            (COMPACT_HEADER_HEIGHT, 0.0, COMPACT_HEADER_HEIGHT)
+        } else {
+            (2.0 * HEADER_ROW_HEIGHT, HEADER_ROW_HEIGHT, HEADER_ROW_HEIGHT)
+        };
         for (i, tick) in ticks.iter().enumerate() {
-            if axis.starts_group(tick.start, previous) {
+            if !compact && axis.starts_group(tick.start, previous) {
                 let until = ticks[i + 1..]
                     .iter()
                     .find(|t| axis.starts_group(t.start, Some(tick.start)))
@@ -1492,7 +1545,7 @@ impl View for Scheduler {
             } else {
                 tick_text(&labels, axis.scale, tick.start)
             };
-            let frame = Rect::new(tick.x, HEADER_ROW_HEIGHT, tick.width, HEADER_ROW_HEIGHT);
+            let frame = Rect::new(tick.x, tick_top, tick.width, tick_height);
             let is_today = self.card && axis.scale == TimeScale::Days && today == Some(tick.start.date());
             header_cells.push(placed_text(
                 cx,
@@ -1505,7 +1558,7 @@ impl View for Scheduler {
                 // A mark under today's name, where the eye looks for it.
                 header_cells.push(band(cx, Rect::new(tick.x, header_height - 2.0, tick.width, 2.0), accent));
             }
-            header_cells.push(band(cx, Rect::new(tick.x, HEADER_ROW_HEIGHT, 1.0, HEADER_ROW_HEIGHT), line));
+            header_cells.push(band(cx, Rect::new(tick.x, tick_top, 1.0, tick_height), line));
         }
         // A tinted band, in a card, under its toolbar.
         let header_paint = Paint::Quad(QuadPaint::new(theme.color(if self.card {
@@ -1535,8 +1588,8 @@ impl View for Scheduler {
             header_paint.clone(),
         );
         cx.clip(header_view);
-        let corner_text =
-            util::label(cx, &labels.scheduler_resources, TextStyle::Caption, Some(Weight::SEMIBOLD), muted);
+        let corner_title = self.resources_title.clone().unwrap_or_else(|| labels.scheduler_resources.clone());
+        let corner_text = util::label(cx, &corner_title, TextStyle::Caption, Some(Weight::SEMIBOLD), muted);
         let corner = cx.container(
             LayoutStyle {
                 width: Some(self.resource_width),
@@ -1562,7 +1615,11 @@ impl View for Scheduler {
         }
         header_parts.push(header_view);
         let header = cx.container(
-            LayoutStyle { align: Align::Stretch, ..LayoutStyle::stack(Axis::Horizontal) },
+            LayoutStyle {
+                align: Align::Stretch,
+                min_width: Some(0.0),
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
             &header_parts,
             Paint::None,
         );
@@ -1663,7 +1720,28 @@ impl View for Scheduler {
                         .avatars
                         .then(|| cx.child(&crate::Avatar::new(resource.name.clone()).size(AVATAR_SIZE)));
                     let mut lines = vec![name];
-                    if let Some(subtitle) = &resource.subtitle {
+                    // Compact: the second line follows the name on its line, muted.
+                    if self.compact
+                        && let Some(subtitle) = &resource.subtitle
+                    {
+                        let beside = cx.child(
+                            &Text::new(format!("· {subtitle}"))
+                                .style(TextStyle::Callout)
+                                .foreground(Semantic::InkMuted)
+                                .truncate(),
+                        );
+                        let line = cx.container(
+                            LayoutStyle {
+                                spacing: 4.0,
+                                align: Align::Center,
+                                min_width: Some(0.0),
+                                ..LayoutStyle::stack(Axis::Horizontal)
+                            },
+                            &[lines.remove(0), beside],
+                            Paint::None,
+                        );
+                        lines.push(line);
+                    } else if let Some(subtitle) = &resource.subtitle {
                         lines.push(
                             cx.child(
                                 &Text::new(subtitle.clone())
@@ -1864,6 +1942,7 @@ impl View for Scheduler {
         let middle = cx.container(
             LayoutStyle {
                 grow: 1.0,
+                min_width: Some(0.0),
                 min_height: Some(0.0),
                 align: Align::Stretch,
                 overflow_hidden: true,
@@ -1892,9 +1971,11 @@ impl View for Scheduler {
             parts.push(hairline(cx));
         }
         parts.push(middle);
+        // It takes the width its parent gives and scrolls the time inside, however long the axis.
         let root = cx.container(
             LayoutStyle {
                 grow: 1.0,
+                min_width: Some(0.0),
                 min_height: Some(0.0),
                 align: Align::Stretch,
                 overflow_hidden: true,

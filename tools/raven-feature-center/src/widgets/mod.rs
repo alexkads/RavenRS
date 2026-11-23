@@ -3,6 +3,7 @@
 //! [`PAGES`] is the one list: the center puts each page in its navigation as a dashboard, and the
 //! mode `componentes` (#587) shows the same pages with no application framework around them.
 
+pub mod agenda;
 pub mod atualizacao;
 pub mod basicos;
 pub mod doca;
@@ -84,6 +85,13 @@ pub const PAGES: &[Page] = &[
         group: "Listas e árvores",
         icon: IconName::FileText,
         make: || Box::new(listas::log::LogPage),
+    },
+    Page {
+        id: agenda::scheduler::ID,
+        caption: agenda::scheduler::PAGE,
+        group: "Listas e árvores",
+        icon: IconName::Calendar,
+        make: || Box::new(agenda::scheduler::SchedulerPage),
     },
     Page {
         id: graficos::fluxo::ID,

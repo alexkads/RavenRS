@@ -34,6 +34,19 @@ fn render(args: &Args) -> AnyView {
         let arg_resource_width = args.number("resource_width") as f32;
         let arg_toolbar = args.bool("toolbar");
         let arg_unavailable = args.bool("unavailable");
+        let arg_compact = args.bool("compact");
+        let arg_legend = args.text("legend");
+        let arg_resources_title = args.text("resources_title");
+        let looks = move |mut it: Scheduler| {
+            it = it.compact(arg_compact);
+            if !arg_legend.is_empty() {
+                it = it.legend(arg_legend.clone());
+            }
+            if !arg_resources_title.is_empty() {
+                it = it.resources_title(arg_resources_title.clone());
+            }
+            it
+        };
 
         // The last two hours of a build server, a row per agent.
         if args.choice("axis") == "Quarter hours" {
@@ -73,7 +86,7 @@ fn render(args: &Args) -> AnyView {
             it = it.read_only(arg_read_only);
             it = it.resource_width(arg_resource_width);
             it = it.toolbar(arg_toolbar);
-            return Box::new(it);
+            return Box::new(looks(it));
         }
 
         let first = Date::new(2026, 11, 1).unwrap_or_else(|| unreachable!("a real date"));
@@ -102,7 +115,7 @@ fn render(args: &Args) -> AnyView {
             it = it.read_only(arg_read_only);
             it = it.resource_width(arg_resource_width);
             it = it.toolbar(arg_toolbar);
-            it
+            looks(it)
         }
     })
 }
@@ -119,8 +132,21 @@ impl ComponentBook for Scheduler {
             .arg(ArgType::bool("toolbar", true))
             .arg(ArgType::choice("axis", &["Days", "Quarter hours"], "Days"))
             .arg(ArgType::bool("unavailable", false).description("A resource that takes nothing now."))
+            .arg(ArgType::bool("compact", false))
+            .arg(ArgType::text("legend", "").description("Empty shows none."))
+            .arg(ArgType::text("resources_title", "").description("Empty leaves the labels' word."))
             .story("Example", Args::new())
             .story("Read only", Args::new().with("read_only", true))
+            .story(
+                "Agents at a glance",
+                Args::new()
+                    .with("axis", ArgValue::choice("Quarter hours"))
+                    .with("read_only", true)
+                    .with("unavailable", true)
+                    .with("compact", true)
+                    .with("legend", "The vertical line is now")
+                    .with("resources_title", "AGENTS"),
+            )
             .story(
                 "Quarter hours",
                 Args::new()

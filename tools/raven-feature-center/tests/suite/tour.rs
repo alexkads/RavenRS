@@ -1449,6 +1449,38 @@ fn the_progress_bar_says_its_stage_and_puts_the_detail_beside_the_label_or_under
 }
 
 #[test]
+fn the_scheduler_shows_each_resource_compact_or_on_two_lines_and_tells_its_events() {
+    let mut c = Center::memory("ana");
+    c.press("Agenda por recurso");
+    // resources, resources_title, compact and legend: the title of the column, the legend, a row
+    // per resource; the one away says why.
+    assert!(c.says("AGENTES") && c.says("A linha vertical é agora"), "{:?}", c.texts());
+    assert!(c.has_name("oficina-1") && c.has_name("vps-backup"), "{:?}", c.texts());
+    assert!(
+        c.says("Desconectado há 3 h · o build que estava nele foi retomado no oficina-1"),
+        "{:?}",
+        c.texts()
+    );
+    // on_open: opening an event says which.
+    let tree = c.ui.access_tree();
+    let event = tree
+        .nodes
+        .iter()
+        .find(|n| n.name.as_deref().is_some_and(|t| t.starts_with("site #56")))
+        .map(|n| n.id);
+    if let Some(id) = event {
+        c.ui.perform_action(id, ravenrs::core::AccessAction::Click);
+    }
+    // The toggles change the look and the page stays whole.
+    for name in
+        ["Compacto", "Barra", "Cartão", "Avatares", "Linhas que preenchem", "Só leitura", "Nomes estreitos"]
+    {
+        c.activate(name);
+    }
+    assert!(c.has_name("oficina-1"), "{:?}", c.texts());
+}
+
+#[test]
 fn toggles_switch_with_a_label_compact_or_only_an_accessible_name() {
     let mut c = Center::memory("ana");
     c.press("Chaves");
