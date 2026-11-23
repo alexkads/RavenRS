@@ -179,6 +179,32 @@ fn a_job_of_one_branch_runs_the_jenkinsfile_of_its_tip_and_says_where_it_came_fr
 }
 
 #[test]
+fn a_parameter_picks_the_branch_a_job_of_one_branch_fetches() {
+    // The parameterized job of the reference Jenkins (Azure DevOps, `BRANCH` = develop or a
+    // feature branch) fetches the branch the person asks for (V-03 of #803).
+    if !has_git() {
+        return;
+    }
+    let origin = Origin::new();
+    let ci = ci();
+    let pipeline = "[[parameters]]\nname = \"BRANCH\"\ndefault = \"main\"\n\n[[stages]]\nname = \"Mostra\"\nsteps = ['cat .raven-ci.toml']\n";
+    let settings =
+        json!({ "scm": { "id": "git", "url": origin.url(), "reference": { "branch": "${BRANCH}" } } });
+    ci.save_job(JobSpec::new("appogi", "toml", pipeline).settings(settings)).expect("saved");
+
+    let of_dev = ci
+        .request_build(BuildRequest::new("appogi", "teste").parameter("BRANCH", json!("dev")))
+        .expect("asked");
+    let of_main = ci.request_build(BuildRequest::new("appogi", "teste")).expect("asked with the default");
+    ci.work_until_idle("e1").expect("runs");
+    let dev = log_of(&ci, "appogi", of_dev.number);
+    assert_eq!(ci.build("appogi", of_dev.number).expect("build").status, BuildStatus::Succeeded, "{dev:#?}");
+    assert!(dev.iter().any(|line| line.contains("pipeline-da-dev")), "{dev:#?}");
+    let main = log_of(&ci, "appogi", of_main.number);
+    assert!(main.iter().any(|line| line.contains("pipeline-da-main")), "{main:#?}");
+}
+
+#[test]
 fn the_source_git_reads_a_file_with_a_credential_that_shows_nowhere() {
     if !has_git() {
         return;

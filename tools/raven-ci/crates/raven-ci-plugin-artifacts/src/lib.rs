@@ -136,8 +136,13 @@ pub fn find(workspace: &Path, patterns: &[String], log: &dyn Fn(&str)) -> Vec<Fo
             log(&format!("{pattern}: recusado; o padrão é relativo à pasta do build, sem .."));
             continue;
         }
-        let full =
-            format!("{}/{}", glob::Pattern::escape(&workspace.to_string_lossy()), pattern.replace('\\', "/"));
+        let mut wanted = pattern.replace('\\', "/");
+        // `relatorio/**` is every file under `relatorio`, as in Jenkins's `archiveArtifacts`; to the
+        // `glob` crate a `**` at the end finds only the folders.
+        if wanted == "**" || wanted.ends_with("/**") {
+            wanted.push_str("/*");
+        }
+        let full = format!("{}/{}", glob::Pattern::escape(&workspace.to_string_lossy()), wanted);
         let paths = match glob::glob_with(&full, options) {
             Ok(paths) => paths,
             Err(e) => {

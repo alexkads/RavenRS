@@ -284,6 +284,37 @@ steps = ["echo fim"]
 }
 
 #[test]
+fn a_parameter_not_given_runs_with_its_default_and_text_reads_as_its_kind() {
+    // The job faxina of the oficina simulated only when SIMULAR said so; a build asked with no
+    // value ran with the variable empty, and the script took that for "apague" (V-03 of #803).
+    let ci = ci();
+    let text = format!(
+        r#"
+[[parameters]]
+name = "SIMULAR"
+type = "bool"
+default = true
+
+[[parameters]]
+name = "DIAS"
+default = "3"
+
+[[stages]]
+name = "T"
+steps = ["{say}"]
+"#,
+        say = os("echo simular=$SIMULAR dias=$DIAS", "echo simular=%SIMULAR% dias=%DIAS%"),
+    );
+    let (status, log) = run(&ci, "padrao", &text, json!({}));
+    assert_eq!(status, BuildStatus::Succeeded, "{log:#?}");
+    assert!(log.contains(&"simular=true dias=3".to_owned()), "{log:#?}");
+    let (status, log) = run(&ci, "texto", &text, json!({ "SIMULAR": "false" }));
+    assert_eq!(status, BuildStatus::Succeeded, "{log:#?}");
+    assert!(log.contains(&"simular=false dias=3".to_owned()), "{log:#?}");
+    assert_eq!(ci.build("texto", 1).expect("the build").parameters["SIMULAR"], json!(false));
+}
+
+#[test]
 fn parallel_branches_all_run_and_meet_before_the_next_stage() {
     let ci = ci();
     let text = r#"
