@@ -22,6 +22,7 @@ raven-ci-plugin-cron = { path = "crates/raven-ci-plugin-cron" }
 raven-ci-plugin-credentials = { path = "crates/raven-ci-plugin-credentials" }
 raven-ci-plugin-docker = { path = "crates/raven-ci-plugin-docker" }
 raven-ci-plugin-email = { path = "crates/raven-ci-plugin-email" }
+raven-ci-plugin-explain = { path = "crates/raven-ci-plugin-explain" }
 raven-ci-plugin-format-jenkinsfile = { path = "crates/raven-ci-plugin-format-jenkinsfile" }
 raven-ci-plugin-format-toml = { path = "crates/raven-ci-plugin-format-toml" }
 raven-ci-plugin-git = { path = "crates/raven-ci-plugin-git" }

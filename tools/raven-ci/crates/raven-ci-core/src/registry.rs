@@ -434,6 +434,18 @@ impl Registry {
             .collect()
     }
 
+    /// The plugins that are not on: switched off, refused or never started. What says which plugin
+    /// to switch on when something asks for what only it brings.
+    pub fn not_on(&self) -> Vec<Arc<dyn CiPlugin>> {
+        let inner = self.lock();
+        inner
+            .entries
+            .iter()
+            .filter(|entry| !inner.started.iter().any(|name| name == entry.name()))
+            .map(|entry| entry.plugin.clone())
+            .collect()
+    }
+
     /// The kinds of step there are: the built-in nodes of `ravenrs-flows` and those of the
     /// plugins on.
     pub fn catalog(&self) -> Catalog {

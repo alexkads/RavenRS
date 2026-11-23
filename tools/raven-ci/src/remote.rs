@@ -40,7 +40,7 @@ pub(crate) use crate::saida::{Exit, Refused, Said};
 const FOLLOW_EVERY: Duration = Duration::from_millis(500);
 
 /// The names of the commands of this module.
-pub const COMMANDS: [&str; 5] = ["rodar", "status", "log", "resumo", "evidencia"];
+pub const COMMANDS: [&str; 6] = ["rodar", "status", "log", "resumo", "evidencia", "explicar"];
 
 fn failed(e: impl std::fmt::Display) -> CiError {
     CiError::failed(e.to_string())
@@ -128,6 +128,8 @@ fn run_command(command: &str, words: &[String], json: bool, out: &mut dyn Write)
         ("resumo", []) => resumo(&server, &args, out),
         ("resumo", [job]) => resumo_do_build(&server, job, None, &args, out),
         ("resumo", [job, number]) => resumo_do_build(&server, job, Some(number), &args, out),
+        ("explicar", [job]) => explicar(&server, job, None, &args, out),
+        ("explicar", [job, number]) => explicar(&server, job, Some(number), &args, out),
         ("aplicar", [file]) => aplicar(&server, file, &args, out),
         ("credencial", ["criar", name]) => {
             let mut text = String::new();
@@ -388,6 +390,26 @@ pub(crate) fn overview(server: &Server) -> Result<Value, Refused> {
         .map(|b| json!({ "job": b.get("job"), "number": b.get("number"), "status": b.get("status") }))
         .collect();
     Ok(json!({ "jobs": rows, "queue": queue }))
+}
+
+/// `explicar JOB [NUMERO]`: why the build failed, written by the local AI of the plugin `explain`
+/// (#942), kept with the build so it is written once.
+fn explicar(server: &Server, job: &str, number: Option<&str>, args: &Args, out: &mut dyn Write) -> Said {
+    let number = match number {
+        Some(number) => number_of(number)?,
+        None => last(server, job)?,
+    };
+    let path = format!("/api/ci/build/explain?job={}&number={number}", crate::cliente::encode(job));
+    let answer = server.post(&path, &json!({}))?;
+    if args.json {
+        write_json(out, &answer)?;
+    } else {
+        writeln!(out, "{}", answer.get("texto").and_then(Value::as_str).unwrap_or_default().trim())?;
+        let model = answer.get("modelo").and_then(Value::as_str).unwrap_or_default();
+        let kept = if answer.get("guardada") == Some(&json!(true)) { ", guardada antes" } else { "" };
+        writeln!(out, "({model}{kept})")?;
+    }
+    Ok(Exit::Done.code())
 }
 
 fn resumo(server: &Server, args: &Args, out: &mut dyn Write) -> Said {

@@ -1,0 +1,21 @@
+[package]
+name = "raven-ci-explicador"
+description = "The program that explains why a build of Raven CI failed, with a model of AI from ravenrs-ai that runs on the machine: the summary of the build in, two or three sentences out. Run by the plugin explain, or by the socket of systemd of its RPM."
+version = "0.1.0"
+edition.workspace = true
+rust-version = "1.89"
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "raven-ci-explicador"
+path = "src/main.rs"
+
+[dependencies]
+# The models of text, run on the CPU with candle: the only part of Raven CI that needs them, so the
+# server's binary does not carry them.
+ravenrs-ai.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

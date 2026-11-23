@@ -22,6 +22,7 @@ use raven_ci_plugin_junit::JunitPlugin;
 use raven_ci_plugin_kubernetes::KubernetesPlugin;
 use raven_ci_plugin_lock::LockPlugin;
 use raven_ci_plugin_metrics::MetricsPlugin;
+use raven_ci_plugin_explain::ExplainPlugin;
 use raven_ci_plugin_shell::ShellPlugin;
 use raven_ci_plugin_webhook_github::WebhookGithubPlugin;
 use raven_ci_plugin_webhook_out::WebhookOutPlugin;
@@ -50,6 +51,7 @@ pub fn builtin() -> Vec<Arc<dyn CiPlugin>> {
         Arc::new(EmailPlugin::new()),
         Arc::new(WebhookOutPlugin::new()),
         Arc::new(MetricsPlugin::new()),
+        Arc::new(ExplainPlugin::new()),
         Arc::new(AgentLocalPlugin::new()),
         Arc::new(AgentRemotePlugin::new()),
     ]

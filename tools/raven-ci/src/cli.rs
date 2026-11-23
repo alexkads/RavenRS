@@ -35,6 +35,8 @@ pub const USAGE: &str = "uso: raven-ci [--dados PASTA] [--plugins PASTA]… [--f
   resumo JOB [NUMERO] [--format json|md]
                           o resumo de um build para ler pouco: o que falhou, as últimas
                           linhas, os testes e os diagnósticos (feito para sessões de IA)
+  explicar JOB [NUMERO] [--format json]
+                          por que o build falhou, escrito por uma IA local (plugin explain)
   evidencia JOB NUMERO PASTA
                           baixa os artefatos e o log do build para PASTA
                           (estes falam com --servidor URL ou RAVEN_CI_SERVIDOR,

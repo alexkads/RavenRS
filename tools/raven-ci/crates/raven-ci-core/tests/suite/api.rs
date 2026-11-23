@@ -171,7 +171,12 @@ fn the_routes_of_a_plugin_switched_off_are_gone_and_come_back_with_no_restart() 
     let token = server.token("bia");
     assert_eq!(server.get("/api/rotas/quem", Some(&token)).0, 200);
     server.ci.disable_plugin("rotas").expect("off");
-    assert_eq!(server.get("/api/rotas/quem", Some(&token)).0, 404);
+    // Off, its route says which plugin to switch on, instead of a route that is not there (#942).
+    let (status, body) = server.get("/api/rotas/quem", Some(&token));
+    assert_eq!(status, 503, "{body}");
+    assert_eq!(body["plugin"], "rotas");
+    assert!(body["message"].as_str().unwrap_or_default().contains("plugins ligar rotas"), "{body}");
+    assert_eq!(server.get("/api/nada/disso", Some(&token)).0, 404, "a route of no plugin is still not there");
     assert_eq!(server.api.handle(ApiRequest::new("POST", "/hooks/teste")).status, 401, "no route, no way in");
     server.ci.enable_plugin("rotas").expect("on");
     assert_eq!(server.get("/api/rotas/quem", Some(&token)).0, 200);
