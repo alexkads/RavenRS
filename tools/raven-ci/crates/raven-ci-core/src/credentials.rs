@@ -13,6 +13,11 @@
 //!   log hides (`hidden`), worked out when it was saved, so reading it needs no plugin.
 //! - **Saving a name again** rotates its record: the old value stays out of every log.
 //! - **Deleting** revokes the record and forgets the name.
+//! - **One field** of a credential is read as `nome:campo` (`github:user`), so a step can take the
+//!   user and the password of one credential apart; the log hides every value the credential
+//!   hides, whichever field was read. A name never has `:`, so there is no doubt.
+//! - **The description** says what the credential is for, as Jenkins's does; the list says, with it,
+//!   which jobs and plugins name it ([`Ci::credentials`](crate::Ci::credentials)).
 
 use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};
@@ -46,6 +51,9 @@ CREATE TABLE IF NOT EXISTS ci_credentials (
 );
 ";
 
+/// The column the vaults of 0.1.4 and before did not have.
+const DESCRIPTION: &str = "ALTER TABLE ci_credentials ADD COLUMN description TEXT";
+
 /// A credential as it is listed: never its value.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct CredentialInfo {
@@ -53,6 +61,10 @@ pub struct CredentialInfo {
     pub name: String,
     /// Its kind, by the id of a plugin's kind: `token`.
     pub kind: String,
+    /// What it is for, in words.
+    pub description: Option<String>,
+    /// The jobs and plugins whose settings or pipeline name it: `job loja/main`, `plugin email`.
+    pub used_by: Vec<String>,
     /// Who made it.
     pub created_by: Option<String>,
     /// When it was made, on the core's clock.
@@ -100,6 +112,13 @@ impl Credentials {
     /// The vault of the folder of data `dir`, made the first time.
     pub(crate) fn open(dir: &Path, store: Arc<Store>, log: Arc<ServerLog>) -> Result<Self, CiError> {
         store.db().execute_batch(SCHEMA).map_err(db)?;
+        let has_description = store
+            .db()
+            .prepare("SELECT description FROM ci_credentials LIMIT 0")
+            .is_ok();
+        if !has_description {
+            store.db().execute_batch(DESCRIPTION).map_err(db)?;
+        }
         let storage = FileStorage::new(dir.join(VAULT_DIR)).map_err(vault_error)?;
         let source: Box<dyn KeySource> = if std::env::var_os(KEY_VARIABLE).is_some() {
             Box::new(KeyFromEnv(KEY_VARIABLE.to_owned()))
@@ -135,6 +154,7 @@ impl Credentials {
         fields: &Value,
         secret: String,
         hidden: Vec<String>,
+        description: Option<&str>,
         by: Option<&str>,
     ) -> Result<(), CiError> {
         let name = checked(name)?;
@@ -146,7 +166,10 @@ impl Credentials {
                 self.vault().rotate(&secret, &sealed, OWNER).map_err(vault_error)?;
                 self.store
                     .db()
-                    .execute("UPDATE ci_credentials SET updated_ms = ?2 WHERE name = ?1", params![name, now])
+                    .execute(
+                        "UPDATE ci_credentials SET updated_ms = ?2, description = COALESCE(?3, description) WHERE name = ?1",
+                        params![name, now, description],
+                    )
                     .map_err(db)?;
             }
             Some((_, was)) => {
@@ -160,8 +183,8 @@ impl Credentials {
                 self.store
                     .db()
                     .execute(
-                        "INSERT INTO ci_credentials (name, kind, secret, created_by, created_ms, updated_ms) VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
-                        params![name, kind, secret.to_string(), by, now],
+                        "INSERT INTO ci_credentials (name, kind, secret, created_by, created_ms, updated_ms, description) VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?6)",
+                        params![name, kind, secret.to_string(), by, now, description],
                     )
                     .map_err(db)?;
             }
@@ -174,7 +197,7 @@ impl Credentials {
         let db = self.store.db();
         let mut stmt = db
             .prepare(
-                "SELECT name, kind, created_by, created_ms, updated_ms FROM ci_credentials ORDER BY name",
+                "SELECT name, kind, created_by, created_ms, updated_ms, description FROM ci_credentials ORDER BY name",
             )
             .map_err(crate::store::db)?;
         let rows = stmt
@@ -182,6 +205,8 @@ impl Credentials {
                 Ok(CredentialInfo {
                     name: row.get(0)?,
                     kind: row.get(1)?,
+                    description: row.get(5)?,
+                    used_by: Vec::new(),
                     created_by: row.get(2)?,
                     created_ms: row.get(3)?,
                     updated_ms: row.get(4)?,
@@ -208,15 +233,42 @@ impl Credentials {
     }
 }
 
+/// `nome:campo` apart: the credential and, when there is one, the field.
+pub(crate) fn field_of(asked: &str) -> (&str, Option<&str>) {
+    match asked.split_once(':') {
+        Some((name, field)) => (name, Some(field)),
+        None => (asked, None),
+    }
+}
+
+/// The value of `field` in what was filled for a credential, as text.
+fn field_value(fields: &Value, field: &str) -> Option<String> {
+    match fields.get(field)? {
+        Value::String(text) => Some(text.clone()),
+        Value::Null => None,
+        other => Some(other.to_string()),
+    }
+}
+
 impl Secrets for Credentials {
-    fn get(&self, name: &str) -> Option<String> {
+    fn get(&self, asked: &str) -> Option<String> {
+        let (name, field) = field_of(asked);
         let sealed = self.sealed(name)?;
-        self.log.add_hidden(&sealed.secret);
-        Some(sealed.secret)
+        let value = match field {
+            None => sealed.secret,
+            Some(field) => field_value(&sealed.fields, field)?,
+        };
+        self.log.add_hidden(&value);
+        Some(value)
     }
 
-    fn hidden(&self, name: &str) -> Vec<String> {
-        self.sealed(name).map(|sealed| sealed.hidden).unwrap_or_default()
+    fn hidden(&self, asked: &str) -> Vec<String> {
+        let (name, _) = field_of(asked);
+        self.sealed(name).map(|sealed| {
+            let mut hidden = sealed.hidden;
+            hidden.push(sealed.secret);
+            hidden
+        }).unwrap_or_default()
     }
 }
 

@@ -193,7 +193,7 @@ fn a_job_of_many_branches_builds_main_and_the_pull_request_merged_and_tells_gith
         ci.add_plugin(plugin);
     }
     ci.apply_plugins().expect("on");
-    ci.save_credential("github", "token", &json!({ "token": TOKEN }), None).expect("the token");
+    ci.save_credential("github", "token", &json!({ "token": TOKEN }), None, None).expect("the token");
     let url = repo.0.display().to_string();
     let settings = json!({
         "branches": { "id": "github", "repository": "dono/repo", "credential": "github", "api": api },

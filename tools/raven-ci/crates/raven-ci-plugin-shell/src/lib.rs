@@ -19,6 +19,15 @@
 //!   the secrets hidden by the log;
 //! - with `nice`, it runs under `nice -n N` on Linux and macOS; on Windows the setting is said in
 //!   the log and left;
+//! - with `credentials` (#922), each variable gets a credential of the vault, read through the
+//!   host when the step starts, as Jenkins's `withCredentials` does: `{ "TOKEN": "nome" }` puts the
+//!   value the credential gives plugins, `{ "USUARIO": "nome:user" }` one field of it, and
+//!   `{ "KUBECONFIG": { "file": "nome", "name": "config" } }` writes it to a file only its owner
+//!   reads, in [`BuildContext::secrets_dir`](raven_ci_plugin_api::BuildContext::secrets_dir), and
+//!   puts the file's path. The value goes only into the environment of this command, never into
+//!   its words; the log hides it and every value the credential hides; the file goes when the
+//!   step ends, failed or cancelled too. On an agent the value comes from the server (`segredo`),
+//!   which audits it;
 //! - when the build is cancelled or the step's time limit (`timeout_ms` of its node) passes, the
 //!   program is stopped with every program it started.
 //!
@@ -36,6 +45,7 @@
 //! program stopped when the build is cancelled or runs out of time, and the last lines of its
 //! errors kept for the message of a failure.
 
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
@@ -51,10 +61,12 @@ pub const SH: &str = "sh";
 /// How often a running step looks at whether it was cancelled or ran out of time.
 const LOOK_EVERY: Duration = Duration::from_millis(50);
 
+type Shared = Arc<Mutex<Option<Arc<dyn Host>>>>;
+
 /// The plugin `shell`.
 #[derive(Default)]
 pub struct ShellPlugin {
-    host: Mutex<Option<Arc<dyn Host>>>,
+    host: Shared,
 }
 
 impl std::fmt::Debug for ShellPlugin {
@@ -80,6 +92,7 @@ impl Module for ShellPlugin {
             .version(env!("CARGO_PKG_VERSION"))
             .unwrap_or_default()
             .capability(Permission::Process.capability())
+            .capability(Permission::Secrets.capability())
     }
 }
 
@@ -99,7 +112,7 @@ impl CiPlugin for ShellPlugin {
     }
 
     fn steps(&self, catalog: &mut Catalog) {
-        catalog.add(Sh);
+        catalog.add(Sh { host: self.host.clone() });
     }
 }
 
@@ -183,9 +196,125 @@ pub fn ended(end: End, retry: bool) -> Result<(), NodeError> {
     }
 }
 
-/// The step `sh`. See the [crate](crate).
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Sh;
+/// The step `sh`. See the [crate](crate). Made with [`Default`], outside the plugin (a test of
+/// its own), it reads no credential.
+#[derive(Clone, Default)]
+pub struct Sh {
+    host: Shared,
+}
+
+impl std::fmt::Debug for Sh {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Sh").finish_non_exhaustive()
+    }
+}
+
+/// The secret files of one step, removed when it ends, however it ends.
+struct SecretFiles(Option<PathBuf>);
+
+impl Drop for SecretFiles {
+    fn drop(&mut self) {
+        if let Some(dir) = &self.0 {
+            let _ = std::fs::remove_dir_all(dir);
+            // The folder of the build's secrets, when no other step has one there now.
+            if let Some(above) = dir.parent() {
+                let _ = std::fs::remove_dir(above);
+            }
+        }
+    }
+}
+
+/// A name of a variable: letters, digits and `_`, not starting with a digit.
+fn variable(name: &str) -> bool {
+    let mut chars = name.chars();
+    chars.next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+/// Writes `content` to `path`, readable by its owner only.
+fn write_private(path: &Path, content: &str) -> std::io::Result<()> {
+    use std::io::Write as _;
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+    options.open(path)?.write_all(content.as_bytes())
+}
+
+impl Sh {
+    /// The variables the step's `credentials` ask, read through the host, and the secret files
+    /// written for it; every value is hidden by the log from here on.
+    fn credentials(
+        &self,
+        asked: &Value,
+        build: &BuildScope,
+        step: &str,
+    ) -> Result<(Vec<(String, String)>, SecretFiles), NodeError> {
+        let Some(asked) = asked.as_object().filter(|asked| !asked.is_empty()) else {
+            return Ok((Vec::new(), SecretFiles(None)));
+        };
+        let host = self.host.lock().unwrap_or_else(PoisonError::into_inner).clone().ok_or_else(|| {
+            NodeError::new("o passo sh só lê credenciais com o plugin shell ligado")
+        })?;
+        let mut variables = Vec::new();
+        let mut files = SecretFiles(None);
+        for (name, wanted) in asked {
+            if !variable(name) {
+                return Err(NodeError::new(format!(
+                    "credentials: {name:?} não é nome de variável (letras, números e _)"
+                )));
+            }
+            let (credential, file) = match wanted {
+                Value::String(credential) => (credential.as_str(), None),
+                Value::Object(table) => match table.get("file").and_then(Value::as_str) {
+                    Some(credential) => {
+                        let file_name = table.get("name").and_then(Value::as_str).unwrap_or(name.as_str());
+                        (credential, Some(file_name))
+                    }
+                    None => {
+                        return Err(NodeError::new(format!(
+                            "credentials.{name}: diga a credencial (\"nome\") ou o arquivo ({{ file = \"nome\" }})"
+                        )));
+                    }
+                },
+                _ => return Err(NodeError::new(format!("credentials.{name}: diga o nome da credencial"))),
+            };
+            let value = host
+                .secret(credential)
+                .map_err(|e| NodeError::new(format!("credentials.{name}: {e}")))?;
+            let value = match file {
+                None => value,
+                Some(file_name) => {
+                    if file_name.is_empty() || file_name.contains(['/', '\\']) || file_name.starts_with("..") {
+                        return Err(NodeError::new(format!(
+                            "credentials.{name}: o nome do arquivo {file_name:?} não serve"
+                        )));
+                    }
+                    let dir = build.context().secrets_dir().join(step);
+                    if files.0.is_none() {
+                        std::fs::create_dir_all(&dir).map_err(|e| {
+                            NodeError::new(format!("a pasta dos segredos {}: {e}", dir.display()))
+                        })?;
+                        #[cfg(unix)]
+                        {
+                            use std::os::unix::fs::PermissionsExt as _;
+                            let _ = std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700));
+                        }
+                        files.0 = Some(dir.clone());
+                    }
+                    let path = dir.join(file_name);
+                    write_private(&path, &value).map_err(|e| {
+                        NodeError::new(format!("credentials.{name}: o arquivo {}: {e}", path.display()))
+                    })?;
+                    build.log(step, &format!("credencial {credential} no arquivo {}", path.display()));
+                    path.display().to_string()
+                }
+            };
+            variables.push((name.clone(), value));
+        }
+        Ok((variables, files))
+    }
+}
 
 /// The program and its words that run `script`, with `nice` when asked and possible.
 fn command(script: &str, nice: Option<i64>, log: &dyn Fn(&str)) -> Spec {
@@ -223,6 +352,12 @@ impl NodeKind for Sh {
         let log = |line: &str| build.log(&step, line);
         let mut spec = command(script, nice, &log).dir(&build.context().workspace);
         for (name, value) in build.environment() {
+            spec = spec.env(name, value);
+        }
+        let asked = cx.parameter("credentials").cloned().unwrap_or(Value::Null);
+        // The files stay until this function returns: after the program, however it ended.
+        let (variables, _files) = self.credentials(&asked, &build, &step).inspect_err(|why| log(&why.message))?;
+        for (name, value) in variables {
             spec = spec.env(name, value);
         }
         if let Some(ms) = cx.node().timeout_ms {

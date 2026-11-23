@@ -1,0 +1,22 @@
+scenario: Raven CI: credencial criada, girada e apagada pelo painel
+// A administradora cadastra um token no cofre, guarda de novo o mesmo nome (gira o valor) e o apaga, confirmando.
+open Raven CI                                          | Abrir o painel do Raven CI
+fill Usuário = ana                                     | Escrever o usuário
+fill Senha = senha-do-teste-e2e                        | Escrever a senha
+click Entrar                                           | Entrar
+click #item:Credenciais                                | Ir às credenciais
+mention npm-feed = npm-feed                            | A credencial que já existe está na grade
+mention feed npm privado = feed npm privado            | Com o que ela é
+fill Nome da credencial = deploy-loja                              | Dar o nome da nova
+fill Para quê (opcional) = deploy da loja              | Dizer para que serve
+fill Valor do token = token-do-deploy-123456                    | Escrever o token
+click Guardar no cofre                                 | Guardar no cofre
+mention Credencial deploy-loja guardada no cofre. = guardada | O aviso diz que guardou
+mention deploy da loja = deploy da loja                | A grade mostra a nova
+fill Valor do token = outro-token-654321                        | Escrever um token novo para o mesmo nome
+click Guardar no cofre                                 | Guardar de novo
+mention Credencial deploy-loja girada. = girada        | O aviso diz que o valor foi girado
+fill Nome da credencial = deploy-loja                              | Escolher a credencial a apagar
+click Apagar                                           | Pedir para apagar
+click Apagar credencial                                | Confirmar
+mention Credencial deploy-loja revogada e apagada. = revogada | O aviso diz que apagou

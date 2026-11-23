@@ -83,6 +83,8 @@ struct Step {
     name: Option<String>,
     timeout: Option<String>,
     retry: Option<u64>,
+    /// The `credentials` of the step, by variable, each as its TOML: `"x"`, `{ file = "x" }`.
+    credentials: Vec<(String, String)>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -140,6 +142,8 @@ struct Around {
     dir: Vec<String>,
     timeout: Option<String>,
     retry: Option<u64>,
+    /// What a `withCredentials` around the steps binds (#922).
+    credentials: Vec<(String, String)>,
 }
 
 struct Converter {
@@ -652,6 +656,7 @@ impl Converter {
                         name: None,
                         timeout: around.timeout.clone(),
                         retry: around.retry,
+                        credentials: around.credentials.clone(),
                     }),
                     Some(None) => {}
                     None => self.pending(stmt.at, "echo", "echo precisa de um texto"),
@@ -730,11 +735,28 @@ impl Converter {
                     "o plugin workspace-cleanup apaga a pasta do build no fim",
                 ),
                 "script" => self.pending(stmt.at, "script { }", "é código Groovy; reescreva como sh"),
-                "withCredentials" => self.pending(
-                    stmt.at,
-                    "withCredentials",
-                    "cadastre a credencial no cofre (raven-ci credencial); o log já esconde o valor",
-                ),
+                "withCredentials" => {
+                    if let Some(bindings) = self.bindings(stmt) {
+                        let names: Vec<String> = bindings
+                            .iter()
+                            .map(|(_, toml)| credential_of(toml))
+                            .collect::<std::collections::BTreeSet<_>>()
+                            .into_iter()
+                            .collect();
+                        self.note(
+                            NoteKind::Warning,
+                            stmt.at,
+                            "withCredentials",
+                            format!(
+                                "convertido em credentials nos passos; tem que existir no cofre: {} (raven-ci credencial criar)",
+                                names.join(", ")
+                            ),
+                        );
+                        let mut inner = around.clone();
+                        inner.credentials.extend(bindings);
+                        steps.extend(self.steps(stmt.body(), &inner, place));
+                    }
+                }
                 "bat" | "powershell" | "pwsh" => self.pending(
                     stmt.at,
                     stmt.name.clone(),
@@ -748,6 +770,89 @@ impl Converter {
             }
         }
         steps
+    }
+
+    /// What `withCredentials([string(...), usernamePassword(...), file(...)])` binds, by variable,
+    /// each as the TOML of `credentials`; `None`, with the part noted, when one cannot be.
+    fn bindings(&mut self, stmt: &Stmt) -> Option<Vec<(String, String)>> {
+        let list = match stmt.positional().next().map(|arg| &arg.value) {
+            Some(Value::List(items)) => items.clone(),
+            Some(Value::Call(one)) => vec![Value::Call(one.clone())],
+            _ => {
+                self.pending(stmt.at, "withCredentials", "withCredentials precisa da lista de credenciais");
+                return None;
+            }
+        };
+        let mut out = Vec::new();
+        for item in &list {
+            let Value::Call(call) = item else {
+                self.pending(stmt.at, "withCredentials", "cada credencial é uma chamada, como string(...)");
+                return None;
+            };
+            let text = |name: &str| call.named(name).and_then(|arg| arg.value.text());
+            let Some(id) = text("credentialsId") else {
+                self.pending(call.at, shown(call), "falta credentialsId, em texto");
+                return None;
+            };
+            let missing = |converter: &mut Self, field: &str| {
+                converter.pending(call.at, shown(call), format!("falta {field}, em texto"));
+            };
+            match call.name.as_str() {
+                "string" | "usernameColonPassword" => match text("variable") {
+                    Some(variable) => out.push((variable, toml_string(&id))),
+                    None => {
+                        missing(self, "variable");
+                        return None;
+                    }
+                },
+                "file" => match text("variable") {
+                    Some(variable) => out.push((variable, format!("{{ file = {} }}", toml_string(&id)))),
+                    None => {
+                        missing(self, "variable");
+                        return None;
+                    }
+                },
+                "usernamePassword" => match (text("usernameVariable"), text("passwordVariable")) {
+                    (Some(user), Some(password)) => {
+                        out.push((user, toml_string(&format!("{id}:user"))));
+                        out.push((password, toml_string(&format!("{id}:password"))));
+                    }
+                    _ => {
+                        missing(self, "usernameVariable e passwordVariable");
+                        return None;
+                    }
+                },
+                "sshUserPrivateKey" => match text("keyFileVariable") {
+                    Some(key) => {
+                        out.push((key, format!("{{ file = {} }}", toml_string(&id))));
+                        if let Some(passphrase) = text("passphraseVariable") {
+                            out.push((passphrase, toml_string(&format!("{id}:passphrase"))));
+                        }
+                        if call.named("usernameVariable").is_some() {
+                            self.note(
+                                NoteKind::Warning,
+                                call.at,
+                                shown(call),
+                                "a chave SSH do cofre não tem usuário: ponha-o no comando",
+                            );
+                        }
+                    }
+                    None => {
+                        missing(self, "keyFileVariable");
+                        return None;
+                    }
+                },
+                other => {
+                    self.pending(
+                        call.at,
+                        shown(call),
+                        format!("{other} não tem equivalente: use string, usernamePassword, file ou sshUserPrivateKey"),
+                    );
+                    return None;
+                }
+            }
+        }
+        Some(out)
     }
 
     fn sh(&mut self, stmt: &Stmt, around: &Around) -> Option<Step> {
@@ -774,6 +879,7 @@ impl Converter {
             name: stmt.named("label").and_then(|a| a.value.text()),
             timeout: around.timeout.clone(),
             retry: around.retry,
+            credentials: around.credentials.clone(),
         })
     }
 
@@ -943,8 +1049,16 @@ fn toml_key(key: &str) -> String {
     }
 }
 
+/// The credential a `credentials` value names: `x` of `"x:user"` or `{ file = "x" }`.
+fn credential_of(toml: &str) -> String {
+    let start = toml.find(['"', '\'']).map_or(0, |at| at + 1);
+    let rest = &toml[start..];
+    let end = rest.find(['"', '\'', ':']).unwrap_or(rest.len());
+    rest[..end].to_owned()
+}
+
 fn step_toml(step: &Step) -> String {
-    if step.name.is_none() && step.timeout.is_none() && step.retry.is_none() {
+    if step.name.is_none() && step.timeout.is_none() && step.retry.is_none() && step.credentials.is_empty() {
         return toml_string(&step.script);
     }
     let mut fields = vec![format!("sh = {}", toml_string(&step.script))];
@@ -956,6 +1070,11 @@ fn step_toml(step: &Step) -> String {
     }
     if let Some(retry) = step.retry {
         fields.push(format!("retry = {retry}"));
+    }
+    if !step.credentials.is_empty() {
+        let bound: Vec<String> =
+            step.credentials.iter().map(|(variable, value)| format!("{} = {value}", toml_key(variable))).collect();
+        fields.push(format!("credentials = {{ {} }}", bound.join(", ")));
     }
     format!("{{ {} }}", fields.join(", "))
 }

@@ -230,26 +230,27 @@ fn what_it_cannot_convert_is_listed_on_its_line_and_the_rest_is_written() {
     let pending: Vec<(usize, &str)> = conversion.pending().map(|n| (n.line, n.what.as_str())).collect();
     assert_eq!(
         pending,
-        [
-            (12, "script { }"),
-            (16, "${currentBuild.number}"),
-            (19, "stage('Segredo')"),
-            (21, "withCredentials")
-        ]
+        [(12, "script { }"), (16, "${currentBuild.number}")]
     );
     // The rest is converted, and the notes are comments the TOML still reads.
     let pipeline = TomlFormat.read("x", &conversion.toml).expect(&conversion.toml);
     let scripts: Vec<String> = sh_steps(&pipeline).into_iter().map(|(_, s, _)| s).collect();
-    assert_eq!(scripts, ["make", "echo antes"]);
+    assert_eq!(scripts, ["make", "echo antes", "deploy"]);
     assert!(conversion.toml.contains("# linha 12:17, não convertido: script { }"), "{}", conversion.toml);
-    assert!(!conversion.toml.contains("deploy"), "the stage of the secret had no step converted");
+    // withCredentials is converted (#922): the step names the credential, which the note says.
+    assert!(conversion.toml.contains("credentials = { T = \"token\" }"), "{}", conversion.toml);
+    let note = conversion.notes.iter().find(|n| n.what == "withCredentials").expect("a note");
+    assert_eq!(note.kind, NoteKind::Warning);
+    assert!(note.why.contains("tem que existir no cofre: token"), "{}", note.why);
+    let node = pipeline.flow.nodes.iter().find(|n| n.parameters.get("script") == Some(&serde_json::json!("deploy"))).expect("deploy");
+    assert_eq!(node.parameters["credentials"], serde_json::json!({ "T": "token" }));
 }
 
 #[test]
 fn as_a_format_a_part_not_converted_refuses_the_job_on_each_line() {
     let errors = JenkinsfileFormat.read("x", PENDING).expect_err("refused");
     let lines: Vec<Option<usize>> = errors.iter().map(|e| e.line).collect();
-    assert_eq!(lines, [Some(12), Some(16), Some(19), Some(21)]);
+    assert_eq!(lines, [Some(12), Some(16)]);
     assert!(errors[0].message.contains("script"), "{errors:?}");
     // And the core says it when the job is saved or built.
     let ci = ci();
@@ -381,7 +382,7 @@ fn the_command_writes_the_file_refuses_to_overwrite_and_says_how_it_is_used() {
 
     let (code, said) = command(&[&input, "--saida", &output, "--substituir"]);
     assert_eq!(code, 1, "a part was not converted");
-    assert!(said.contains("4 não convertido(s)"), "{said}");
+    assert!(said.contains("2 não convertido(s)"), "{said}");
 
     std::fs::remove_dir_all(&folder).expect("removed");
 }
@@ -473,4 +474,49 @@ pipeline {
     assert!(coleta < limpa, "{always}");
     assert!(conversion.notes.iter().any(|n| n.kind == NoteKind::Warning && n.what == "post { cleanup }"));
     assert!(TomlFormat.read("a", &conversion.toml).is_ok(), "{}", conversion.toml);
+}
+
+/// Every kind of withCredentials the converter knows (#922): a token, a user and a password
+/// apart, a secret file and an SSH key; the TOML it writes reads, and each step gets them.
+#[test]
+fn with_credentials_becomes_the_credentials_of_the_steps_inside_it() {
+    let text = r#"
+pipeline {
+    agent any
+    stages {
+        stage('Publica') {
+            steps {
+                sh 'antes'
+                withCredentials([
+                    string(credentialsId: 'npm', variable: 'NPM_TOKEN'),
+                    usernamePassword(credentialsId: 'github-alexkads', usernameVariable: 'GH_USER', passwordVariable: 'GH_TOKEN'),
+                    file(credentialsId: 'kube', variable: 'KUBECONFIG'),
+                    sshUserPrivateKey(credentialsId: 'deploy-key', keyFileVariable: 'KEY', passphraseVariable: 'FRASE')
+                ]) {
+                    sh 'publica'
+                }
+            }
+        }
+    }
+}
+"#;
+    let conversion = convert(text);
+    assert!(conversion.complete(), "{:#?}", conversion.notes);
+    let pipeline = TomlFormat.read("x", &conversion.toml).expect(&conversion.toml);
+    let publish = pipeline.flow.nodes.iter().find(|n| n.parameters.get("script") == Some(&serde_json::json!("publica"))).expect("publica");
+    assert_eq!(
+        publish.parameters["credentials"],
+        serde_json::json!({
+            "NPM_TOKEN": "npm",
+            "GH_USER": "github-alexkads:user",
+            "GH_TOKEN": "github-alexkads:password",
+            "KUBECONFIG": { "file": "kube" },
+            "KEY": { "file": "deploy-key" },
+            "FRASE": "deploy-key:passphrase",
+        })
+    );
+    let before = pipeline.flow.nodes.iter().find(|n| n.parameters.get("script") == Some(&serde_json::json!("antes"))).expect("antes");
+    assert!(before.parameters.get("credentials").is_none(), "only the steps inside get them");
+    let note = conversion.notes.iter().find(|n| n.what == "withCredentials").expect("a note");
+    assert!(note.why.contains("deploy-key, github-alexkads, kube, npm"), "{}", note.why);
 }

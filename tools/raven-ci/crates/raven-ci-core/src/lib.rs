@@ -58,7 +58,7 @@ use std::time::Duration;
 use raven_ci_plugin_api::{
     Attachment, BuildRequest, BuildStatus, Builds, CiError, CiPlugin, PipelineFormat, check_settings,
 };
-use raven_ci_plugin_api::{AttachmentInfo, Trigger};
+use raven_ci_plugin_api::{AttachmentInfo, Permission, Trigger};
 use ravenrs_app::EntityInfo;
 use ravenrs_flows::{BinaryRef, Clock, FlowDefinition, SystemClock};
 use ravenrs_flows_runtime::{Request, Retention, Revision, Runtime, StoreError};
@@ -770,12 +770,29 @@ impl Ci {
     }
 
     /// Seals `fields` as the credential `name` of the kind `kind` (a kind a plugin on brings),
-    /// checked against the kind's form; saved again, its value is rotated. `by` is who made it.
+    /// checked against the kind's form; saved again, its value is rotated (and its description
+    /// kept unless a new one is given). `by` is who made it, and the audit says it.
     pub fn save_credential(
         &self,
         name: &str,
         kind: &str,
         fields: &Value,
+        description: Option<&str>,
+        by: Option<&str>,
+    ) -> Result<(), CiError> {
+        let existed = self.credentials()?.iter().any(|credential| credential.name == name);
+        let done = self.seal_credential(name, kind, fields, description, by);
+        let what = if existed { "girar" } else { "criar" };
+        self.store.audit(&who_did(by), Permission::Secrets, &format!("{what} a credencial {name} ({kind})"), done.is_ok());
+        done
+    }
+
+    fn seal_credential(
+        &self,
+        name: &str,
+        kind: &str,
+        fields: &Value,
+        description: Option<&str>,
         by: Option<&str>,
     ) -> Result<(), CiError> {
         let found = self
@@ -785,7 +802,7 @@ impl Ci {
             .flat_map(|plugin| plugin.credential_kinds())
             .find(|candidate| candidate.id() == kind)
             .ok_or_else(|| {
-                CiError::unavailable(format!("nenhum plugin ligado traz credenciais do tipo {kind}"))
+                CiError::settings("kind", format!("nenhum plugin ligado traz credenciais do tipo {kind}"))
             })?;
         check_settings(&found.fields(), fields).map_err(|problems| {
             problems.into_iter().next().unwrap_or_else(|| CiError::failed("os campos da credencial"))
@@ -796,21 +813,66 @@ impl Ci {
         }
         let mut hidden = found.hidden(fields);
         hidden.retain(|value| !value.is_empty());
-        self.vault()?.save(name, kind, fields, secret, hidden, by)
+        let description = description.map(str::trim).filter(|d| !d.is_empty());
+        self.vault()?.save(name, kind, fields, secret, hidden, description, by)
     }
 
-    /// Every credential, with no value.
+    /// Every credential, with no value, each with the jobs and plugins that name it.
     pub fn credentials(&self) -> Result<Vec<credentials::CredentialInfo>, CiError> {
-        match &self.credentials {
-            Some(vault) => vault.list(),
-            None => Ok(Vec::new()),
+        let mut list = match &self.credentials {
+            Some(vault) => vault.list()?,
+            None => return Ok(Vec::new()),
+        };
+        let jobs = self.jobs()?;
+        let plugins: Vec<(String, Value)> =
+            self.registry.list()?.into_iter().map(|view| (view.name, view.settings)).collect();
+        for credential in &mut list {
+            for job in &jobs {
+                if names_credential(&job.settings, &credential.name)
+                    || pipeline_names_credential(&job.pipeline, &credential.name)
+                {
+                    credential.used_by.push(format!("job {}", job.name));
+                }
+            }
+            for (plugin, settings) in &plugins {
+                if names_credential(settings, &credential.name) {
+                    credential.used_by.push(format!("plugin {plugin}"));
+                }
+            }
         }
+        Ok(list)
     }
 
-    /// Revokes the credential `name` and forgets it.
-    pub fn delete_credential(&self, name: &str) -> Result<(), CiError> {
-        self.vault()?.delete(name)
+    /// Revokes the credential `name` and forgets it; `by` is who did it, and the audit says it.
+    pub fn delete_credential(&self, name: &str, by: Option<&str>) -> Result<(), CiError> {
+        let done = self.vault().and_then(|vault| vault.delete(name));
+        self.store.audit(&who_did(by), Permission::Secrets, &format!("apagar a credencial {name}"), done.is_ok());
+        done
     }
+}
+
+/// Who did something to the vault, as the audit names them: `pessoa:ana`, or the server itself.
+fn who_did(by: Option<&str>) -> String {
+    by.map_or_else(|| "raven-ci".to_owned(), |by| format!("pessoa:{by}"))
+}
+
+/// Whether some text of `settings` names the credential `name`: `"github"`, or a field of it,
+/// `"github:user"`.
+fn names_credential(settings: &Value, name: &str) -> bool {
+    match settings {
+        Value::String(text) => text == name || credentials::field_of(text).0 == name && text.contains(':'),
+        Value::Array(items) => items.iter().any(|item| names_credential(item, name)),
+        Value::Object(fields) => fields.values().any(|value| names_credential(value, name)),
+        _ => false,
+    }
+}
+
+/// Whether a pipeline names the credential `name` in quotes, as a `credentials` table or a
+/// `withCredentials` of a Jenkinsfile do.
+fn pipeline_names_credential(pipeline: &str, name: &str) -> bool {
+    ['"', '\''].iter().any(|quote| {
+        pipeline.contains(&format!("{quote}{name}{quote}")) || pipeline.contains(&format!("{quote}{name}:"))
+    })
 }
 
 impl Builds for Ci {

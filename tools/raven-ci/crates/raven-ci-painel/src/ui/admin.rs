@@ -7,7 +7,7 @@ use std::rc::Rc;
 use ravenrs::prelude::*;
 use serde_json::{Value as Json, json};
 
-use super::{Pagina, S, nada};
+use super::{Pagina, S, escaped, nada};
 use crate::texto;
 
 /// The roles a new person can get, in the order the form offers them.
@@ -380,7 +380,17 @@ fn audit_grid(audit: &Json, height: f32) -> AnyView {
     )
 }
 
-/// The credentials, with no value.
+/// The kinds of credential the form offers, in its order: the id, what people read, and the
+/// fields of the kind with whether each is secret and long.
+const KINDS: [(&str, &str, &[(&str, &str, bool, bool)]); 4] = [
+    ("token", "Token", &[("token", "Valor do token", true, false)]),
+    ("user-password", "Usuário e senha", &[("user", "Usuário", false, false), ("password", "Senha", true, false)]),
+    ("ssh-key", "Chave SSH", &[("private_key", "Chave privada", true, true), ("passphrase", "Frase da chave", true, false)]),
+    ("arquivo", "Arquivo secreto", &[("content", "Conteúdo do arquivo", true, true)]),
+];
+
+/// The credentials (#922): the grid with what each is for and who uses it, with no value, and the
+/// form that makes one, rotates one (the same name again) or revokes one.
 pub(super) fn credentials(s: &Rc<S>) -> AnyView {
     let list = s.credentials.get();
     let now = s.server.get()["now_ms"].as_i64().unwrap_or(0);
@@ -389,32 +399,135 @@ pub(super) fn credentials(s: &Rc<S>) -> AnyView {
         .into_iter()
         .flatten()
         .map(|c| {
+            let used: Vec<&str> = c["used_by"].as_array().into_iter().flatten().filter_map(Json::as_str).collect();
             vec![
                 c["name"].as_str().unwrap_or_default().to_owned().into(),
                 c["kind"].as_str().unwrap_or_default().to_owned().into(),
-                c["created_by"].as_str().unwrap_or("—").to_owned().into(),
-                c["created_ms"].as_i64().map(|t| texto::ago(t, now)).unwrap_or_default().into(),
+                c["description"].as_str().unwrap_or("—").to_owned().into(),
+                if used.is_empty() { "—".to_owned() } else { used.join(", ") }.into(),
                 c["updated_ms"].as_i64().map(|t| texto::ago(t, now)).unwrap_or_default().into(),
             ]
         })
         .collect();
+    let count = rows.len();
+    let grid = DataGrid::new(
+        GridData::new(rows),
+        [
+            GridColumn::text("Nome").width(180.0),
+            GridColumn::text("Tipo").width(130.0),
+            GridColumn::text("Para quê").fill(),
+            GridColumn::text("Usada por").width(200.0),
+            GridColumn::text("Mudou").width(110.0),
+        ],
+    )
+    .empty_text("Nenhuma credencial. Crie ao lado, ou com raven-ci credencial criar.")
+    .height(360.0);
+    let kind = KINDS[s.cred_kind.get().min(KINDS.len() - 1)];
+    let mut fields: Vec<AnyView> = Vec::new();
+    for (n, (_, label, secret, long)) in kind.2.iter().enumerate() {
+        let binding = if n == 0 { s.cred_first.binding() } else { s.cred_second.binding() };
+        if *long {
+            fields.push(Box::new(TextArea::new(binding).placeholder(*label).rows(5)));
+        } else if *secret {
+            fields.push(Box::new(TextField::new(binding).placeholder(*label).secure()));
+        } else {
+            fields.push(Box::new(TextField::new(binding).placeholder(*label)));
+        }
+    }
+    let save = {
+        let s = s.clone();
+        move || {
+            let kind = KINDS[s.cred_kind.get().min(KINDS.len() - 1)];
+            let mut values = serde_json::Map::new();
+            for (n, (field, _, _, _)) in kind.2.iter().enumerate() {
+                let value = if n == 0 { s.cred_first.get() } else { s.cred_second.get() };
+                if !value.is_empty() {
+                    values.insert((*field).to_owned(), json!(value));
+                }
+            }
+            let description = s.cred_description.get();
+            let body = json!({
+                "name": s.cred_name.get().trim(),
+                "kind": kind.0,
+                "description": if description.trim().is_empty() { Json::Null } else { json!(description.trim()) },
+                "fields": values,
+            });
+            s.send("/api/ci/credentials", &body, move |s, status, body| {
+                if status == 200 {
+                    s.cred_first.set(String::new());
+                    s.cred_second.set(String::new());
+                    s.cred_description.set(String::new());
+                    let name = body["name"].as_str().unwrap_or_default();
+                    let what = if body["created"] == true { "guardada no cofre" } else { "girada" };
+                    s.message.set(format!("Credencial {name} {what}."));
+                    s.go(Pagina::Credenciais);
+                } else {
+                    s.message.set(body["message"].as_str().unwrap_or("não guardou").to_owned());
+                }
+            });
+        }
+    };
+    let delete = {
+        let s = s.clone();
+        move || {
+            let name = s.cred_name.get().trim().to_owned();
+            if name.is_empty() {
+                s.message.set("Diga o nome da credencial a apagar.".to_owned());
+                return;
+            }
+            let asked = s.clone();
+            s.confirm.ask(
+                format!("Apagar a credencial {name}?"),
+                "O valor é revogado no cofre e não volta. Os jobs que a usam passam a falhar até ela ser criada de novo.",
+                "Apagar credencial",
+                move || {
+                    let path = format!("/api/ci/credentials?name={}", escaped(&name));
+                    let name = name.clone();
+                    asked.ask("DELETE", &path, move |s, status, body| {
+                        if status == 200 {
+                            s.cred_name.set(String::new());
+                            s.message.set(format!("Credencial {name} revogada e apagada."));
+                            s.go(Pagina::Credenciais);
+                        } else {
+                            s.message.set(body["message"].as_str().unwrap_or("não apagou").to_owned());
+                        }
+                    });
+                },
+            );
+        }
+    };
+    let captions: Vec<&str> = KINDS.iter().map(|k| k.1).collect();
+    let form = Card::new(
+        VStack::new((
+            Text::new("Nova credencial").style(TextStyle::Headline),
+            Text::new("Um nome que já existe tem o valor girado.").style(TextStyle::Caption).foreground(Semantic::InkMuted),
+            TextField::new(s.cred_name.binding()).placeholder("Nome da credencial"),
+            Select::new(s.cred_kind.binding(), captions).label("Tipo"),
+            TextField::new(s.cred_description.binding()).placeholder("Para quê (opcional)"),
+            VStack::new(fields).spacing(12.0).align(Align::Stretch),
+            HStack::new((
+                Button::new("Guardar no cofre").icon(IconName::Key).on_click(save),
+                Button::new("Apagar").icon(IconName::Trash2).style(ButtonStyle::Danger).on_click(delete),
+            ))
+            .spacing(8.0)
+            .wrap(),
+        ))
+        .spacing(12.0)
+        .align(Align::Stretch),
+    )
+    .padding(16.0);
     Box::new(
         VStack::new((
             PageHeader::new("Credenciais")
-                .description("Os segredos que os jobs usam, cifrados no cofre do servidor. O valor nunca sai do servidor.")
-                .badge(Badge::new(rows.len().to_string())),
-            DataGrid::new(
-                GridData::new(rows),
-                [
-                    GridColumn::text("Nome").fill(),
-                    GridColumn::text("Tipo").width(160.0),
-                    GridColumn::text("Criada por").width(160.0),
-                    GridColumn::text("Criada").width(120.0),
-                    GridColumn::text("Mudou").width(120.0),
-                ],
-            )
-            .empty_text("Nenhuma credencial. Crie com raven-ci credencial criar.")
-            .height(360.0),
+                .description("Os segredos que os jobs usam, cifrados no cofre do servidor. O valor nunca sai do servidor: um passo o recebe com credentials, e o log o esconde.")
+                .badge(Badge::new(count.to_string())),
+            HStack::new((
+                VStack::new((grid,)).align(Align::Stretch).grow(1.0),
+                VStack::new((form,)).width(340.0),
+            ))
+            .spacing(16.0)
+            .align(Align::Start)
+            .wrap(),
         ))
         .spacing(16.0)
         .padding(24.0)

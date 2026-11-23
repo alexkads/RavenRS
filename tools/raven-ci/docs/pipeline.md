@@ -133,6 +133,7 @@ values; a value of the wrong kind is refused before the build starts.
 | `lock` | a name | one build at a time holds it, across jobs and with scripts outside Raven CI (plugin `lock`) |
 | `nice` | a number | each `sh` runs under `nice -n N` (Linux and macOS) |
 | `container` | `{ image, args, env }` | each `sh` of the stage runs in the image, with the build's folder mounted (plugin `docker`) |
+| `credentials` | `{ VARIAVEL = "nome", … }` | each `sh` of the stage gets credentials of the vault as variables ([Credentials in a step](#credentials-in-a-step)) |
 
 ### `when`
 
@@ -151,6 +152,7 @@ values; a value of the wrong kind is refused before the build starts.
 |---|---|---|
 | `"cargo test"` | a command, run by `sh -e -c` (by `cmd /C` on Windows) | `shell` |
 | `{ sh = "./e2e.sh", name = "Ponta a ponta", timeout = "5m", retry = 2, nice = 10 }` | the same, with a name, a limit, tries again and a priority | `shell` |
+| `{ sh = "./publica.sh", credentials = { NPM_TOKEN = "npm" } }` | the same, with credentials of the vault as variables, added to the stage's | `shell` |
 | `{ cargo = "clippy -p site -- -D warnings" }` | `cargo` with each diagnostic in the log and in an attachment | `cargo` |
 | `{ uses = "plugin/passo", with = { … } }` | a step of any plugin, by its name and kind | the plugin named |
 
@@ -169,6 +171,38 @@ The steps of the plugins that come with Raven CI:
 
 Whatever a plugin of Docker or Kubernetes starts in a build is removed at its end, however it
 ends.
+
+### Credentials in a step
+
+What Jenkins's `withCredentials` does: a command gets a secret of the vault (see
+[Running the server](operations.md#secrets)) as a variable, and the secret is never in the
+repository nor in the job.
+
+```toml
+[[stages]]
+name = "Publica"
+credentials = { NPM_TOKEN = "npm-appogi", GH_USER = "github-alexkads:user", GH_TOKEN = "github-alexkads:password" }
+steps = [
+  'npm publish',
+  { sh = 'kubectl apply -f k8s/', credentials = { KUBECONFIG = { file = "kube-producao" } } },
+]
+```
+
+| Value | The variable gets |
+|---|---|
+| `"nome"` | what the credential gives plugins: the token of a `token`, `user:password` of a `user-password`, the key of an `ssh-key`, the content of an `arquivo` |
+| `"nome:campo"` | one field of it: `:user`, `:password`, `:passphrase` |
+| `{ file = "nome" }` | the path of a file with the value, readable only by its owner, named as the variable (or `name = ".npmrc"`) |
+
+- The value is read when the step starts and goes only into the environment of that command,
+  never into its words, which anyone on the machine reads with `ps`.
+- The log shows `****` in place of the value and of every value the credential hides (the
+  password inside `user:password`, each line of a key or a file).
+- A file goes beside the build's folder (`<pasta>.segredos/`), never in it, so `artifacts` or a
+  kept folder never have it. It is removed when the step ends, failed or cancelled too, and the
+  core removes what is left when the build ends.
+- On an agent, the value comes from the server, which writes each read in the audit.
+- A credential that is not in the vault fails the step saying which.
 
 ## `[post]`
 

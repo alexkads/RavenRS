@@ -1,5 +1,5 @@
 //! The commands that speak to a server of Raven CI over its HTTP API (#882): `rodar`, `status`,
-//! `log`, `resumo` and `evidencia`.
+//! `log`, `resumo` and `evidencia`; and `aplicar` and `credencial` when a server is named (#922).
 //!
 //! # Its role
 //!
@@ -55,6 +55,8 @@ struct Args {
     wait: bool,
     follow: bool,
     remove: bool,
+    kind: Option<String>,
+    description: Option<String>,
 }
 
 impl Args {
@@ -84,6 +86,8 @@ impl Args {
                 "--esperar" => args.wait = true,
                 "--seguir" => args.follow = true,
                 "--remover" => args.remove = true,
+                "--tipo" => args.kind = Some(value("--tipo")?),
+                "--descricao" => args.description = Some(value("--descricao")?),
                 flag if flag.starts_with("--") => return Err(format!("opção desconhecida: {flag}")),
                 _ => args.words.push(word.clone()),
             }
@@ -96,8 +100,9 @@ impl Args {
 /// for words that are not these commands. `json` is the `--format json` given before the command.
 pub fn run(words: &[String], json: bool, out: &mut dyn Write) -> Option<Result<i32, CiError>> {
     let command = words.first()?;
-    // `aplicar` is of the folder of data unless a server is named (`crate::apply`).
-    let to_server = command == "aplicar" && crate::apply::to_server(words);
+    // `aplicar` and `credencial` are of the folder of data unless a server is named
+    // (`crate::apply`).
+    let to_server = matches!(command.as_str(), "aplicar" | "credencial") && crate::apply::to_server(words);
     if !COMMANDS.contains(&command.as_str()) && !to_server {
         return None;
     }
@@ -122,6 +127,15 @@ fn run_command(command: &str, words: &[String], json: bool, out: &mut dyn Write)
         ("log", [job, number]) => log(&server, job, number, &args, out),
         ("resumo", []) => resumo(&server, &args, out),
         ("aplicar", [file]) => aplicar(&server, file, &args, out),
+        ("credencial", ["criar", name]) => {
+            let mut text = String::new();
+            match std::io::Read::read_to_string(&mut std::io::stdin(), &mut text) {
+                Ok(_) => credencial_criar(&server, name, &text, &args, out),
+                Err(e) => Err(Refused(format!("a entrada: {e}"))),
+            }
+        }
+        ("credencial", ["listar"]) => credencial_listar(&server, &args, out),
+        ("credencial", ["apagar", name]) => credencial_apagar(&server, name, &args, out),
         ("evidencia", [job, number, folder]) => {
             evidencia(&server, job, number, Path::new(folder), &args, out)
         }
@@ -258,6 +272,21 @@ impl Server {
             request = request.header("Authorization", &format!("Bearer {token}"));
         }
         let answer = request.send(body.to_string()).map_err(|e| self.unreachable(&e))?;
+        let (_, _, bytes) = self.read(answer)?;
+        serde_json::from_slice(&bytes).map_err(|e| Refused(format!("a resposta de {path} não é JSON: {e}")))
+    }
+
+    fn delete(&self, path: &str, query: &[(&str, String)]) -> Result<Value, Refused> {
+        let mut url = format!("{}{path}", self.base);
+        for (i, (name, value)) in query.iter().enumerate() {
+            url.push(if i == 0 { '?' } else { '&' });
+            url.push_str(&format!("{name}={}", encode(value)));
+        }
+        let mut request = self.agent.delete(&url);
+        if let Some(token) = &self.token {
+            request = request.header("Authorization", &format!("Bearer {token}"));
+        }
+        let answer = request.call().map_err(|e| self.unreachable(&e))?;
         let (_, _, bytes) = self.read(answer)?;
         serde_json::from_slice(&bytes).map_err(|e| Refused(format!("a resposta de {path} não é JSON: {e}")))
     }
@@ -503,6 +532,69 @@ fn aplicar(server: &Server, file: &str, args: &Args, out: &mut dyn Write) -> Sai
         .map(str::to_owned)
         .collect();
     crate::apply::write_changes(out, &changes, args.json)?;
+    Ok(0)
+}
+
+/// `credencial criar NOME --tipo TIPO [--descricao TEXTO]`, with the fields in JSON in `text` (the
+/// standard input): never in the words of the command, which anyone on the machine reads in `ps`.
+fn credencial_criar(server: &Server, name: &str, text: &str, args: &Args, out: &mut dyn Write) -> Said {
+    let Some(kind) = &args.kind else {
+        return Err(Refused("diga o tipo: --tipo token, user-password, ssh-key ou arquivo".to_owned()));
+    };
+    let fields: Value = serde_json::from_str(text).map_err(|_| {
+        Refused(
+            "os campos vêm em JSON na entrada: echo '{\"token\": \"...\"}' | raven-ci credencial criar NOME --tipo token --servidor URL"
+                .to_owned(),
+        )
+    })?;
+    let mut body = json!({ "name": name, "kind": kind, "fields": fields });
+    if let Some(description) = &args.description {
+        body["description"] = json!(description);
+    }
+    let answer = server.post("/api/ci/credentials", &body)?;
+    if args.json {
+        write_json(out, &answer)?;
+    } else {
+        let what = if answer["created"] == json!(true) { "guardada" } else { "girada" };
+        writeln!(out, "{name}: {what} no cofre de {}, do tipo {kind}", server.base)?;
+    }
+    Ok(0)
+}
+
+/// `credencial listar`: the credentials of the server, with no value.
+fn credencial_listar(server: &Server, args: &Args, out: &mut dyn Write) -> Said {
+    let list = server.get("/api/ci/credentials", &[])?;
+    if args.json {
+        write_json(out, &list)?;
+        return Ok(0);
+    }
+    let all = list.as_array().cloned().unwrap_or_default();
+    if all.is_empty() {
+        writeln!(out, "nenhuma credencial")?;
+    }
+    for credential in all {
+        let text = |field: &str| credential.get(field).and_then(Value::as_str).unwrap_or_default().to_owned();
+        let used: Vec<String> = credential["used_by"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .map(str::to_owned)
+            .collect();
+        let used = if used.is_empty() { String::new() } else { format!("  usada por: {}", used.join(", ")) };
+        writeln!(out, "{:<24}{:<16}{}{used}", text("name"), text("kind"), text("description"))?;
+    }
+    Ok(0)
+}
+
+/// `credencial apagar NOME`: revoked on the server.
+fn credencial_apagar(server: &Server, name: &str, args: &Args, out: &mut dyn Write) -> Said {
+    let answer = server.delete("/api/ci/credentials", &[("name", name.to_owned())])?;
+    if args.json {
+        write_json(out, &answer)?;
+    } else {
+        writeln!(out, "{name}: revogada e apagada em {}", server.base)?;
+    }
     Ok(0)
 }
 

@@ -14,7 +14,10 @@
 //! - For anyone signed in, to read: `GET /api/ci/jobs`, `/api/ci/builds?job=`,
 //!   `/api/ci/build?job=&number=` (with its stages and attachments), `/api/ci/log?job=&number=&after=`
 //!   (the lines after `after`, for a reader that follows) and `/api/ci/queue`.
-//! - For administrators: `GET /api/ci/credentials`, the credentials with no value.
+//! - For administrators: `GET /api/ci/credentials`, the credentials with no value, each with what
+//!   names it; `POST /api/ci/credentials` (`{name, kind, description?, fields}`), one made or its
+//!   value rotated; `DELETE /api/ci/credentials?name=`, one revoked (#922). Each goes to the audit
+//!   with who did it.
 //! - For administrators: `POST /api/ci/jobs`, a job made or changed, and `POST /api/ci/config`, a
 //!   whole configuration applied (#898); the triggers of what changed are watched again at once.
 //! - The [`Route`](raven_ci_plugin_api::Route)s of the plugins on: a public one with no one signed
@@ -108,14 +111,8 @@ fn answer(ci: &Ci, request: &ApiRequest, who: &mut dyn FnMut() -> Option<Caller>
     if let Some(answered) = crate::agents::answer(ci, request, &path, who) {
         return Some(answered);
     }
-    if path.as_slice() == ["api", "ci", "credentials"] && request.method == "GET" {
-        return Some(match who() {
-            None => unauthorized(),
-            Some(caller) if !caller.administrator => {
-                json(403, &json!({ "error": "denied", "message": "só administradores veem as credenciais" }))
-            }
-            Some(_) => ci.credentials().map_or_else(|e| from_error(&e), |list| json(200, &to_json(&list))),
-        });
+    if path.as_slice() == ["api", "ci", "credentials"] {
+        return Some(credentials(ci, request, who));
     }
     if let ["api", "ci", what] = path.as_slice()
         && request.method == "GET"
@@ -160,6 +157,52 @@ fn write(ci: &Ci, what: &str, request: &ApiRequest, who: &mut dyn FnMut() -> Opt
             .map_err(bad)
             .and_then(|config| ci.apply_config(&config, remove))
             .map(|changes| json!({ "changes": changes }))
+    };
+    done.map_or_else(|e| from_error(&e), |body| json(200, &body))
+}
+
+/// What `POST /api/ci/credentials` takes: the fields go in the body, never in the address.
+#[derive(serde::Deserialize)]
+struct NewCredential {
+    name: String,
+    kind: String,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default)]
+    fields: Json,
+}
+
+/// `/api/ci/credentials`, only for administrators: `GET` lists them with no value, `POST` makes
+/// one or rotates it, `DELETE ?name=` revokes it. Making, rotating and revoking go to the audit
+/// with who did it.
+fn credentials(ci: &Ci, request: &ApiRequest, who: &mut dyn FnMut() -> Option<Caller>) -> ApiResponse {
+    let caller = match who() {
+        None => return unauthorized(),
+        Some(caller) if !caller.administrator => {
+            return json(403, &json!({ "error": "denied", "message": "só administradores cuidam das credenciais" }));
+        }
+        Some(caller) => caller,
+    };
+    let done = match request.method.as_str() {
+        "GET" => ci.credentials().map(|list| to_json(&list)),
+        "POST" => serde_json::from_slice::<NewCredential>(&request.body)
+            .map_err(|e| CiError::settings("corpo", format!("não deu para ler o JSON: {e}")))
+            .and_then(|asked| {
+                let existed = ci.credentials()?.iter().any(|c| c.name == asked.name);
+                ci.save_credential(
+                    &asked.name,
+                    &asked.kind,
+                    &asked.fields,
+                    asked.description.as_deref(),
+                    Some(&caller.name),
+                )?;
+                Ok(json!({ "name": asked.name, "kind": asked.kind, "created": !existed }))
+            }),
+        "DELETE" => wanted(&request.query, "name").and_then(|name| {
+            ci.delete_credential(name, Some(&caller.name))?;
+            Ok(json!({ "name": name, "deleted": true }))
+        }),
+        other => Err(CiError::settings("método", format!("{other} não serve aqui: GET, POST ou DELETE"))),
     };
     done.map_or_else(|e| from_error(&e), |body| json(200, &body))
 }

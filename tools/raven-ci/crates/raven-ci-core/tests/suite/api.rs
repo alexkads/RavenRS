@@ -204,3 +204,88 @@ fn the_triggers_the_jobs_name_are_watched_and_a_wrong_one_is_said() {
     ci.unwatch_triggers();
     assert!(probe.watched().is_empty(), "the core lets go of itself");
 }
+
+/// The vault through the API (#922): an administrator makes, rotates and revokes a credential,
+/// the value never comes back, the others are refused, a wrong kind or field is a 400 naming it,
+/// and each change goes to the audit with who made it.
+#[test]
+fn an_administrator_keeps_the_credentials_through_the_api_and_no_one_else_can() {
+    let mut server = server("credenciais");
+    server.ci.add_plugin(Arc::new(Fake::new(Point::CredentialKind)));
+    server.ci.apply_plugins().expect("on");
+    let (ana, bia) = (server.token("ana"), server.token("bia"));
+    let send = |server: &mut Server, method: &str, path: &str, token: &str, body: Option<Value>| {
+        let (path, query) = path.split_once('?').unwrap_or((path, ""));
+        let mut request = ApiRequest::new(method, path).bearer(token);
+        for pair in query.split('&').filter(|p| !p.is_empty()) {
+            let (k, v) = pair.split_once('=').unwrap_or((pair, ""));
+            request = request.query(k, v);
+        }
+        if let Some(body) = body {
+            request = request.json(&body);
+        }
+        let answer = server.api.handle(request);
+        (answer.status, answer.body)
+    };
+    let made = json!({ "name": "npm", "kind": "fake-token", "description": "feed privado", "fields": { "token": "npm_segredo_123456" } });
+    let (status, body) = send(&mut server, "POST", "/api/ci/credentials", &ana, Some(made.clone()));
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(body["created"], true);
+    assert!(!body.to_string().contains("npm_segredo_123456"));
+
+    // Listed with its description and with no value.
+    let (status, list) = server.get("/api/ci/credentials", Some(&ana));
+    assert_eq!(status, 200);
+    assert_eq!(list[0]["name"], "npm");
+    assert_eq!(list[0]["description"], "feed privado");
+    assert!(!list.to_string().contains("npm_segredo_123456"));
+
+    // A job that names it is said in the list.
+    server
+        .ci
+        .save_job(JobSpec::new("loja", "fake-lines", "x").settings(json!({ "scm": { "credential": "npm" } })))
+        .expect("saved");
+    let (_, list) = server.get("/api/ci/credentials", Some(&ana));
+    assert_eq!(list[0]["used_by"], json!(["job loja"]));
+
+    // Rotated: the same name again.
+    let mut rotated = made.clone();
+    rotated["fields"]["token"] = json!("npm_outro_654321");
+    let (status, body) = send(&mut server, "POST", "/api/ci/credentials", &ana, Some(rotated));
+    assert_eq!((status, body["created"].clone()), (200, json!(false)), "{body}");
+
+    // A runner is refused; a kind or a field that does not fit is a 400 that names it.
+    let (status, _) = send(&mut server, "POST", "/api/ci/credentials", &bia, Some(made.clone()));
+    assert_eq!(status, 403);
+    let (status, _) = send(&mut server, "DELETE", "/api/ci/credentials?name=npm", &bia, None);
+    assert_eq!(status, 403);
+    let mut wrong = made.clone();
+    wrong["kind"] = json!("kubeconfig");
+    let (status, body) = send(&mut server, "POST", "/api/ci/credentials", &ana, Some(wrong));
+    assert_eq!(status, 400, "{body}");
+    assert!(body["message"].as_str().unwrap_or_default().contains("kubeconfig"), "{body}");
+    let mut field = made.clone();
+    field["fields"]["cor"] = json!("azul");
+    let (status, body) = send(&mut server, "POST", "/api/ci/credentials", &ana, Some(field));
+    assert_eq!(status, 400, "{body}");
+    assert!(body["message"].as_str().unwrap_or_default().contains("cor"), "{body}");
+
+    // Revoked.
+    let (status, body) = send(&mut server, "DELETE", "/api/ci/credentials?name=npm", &ana, None);
+    assert_eq!(status, 200, "{body}");
+    let (_, list) = server.get("/api/ci/credentials", Some(&ana));
+    assert_eq!(list, json!([]));
+
+    // The audit says who made, rotated and revoked it.
+    let said: Vec<(String, bool)> = server
+        .ci
+        .store()
+        .audit_of("pessoa:ana")
+        .expect("the audit")
+        .into_iter()
+        .map(|entry| (entry.what, entry.granted))
+        .collect();
+    assert!(said.contains(&("criar a credencial npm (fake-token)".to_owned(), true)), "{said:#?}");
+    assert!(said.contains(&("girar a credencial npm (fake-token)".to_owned(), true)), "{said:#?}");
+    assert!(said.contains(&("apagar a credencial npm".to_owned(), true)), "{said:#?}");
+}

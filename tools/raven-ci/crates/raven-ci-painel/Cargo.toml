@@ -26,6 +26,8 @@ serde_json.workspace = true
 raven-ci-core = { path = "../raven-ci-core" }
 raven-ci-plugin-api = { path = "../raven-ci-plugin-api", features = ["testing"] }
 raven-ci-plugin-api-trigger = { path = "../raven-ci-plugin-api-trigger" }
+# The kinds of credential, for the form of the page Credenciais (#922).
+raven-ci-plugin-credentials = { path = "../raven-ci-plugin-credentials" }
 # The demonstration builds for real, as the design draws it (#919): commands, TOML, the converter of
 # Jenkinsfiles, the locks, and docker switched off for a build that waits for it.
 raven-ci-plugin-docker = { path = "../raven-ci-plugin-docker" }

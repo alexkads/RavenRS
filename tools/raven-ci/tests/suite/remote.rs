@@ -87,3 +87,38 @@ fn no_token_and_no_server_say_what_to_do() {
     let wrong = raven(&running.dir).args(["rodar"]).output().expect("runs");
     assert_eq!(wrong.status.code(), Some(2), "a command with its words missing shows the usage");
 }
+
+/// `credencial` with `--servidor` keeps the vault of the server, not of this machine (#922): the
+/// fields go on the standard input, the list comes back with no value, and a key of someone who is
+/// not an administrator is refused.
+#[test]
+fn a_credential_is_made_listed_and_revoked_on_the_server() {
+    use std::io::Write as _;
+    let running = start_with("remoto-credencial", jobs);
+    let key = token(&running, "ana");
+    let make = |fields: &str| {
+        let mut command = raven(&running.dir);
+        command
+            .args(["credencial", "criar", "npm-feed", "--tipo", "token", "--descricao", "feed privado"])
+            .args(["--servidor", &format!("http://{}", running.address)])
+            .env("RAVEN_CI_TOKEN", &key)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped());
+        let mut child = command.spawn().expect("runs");
+        child.stdin.take().expect("stdin").write_all(fields.as_bytes()).expect("written");
+        child.wait_with_output().expect("ends")
+    };
+    let made = make(r#"{"token": "npm_remoto_123456"}"#);
+    assert_eq!(made.status.code(), Some(0), "{}", said(&made));
+    assert!(said(&made).contains("npm-feed: guardada no cofre de http://"), "{}", said(&made));
+    let rotated = make(r#"{"token": "npm_outro_654321"}"#);
+    assert!(said(&rotated).contains("npm-feed: girada"), "{}", said(&rotated));
+
+    let listed = said(&remote(&running, Some(&key), &["credencial", "listar"]));
+    assert!(listed.contains("npm-feed") && listed.contains("feed privado"), "{listed}");
+    assert!(!listed.contains("npm_outro_654321"), "{listed}");
+
+    let revoked = remote(&running, Some(&key), &["credencial", "apagar", "npm-feed"]);
+    assert_eq!(revoked.status.code(), Some(0), "{}", said(&revoked));
+    assert!(said(&remote(&running, Some(&key), &["credencial", "listar"])).contains("nenhuma credencial"));
+}

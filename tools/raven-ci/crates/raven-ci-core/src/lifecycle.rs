@@ -641,6 +641,10 @@ impl Ci {
 /// empty, up to `root` (the folder of every build), which stays.
 fn finish(root: &Path, workspace: &Path, keep: bool, log: &dyn BuildLog) {
     Resume::forget(workspace);
+    // The secret files of the steps go however the build ended, and even when the folder stays.
+    let mut secrets = workspace.as_os_str().to_owned();
+    secrets.push(".segredos");
+    let _ = std::fs::remove_dir_all(PathBuf::from(secrets));
     if keep {
         core(log, &format!("a pasta {} fica, como o job pede", workspace.display()));
         return;

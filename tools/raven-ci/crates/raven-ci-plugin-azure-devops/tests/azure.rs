@@ -163,7 +163,7 @@ fn core(data: &Path, api: &str) -> Ci {
     }
     ci.apply_plugins().expect("on");
     ci.configure_plugin("azure-devops", json!({ "api": api })).expect("the api");
-    ci.save_credential("azure", "token", &json!({ "token": PAT }), None).expect("the PAT");
+    ci.save_credential("azure", "token", &json!({ "token": PAT }), None, None).expect("the PAT");
     ci
 }
 
