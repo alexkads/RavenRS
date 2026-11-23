@@ -113,11 +113,16 @@ fn render(args: &Args) -> AnyView {
                     }
                 })
                 .size(880.0, 368.0);
+            // A width of 0 takes the parent's; the height is always the story's.
+            let (wide, tall) = (args.number("width") as f32, args.number("height") as f32);
+            it = if wide > 0.0 { it.size(wide, tall) } else { it.height(tall) };
             it = it.cables(arg_cables);
             it = it.controls(arg_controls);
             it = it.editable_titles(arg_editable_titles);
             it = it.grid(arg_grid);
-            it = it.grow(arg_grow);
+            if arg_grow > 0.0 && args.number("width") > 0.0 {
+                it = it.grow(arg_grow);
+            }
             if !arg_label.is_empty() {
                 it = it.label(arg_label.clone());
             }
@@ -198,6 +203,8 @@ impl ComponentBook for FlowCanvas {
             .arg(ArgType::bool("editable_titles", true))
             .arg(ArgType::number("grid", 24.0, 0.0, 96.0, 1.0))
             .arg(ArgType::number("grow", 1.0, 0.0, 4.0, 0.1))
+            .arg(ArgType::number("width", 880.0, 0.0, 2000.0, 1.0).description("0 takes the width of the parent."))
+            .arg(ArgType::number("height", 368.0, 80.0, 1200.0, 1.0))
             .arg(ArgType::text("label", "").description("Empty leaves it as the component has it."))
             .arg(ArgType::bool("locked", false))
             .arg(ArgType::bool("minimap", true))
@@ -212,6 +219,16 @@ impl ComponentBook for FlowCanvas {
             .arg(ArgType::bool("json", false).description("How the example starts."))
             .story("Example", Args::new())
             .story("Read only", Args::new().with("read_only", true))
+            .story(
+                "Stage strip",
+                Args::new()
+                    .with("read_only", true)
+                    .with("run", true)
+                    .with("status_icons", true)
+                    .with("minimap", false)
+                    .with("width", 0.0)
+                    .with("height", 198.0),
+            )
             .story(
                 "Run with status icons",
                 Args::new().with("read_only", true).with("run", true).with("status_icons", true).with("minimap", false),

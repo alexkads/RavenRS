@@ -1256,6 +1256,10 @@ fn the_flow_diagram_shows_every_feature_and_its_connections_hang_as_cables() {
     assert!(c.says("Nós no diagrama: 6"), "the diagram itself is the same");
     c.activate("Execução de fora");
     assert!(!c.says("3 itens"));
+    // height: a strip 200 pt tall, as wide as the page.
+    c.activate("Faixa de 200 pt");
+    assert!(c.says("Nós no diagrama: 6"), "the diagram is the same in the strip");
+    c.activate("Faixa de 200 pt");
     // Read only: the lock is not offered.
     c.activate("Só leitura");
     assert!(!c.says("Destravar edição"), "no way out of the lock");

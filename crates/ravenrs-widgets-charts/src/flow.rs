@@ -1002,6 +1002,14 @@ impl FlowCanvas {
         self.grow = grow;
         self
     }
+
+    /// A fixed height and the width its parent gives: a strip of stages across a page.
+    pub fn height(mut self, height: f32) -> Self {
+        self.width = None;
+        self.height = Some(height);
+        self.grow = 0.0;
+        self
+    }
 }
 
 /// A connection let go where no port was, waiting for the node it will lead to: the port it
