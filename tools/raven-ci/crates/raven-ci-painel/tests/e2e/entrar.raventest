@@ -8,4 +8,5 @@ mention O nome ou a senha não conferem. = não conferem | O painel diz que não
 fill Senha = senha-do-teste-e2e                        | Escrever a senha certa
 click Entrar                                           | Entrar
 wait Pipelines deste servidor, com o último build de cada um. | O painel abre em Jobs
-mention apps/site = apps/site                          | O job do site está na grade
+mention api-pedidos = api-pedidos                      | O job de pedidos está na grade
+mention espera rótulo docker = rótulo docker           | O build que espera diz por quê, na coluna Agente

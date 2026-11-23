@@ -1,0 +1,13 @@
+scenario: Raven CI: ligar o plugin que um build espera
+// imagens-base pede o rótulo docker, e o plugin docker está desligado: a administradora o liga da fila.
+open Raven CI                                          | Abrir o painel do Raven CI
+fill Usuário = ana                                     | Escrever o usuário
+fill Senha = senha-do-teste-e2e                        | Escrever a senha
+click Entrar                                           | Entrar
+mention O plugin docker está desligado: 1 build espera na fila por ele. = docker | O aviso de Jobs diz qual plugin falta
+click Abrir plugins                                    | O aviso leva aos plugins
+wait Tudo o que o servidor faz vem de um plugin. Desligado, ele não ocupa memória nem aparece nas telas. | A página de plugins abre
+click #item:Fila e agentes                             | Ir à fila
+mention pede o rótulo docker · o plugin docker está desligado · pedido agora = docker | O build na fila diz por quê
+click Ligar o plugin                                   | Ligar o plugin docker da própria fila
+mention Plugin docker ligado. = ligado                 | O aviso diz que ligou

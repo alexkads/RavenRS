@@ -1047,7 +1047,10 @@ impl Ci {
         if wanted.id != "label" {
             let launcher = wanted.plugin.clone().unwrap_or_else(|| wanted.id.clone());
             if plugin_off(&launcher)? {
-                return Ok(Waiting::off(&launcher, format!("pede um agente {launcher} · o plugin {launcher} está desligado")));
+                return Ok(Waiting::off(
+                    &launcher,
+                    format!("pede um agente {launcher} · o plugin {launcher} está desligado"),
+                ));
             }
             return Ok(Waiting::new(format!("espera o agente {launcher} que sobe só para ele")));
         }
@@ -1064,7 +1067,9 @@ impl Ci {
                 &template.launcher,
                 format!("pede o rótulo {label} · o plugin {} está desligado", template.launcher),
             )),
-            Some(template) => Ok(Waiting::new(format!("pede o rótulo {label} · o modelo {} sobe um agente", template.name))),
+            Some(template) => {
+                Ok(Waiting::new(format!("pede o rótulo {label} · o modelo {} sobe um agente", template.name)))
+            }
             None => Ok(Waiting::new(format!("pede o rótulo {label}, e nenhum agente conectado o tem"))),
         }
     }

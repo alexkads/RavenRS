@@ -1,6 +1,8 @@
-//! The queue and the executors (P-03, #887; page T3): where each build ran and runs now, on a
-//! read-only `Scheduler` with a row per executor, the builds waiting with Subir na fila, and the
-//! executors in a grid. The agents of Fase 3 come in as more rows.
+//! The queue and the agents (P-03, #887; page T3, as #919 draws it): where each build ran in the
+//! last two hours, on a read-only `Scheduler` in quarters of an hour with a row per executor of the
+//! server, per agent connected and per template (an agent that went away hatched, saying when), the
+//! builds waiting with why and what lets them go (Ligar o plugin, Subir na fila), and the agents in
+//! a grid. "Adicionar agente" makes the token an agent comes in with.
 
 use std::rc::Rc;
 
@@ -10,29 +12,78 @@ use serde_json::{Value as Json, json};
 use super::{Pagina, S, jobs, nada};
 use crate::texto;
 
-/// The stretch of time shown: the last two hours and a little after now.
-const BEFORE_MIN: i64 = 60;
-const AFTER_MIN: i64 = 15;
+/// The stretch of time shown: the last two hours, ending a quarter after now.
+const HOURS: u32 = 2;
 
-/// The page of the queue and the executors.
+/// A row of the line of time: an executor of the server, an agent or a template.
+struct Lane {
+    name: String,
+    worker: String,
+    subtitle: String,
+    away: Option<String>,
+}
+
+/// The rows of the line of time, in the order of the grid.
+fn lanes(occupancy: &Json, now_ms: i64) -> Vec<Lane> {
+    let mut lanes: Vec<Lane> = occupancy["executors"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|e| e["name"].as_str())
+        .map(|name| Lane {
+            name: name.to_owned(),
+            worker: name.to_owned(),
+            subtitle: "servidor".to_owned(),
+            away: None,
+        })
+        .collect();
+    for agent in occupancy["agents"].as_array().into_iter().flatten() {
+        let name = agent["name"].as_str().unwrap_or_default().to_owned();
+        let how = if agent["launched_by"].is_string() { "efêmero" } else { "agente" };
+        let away = (agent["connected"] != true).then(|| match agent["seen_ms_ago"].as_i64() {
+            Some(ago) => format!("Desconectado há {}", texto::duration(ago)),
+            None => "Desconectado".to_owned(),
+        });
+        lanes.push(Lane { worker: format!("agente/{name}"), name, subtitle: how.to_owned(), away });
+    }
+    for template in occupancy["templates"].as_array().into_iter().flatten() {
+        let name = template["name"].as_str().unwrap_or_default().to_owned();
+        let up = template["max_agents"].as_u64().unwrap_or(1);
+        let away = (template["launcher_on"] != true).then(|| {
+            format!(
+                "O plugin {} está desligado: este modelo não sobe agentes",
+                template["launcher"].as_str().unwrap_or_default()
+            )
+        });
+        lanes.push(Lane {
+            worker: format!("modelo/{name}"),
+            name,
+            subtitle: format!("modelo, até {up}"),
+            away,
+        });
+    }
+    let _ = now_ms;
+    lanes
+}
+
+/// The page of the queue and the agents.
 pub(super) fn page(s: &Rc<S>) -> AnyView {
     let occupancy = s.occupancy.get();
     let now_ms = occupancy["now_ms"].as_i64().unwrap_or(0);
     let now = now_ms.div_euclid(60_000);
-    let executors: Vec<Json> = occupancy["executors"].as_array().cloned().unwrap_or_default();
     let builds: Vec<Json> = occupancy["builds"].as_array().cloned().unwrap_or_default();
-    let index_of = |worker: &str| executors.iter().position(|e| e["name"] == worker);
+    let rows = lanes(&occupancy, now_ms);
+    let index_of = |worker: &str| rows.iter().position(|lane| lane.worker == worker);
 
-    let resources: Vec<Resource> = executors
+    let resources: Vec<Resource> = rows
         .iter()
         .enumerate()
-        .map(|(i, e)| {
-            let busy = e["busy"].as_u64().unwrap_or(0);
-            Resource::new(i as u64 + 1, e["name"].as_str().unwrap_or_default()).subtitle(if busy > 0 {
-                "rodando agora"
-            } else {
-                "local · livre"
-            })
+        .map(|(i, lane)| {
+            let resource = Resource::new(i as u64 + 1, lane.name.clone()).subtitle(lane.subtitle.clone());
+            match &lane.away {
+                Some(why) => resource.unavailable(why.clone()),
+                None => resource,
+            }
         })
         .collect();
     let mut opened = Vec::new();
@@ -46,9 +97,13 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
             let status = b["status"].as_str().unwrap_or_default();
             let title = format!(
                 "{} #{}{}",
-                b["job"].as_str().unwrap_or_default(),
+                b["job"].as_str().unwrap_or_default().replace('/', " · "),
                 b["number"].as_u64().unwrap_or(0),
-                if status == "running" { " · rodando" } else { "" }
+                match status {
+                    "running" => " · rodando",
+                    "failed" => " · falhou",
+                    _ => "",
+                }
             );
             opened.push((
                 i as u64 + 1,
@@ -77,12 +132,8 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
             return super::build::page(s, job, *number);
         }
     }
-    let axis = State::new(TimeAxis {
-        start: TimePoint::from_minutes(now - BEFORE_MIN),
-        end: TimePoint::from_minutes(now + AFTER_MIN),
-        scale: TimeScale::Hours,
-        tick_width: 720.0,
-    });
+    let axis =
+        State::new(TimeAxis::quarter_hours(TimePoint::from_minutes(now + 15 - 60 * i64::from(HOURS)), HOURS));
     let open = {
         let s = s.clone();
         move |id: u64| {
@@ -105,95 +156,244 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
         Box::new(Text::new("Ninguém na fila.").foreground(Semantic::InkMuted))
     } else {
         let rows: Vec<AnyView> = waiting.iter().map(|b| queued_row(s, b, now_ms)).collect();
-        Box::new(VStack::new(rows).spacing(8.0).align(Align::Stretch))
+        Box::new(Card::new(VStack::new(rows).align(Align::Stretch)).padding(0.0))
     };
 
-    let rows: Vec<Vec<ravenrs::prelude::Value>> = executors
-        .iter()
-        .map(|e| {
-            let busy = e["busy"].as_u64().unwrap_or(0);
-            vec![
-                e["name"].as_str().unwrap_or_default().to_owned().into(),
-                "Executor do servidor · mesma máquina".to_owned().into(),
-                format!("{busy} de 1").into(),
-                (if busy > 0 { "running" } else { "idle" }).to_owned().into(),
-            ]
-        })
-        .collect();
+    let grid_rows: Vec<Vec<ravenrs::prelude::Value>> = agent_rows(&occupancy);
     let grid = DataGrid::new(
-        GridData::new(rows),
+        GridData::new(grid_rows),
         [
-            GridColumn::text("Executor").width(180.0),
+            GridColumn::text("Agente").width(150.0),
             GridColumn::text("Como sobe").fill(),
-            GridColumn::text("Ocupado").width(110.0),
-            GridColumn::text("Estado").width(140.0).template(|value| -> AnyView {
-                if value.key_text() == "running" {
-                    jobs::status_badge("running")
-                } else {
-                    Box::new(Badge::new("Livre").tone(Tone::Success).icon(IconName::Check))
-                }
-            }),
+            GridColumn::text("Rótulos").width(170.0),
+            GridColumn::text("Executores").width(110.0),
+            GridColumn::text("Memória").width(140.0).align(CellAlign::End),
+            GridColumn::text("Estado").width(150.0).template(|value| state_badge(&value.key_text())),
         ],
     )
     .toolbar(false)
-    .height(200.0);
+    .filter_row(false)
+    .height(240.0);
 
+    let header = {
+        let mut header = PageHeader::new("Fila e agentes").description(format!(
+            "Onde cada build roda agora. Contêineres e pods nascem por build e somem no fim. Horário do servidor (UTC), agora {}.",
+            texto::clock(now_ms)
+        ));
+        if s.admin() {
+            let add = s.clone();
+            header =
+                header.action(Button::new("Adicionar agente").icon(IconName::Plus).on_click(move || {
+                    add.agent_dialog.set(true);
+                }));
+        }
+        header
+    };
     Box::new(
         VStack::new((
-            PageHeader::new("Fila e agentes").description(format!(
-                "Onde cada build rodou na última hora, por executor. Horário do servidor (UTC), agora {}.",
-                texto::clock(now_ms)
-            )),
+            header,
             Card::new(timeline).padding(0.0),
             Text::new(format!("Na fila · {}", waiting.len())).style(TextStyle::Headline),
             queue,
-            Text::new("Executores").style(TextStyle::Headline),
             grid,
-            Alert::message("Os agentes (local como outro usuário, remoto, contêiner e pod) entram aqui como mais linhas na Fase 3.")
-                .tone(Tone::Neutral),
+            agent_dialog(s),
         ))
-        .spacing(16.0)
-        .padding(24.0)
+        .spacing(24.0)
+        .padding(32.0)
         .align(Align::Stretch),
     )
 }
 
-/// A build waiting: what it is, since when, and Subir na fila.
+/// The rows of the grid of agents: the executors of the server, the agents and the templates.
+fn agent_rows(occupancy: &Json) -> Vec<Vec<ravenrs::prelude::Value>> {
+    let mut rows = Vec::new();
+    for e in occupancy["executors"].as_array().into_iter().flatten() {
+        let busy = e["busy"].as_u64().unwrap_or(0);
+        rows.push(vec![
+            e["name"].as_str().unwrap_or_default().to_owned().into(),
+            "executor do servidor · mesma máquina".to_owned().into(),
+            "—".to_owned().into(),
+            format!("{busy} de 1").into(),
+            "no servidor".to_owned().into(),
+            (if busy > 0 { "running" } else { "ready" }).to_owned().into(),
+        ]);
+    }
+    for a in occupancy["agents"].as_array().into_iter().flatten() {
+        let labels: Vec<&str> =
+            a["labels"].as_array().into_iter().flatten().filter_map(Json::as_str).collect();
+        let how = match a["launched_by"].as_str() {
+            Some(template) => format!("pelo modelo {template}"),
+            None => "agente · conecta para fora".to_owned(),
+        };
+        rows.push(vec![
+            a["name"].as_str().unwrap_or_default().to_owned().into(),
+            how.into(),
+            labels.join(", ").into(),
+            format!("{} de {}", a["busy"].as_u64().unwrap_or(0), a["executors"].as_u64().unwrap_or(1)).into(),
+            a["memory_bytes"].as_u64().map_or_else(|| "—".to_owned(), texto::bytes).into(),
+            (if a["connected"] == true { "connected" } else { "away" }).to_owned().into(),
+        ]);
+    }
+    for t in occupancy["templates"].as_array().into_iter().flatten() {
+        let labels: Vec<&str> =
+            t["labels"].as_array().into_iter().flatten().filter_map(Json::as_str).collect();
+        rows.push(vec![
+            t["name"].as_str().unwrap_or_default().to_owned().into(),
+            format!("{} · um agente por build", t["launcher"].as_str().unwrap_or_default()).into(),
+            labels.join(", ").into(),
+            format!("0 de {}", t["max_agents"].as_u64().unwrap_or(1)).into(),
+            "só durante o build".to_owned().into(),
+            (if t["launcher_on"] == true { "ready" } else { "plugin-off" }).to_owned().into(),
+        ]);
+    }
+    rows
+}
+
+/// How an agent is, in a badge with its word.
+fn state_badge(state: &str) -> AnyView {
+    match state {
+        "running" => jobs::status_badge("running"),
+        "connected" => Box::new(Badge::new("Conectado").tone(Tone::Success).icon(IconName::Check)),
+        "ready" => Box::new(Badge::new("Pronto").tone(Tone::Success).icon(IconName::Check)),
+        "plugin-off" => Box::new(Badge::new("Plugin desligado").tone(Tone::Warning)),
+        _ => Box::new(Badge::new("Desconectado").outline()),
+    }
+}
+
+/// The dialog of "Adicionar agente": the name and the labels, and the command that brings it in
+/// with a token used once.
+fn agent_dialog(s: &Rc<S>) -> AnyView {
+    if !s.agent_dialog.get() {
+        return nada();
+    }
+    let token = s.agent_token.get();
+    let make = {
+        let s = s.clone();
+        move || {
+            let name = s.agent_name.get().trim().to_owned();
+            let labels: Vec<String> = s
+                .agent_labels
+                .get()
+                .split(',')
+                .map(|l| l.trim().to_owned())
+                .filter(|l| !l.is_empty())
+                .collect();
+            s.send(
+                "/api/ci/agents/token",
+                &json!({ "name": name, "labels": labels, "executors": 1 }),
+                |s, status, body| {
+                    if status == 200 {
+                        s.agent_token.set(body["token"].as_str().unwrap_or_default().to_owned());
+                    } else {
+                        s.message.set(body["message"].as_str().unwrap_or("não fez o token").to_owned());
+                    }
+                },
+            );
+        }
+    };
+    let close = {
+        let s = s.clone();
+        move || {
+            s.agent_dialog.set(false);
+            s.agent_token.set(String::new());
+        }
+    };
+    let said: AnyView = if token.is_empty() {
+        nada()
+    } else {
+        Box::new(
+            VStack::new((
+                Text::new("Rode na máquina do agente, em até 10 minutos:").foreground(Semantic::InkMuted),
+                CodeBlock::new(format!(
+                    "RAVEN_CI_AGENT_TOKEN={token} raven-ci-agent --servidor <endereço deste servidor> --nome {} --rotulos {}",
+                    s.agent_name.get().trim(),
+                    s.agent_labels.get().replace(' ', "")
+                )),
+            ))
+            .spacing(8.0)
+            .align(Align::Stretch),
+        )
+    };
+    Box::new(
+        Dialog::new(s.agent_dialog.binding(), "Adicionar agente")
+            .description("O agente entra com um token de uso único e guarda a chave dele. Os rótulos dizem quais builds ele pega.")
+            .width(520.0)
+            .content(
+                VStack::new((
+                    TextField::new(s.agent_name.binding()).placeholder("Nome, como linux-1"),
+                    TextField::new(s.agent_labels.binding()).placeholder("Rótulos, como linux, rust"),
+                    said,
+                ))
+                .spacing(12.0)
+                .align(Align::Stretch),
+            )
+            .action(Button::new("Fechar").style(ButtonStyle::Secondary).on_click(close))
+            .action(Button::new("Fazer o token").icon(IconName::Key).on_click(make)),
+    )
+}
+
+/// A build waiting: what it is, why it waits, and what lets it go: "Ligar o plugin" when a plugin
+/// switched off holds it, "Subir na fila" otherwise, for those who may act.
 fn queued_row(s: &Rc<S>, build: &Json, now_ms: i64) -> AnyView {
     let job = build["job"].as_str().unwrap_or_default().to_owned();
     let number = build["number"].as_u64().unwrap_or(0);
     let priority = build["priority"].as_i64().unwrap_or(0);
     let since = build["created_ms"].as_i64().map(|t| texto::ago(t, now_ms)).unwrap_or_default();
-    let up: AnyView = if s.runs() {
-        let (s, job) = (s.clone(), job.clone());
-        Box::new(Button::new("Subir na fila").icon(IconName::ArrowUp).style(ButtonStyle::Secondary).on_click(
-            move || {
-                let body = json!({ "job": job, "number": number, "priority": priority + 1 });
-                s.send("/api/ci/priority", &body, |s, status, body| {
-                    if status == 200 {
-                        s.message.set("Prioridade subiu.".to_owned());
-                        s.go(Pagina::Fila);
-                    } else {
-                        s.message.set(body["message"].as_str().unwrap_or("não subiu").to_owned());
-                    }
-                });
-            },
-        ))
-    } else {
-        nada()
+    let why = build["waiting"]["why"].as_str().unwrap_or("espera um executor livre").to_owned();
+    let plugin = build["waiting"]["plugin"].as_str().map(str::to_owned);
+    let action: AnyView = match (&plugin, s.admin(), s.runs()) {
+        (Some(plugin), true, _) => {
+            let (s, plugin) = (s.clone(), plugin.clone());
+            Box::new(
+                Button::new("Ligar o plugin").style(ButtonStyle::Ghost).size(ButtonSize::Small).on_click(
+                    move || {
+                        let name = plugin.clone();
+                        s.send("/api/ci/plugins/enable", &json!({ "name": name }), move |s, status, body| {
+                            if status == 200 {
+                                s.message.set(format!("Plugin {name} ligado."));
+                                s.load_shell();
+                                s.go(Pagina::Fila);
+                            } else {
+                                s.message.set(body["message"].as_str().unwrap_or("não ligou").to_owned());
+                            }
+                        });
+                    },
+                ),
+            )
+        }
+        (None, _, true) => {
+            let (s, job) = (s.clone(), job.clone());
+            Box::new(
+                Button::new("Subir na fila")
+                    .icon(IconName::ArrowUp)
+                    .style(ButtonStyle::Secondary)
+                    .size(ButtonSize::Small)
+                    .on_click(move || {
+                        let body = json!({ "job": job, "number": number, "priority": priority + 1 });
+                        s.send("/api/ci/priority", &body, |s, status, body| {
+                            if status == 200 {
+                                s.message.set("Prioridade subiu.".to_owned());
+                                s.go(Pagina::Fila);
+                            } else {
+                                s.message.set(body["message"].as_str().unwrap_or("não subiu").to_owned());
+                            }
+                        });
+                    }),
+            )
+        }
+        _ => nada(),
     };
     Box::new(
-        Card::new(
-            HStack::new((
-                Icon::new(IconName::Clock).color(Semantic::Warning),
-                Text::new(format!("{job} #{number}")).style(TextStyle::Headline),
-                Text::new(format!("pedido {since} · prioridade {priority}")).foreground(Semantic::InkMuted),
-                Spacer::new(),
-                up,
-            ))
-            .spacing(12.0)
-            .align(Align::Center),
-        )
-        .padding(12.0),
+        HStack::new((
+            Icon::new(if plugin.is_some() { IconName::Plug } else { IconName::Clock })
+                .color(Semantic::Warning),
+            Text::new(format!("{} #{number}", job.replace('/', " · "))).font_weight(Weight::SEMIBOLD),
+            Text::new(format!("{why} · pedido {since}")).foreground(Semantic::InkMuted).truncate(),
+            Spacer::new(),
+            action,
+        ))
+        .spacing(12.0)
+        .padding(12.0)
+        .align(Align::Center),
     )
 }

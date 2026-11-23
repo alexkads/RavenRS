@@ -510,7 +510,9 @@ impl View for LogRow {
                     &children,
                     paint,
                 );
-                // The list already makes each row an item; its name comes from what the row says.
+                // The list already makes each row an item, named by what the row says. A test finds a
+                // line by its number (`#number:<n>`): this node has no role of its own, so it is
+                // folded into the item, and the id `line:<n>` stays only for the native drivers.
                 cx.test_id(node, &format!("line:{number}"));
                 node
             }
@@ -603,7 +605,9 @@ impl View for LogView {
         bar.push(Box::new(Text::new(said).foreground(Semantic::InkMuted)));
         bar.push(Box::new(Spacer::new()));
         if let (Some(title), Some(binding)) = (only, self.only.clone()) {
-            bar.push(Box::new(Text::new(labels.log_only.replace("{0}", &title)).foreground(Semantic::InkMuted)));
+            bar.push(Box::new(
+                Text::new(labels.log_only.replace("{0}", &title)).foreground(Semantic::InkMuted),
+            ));
             bar.push(Box::new(
                 Button::new(labels.log_show_all.clone())
                     .style(ButtonStyle::Ghost)
@@ -621,7 +625,8 @@ impl View for LogView {
                     .on_click(move || picker.save(&name, buffer.text().as_bytes())),
             ));
         }
-        cx.child(&VStack::new((HStack::new(bar).spacing(8.0).align(Align::Center), list)).spacing(8.0))
+        // In a narrow window the controls go on to a second line instead of out of view.
+        cx.child(&VStack::new((HStack::new(bar).spacing(8.0).align(Align::Center).wrap(), list)).spacing(8.0))
     }
 }
 

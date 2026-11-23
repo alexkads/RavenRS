@@ -21,7 +21,8 @@
 //! | `POST /api/ci/pipeline/check` | signed in | the errors of a pipeline, with their lines |
 //! | `POST /api/ci/cancel`, `/rebuild`, `/priority` | Executores, Administradores | acting on a build |
 //! | `POST /api/ci/job` | Administradores | saving a job (`name`, `format`, `pipeline`, `settings`), checked first |
-//! | `GET /api/ci/plugins`, `POST /api/ci/plugins/enable`, `/disable` | Administradores | the plugins |
+//! | `GET /api/ci/plugins`, `POST /api/ci/plugins/enable`, `/disable`, `/settings` | Administradores | the plugins, and the settings of one (`name`, `settings`) |
+//! | `POST /api/ci/agents/token` | Administradores | a token used once for a new agent: `name`, `labels`, `executors` |
 //! | `GET /api/ci/users`, `POST /api/ci/users` | Administradores | people and their roles |
 //! | `GET /api/ci/audit?plugin=&limit=` | Administradores | what plugins and people did, the newest first |
 //! | `GET /painel/...` | anyone | the files of the panel for the browser, from [`PanelOptions::files`] |
@@ -145,15 +146,23 @@ pub fn answer(
         return Some(panel_file(options, &path[1..]));
     }
     let (need, what) = match (request.method.as_str(), path.as_slice()) {
-        ("GET", ["api", "ci", what @ ("screens" | "server" | "overview" | "occupancy" | "attachment" | "history")]) => {
-            (Need::SignedIn, *what)
-        }
+        (
+            "GET",
+            [
+                "api",
+                "ci",
+                what @ ("screens" | "server" | "overview" | "occupancy" | "attachment" | "history"),
+            ],
+        ) => (Need::SignedIn, *what),
         ("POST", ["api", "ci", "pipeline", "check"]) => (Need::SignedIn, "check"),
         ("POST", ["api", "ci", what @ ("cancel" | "rebuild" | "priority")]) => (Need::Runner, *what),
         ("POST", ["api", "ci", "job"]) => (Need::Admin, "job"),
         ("GET", ["api", "ci", what @ ("plugins" | "users" | "audit")]) => (Need::Admin, *what),
-        ("POST", ["api", "ci", "plugins", what @ ("enable" | "disable")]) => (Need::Admin, *what),
+        ("POST", ["api", "ci", "plugins", what @ ("enable" | "disable" | "settings")]) => {
+            (Need::Admin, *what)
+        }
         ("POST", ["api", "ci", "users"]) => (Need::Admin, "new-user"),
+        ("POST", ["api", "ci", "agents", "token"]) => (Need::Admin, "agent-token"),
         _ => return None,
     };
     let Some(caller) = who() else {
@@ -192,6 +201,19 @@ fn act(
             let limit = query.get("limit").and_then(|s| s.parse().ok()).unwrap_or(50).clamp(1, 500);
             let before = query.get("before_ms").and_then(|s| s.parse().ok()).unwrap_or(i64::MAX);
             history(ci, limit, before)?
+        }
+        "agent-token" => {
+            let name = text(&asked, "name")?;
+            let labels: Vec<String> = asked["labels"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|l| l.as_str().map(str::to_owned))
+                .collect();
+            let executors = u32::try_from(asked["executors"].as_u64().unwrap_or(1)).unwrap_or(1).max(1);
+            let token = ci.agent_token(name, &labels, executors)?;
+            record(ci, &caller.name, &format!("fez o token do agente {name}"));
+            json!({ "name": name, "token": token })
         }
         "attachment" => {
             let id = query
@@ -258,6 +280,16 @@ fn act(
             let changed = if what == "enable" { ci.enable_plugin(name)? } else { ci.disable_plugin(name)? };
             let words = if what == "enable" { "ligou" } else { "desligou" };
             record(ci, &caller.name, &format!("{words} o plugin {name}"));
+            json!({ "changed": changed })
+        }
+        "settings" => {
+            let name = text(&asked, "name")?;
+            let settings = asked.get("settings").cloned().unwrap_or(Json::Null);
+            if !settings.is_object() {
+                return Err(CiError::settings("settings", "um objeto com as chaves do plugin"));
+            }
+            let changed = ci.configure_plugin(name, settings)?;
+            record(ci, &caller.name, &format!("mudou a configuração do plugin {name}"));
             json!({ "changed": changed })
         }
         "users" => users(options)?,
@@ -613,7 +645,8 @@ fn occupancy(ci: &Ci, options: &PanelOptions, since_ms: i64) -> Result<Json, CiE
         .agent_templates()?
         .into_iter()
         .map(|t| {
-            let on = ci.registry().on().iter().any(|p| p.agent_launchers().iter().any(|l| l.id() == t.launcher));
+            let on =
+                ci.registry().on().iter().any(|p| p.agent_launchers().iter().any(|l| l.id() == t.launcher));
             json!({
                 "name": t.name,
                 "labels": t.labels,

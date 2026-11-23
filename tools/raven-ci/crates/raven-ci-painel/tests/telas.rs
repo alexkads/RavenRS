@@ -46,8 +46,7 @@ fn pictures_of_the_screens() {
     };
     snap(&mut door, "0-entrar");
     snap(&mut ui, "1-jobs");
-    press(&mut ui, "apps/site");
-    press(&mut ui, "Abrir o último build");
+    press(&mut ui, "Abrir o último build apps/site");
     snap(&mut ui, "2-build");
     press(&mut ui, "Fila e agentes");
     snap(&mut ui, "3-fila");
@@ -59,6 +58,20 @@ fn pictures_of_the_screens() {
     snap(&mut ui, "6-pagina-de-plugin");
     press(&mut ui, "Usuários e papéis");
     snap(&mut ui, "7-usuarios");
+    press(&mut ui, "Histórico");
+    snap(&mut ui, "8-historico");
+    // The same build in a narrow window and on a phone (I7, T7).
+    press(&mut ui, "Jobs");
+    press(&mut ui, "Abrir o último build apps/site");
+    for (name, wide) in [("9-build-estreito", 1000u32), ("10-build-celular", 390u32)] {
+        ui.set_viewport(Size::new(wide as f32, height as f32), 1.0);
+        settle(&mut ui);
+        let pixels = render_to_rgba(&gpu, ui.scene(), wide, height).expect("pixels");
+        image::RgbaImage::from_raw(wide, height, pixels)
+            .expect("image")
+            .save(folder.join(format!("{name}.png")))
+            .expect("saved");
+    }
     let _ = std::fs::remove_dir_all(&home);
 }
 

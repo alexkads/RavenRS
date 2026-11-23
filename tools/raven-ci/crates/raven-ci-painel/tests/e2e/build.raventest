@@ -1,14 +1,16 @@
-scenario: Raven CI: abrir um build e ler o log
-// O último build de apps/site passou, com os quatro estágios e o log de cada um.
+scenario: Raven CI: abrir um build, ler o log e filtrar um estágio
+// O último build de apps/site passou, com os quatro estágios; um clique no estágio deixa só o log dele.
 open Raven CI                                          | Abrir o painel do Raven CI
 fill Usuário = bia                                     | Escrever o usuário
 fill Senha = senha-do-teste-e2e                        | Escrever a senha
 click Entrar                                           | Entrar
-click #item:Jobs                                       | Ir aos jobs
-click apps/site                                        | Escolher o job do site
-click Abrir o último build                             | Abrir o último build dele
-wait Build #2                                          | A página do build #2 abre
+click Abrir o último build apps/site                   | Abrir o último build do site
+wait Build #2                                          | A página do build abre
 check #node:estagio-2 = Testes                         | O diagrama tem o estágio Testes
+mention Apontar a linha 7 SLOW [12.4s] raven-ci registry::reloads_without_restart = SLOW | A linha lenta dos testes está no log
+click #node:estagio-2                                  | Escolher o estágio Testes
+mention Só Testes = Só Testes                          | O log mostra só o estágio Testes
+click Mostrar tudo                                     | Voltar a todas as linhas
 click Parâmetros                                       | Ver os parâmetros
 click Log                                              | Voltar ao log
 click Repetir                                          | Repetir o build

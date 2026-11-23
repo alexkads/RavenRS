@@ -7,7 +7,7 @@ use std::rc::Rc;
 use ravenrs::prelude::*;
 use serde_json::{Value as Json, json};
 
-use super::{Pagina, S, nada, plugin};
+use super::{Pagina, S, nada};
 use crate::texto;
 
 /// The roles a new person can get, in the order the form offers them.
@@ -16,12 +16,14 @@ const ROLES: [&str; 3] = ["Administradores", "Executores", "Leitores"];
 /// A cell of a grid.
 type Cell = ravenrs::prelude::Value;
 
-/// The plugins: the grid with their toggles, the filter, the sheet of the one open and the
-/// refusals.
+/// The plugins (T4): a search, the filter and the count on one line, the grid with their toggles
+/// ("Recusado" in place of the toggle of one that did not load), the refusals with their reason,
+/// "Adicionar plugin", and the sheet of the one open.
 pub(super) fn plugins(s: &Rc<S>) -> AnyView {
     let all: Vec<Json> = s.plugins.get().as_array().cloned().unwrap_or_default();
     let on = all.iter().filter(|p| p["state"]["state"] == "on").count();
     let filter = s.plugin_filter.get();
+    let query = s.plugin_query.get().trim().to_lowercase();
     let shown: Vec<&Json> = all
         .iter()
         .filter(|p| match filter {
@@ -29,6 +31,7 @@ pub(super) fn plugins(s: &Rc<S>) -> AnyView {
             2 => p["enabled"] != true,
             _ => true,
         })
+        .filter(|p| query.is_empty() || p.to_string().to_lowercase().contains(&query))
         .collect();
     let rows: Vec<Vec<Cell>> = shown
         .iter()
@@ -36,15 +39,14 @@ pub(super) fn plugins(s: &Rc<S>) -> AnyView {
             let name = p["name"].as_str().unwrap_or_default().to_owned();
             let points: Vec<&str> =
                 p["points"].as_array().into_iter().flatten().filter_map(Json::as_str).collect();
-            let (state, _) = texto::plugin_state(&p["state"]);
+            let refused = p["state"]["state"] == "refused";
             vec![
                 name.clone().into(),
                 texto::origin_words(&p["origin"]).into(),
                 points.join(", ").into(),
                 p["version"].as_str().unwrap_or("—").to_owned().into(),
                 texto::memory_words(&p["memory"]).into(),
-                state.into(),
-                format!("{name}|{}", p["enabled"] == true).into(),
+                format!("{name}|{}|{refused}", p["enabled"] == true).into(),
             ]
         })
         .collect();
@@ -52,8 +54,15 @@ pub(super) fn plugins(s: &Rc<S>) -> AnyView {
         let s = s.clone();
         move |value: &Cell| -> AnyView {
             let text = value.key_text();
-            let (name, enabled) = text.rsplit_once('|').unwrap_or((&text, "false"));
-            let (name, enabled) = (name.to_owned(), enabled == "true");
+            let mut parts = text.rsplitn(3, '|');
+            let (refused, enabled, name) = (
+                parts.next() == Some("true"),
+                parts.next() == Some("true"),
+                parts.next().unwrap_or_default().to_owned(),
+            );
+            if refused {
+                return Box::new(Badge::new("Recusado").tone(Tone::Danger));
+            }
             let s = s.clone();
             let label = format!("Ligar {name}");
             let binding = Binding::new(move || enabled, move |want: bool| switch(&s, &name, want));
@@ -62,36 +71,33 @@ pub(super) fn plugins(s: &Rc<S>) -> AnyView {
     };
     let open = {
         let s = s.clone();
-        move |row: &Vec<Cell>| {
-            s.plugin_open.set(Some(row[0].key_text()));
-            s.sheet_open.set(true);
-            s.read(&format!("/api/ci/audit?plugin={}&limit=20", row[0].key_text()), |s, body| {
-                s.audit.set(body)
-            });
-        }
+        move |row: &Vec<Cell>| open_sheet(&s, &row[0].key_text())
     };
     let grid = DataGrid::new(
         GridData::new(rows),
         [
-            GridColumn::text("Plugin").width(170.0),
-            GridColumn::text("Forma").width(110.0),
-            GridColumn::text("Oferece").fill(),
-            GridColumn::text("Versão").width(90.0),
-            GridColumn::text("Memória").width(120.0),
-            GridColumn::text("Estado").width(110.0).template(|value| -> AnyView {
-                let state = value.key_text();
-                let tone = match state.as_str() {
-                    "Ligado" => Tone::Success,
-                    "Recusado" => Tone::Danger,
-                    _ => Tone::Neutral,
-                };
-                Box::new(Badge::new(state).tone(tone))
+            GridColumn::text("Plugin").width(170.0).template(|value| -> AnyView {
+                Box::new(Text::new(value.key_text()).font_weight(Weight::SEMIBOLD))
             }),
+            GridColumn::text("Forma").width(140.0).template(|value| -> AnyView {
+                let words = value.key_text();
+                if words.starts_with("Externo") {
+                    Box::new(Badge::new(words).outline())
+                } else {
+                    Box::new(Text::new(words))
+                }
+            }),
+            GridColumn::text("Oferece").fill(),
+            GridColumn::text("Versão").width(80.0),
+            GridColumn::text("Memória").width(110.0).align(CellAlign::End),
             GridColumn::text("Ligado")
-                .width(90.0)
+                .width(100.0)
                 // The cell says the state; the switch in it is the one called "Ligar …".
                 .format(|value| {
-                    if value.key_text().ends_with("|true") {
+                    let text = value.key_text();
+                    if text.ends_with("|true") {
+                        "recusado".to_owned()
+                    } else if text.ends_with("|true|false") {
                         "ligado".to_owned()
                     } else {
                         "desligado".to_owned()
@@ -101,10 +107,14 @@ pub(super) fn plugins(s: &Rc<S>) -> AnyView {
         ],
     )
     .key_column(0)
+    .name_column(0)
     .striped(true)
-    .on_row_open(open)
+    .toolbar(false)
+    .filter_row(false)
+    .on_row_open(open.clone())
+    .row_action(GridRowAction::new("Ficha", IconName::Info, open))
     .empty_text("Nenhum plugin neste filtro.")
-    .height(420.0);
+    .height(360.0);
     let refused: Vec<AnyView> = all
         .iter()
         .filter(|p| p["state"]["state"] == "refused")
@@ -122,24 +132,82 @@ pub(super) fn plugins(s: &Rc<S>) -> AnyView {
             )
         })
         .collect();
+    let add = s.clone();
+    let main = VStack::new((
+        HStack::new((
+            TextField::new(s.plugin_query.binding())
+                .placeholder("Buscar plugins")
+                .icon(IconName::Search)
+                .width(240.0),
+            SegmentedControl::new(s.plugin_filter.binding(), ["Todos", "Ligados", "Desligados"])
+                .label("Mostrar"),
+            Spacer::new(),
+            Text::new(format!("{on} ligados · {} desligados ou recusados", all.len() - on))
+                .foreground(Semantic::InkMuted),
+        ))
+        .spacing(12.0)
+        .align(Align::Center),
+        grid,
+        VStack::new(refused).spacing(8.0).align(Align::Stretch),
+    ))
+    .spacing(16.0)
+    .align(Align::Stretch)
+    .grow(1.0);
     Box::new(
         VStack::new((
             PageHeader::new("Plugins")
-                .description("Tudo o que o servidor faz vem de um plugin. Desligado, ele não ocupa as telas nem as rotas.")
-                .badge(Badge::new(all.len().to_string())),
-            HStack::new((
-                SegmentedControl::new(s.plugin_filter.binding(), ["Todos", "Ligados", "Desligados"]).label("Mostrar"),
-                Spacer::new(),
-                Text::new(format!("{on} ligados · {} desligados ou recusados", all.len() - on)).foreground(Semantic::InkMuted),
-            ))
-            .align(Align::Center),
-            grid,
-            VStack::new(refused).spacing(8.0).align(Align::Stretch),
+                .description("Tudo o que o servidor faz vem de um plugin. Desligado, ele não ocupa memória nem aparece nas telas.")
+                .badge(Badge::new(all.len().to_string()))
+                .action(Button::new("Adicionar plugin").icon(IconName::Plus).on_click(move || add.add_plugin_open.set(true))),
+            main,
             sheet(s, &all),
+            add_plugin_dialog(s),
         ))
-        .spacing(16.0)
-        .padding(24.0)
+        .spacing(24.0)
+        .padding(32.0)
         .align(Align::Stretch),
+    )
+}
+
+/// Opens the sheet of the plugin `name`, with its audit and its settings to edit.
+fn open_sheet(s: &Rc<S>, name: &str) {
+    let settings = s
+        .plugins
+        .get()
+        .as_array()
+        .and_then(|all| all.iter().find(|p| p["name"] == name).map(|p| p["settings"].clone()))
+        .and_then(|v| v.as_object().cloned())
+        .unwrap_or_default();
+    s.plugin_settings.set(ParamValues(settings));
+    s.plugin_open.set(Some(name.to_owned()));
+    s.sheet_open.set(true);
+    s.read(&format!("/api/ci/audit?plugin={name}&limit=20"), |s, body| s.audit.set(body));
+}
+
+/// "Adicionar plugin": how an external plugin comes in.
+fn add_plugin_dialog(s: &Rc<S>) -> AnyView {
+    if !s.add_plugin_open.get() {
+        return nada();
+    }
+    let close = {
+        let s = s.clone();
+        move || s.add_plugin_open.set(false)
+    };
+    Box::new(
+        Dialog::new(s.add_plugin_open.binding(), "Adicionar plugin")
+            .description("Um plugin externo é um programa que fala com o servidor pela entrada e pela saída (stdio).")
+            .width(520.0)
+            .content(
+                VStack::new((
+                    Text::new("1. Ponha a pasta do plugin, com o plugin.toml, em plugins/ na pasta de dados do servidor."),
+                    Text::new("2. Reinicie o servidor: ele lê a pasta, confere a versão da API e as dependências, e o plugin aparece aqui, desligado."),
+                    Text::new("3. Ligue-o nesta lista. Um plugin que não serve aparece como Recusado, com o motivo."),
+                    CodeBlock::new("raven-ci plugins listar\nraven-ci plugins ligar NOME"),
+                ))
+                .spacing(10.0)
+                .align(Align::Stretch),
+            )
+            .action(Button::new("Fechar").style(ButtonStyle::Secondary).on_click(close)),
     )
 }
 
@@ -159,34 +227,50 @@ fn switch(s: &Rc<S>, name: &str, on: bool) {
     });
 }
 
-/// The sheet of the plugin open: what it is for, what it depends on, its permissions, its
-/// configuration and its audit.
+/// The icon of a permission a plugin declares.
+fn permission_icon(permission: &str) -> IconName {
+    match permission {
+        p if p.contains("process") || p.contains("processo") => IconName::Terminal,
+        p if p.contains("net") || p.contains("rede") => IconName::Globe,
+        p if p.contains("secret") || p.contains("segredo") => IconName::Key,
+        p if p.contains("file") || p.contains("arquivo") || p.contains("fs") => IconName::Folder,
+        _ => IconName::Shield,
+    }
+}
+
+/// The fields of a plugin's settings, one per key it has, typed by its value.
+fn setting_fields(settings: &Json) -> Vec<ParamField> {
+    settings
+        .as_object()
+        .into_iter()
+        .flatten()
+        .map(|(key, value)| {
+            let kind = match value {
+                Json::Bool(_) => ParamKind::Boolean,
+                Json::Number(_) => ParamKind::Number,
+                _ => ParamKind::Text,
+            };
+            ParamField::new(key.clone(), key.clone(), kind)
+        })
+        .collect()
+}
+
+/// The sheet of the plugin open: what it is for, what it depends on with the version found, the
+/// permissions it declared, its settings to edit, its audit, and Desligar and Aplicar.
 fn sheet(s: &Rc<S>, all: &[Json]) -> AnyView {
     let Some(name) = s.plugin_open.get() else { return nada() };
     let Some(p) = all.iter().find(|p| p["name"] == name.as_str()) else { return nada() };
-    let badges = |list: &Json| -> AnyView {
-        let items: Vec<Badge> = list
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(Json::as_str)
-            .map(|t| Badge::new(t.to_owned()))
-            .collect();
-        if items.is_empty() {
-            Box::new(Text::new("nenhuma").foreground(Semantic::InkMuted))
-        } else {
-            Box::new(HStack::new(items).spacing(8.0).wrap())
-        }
+    let version_of = |plugin: &str| {
+        all.iter().find(|q| q["name"] == plugin).and_then(|q| q["version"].as_str().map(str::to_owned))
     };
     let requires: Vec<PropertyRow> = p["requires"]
         .as_array()
         .into_iter()
         .flatten()
         .map(|r| {
-            PropertyRow::new(
-                r["plugin"].as_str().unwrap_or_default(),
-                r["accepts"].as_str().unwrap_or_default(),
-            )
+            let plugin = r["plugin"].as_str().unwrap_or_default();
+            let found = version_of(plugin).map_or_else(|| "falta".to_owned(), |v| format!("{v} · ok"));
+            PropertyRow::new(format!("{plugin} {}", r["accepts"].as_str().unwrap_or_default()), found)
         })
         .collect();
     let requires: AnyView = if requires.is_empty() {
@@ -194,25 +278,71 @@ fn sheet(s: &Rc<S>, all: &[Json]) -> AnyView {
     } else {
         Box::new(VStack::new(requires).spacing(4.0).align(Align::Stretch))
     };
+    let declared: Vec<Badge> = p["declared"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Json::as_str)
+        .map(|t| Badge::new(t.to_owned()).icon(permission_icon(t)))
+        .collect();
+    let declared: AnyView = if declared.is_empty() {
+        Box::new(Text::new("nenhuma").foreground(Semantic::InkMuted))
+    } else {
+        Box::new(HStack::new(declared).spacing(8.0).wrap())
+    };
+    let fields = setting_fields(&p["settings"]);
+    let settings: AnyView = if fields.is_empty() {
+        Box::new(Text::new("Este plugin não tem configuração.").foreground(Semantic::InkMuted))
+    } else {
+        Box::new(ParameterForm::new(fields, s.plugin_settings.binding()).live(true))
+    };
     let caption = |t: &str| Text::new(t.to_owned()).style(TextStyle::Caption).foreground(Semantic::InkMuted);
+    let off = {
+        let (s, name) = (s.clone(), name.clone());
+        move || {
+            s.sheet_open.set(false);
+            switch(&s, &name, false);
+        }
+    };
+    let apply = {
+        let (s, name) = (s.clone(), name.clone());
+        move || {
+            let settings = Json::Object(s.plugin_settings.get().0);
+            let name = name.clone();
+            s.send(
+                "/api/ci/plugins/settings",
+                &json!({ "name": name, "settings": settings }),
+                move |s, status, body| {
+                    if status == 200 {
+                        s.message.set(format!("Configuração de {name} aplicada."));
+                        s.go(Pagina::Plugins);
+                    } else {
+                        s.message.set(body["message"].as_str().unwrap_or("não aplicou").to_owned());
+                    }
+                },
+            );
+        }
+    };
     let content = VStack::new((
-        Text::new(p["summary"].as_str().unwrap_or_default().to_owned()),
+        Text::new(p["summary"].as_str().unwrap_or_default().to_owned()).foreground(Semantic::InkMuted),
         caption("DEPENDE DE"),
         requires,
         caption("PERMISSÕES DECLARADAS"),
-        badges(&p["declared"]),
-        caption("PERMISSÕES DADAS"),
-        badges(&p["granted"]),
+        declared,
         caption("CONFIGURAÇÃO"),
-        plugin::json_view(&p["settings"]),
+        settings,
+        HStack::new((
+            Spacer::new(),
+            Button::new("Desligar").style(ButtonStyle::Ghost).on_click(off),
+            Button::new("Aplicar").icon(IconName::Check).style(ButtonStyle::Secondary).on_click(apply),
+        ))
+        .spacing(8.0),
         caption("AUDITORIA DESTE PLUGIN"),
-        audit_grid(&s.audit.get(), 220.0),
+        audit_grid(&s.audit.get(), 200.0),
     ))
     .spacing(12.0)
     .align(Align::Stretch);
-    Box::new(
-        Sheet::new(s.sheet_open.binding(), name).description("Ficha do plugin").content(content).width(420.0),
-    )
+    Box::new(Sheet::new(s.sheet_open.binding(), name).content(content).width(340.0))
 }
 
 /// The audit, the newest first.

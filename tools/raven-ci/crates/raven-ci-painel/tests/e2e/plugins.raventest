@@ -7,6 +7,9 @@ click Entrar                                           | Entrar
 click #item:Travas                                     | Abrir a página que o plugin pôs no menu
 mention compilacao = compilacao                        | A página mostra a trava do plugin
 click #item:Plugins                                    | Ir aos plugins
+click Ficha shell                                      | Abrir a ficha do plugin shell
+mention PERMISSÕES DECLARADAS = PERMISSÕES             | A ficha diz as permissões
+click Fechar                                           | Fechar a ficha
 click Ligar demonstracao                               | Desligar o plugin de demonstração
 mention Plugin demonstracao desligado. = desligado     | O aviso diz que desligou
 click #item:Credenciais                                | Ir às credenciais

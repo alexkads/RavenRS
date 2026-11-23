@@ -323,7 +323,8 @@ fn the_build_says_when_each_stage_ran_and_which_plugins_it_used() {
     // prints); the steps of the tests write none, so no stage has a time.
     assert_eq!(body["stage_times"], json!([]), "{body}");
     assert!(body["started_ms"].as_i64().is_some(), "{body}");
-    let plugins: Vec<&str> = body["plugins"].as_array().expect("plugins").iter().filter_map(Value::as_str).collect();
+    let plugins: Vec<&str> =
+        body["plugins"].as_array().expect("plugins").iter().filter_map(Value::as_str).collect();
     assert!(plugins.contains(&"fake-step") && plugins.contains(&"fake-pipeline-format"), "{plugins:?}");
     assert_eq!(body["build"]["worker"], "executor-1");
     assert_eq!(body["build"]["commit"], Value::Null, "a job with no code fetches no commit");
@@ -365,4 +366,28 @@ fn the_overview_and_the_occupancy_tell_the_agents_and_what_runs_now() {
     assert_eq!(occupancy["agents"], json!([]), "{occupancy}");
     assert_eq!(occupancy["templates"], json!([]), "{occupancy}");
     assert_eq!(occupancy["builds"][0]["waiting"], Value::Null, "an ended build waits for nothing");
+}
+
+#[test]
+fn an_administrator_changes_the_settings_of_a_plugin_and_makes_a_token_for_an_agent() {
+    let mut painel = painel("painel-config-plugin");
+    let (ana, bia) = (painel.token("ana"), painel.token("bia"));
+    let asked = json!({ "name": "telas", "settings": { "limite": 3 } });
+    assert_eq!(painel.post("/api/ci/plugins/settings", &bia, asked.clone()).0, 403, "only administrators");
+    let (status, body) = painel.post("/api/ci/plugins/settings", &ana, asked);
+    assert_eq!(status, 200, "{body}");
+    let (_, plugins) = painel.get("/api/ci/plugins", &ana);
+    let telas =
+        plugins.as_array().expect("plugins").iter().find(|p| p["name"] == "telas").cloned().expect("telas");
+    assert_eq!(telas["settings"]["limite"], 3, "{telas}");
+    assert_eq!(
+        painel.post("/api/ci/plugins/settings", &ana, json!({ "name": "telas", "settings": 3 })).0,
+        400
+    );
+
+    let (status, token) =
+        painel.post("/api/ci/agents/token", &ana, json!({ "name": "linux-1", "labels": ["linux"] }));
+    assert_eq!(status, 200, "{token}");
+    assert!(token["token"].as_str().is_some_and(|t| !t.is_empty()), "{token}");
+    assert_eq!(painel.post("/api/ci/agents/token", &bia, json!({ "name": "linux-2" })).0, 403);
 }

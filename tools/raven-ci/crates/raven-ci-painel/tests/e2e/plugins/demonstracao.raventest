@@ -1,0 +1,13 @@
+scenario: Plugin demonstracao: a página Travas e a aba Cobertura
+// O cenário que o próprio plugin traz para as telas dele: o painel o oferece junto dos seus.
+open Raven CI                                          | Abrir o painel do Raven CI
+fill Usuário = ana                                     | Escrever o usuário
+fill Senha = senha-do-teste-e2e                        | Escrever a senha
+click Entrar                                           | Entrar
+click #item:Travas                                     | Abrir a página que o plugin pôs no menu
+mention compilacao = compilacao                        | A página mostra a trava de compilação
+click #item:Jobs                                       | Ir aos jobs
+click Abrir o último build apps/site                   | Abrir o último build do site
+wait Build #2                                          | A página do build abre
+click Plugins · 2                                      | Ver os plugins do build
+wait 81,4%                                             | A aba Cobertura do plugin mostra a cobertura
