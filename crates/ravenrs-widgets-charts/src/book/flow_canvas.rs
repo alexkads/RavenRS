@@ -40,6 +40,8 @@ fn render(args: &Args) -> AnyView {
         let arg_resizable = args.bool("resizable");
         let arg_rotatable = args.bool("rotatable");
         let arg_snap = args.bool("snap");
+        let arg_status_icons = args.bool("status_icons");
+        let arg_run = args.bool("run");
 
         let graph = State::new(
             FlowGraph::new()
@@ -127,6 +129,16 @@ fn render(args: &Args) -> AnyView {
             it = it.resizable(arg_resizable);
             it = it.rotatable(arg_rotatable);
             it = it.snap(arg_snap);
+            it = it.status_icons(arg_status_icons);
+            // A run told from outside, as a CI server tells the stages of a build.
+            if arg_run {
+                it = it.execution(
+                    FlowRunView::new()
+                        .node("sale", FlowNodeRun::new(FlowNodeStatus::Success))
+                        .node("stock", FlowNodeRun::new(FlowNodeStatus::Running))
+                        .node("enough", FlowNodeRun::new(FlowNodeStatus::Waiting("Waiting".into()))),
+                );
+            }
             it
         };
         VStack::new((
@@ -195,9 +207,15 @@ impl ComponentBook for FlowCanvas {
             .arg(ArgType::bool("resizable", true))
             .arg(ArgType::bool("rotatable", true))
             .arg(ArgType::bool("snap", true))
+            .arg(ArgType::bool("status_icons", false))
+            .arg(ArgType::bool("run", false).description("A run told from outside, with execution."))
             .arg(ArgType::bool("json", false).description("How the example starts."))
             .story("Example", Args::new())
             .story("Read only", Args::new().with("read_only", true))
+            .story(
+                "Run with status icons",
+                Args::new().with("read_only", true).with("run", true).with("status_icons", true).with("minimap", false),
+            )
             .story("Json", Args::new().with("json", true))
             .story("Cables", Args::new().with("cables", true))
             .story_with("Cards and a selection", Args::new(), cards_and_selection)

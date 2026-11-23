@@ -425,6 +425,18 @@ impl FlowKind {
         self.tone = tone;
         self
     }
+
+    /// The look of a node with `status`, for [`FlowCanvas::status_icons`].
+    fn for_status(self, status: &FlowNodeStatus) -> Self {
+        let (icon, tone) = match status {
+            FlowNodeStatus::Success => (IconName::CircleCheck, Semantic::Success),
+            FlowNodeStatus::Running => (IconName::LoaderCircle, Semantic::Accent),
+            FlowNodeStatus::Error(_) => (IconName::CircleAlert, Semantic::Danger),
+            FlowNodeStatus::Cancelled => (IconName::CircleX, Semantic::InkMuted),
+            _ => return self,
+        };
+        Self { icon, tone, ..self }
+    }
 }
 
 /// Decides whether a connection may go from the first endpoint to the second, and when it
@@ -621,6 +633,7 @@ pub struct FlowCanvas {
     snap: bool,
     controls: bool,
     minimap: bool,
+    status_icons: bool,
     locked: bool,
     read_only: bool,
     wheel_pans: bool,
@@ -670,6 +683,7 @@ impl FlowCanvas {
             snap: true,
             controls: true,
             minimap: true,
+            status_icons: false,
             locked: false,
             read_only: false,
             wheel_pans: true,
@@ -902,6 +916,14 @@ impl FlowCanvas {
     /// Whether the map shows in the bottom right corner (on by default).
     pub fn minimap(mut self, minimap: bool) -> Self {
         self.minimap = minimap;
+        self
+    }
+
+    /// The icon of a node of a [`kind`](Self::kind) says how it went once its status says so: a
+    /// check when it passed, a turning circle while it runs, a mark when it failed or was
+    /// cancelled. Before that, and for any other status, the kind's own icon shows. Off by default.
+    pub fn status_icons(mut self, on: bool) -> Self {
+        self.status_icons = on;
         self
     }
 
@@ -3027,7 +3049,10 @@ impl View for FlowCanvas {
         }
         let mut children = Vec::new();
         for node in &graph.nodes {
-            let look = self.kinds.iter().find(|(k, _)| *k == node.kind).map(|(_, look)| look.clone());
+            let mut look = self.kinds.iter().find(|(k, _)| *k == node.kind).map(|(_, look)| look.clone());
+            if self.status_icons {
+                look = look.map(|look| look.for_status(&node.status));
+            }
             let inside = if node.group { None } else { self.content.as_ref().and_then(|f| f(node)) };
             let part = NodeBox {
                 inside,

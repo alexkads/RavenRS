@@ -1829,6 +1829,12 @@ fn a_run_told_from_outside_marks_the_nodes_and_counts_the_items_without_touching
     let one = FlowRunView::new().node("a", FlowNodeRun::new(FlowNodeStatus::Pinned).items("out", 1));
     assert_eq!(one.items(&FlowEndpoint::new("a", "out")), Some(1));
     assert_eq!(one.items(&FlowEndpoint::new("b", "out")), None, "a node that did nothing says nothing");
+    let counted_nothing = FlowRunView::new().node("a", FlowNodeRun::new(FlowNodeStatus::Success));
+    assert_eq!(
+        counted_nothing.items(&FlowEndpoint::new("a", "out")),
+        None,
+        "a node that runs without items, as a stage of a build, puts no count on its line (#919)"
+    );
     let waiting =
         FlowRunView::new().node("a", FlowNodeRun::new(FlowNodeStatus::Waiting("x".into())).items("out", 5));
     assert_eq!(

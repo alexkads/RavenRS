@@ -155,7 +155,7 @@ impl View for FlowPage {
         // A run that happened in the app, as it tells the canvas: the order arrived and went on,
         // the stock check waits, and the note did not run.
         let canvas = if told.get() {
-            canvas.execution(
+            canvas.status_icons(true).execution(
                 FlowRunView::new()
                     .node("start", FlowNodeRun::new(FlowNodeStatus::Success).items("out", 3))
                     .node("check", FlowNodeRun::new(FlowNodeStatus::Waiting("Aguardando o estoque".into())))

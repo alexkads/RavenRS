@@ -308,12 +308,13 @@ impl FlowRunView {
     }
 
     /// How many items went along a connection that starts at `from`; none when its node has not
-    /// given any yet, did not run, or still waits.
+    /// given any yet, did not run, or still waits. A node that runs with no items (a stage of a
+    /// build) counts nothing, and its lines show no count; one that gave none says `items(port, 0)`.
     pub fn items(&self, from: &FlowEndpoint) -> Option<usize> {
         let run = self.nodes.get(&from.node)?;
         match run.status {
             FlowNodeStatus::Skipped | FlowNodeStatus::Waiting(_) | FlowNodeStatus::Running => None,
-            _ => Some(run.items.get(&from.port).copied().unwrap_or(0)),
+            _ => run.items.get(&from.port).copied(),
         }
     }
 }
