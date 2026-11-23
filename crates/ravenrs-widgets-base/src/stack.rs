@@ -411,11 +411,14 @@ impl View for PageHeader {
                 Paint::None,
             ));
         }
+        // In a narrow column the actions go under the title instead of past the edge (#921).
         cx.container(
             LayoutStyle {
                 spacing: theme.spacing.s4,
                 align: Align::Center,
                 align_self: Some(Align::Stretch),
+                min_width: Some(0.0),
+                wrap: true,
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
             &children,
