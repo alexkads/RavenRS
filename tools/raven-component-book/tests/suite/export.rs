@@ -495,7 +495,8 @@ fn every_story_speaks_one_language() {
     assert!(parts.contains("Mostrando Contas") && !parts.contains("Showing"), "{parts}");
     // The component stories are in English: money in dollars, in the English format.
     let field = measure_entry(&entry("NumberField"));
-    let price = field[0].themes[0].1.parts.iter().find(|p| p["name"] == "Price").expect("price");
+    let money = field.iter().find(|story| story.name == "Money").expect("the story of money");
+    let price = money.themes[0].1.parts.iter().find(|p| p["name"] == "Price").expect("price");
     assert_eq!(price["value"], "$1,299.90", "{price}");
 }
 

@@ -7,7 +7,7 @@
 //! passed); `--versao` prints the version.
 
 /// Every option the book reads; any other is refused.
-const OPTIONS: [&str; 9] = [
+const OPTIONS: [&str; 10] = [
     ravenrs_e2e_wire::SERVE_FLAG,
     "--versao",
     "--self-test",
@@ -16,6 +16,7 @@ const OPTIONS: [&str; 9] = [
     "--sha",
     "--verify",
     "--replay",
+    "--verbose",
     "--help",
 ];
 
@@ -35,6 +36,7 @@ fn main() -> std::process::ExitCode {
              --claude-design <pasta> [--sha <commit>]      os arquivos do design system do Claude Design em <pasta>/project\n\
              --verify <pasta>                              compara uma cópia do publicado com o que o RCB gera\n\
              --replay <tela.rcb.json>                      confere se o RavenRS monta cada peça de uma tela do design como foi desenhada\n\
+             --replay <tela.rcb.json> --verbose            o mesmo, com a medida de cada peça no desenho e no RavenRS\n\
              --self-test                                   desenha e mede cada história, sem janela\n\
              --versao                                      a versão",
             raven_component_book::VERSION
@@ -78,6 +80,11 @@ fn main() -> std::process::ExitCode {
         let checked = std::fs::read_to_string(&file)
             .map_err(|e| format!("não deu para ler {file}: {e}"))
             .and_then(|json| raven_component_book::replay::replay(&json));
+        if let (Ok(replay), true) = (&checked, has("--verbose")) {
+            for piece in &replay.measured {
+                println!("{piece}");
+            }
+        }
         return match checked {
             Ok(replay) if replay.divergences.is_empty() => {
                 println!("{} peças conferidas: o RavenRS monta todas como foram desenhadas", replay.compared);

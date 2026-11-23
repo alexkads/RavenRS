@@ -383,7 +383,9 @@ fn read(ui: &mut Ui, theme: &Theme, width: f32) -> Measured {
         reach(&p["rect"]);
     }
     // Text and icons are runs of letters, and drawings are paths: they reach as far as they
-    // draw, so an icon alone measures its size and not a point.
+    // draw, so an icon alone measures its size and not a point. What a clip hides does not reach:
+    // the long line of a log scrolls inside it and is not drawn past it.
+    let mut clips: Vec<(f32, f32, f32, f32)> = Vec::new();
     for primitive in ui.scene().primitives().iter().skip(1) {
         let (mut x0, mut y0, mut x1, mut y1) = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
         let mut take = |x: f32, y: f32| {
@@ -413,9 +415,24 @@ fn read(ui: &mut Ui, theme: &Theme, width: f32) -> Measured {
                     }
                 }
             }
+            Primitive::PushClip(r) => {
+                let (mut a, mut b, mut c, mut d) = (r.x(), r.y(), r.max_x(), r.max_y());
+                if let Some(&(pa, pb, pc, pd)) = clips.last() {
+                    (a, b, c, d) = (a.max(pa), b.max(pb), c.min(pc), d.min(pd));
+                }
+                clips.push((a, b, c, d));
+                continue;
+            }
+            Primitive::PopClip => {
+                clips.pop();
+                continue;
+            }
             _ => continue,
         }
-        if x1 >= x0 {
+        if let Some(&(a, b, c, d)) = clips.last() {
+            (x0, y0, x1, y1) = (x0.max(a), y0.max(b), x1.min(c), y1.min(d));
+        }
+        if x1 >= x0 && y1 >= y0 {
             let m = f64::from(MARGIN);
             reach(&json!([f64::from(x0) - m, f64::from(y0) - m, f64::from(x1 - x0), f64::from(y1 - y0)]));
         }

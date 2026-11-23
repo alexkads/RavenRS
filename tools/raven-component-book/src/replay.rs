@@ -54,6 +54,30 @@ pub struct Replay {
     pub compared: usize,
     /// What RavenRS does not build as it was drawn.
     pub divergences: Vec<Divergence>,
+    /// Every piece compared, with its size in the design and in RavenRS.
+    pub measured: Vec<Measure>,
+}
+
+/// One piece compared: its mark, the box the design drew and the one RavenRS built.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Measure {
+    /// Which piece: its mark and the settings it changed.
+    pub element: String,
+    /// Width and height in the design.
+    pub design: (f64, f64),
+    /// Width and height RavenRS built.
+    pub built: (f64, f64),
+    /// Whether its height was left out: it holds other pieces, or fills its parent's height.
+    pub height_skipped: bool,
+}
+
+impl std::fmt::Display for Measure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (w, h) = self.design;
+        let (bw, bh) = self.built;
+        let skipped = if self.height_skipped { " (height from the pieces inside)" } else { "" };
+        write!(f, "{}: {w}×{h} in the design, {bw}×{bh} in RavenRS{skipped}", self.element)
+    }
 }
 
 impl Replay {
@@ -97,9 +121,10 @@ fn arg_value(meta: &Meta, name: &str, v: &Value) -> Result<ArgValue, String> {
         Control::Number { .. } => ArgValue::Number(v.as_f64().ok_or_else(wrong)?),
         Control::Choice(options) => {
             let chosen = v.as_str().ok_or_else(wrong)?;
-            // `icon` offers a sample in the cards; the card of `Icon` lists every one, and a
-            // design may use any of them (#831).
-            let any_icon = name == "icon" && IconName::ALL.iter().any(|icon| icon.name() == chosen);
+            // `icon` (and `badge_icon` and the like) offers a sample in the cards; the card of
+            // `Icon` lists every one, and a design may use any of them (#831).
+            let names_icon = name == "icon" || name.ends_with("_icon");
+            let any_icon = names_icon && IconName::ALL.iter().any(|icon| icon.name() == chosen);
             if !options.contains(&chosen) && !any_icon {
                 return Err(format!(
                     "\"{name}\" has no option \"{chosen}\" (it has: {})",
@@ -171,7 +196,13 @@ pub fn replay_with(json: &str, entries: &[Entry]) -> Result<Replay, String> {
         out.compared += 1;
         // A parent as wide as the box, with the stage's margin on each side.
         let parent = (w as f32 + 2.0 * MARGIN).max(2.0 * MARGIN + 1.0);
-        let built = measure::measure_stretched(&entry.meta, story, &args, theme, parent).main_box();
+        let mut built = measure::measure_stretched(&entry.meta, story, &args, theme, parent).main_box();
+        // Narrower than drawn: a line that just fits in the browser, which lays text out about
+        // TEXT_SHARE narrower, wrapped here. Measured again with that share of room.
+        if built.0 < w - TOLERANCE {
+            let room = (w * TEXT_SHARE).ceil() as f32;
+            built = measure::measure_stretched(&entry.meta, story, &args, theme, parent + room).main_box();
+        }
         let fills = (built.0 - f64::from(parent - 2.0 * MARGIN)).abs() <= TOLERANCE;
         let width_room = if fills { TOLERANCE } else { TOLERANCE.max(built.0 * TEXT_SHARE) };
         let mut said = Vec::new();
@@ -190,6 +221,12 @@ pub fn replay_with(json: &str, entries: &[Entry]) -> Result<Replay, String> {
         if !said.is_empty() {
             diverge(said.join("; "));
         }
+        out.measured.push(Measure {
+            element: label,
+            design: (w, h),
+            built: (round(built.0), round(built.1)),
+            height_skipped: container || fills_height,
+        });
     }
     Ok(out)
 }
