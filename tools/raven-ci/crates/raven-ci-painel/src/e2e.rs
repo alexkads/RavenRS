@@ -28,7 +28,7 @@ pub const PASSWORD: &str = "senha-do-teste-e2e";
 
 /// The scenarios the panel brings, one per file of `tests/e2e/`: the tool gets them when it opens
 /// the panel, and `tests/scenarios.rs` plays them.
-pub const SCENARIOS: [&str; 7] = [
+pub const SCENARIOS: [&str; 8] = [
     include_str!("../tests/e2e/entrar.raventest"),
     include_str!("../tests/e2e/build.raventest"),
     include_str!("../tests/e2e/disparar.raventest"),
@@ -36,6 +36,7 @@ pub const SCENARIOS: [&str; 7] = [
     include_str!("../tests/e2e/fila-motivo.raventest"),
     include_str!("../tests/e2e/plugins.raventest"),
     include_str!("../tests/e2e/plugin-recusado.raventest"),
+    include_str!("../tests/e2e/credenciais.raventest"),
 ];
 
 /// A plugin of the tests that puts a page in the menu (Travas, under Servidor) and a tab on the
@@ -295,6 +296,7 @@ pub fn server_with(folder: &Path, extra: Vec<Arc<dyn CiPlugin>>) -> Result<(Arc<
     ci.add_plugin(Arc::new(raven_ci_plugin_lock::LockPlugin::new()));
     ci.add_plugin(Arc::new(raven_ci_plugin_docker::DockerPlugin::new()));
     ci.add_plugin(Arc::new(raven_ci_plugin_api_trigger::ApiTriggerPlugin::new()));
+    ci.add_plugin(Arc::new(raven_ci_plugin_credentials::CredentialsPlugin));
     ci.add_plugin(Arc::new(Demonstracao));
     ci.add_plugin(Arc::new(Relatorios));
     for plugin in extra {
@@ -306,6 +308,15 @@ pub fn server_with(folder: &Path, extra: Vec<Arc<dyn CiPlugin>>) -> Result<(Arc<
     ci.apply_plugins().map_err(|e| failed(&e))?;
     // Docker is switched off: the build of imagens-base waits for it, and the panel says so.
     ci.disable_plugin("docker").map_err(|e| failed(&e))?;
+    // A credential a job names, for the grid of Credenciais (#922).
+    ci.save_credential(
+        "npm-feed",
+        "token",
+        &json!({ "token": "npm_demonstracao_123456" }),
+        Some("feed npm privado"),
+        None,
+    )
+    .map_err(|e| failed(&e))?;
     let users = users_file(folder);
     create_user(&users, "ana", PASSWORD, ROLE_READ).map_err(|e| failed(&e))?;
     create_user(&users, "bia", PASSWORD, ROLE_RUN).map_err(|e| failed(&e))?;

@@ -149,7 +149,9 @@ pub use publish::{
     Attachment, BuildEvent, BuildInfo, BuildStatus, CommitState, CommitStatus, NoticeWhen, Notifier,
     Publisher, StatusReporter,
 };
-pub use scm::{BranchSource, Checkout, CheckoutRequest, Head, HeadKind, Reference, Scm};
+pub use scm::{
+    BranchSource, Checkout, CheckoutRequest, Head, HeadKind, Reference, Scm, branch_chosen, wanted_branches,
+};
 #[cfg(feature = "serve")]
 pub use serve::{manifest, serve, serve_with};
 pub use settings::check_settings;

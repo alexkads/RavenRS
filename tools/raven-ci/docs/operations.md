@@ -58,8 +58,39 @@ then, copy the folder with the server stopped.
 ## Secrets
 
 Credentials are kept in the vault of the core (`ravenrs-secrets`): each one sealed by name, its
-fields never written in clear to the disk, never shown by the API or the panel (they list names
-and kinds only), and hidden in every log once a plugin reads them.
+fields never written in clear to the disk, never shown by the API or the panel (they list the
+name, the kind, what it is for and which jobs and plugins name it), and hidden in every log once
+a plugin or a step reads them.
+
+| Kind | Fields | For |
+|---|---|---|
+| `token` | `token` | a token of GitHub, a PAT of Azure DevOps, a feed |
+| `user-password` | `user`, `password` | a login; a step takes each field apart (`nome:user`) |
+| `ssh-key` | `private_key`, `passphrase` | a deploy key |
+| `arquivo` | `content` | Jenkins's "Secret file": a kubeconfig, an `.npmrc`, a certificate |
+
+Only administrators keep them, from any of three places, and each change goes to the audit
+(`pessoa:<nome>`) with who made it:
+
+- **The panel**: the page Credenciais, with the form that makes one, rotates one (the same name
+  again) or revokes one.
+- **The API**: `POST /api/ci/credentials` with `{"name", "kind", "description", "fields"}` (the
+  same name again rotates its value), `DELETE /api/ci/credentials?name=` and
+  `GET /api/ci/credentials`.
+- **The command line**, here or on another machine: the fields come on the standard input, never
+  in the words of the command.
+
+  ```bash
+  echo '{"token": "…"}' | raven-ci credencial criar npm-appogi --tipo token --descricao "feed npm" --servidor http://ci:8090
+  raven-ci credencial listar --servidor http://ci:8090
+  raven-ci credencial apagar npm-appogi --servidor http://ci:8090
+  ```
+
+  With `--servidor` (or `RAVEN_CI_SERVIDOR`) they use the API with the key in `RAVEN_CI_TOKEN`;
+  without, they open the folder of data of this machine, as before.
+
+A pipeline uses one by name: a plugin through its settings (`"credential": "github"`), and a
+command through `credentials` ([the pipeline](pipeline.md#credentials-in-a-step)).
 
 The key that opens the vault is, in this order:
 
@@ -90,6 +121,22 @@ settings = { min_free_gb = 10 }
 ```
 
 `url` is the address people reach the server at: the notices link to its panel.
+
+## Agents in containers
+
+`agent = { docker = {} }` needs the image of the agent (`pacote/docker/gerar-imagem-agente.sh`, on
+the machine of the engine) and the user `raven-ci` able to reach the engine: the group `docker`,
+which is worth root on the machine, or Podman with no root. See
+[In a container](agents.md#in-a-container-docker).
+
+## What runs on the machine
+
+The service of the RPM runs as `raven-ci`, with a private `/tmp` and `CPUWeight=50`/`IOWeight=50`
+instead of a `Nice`, so the builds see the machine's priority. Agents of another user need the
+drop-in `/usr/share/raven-ci/agentes-de-outro-usuario.conf` (`NoNewPrivileges=false`,
+`PrivateTmp=false`). Nothing a build starts outlives it: see
+[What a build leaves behind](agents.md#what-a-build-leaves-behind), with what runs in which user,
+`/tmp` and priority, and what stays after a restart.
 
 ## Watching it
 

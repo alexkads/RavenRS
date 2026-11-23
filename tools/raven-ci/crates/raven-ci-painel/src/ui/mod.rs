@@ -133,6 +133,12 @@ pub(crate) struct S {
     plugin_open: State<Option<String>>,
     sheet_open: State<bool>,
     admin_tab: State<usize>,
+    // The form of a credential (#922): its name, kind, description and the values of its kind.
+    cred_name: State<String>,
+    cred_kind: State<usize>,
+    cred_description: State<String>,
+    cred_first: State<String>,
+    cred_second: State<String>,
     new_user: State<String>,
     new_password: State<String>,
     new_role: State<usize>,
@@ -224,6 +230,11 @@ impl Painel {
             plugin_open: State::new(None),
             sheet_open: State::new(false),
             admin_tab: State::new(0),
+            cred_name: State::new(String::new()),
+            cred_kind: State::new(0),
+            cred_description: State::new(String::new()),
+            cred_first: State::new(String::new()),
+            cred_second: State::new(String::new()),
             new_user: State::new(String::new()),
             new_password: State::new(String::new()),
             new_role: State::new(2),
@@ -302,6 +313,25 @@ impl S {
     ) {
         let s = self.clone();
         self.client.send_json("POST", path, body, move |answer| {
+            match answer {
+                Ok((401, _)) => s.signed_in.set(false),
+                Ok((status, body)) => done(&s, status, body),
+                Err(why) => s.message.set(format!("O servidor não respondeu: {why}")),
+            }
+            s.wake();
+        });
+    }
+
+    /// Asks `path` with `method` and no body (a `DELETE`), and hands `done` the status and the
+    /// JSON, whatever the status.
+    pub(crate) fn ask(
+        self: &Rc<Self>,
+        method: &str,
+        path: &str,
+        done: impl FnOnce(&Rc<S>, u16, Json) + 'static,
+    ) {
+        let s = self.clone();
+        self.client.send_json(method, path, &Json::Null, move |answer| {
             match answer {
                 Ok((401, _)) => s.signed_in.set(false),
                 Ok((status, body)) => done(&s, status, body),

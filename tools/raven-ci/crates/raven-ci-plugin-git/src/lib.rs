@@ -25,6 +25,11 @@
 //!   is, and a value with no `:` is taken as a token. It travels as a header in `git`'s
 //!   environment, never as an argument nor in the remote's address, and the log hides it.
 //! - **The log** of the build says each thing done: cloning, fetching the pull request, merging.
+//! - **The pipeline from the repository**: the plugin is also a [`BranchSource`] `git` (see
+//!   [`branches`]), which lists the branches of any git server and reads a file of a branch with
+//!   `git` itself. A job of many branches says `branches = { id = "git", url = "…", branches =
+//!   ["*"] }`; a job of one branch says `pipeline_from = "scm"`, and the core reads its
+//!   `.raven-ci.toml` or `Jenkinsfile` from the tip of the branch when the build is asked for.
 //!
 //! # How to use it
 //!
@@ -36,9 +41,13 @@
 
 use std::sync::{Arc, Mutex, PoisonError};
 
-use raven_ci_plugin_api::{Checkout, CheckoutRequest, CiError, CiPlugin, Host, Permission, Reference, Scm};
+use raven_ci_plugin_api::{
+    BranchSource, Checkout, CheckoutRequest, CiError, CiPlugin, Host, Permission, Reference, Scm,
+};
 use ravenrs_app::{Module, ModuleManifest};
 use ravenrs_git::{CloneOptions, Credential, Git, GitError, Merge};
+
+pub mod branches;
 
 /// The name and e-mail of the merge commits Raven CI makes.
 pub const IDENTITY: (&str, &str) = ("Raven CI", "raven-ci@localhost");
@@ -47,6 +56,7 @@ pub const IDENTITY: (&str, &str) = ("Raven CI", "raven-ci@localhost");
 #[derive(Default)]
 pub struct GitPlugin {
     host: Arc<Mutex<Option<Arc<dyn Host>>>>,
+    busy: Arc<Mutex<()>>,
 }
 
 impl std::fmt::Debug for GitPlugin {
@@ -69,7 +79,7 @@ impl Module for GitPlugin {
 
     fn manifest(&self) -> ModuleManifest {
         let mut manifest = ModuleManifest::new().version(env!("CARGO_PKG_VERSION")).unwrap_or_default();
-        for permission in [Permission::Process, Permission::Network, Permission::Secrets] {
+        for permission in [Permission::Process, Permission::Network, Permission::Secrets, Permission::Disk] {
             manifest = manifest.capability(permission.capability());
         }
         manifest
@@ -78,7 +88,7 @@ impl Module for GitPlugin {
 
 impl CiPlugin for GitPlugin {
     fn summary(&self) -> String {
-        "Busca o código do build: uma branch, um commit ou o PR mesclado no destino.".to_owned()
+        "Busca o código do build (uma branch, um commit ou o PR mesclado no destino) e lê o pipeline e as branches de qualquer servidor git.".to_owned()
     }
 
     fn start(&self, host: Arc<dyn Host>) -> Result<(), CiError> {
@@ -94,6 +104,10 @@ impl CiPlugin for GitPlugin {
     fn scms(&self) -> Vec<Arc<dyn Scm>> {
         vec![Arc::new(GitScm { host: self.host.clone() })]
     }
+
+    fn branch_sources(&self) -> Vec<Arc<dyn BranchSource>> {
+        vec![Arc::new(branches::GitBranches { host: self.host.clone(), busy: self.busy.clone() })]
+    }
 }
 
 /// The [`Scm`] `git`. See the [crate](crate).
@@ -101,9 +115,15 @@ struct GitScm {
     host: Arc<Mutex<Option<Arc<dyn Host>>>>,
 }
 
-/// A failure of `git`, in words for the build.
+/// A failure of `git`, in words for the build. A machine (or the image of an agent) with no
+/// `git` is told what to do about it.
 fn said(e: GitError) -> CiError {
-    CiError::failed(e.to_string())
+    match e {
+        GitError::NotInstalled(program) => CiError::failed(format!(
+            "não há {program} nesta máquina: instale o git, ou use a imagem do agente do Raven CI, que já o traz"
+        )),
+        other => CiError::failed(other.to_string()),
+    }
 }
 
 impl GitScm {

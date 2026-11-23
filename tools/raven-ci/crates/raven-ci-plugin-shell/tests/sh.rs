@@ -57,7 +57,7 @@ fn flow(node: NodeDef) -> FlowDefinition {
 
 fn run_in(build: &Build, node: NodeDef, token: Option<CancelToken>) -> Run {
     let mut catalog = Catalog::builtin();
-    catalog.add(Sh);
+    catalog.add(Sh::default());
     let flow = flow(node);
     let plan = Plan::compile(&flow, &catalog).expect("compiles");
     let mut executor = Executor::new(&plan, &catalog).run_id(build.run.clone());
@@ -159,7 +159,7 @@ fn the_server_environment_does_not_reach_the_command() {
 #[test]
 fn a_step_outside_a_build_fails_saying_so() {
     let mut catalog = Catalog::builtin();
-    catalog.add(Sh);
+    catalog.add(Sh::default());
     let flow = flow(sh("echo oi"));
     let plan = Plan::compile(&flow, &catalog).expect("compiles");
     let run = Executor::new(&plan, &catalog).run();

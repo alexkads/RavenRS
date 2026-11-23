@@ -15,13 +15,15 @@ a `Jenkinsfile`, what has no counterpart, and how to switch without a day with n
 | agent, node, executor | `raven-ci-agent` ([Build agents](agents.md)), or the executors of the server itself (`--executores N`) |
 | label of a node | `agent = { label = "linux" }` on the pipeline, `--rotulos linux` on the agent |
 | cloud of agents (Docker, Kubernetes) | `agent = { docker = { … } }` and `agent = { kubernetes = { … } }`, one container or pod per build |
-| multibranch pipeline | a job with `branches` (plugin `github`): one job per branch and per pull request, each with the pipeline of its own head, built merged onto its target |
+| multibranch pipeline | a job with `branches`: one job per branch (and per pull request), each with the pipeline of its own head. `branches = { id = "github" }` knows the pull requests and builds them merged onto their target; `branches = { id = "git" }` works on any git server ([Reading the pipeline from the repository](pipeline.md#reading-the-pipeline-from-the-repository)) |
+| "Pipeline script from SCM" | `pipeline_from = "scm"` in the job's settings, with `scm.file = "Jenkinsfile"` (or `.raven-ci.toml`): the file is read from the tip of the branch at every build |
 | GitHub Branch Source, status on the commit | the plugins `github` (branches and status) and `git` (fetching) |
 | Azure DevOps | the plugin `azure-devops`: fetching with a PAT and the status on the pull request |
 | `triggers { cron(…) }`, `pollSCM(…)` | in the job's `triggers`: `{"id": "cron", "schedule": "0 3 * * *", "zone": "America/Sao_Paulo"}` or `{"id": "cron", "every": "1h"}`; `{"id": "poll", "url": "…", "branch": "main", "every": "5m"}`; and, for a job of many branches, `{"id": "scan", "every": "5m"}`. The converter lists the `cron` and `pollSCM` of a `Jenkinsfile` with the line to put on the job |
 | GitHub webhook | `{"id": "github-webhook", …}` on the job and the webhook pointed at `/hooks/github` |
 | "Build with Parameters", remote API | `POST /api/ci/run`, the panel's Disparar, `raven-ci rodar JOB --param NOME=VALOR` |
-| credentials | the vault: `raven-ci credencial criar NOME --tipo token\|user-password\|ssh-key` |
+| credentials (with their description) | the vault: the page Credenciais of the panel, `POST /api/ci/credentials`, or `raven-ci credencial criar NOME --tipo token\|user-password\|ssh-key\|arquivo [--servidor URL]` |
+| `withCredentials([string(…), usernamePassword(…), file(…), sshUserPrivateKey(…)])` | `credentials = { VAR = "nome", USER = "nome:user", ARQUIVO = { file = "nome" } }` on the stage or the step; the converter writes it |
 | `junit`, `archiveArtifacts` | `junit = [...]` and `artifacts = [...]` in the pipeline |
 | `post { always / success / failure / cleanup }` | `[post]` with `always`, `success`, `failure`; `cleanup` joins `always`, after its steps |
 | `lock(…)` (Lockable Resources) | `lock = "nome"` on a stage |
@@ -48,7 +50,7 @@ with its line in the `Jenkinsfile`:
 | (converted) | the same thing in the TOML | `stage`, `sh`, `when { branch }`, `parameters`, `post` |
 | `aviso` | converted, with a difference worth knowing | the `timeout` of a stage becomes the limit of each of its steps |
 | `ignorado` | left out because Raven CI does it alone, or it belongs elsewhere | `checkout scm`, `cleanWs()`, `timestamps()`, `triggers` (they go on the job) |
-| `não convertido` | no counterpart: the pipeline would not do the same without it | `script { }`, `withCredentials`, `bat`, `input`, `${currentBuild.number}` |
+| `não convertido` | no counterpart: the pipeline would not do the same without it | `script { }`, `bat`, `input`, `${currentBuild.number}` |
 
 The command exits with 0 when everything was converted and 1 when something was not, so a script
 can tell. Nothing is guessed: a part not converted is listed, never rewritten into something that
@@ -63,7 +65,6 @@ its line: a pipeline never runs with a part missing.
 | Jenkins | Why there is none | Instead |
 |---|---|---|
 | `script { }`, scripted pipelines (`node { }`), shared libraries, a `def` function of the file | a pipeline is a description, not a program | move the logic into a script of the repository that a `sh` runs; the converter names each `def` at its line |
-| `withCredentials` | secrets are not bound by hand | keep the secret in the vault; the plugin that needs it reads it by name, and every log hides it |
 | `bat`, `powershell` | there is one kind of command | `sh` runs in `cmd` on Windows |
 | `input` | a build never stops waiting for someone | split the pipeline in two jobs, the second started by a person |
 | `parallel` running at once | the branches run one after the other today | split the work in two jobs, or keep it in one stage |

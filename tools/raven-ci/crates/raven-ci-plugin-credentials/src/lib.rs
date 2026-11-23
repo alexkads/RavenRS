@@ -4,13 +4,18 @@
 //!
 //! The core keeps credentials sealed in its vault by name; what a credential holds depends on its
 //! kind, and so does what a plugin gets when it asks for it and what a log must hide. This plugin
-//! brings the three kinds the reference pipelines need:
+//! brings the four kinds the reference pipelines need:
 //!
 //! | Kind | Fields | What `Host::secret` gives | Hidden in a log |
 //! |---|---|---|---|
 //! | `token` | `token` | the token | the token |
 //! | `user-password` | `user`, `password` | `user:password`, as `ravenrs-git` and HTTP basic take it | the password and `user:password` |
 //! | `ssh-key` | `private_key`, `passphrase` | the private key | the key, each of its lines, and the passphrase |
+//! | `arquivo` | `content` | the content | the content and each of its lines |
+//!
+//! An `arquivo` is Jenkins's "Secret file": a kubeconfig, an `.npmrc`, a certificate. A step takes
+//! it with `credentials = { NPMRC = { file = "npmrc" } }`: the content goes to a file only its
+//! owner reads, for that step only, and the variable holds its path (see the plugin `shell`).
 //!
 //! # How to use it
 //!
@@ -45,11 +50,11 @@ impl Module for CredentialsPlugin {
 
 impl CiPlugin for CredentialsPlugin {
     fn summary(&self) -> String {
-        "Os tipos de credencial: token, usuário e senha, e chave SSH.".to_owned()
+        "Os tipos de credencial: token, usuário e senha, chave SSH e arquivo secreto.".to_owned()
     }
 
     fn credential_kinds(&self) -> Vec<Arc<dyn CredentialKind>> {
-        vec![Arc::new(Token), Arc::new(UserPassword), Arc::new(SshKey)]
+        vec![Arc::new(Token), Arc::new(UserPassword), Arc::new(SshKey), Arc::new(SecretFile)]
     }
 }
 
@@ -134,15 +139,48 @@ impl CredentialKind for SshKey {
 
     fn hidden(&self, credential: &Value) -> Vec<String> {
         let key = text(credential, "private_key");
-        // A key leaks line by line as often as whole: each line long enough to tell is hidden too.
-        let mut hidden: Vec<String> = key
-            .lines()
-            .map(str::trim)
-            .filter(|line| line.len() >= 16 && !line.starts_with("-----"))
-            .map(str::to_owned)
-            .collect();
+        let mut hidden: Vec<String> = telling_lines(key).collect();
         hidden.push(key.to_owned());
         hidden.push(text(credential, "passphrase").to_owned());
         hidden
+    }
+}
+
+/// Lines of a secret long enough to tell, hidden one by one: a secret leaks line by line as often
+/// as whole.
+fn telling_lines(text: &str) -> impl Iterator<Item = String> + '_ {
+    text.lines()
+        .map(str::trim)
+        .filter(|line| line.len() >= 16 && !line.starts_with("-----"))
+        .map(str::to_owned)
+}
+
+/// A secret file: a kubeconfig, an `.npmrc`, a certificate.
+struct SecretFile;
+
+impl CredentialKind for SecretFile {
+    fn id(&self) -> &str {
+        "arquivo"
+    }
+
+    fn caption(&self) -> String {
+        "Arquivo secreto".to_owned()
+    }
+
+    fn fields(&self) -> EntityInfo {
+        EntityInfo::new("SecretFile")
+            .field(secret("content", FieldKind::LongText))
+            .rule(Rule::required("content"))
+    }
+
+    fn hidden(&self, credential: &Value) -> Vec<String> {
+        let content = text(credential, "content");
+        let mut hidden: Vec<String> = telling_lines(content).collect();
+        hidden.push(content.to_owned());
+        hidden
+    }
+
+    fn secret(&self, credential: &Value) -> String {
+        text(credential, "content").to_owned()
     }
 }

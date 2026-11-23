@@ -69,7 +69,7 @@ neither a token nor a key refuses to start, saying so. It connects by itself, an
 
 ```toml
 [pipeline]
-agent = { label = "linux" }   # or "any", { docker = { image = "rust:1" } }
+agent = { label = "linux" }   # or "any", { docker = {} }, { docker = { image = "minha-imagem" } }
 ```
 
 - With a label, the build leaves the queue only for an agent with that label. The server's own
@@ -80,7 +80,12 @@ agent = { label = "linux" }   # or "any", { docker = { image = "rust:1" } }
   asks its launcher to bring an agent up, with a token used once. An agent a template brought up
   that stays idle past the template's time is taken down.
 - `{ docker = {…} }` and `{ kubernetes = {…} }` name a launcher themselves: it brings up an agent
-  for that build only, with the label `build:<job>#<number>`, taken down when the build ends.
+  for that build only, with the label `build:<job>#<number>`, taken down when the build ends,
+  with its key revoked and its name out of the list.
+- An agent brought up for a build that dies before coming in says why in the build's log (its
+  exit code and last lines): `o agente docker-3-ab12cd não subiu (tentativa 1 de 3): o contêiner
+  saiu com o código 1: … GLIBC_2.44 not found`. After 3 in a row (`tentativas` in the launcher's
+  settings) the build ends as failed with that reason, instead of waiting in the queue.
 
 ```text
 raven-ci agentes modelo local --lancador agent-local --rotulos local,linux --executores 2 --ocioso 10
@@ -167,15 +172,56 @@ raven-ci servir --executores 0
   ```
 
   The service of the RPM runs with `NoNewPrivileges=true`, and with it `sudo` cannot switch the
-  user: the launch is refused saying so. To have agents of another user, switch it off with a
-  drop-in (`sudo systemctl edit raven-ci`):
+  user: the launch is refused saying so. To have agents of another user, the RPM brings a drop-in
+  that switches it off, and the private `/tmp` with it:
+
+  ```bash
+  sudo mkdir -p /etc/systemd/system/raven-ci.service.d
+  sudo cp /usr/share/raven-ci/agentes-de-outro-usuario.conf /etc/systemd/system/raven-ci.service.d/
+  sudo systemctl daemon-reload && sudo systemctl restart raven-ci
+  ```
 
   ```ini
   [Service]
   NoNewPrivileges=false
+  PrivateTmp=false
   ```
 
+  Why `PrivateTmp=false`: see [What a build leaves behind](#what-a-build-leaves-behind).
+
   On Windows a user of its own is not done yet, and the launch is refused saying so.
+
+### In a container: `docker`
+
+`agent = { docker = {} }` runs the build in a container of its own, with the agent in it.
+
+- **The image** is `raven-ci-agente:latest`, the agent's own: Fedora with the RPM of Raven CI, `git`
+  (the agent fetches the code) and the user `agente`, not root. Make it on the machine of the
+  docker the server uses, after `pacote/gerar-rpm.sh`:
+
+  ```bash
+  tools/raven-ci/pacote/docker/gerar-imagem-agente.sh
+  ```
+
+  A build that needs more tools makes an image `FROM raven-ci-agente:latest` and names it:
+  `{ docker = { image = "raven-ci-agente-node:24" } }`. Any other image needs `agent_binary`, a
+  `raven-ci-agent` of Linux on the engine's machine built for the C library of that image: the
+  agent of the RPM is built on Fedora 45 (glibc 2.44) and does not run on Debian 12 (2.36).
+- **The way to the server.** The RPM's server listens on `127.0.0.1:8090`, which a container on
+  docker's own network does not reach. On Linux the launcher then gives the container the host's
+  network (`--network host`); on Docker Desktop it tells the agent `host.docker.internal` in place
+  of `127.0.0.1`. A server that listens on another address keeps docker's network; `network = "…"`
+  or `--network` in `args` choose one.
+- **The access to the engine.** The user of the service (`raven-ci`) has to reach the engine.
+  With Docker, that is the group `docker` (`sudo usermod -aG docker raven-ci`, then restart the
+  service), **and the group `docker` is worth root on the machine**: whoever runs builds may then
+  mount `/` in a container. Podman with no root, as the user `raven-ci`, does not give that: install
+  `podman` and the plugin finds it when there is no `docker`.
+- **Settings:** `image`, `agent_binary`, `network`, `args` (more words for `docker run`),
+  `executors`, `timeout_s` (taken down past it) and `tentativas`.
+- **When it dies**, the container is still there for its last words (it does not run with
+  `--rm`), and it is removed right after. No container with the label `raven-ci.agent` outlives
+  its build, passed, failed or cancelled.
 
 ### On another machine: `agent-remote`
 
@@ -192,6 +238,44 @@ raven-ci agentes modelo mac --lancador agent-remote --rotulos mac \
 - `chave`: the name of a credential `ssh-key` of the vault; without it, the server's user's own
   keys. The key goes to a file readable only by its owner and is removed when the agent stops.
 - `ssh`: the program; `ssh` by default, which Linux, macOS and Windows 10+ have.
+
+## What a build leaves behind
+
+Nothing a build starts outlives it, on the server or on an agent:
+
+- **The processes of a step.** Each `sh` runs in a process group of its own. When the command
+  ends, what it left running in the background (`sleep 600 &`, the server of `sccache` a
+  `cargo build` started) is stopped at once, and the log names it: `o comando deixou 1
+  processo(s) rodando (sccache); parados`. A step with `keep_daemons = true` keeps them, and the
+  log says so. A daemon that leaves the group itself (`setsid`) is not reached; on Linux, a
+  template with limits (A-04) holds the agent in a cgroup of its own.
+- **The containers and pods** of `docker` and `kubernetes`, by their label.
+- **The folder** of the build and the secret files of its steps (`<pasta>.segredos`), at its end.
+
+What runs where, on the server of the RPM:
+
+| What | Its user | Its mount namespace and `/tmp` | Its CPU priority |
+|---|---|---|---|
+| the server | `raven-ci` | the service's: a private `/tmp` (`PrivateTmp=true`) | `CPUWeight=50`, `IOWeight=50`: a smaller share of the machine, with the nice of the machine (0) |
+| a build on the server's own executors | `raven-ci` | the service's | the server's |
+| an agent of `agent-local` with no `usuario` | `raven-ci` | the service's | the server's |
+| an agent of `agent-local` with `usuario` | that user, through `sudo` | the service's, unless the drop-in above switches `PrivateTmp` off | nice 0 |
+| an agent of `agent-remote`, or one started by hand | its own | its machine's | its own |
+
+The private `/tmp` matters when a tool of the machine keeps something there for everyone: the
+server of `sccache` (port 4226) is one per user, shared by Jenkins, scripts and Raven CI. Started
+by a build in the service's `/tmp`, it kept that `/tmp` after the service restarted, and every
+user of `sccache` failed with `Failed to create temp dir` until `sccache --stop-server` (#931).
+Now the step stops the server it started; and with the drop-in, a build sees the machine's `/tmp`,
+as on a node of Jenkins.
+
+The service used to say `Nice=10`, and every build inherited it: `nice -n 10` in a step gave 19,
+and a test that checks its own priority failed where Jenkins passed. The weights protect the
+machine by the cgroup instead, and a step sees the nice of the machine.
+
+After `systemctl restart raven-ci`: the server and the agents of `agent-local` it started stop
+(the agents are taken down with what they started); a build that was running is interrupted and
+taken up again by the next agent of its label; nothing of it stays running.
 
 ## Limits
 

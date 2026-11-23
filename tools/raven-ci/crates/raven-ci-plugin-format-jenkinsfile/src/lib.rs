@@ -16,7 +16,7 @@
 //!   interpolation. `script { }` and `expression { }` are kept as text, unread.
 //! - **Converting** writes the `.raven-ci.toml`. Every part ends converted, **ignored** (Raven CI
 //!   does it alone, like `checkout scm`, or it belongs to the job, like `triggers`), or **not
-//!   converted** (Groovy code, `withCredentials`, steps with no counterpart). A part converted
+//!   converted** (Groovy code, steps with no counterpart). A part converted
 //!   with a difference, like the `timeout` of a stage that becomes the limit of each step, is a
 //!   **warning**. Every note goes in comments at the start of the TOML, with the line in the
 //!   `Jenkinsfile`.

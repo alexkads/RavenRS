@@ -61,6 +61,16 @@ impl BuildContext {
     pub fn head(&self) -> &str {
         self.job.rsplit('/').next().unwrap_or(&self.job)
     }
+
+    /// Where the secret files of the build's steps go while each step runs: beside its folder,
+    /// `<pasta>.segredos`, never in it, so an `artifacts` glob, a `git clean` or a workspace kept
+    /// by `workspace.keep` never has them. The core removes it when the build ends, however it
+    /// ended, and the step that wrote a file removes it when the step ends.
+    pub fn secrets_dir(&self) -> PathBuf {
+        let mut name = self.workspace.as_os_str().to_owned();
+        name.push(".segredos");
+        PathBuf::from(name)
+    }
 }
 
 /// Where the lines of a build's log go. The core's log hides every secret before it keeps a

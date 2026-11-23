@@ -1,5 +1,29 @@
 [
   {
+    "versao": "0.1.5",
+    "data": "2026-11-23",
+    "titulo": "O Raven CI já faz o que faltava para trocar o Jenkins.",
+    "importante": false,
+    "novidades": [
+      "O pipeline vem do próprio repositório, em qualquer servidor git: um job de muitas branches com branches = { id = \"git\" } e um job de uma branch com pipeline_from = \"scm\", lendo o .raven-ci.toml ou o Jenkinsfile, como o \"Pipeline script from SCM\".",
+      "Um passo sh recebe credenciais do cofre como variáveis (credentials = { TOKEN = \"nome\" }), um campo delas (\"nome:user\") ou um arquivo secreto ({ file = \"nome\" }), com o log escondendo o valor; o conversor transforma o withCredentials do Jenkinsfile.",
+      "O cofre se cuida de qualquer lugar: a página Credenciais cria, gira e apaga; a API tem POST e DELETE; e raven-ci credencial aceita --servidor. Cada mudança entra na auditoria, e a lista diz para que serve cada credencial e quem a usa. Novo tipo: arquivo secreto.",
+      "Nada de um build fica vivo depois dele: o que um comando deixa rodando (um sleep &, o servidor do sccache) é parado quando o passo acaba, e o log diz o quê; keep_daemons = true o deixa.",
+      "O serviço do RPM protege a máquina por peso de CPU e disco, não mais por Nice=10, que mudava o resultado de testes; o drop-in agentes-de-outro-usuario.conf tira o /tmp privado dos agentes de outro usuário.",
+      "O agente em contêiner funciona com o RPM: imagem própria do agente (com git e sem root), rede até o servidor que escuta só no loopback, o motivo de um agente que morre no log do build e, depois de 3 tentativas, o build falha em vez de ficar na fila."
+    ],
+    "por_que_atualizar": "Para rodar os pipelines do Jenkins como estão, com o pipeline e os segredos de cada repositório, sem um build quebrar o sccache ou o nice da máquina.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      922,
+      928,
+      931,
+      934
+    ]
+  },
+  {
     "versao": "0.1.4",
     "data": "2026-11-22",
     "titulo": "O painel do Raven CI fica como o design aprovado.",

@@ -21,10 +21,11 @@ pub const USAGE: &str = "uso: raven-ci [--dados PASTA] [--plugins PASTA]… [--f
   servir ... --painel PASTA   serve o painel do navegador em /painel/
   usuario criar NOME [--papel Executores|Leitores|Administradores]
                           cria quem pode entrar; a senha vem na entrada
-  credencial criar NOME --tipo token|user-password|ssh-key
-                          guarda no cofre; os campos vêm em JSON na entrada
-  credencial listar       as credenciais, sem os valores
+  credencial criar NOME --tipo token|user-password|ssh-key|arquivo [--descricao TEXTO]
+                          guarda no cofre (ou gira); os campos vêm em JSON na entrada
+  credencial listar       as credenciais, sem os valores, e quem as usa
   credencial apagar NOME  revoga e apaga
+                          (os três vão ao servidor com --servidor URL ou RAVEN_CI_SERVIDOR)
   rodar JOB [--param NOME=VALOR]... [--prioridade N] [--esperar]
                           pede um build ao servidor; --esperar segue o log até o fim
   status JOB [NUMERO]     o build (o último, sem número): estado, etapas e anexos
@@ -178,11 +179,12 @@ impl Invocation {
                 crate::server::create_user(&self.data, name, args, &mut stdin.lock(), out)
             }
             ["credencial", "criar", name, args @ ..] => {
-                let Some(kind) = args.iter().position(|a| *a == "--tipo").and_then(|at| args.get(at + 1))
-                else {
-                    write(out, "diga o tipo: --tipo token, user-password ou ssh-key\n")?;
+                let flag = |name: &str| args.iter().position(|a| *a == name).and_then(|at| args.get(at + 1));
+                let Some(kind) = flag("--tipo") else {
+                    write(out, "diga o tipo: --tipo token, user-password, ssh-key ou arquivo\n")?;
                     return Ok(2);
                 };
+                let description = flag("--descricao").copied();
                 let mut text = String::new();
                 std::io::Read::read_to_string(&mut std::io::stdin(), &mut text)
                     .map_err(|e| CiError::failed(e.to_string()))?;
@@ -193,7 +195,13 @@ impl Invocation {
                     )?;
                     return Ok(2);
                 };
-                match ci.save_credential(name, kind, &fields, std::env::var("USER").ok().as_deref()) {
+                match ci.save_credential(
+                    name,
+                    kind,
+                    &fields,
+                    description,
+                    std::env::var("USER").ok().as_deref(),
+                ) {
                     Ok(()) => {
                         write(out, &format!("{name}: guardada no cofre, do tipo {kind}\n"))?;
                         Ok(0)
@@ -212,21 +220,36 @@ impl Invocation {
                     write(out, "nenhuma credencial\n")?;
                 } else {
                     for credential in &list {
-                        write(out, &format!("{:<24}{}\n", credential.name, credential.kind))?;
+                        let used = if credential.used_by.is_empty() {
+                            String::new()
+                        } else {
+                            format!("  usada por: {}", credential.used_by.join(", "))
+                        };
+                        write(
+                            out,
+                            &format!(
+                                "{:<24}{:<16}{}{used}\n",
+                                credential.name,
+                                credential.kind,
+                                credential.description.as_deref().unwrap_or_default()
+                            ),
+                        )?;
                     }
                 }
                 Ok(0)
             }
-            ["credencial", "apagar", name] => match ci.delete_credential(name) {
-                Ok(()) => {
-                    write(out, &format!("{name}: revogada e apagada\n"))?;
-                    Ok(0)
+            ["credencial", "apagar", name] => {
+                match ci.delete_credential(name, std::env::var("USER").ok().as_deref()) {
+                    Ok(()) => {
+                        write(out, &format!("{name}: revogada e apagada\n"))?;
+                        Ok(0)
+                    }
+                    Err(why) => {
+                        write(out, &format!("{why}\n"))?;
+                        Ok(2)
+                    }
                 }
-                Err(why) => {
-                    write(out, &format!("{why}\n"))?;
-                    Ok(2)
-                }
-            },
+            }
             ["credencial", ..] => {
                 write(out, &format!("{USAGE}\n"))?;
                 Ok(2)

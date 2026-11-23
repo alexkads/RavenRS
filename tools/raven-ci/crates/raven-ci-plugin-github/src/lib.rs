@@ -32,7 +32,7 @@ use std::time::Duration;
 
 use raven_ci_plugin_api::{
     BranchSource, CiError, CiPlugin, CommitState, CommitStatus, Head, HeadKind, Host, Permission,
-    StatusReporter,
+    StatusReporter, branch_chosen, wanted_branches,
 };
 use ravenrs_app::{Module, ModuleManifest};
 use serde_json::{Value, json};
@@ -209,22 +209,6 @@ fn said(status: u16, body: &str) -> CiError {
     CiError::failed(format!("o GitHub respondeu {status}: {message}"))
 }
 
-/// Whether `name` is one of `patterns`, where a pattern ending in `*` takes what starts with it.
-fn chosen(name: &str, patterns: &[String]) -> bool {
-    patterns.iter().any(|pattern| match pattern.strip_suffix('*') {
-        Some(prefix) => name.starts_with(prefix),
-        None => name == pattern,
-    })
-}
-
-fn patterns(settings: &Value) -> Vec<String> {
-    match settings.get("branches") {
-        Some(Value::String(one)) => vec![one.clone()],
-        Some(Value::Array(many)) => many.iter().filter_map(Value::as_str).map(str::to_owned).collect(),
-        _ => vec!["main".to_owned()],
-    }
-}
-
 impl BranchSource for Github {
     fn id(&self) -> &str {
         "github"
@@ -232,12 +216,12 @@ impl BranchSource for Github {
 
     fn discover(&self, settings: &Value) -> Result<Vec<Head>, CiError> {
         let client = self.client(settings)?;
-        let wanted = patterns(settings);
+        let wanted = wanted_branches(settings);
         let mut heads = Vec::new();
         for branch in client.list("/branches")? {
             let name = branch.get("name").and_then(Value::as_str).unwrap_or_default();
             let commit = branch.pointer("/commit/sha").and_then(Value::as_str).unwrap_or_default();
-            if !name.is_empty() && !commit.is_empty() && chosen(name, &wanted) {
+            if !name.is_empty() && !commit.is_empty() && branch_chosen(name, &wanted) {
                 heads.push(Head { name: name.to_owned(), kind: HeadKind::Branch, commit: commit.to_owned() });
             }
         }

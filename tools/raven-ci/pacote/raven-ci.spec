@@ -13,6 +13,7 @@ Source2:        raven-ci.service
 Source3:        raven-ci.sysusers
 Source4:        painel.tar
 Source5:        README.md
+Source6:        agentes-de-outro-usuario.conf
 ExclusiveArch:  x86_64
 
 BuildRequires:  systemd-rpm-macros
@@ -44,9 +45,11 @@ install -Dpm 0755 %{SOURCE1} %{buildroot}%{_bindir}/raven-ci-agent
 install -Dpm 0644 %{SOURCE2} %{buildroot}%{_unitdir}/raven-ci.service
 install -Dpm 0644 %{SOURCE3} %{buildroot}%{_sysusersdir}/raven-ci.conf
 install -dm 0755 %{buildroot}%{_datadir}/raven-ci/painel
+%{_datadir}/raven-ci/agentes-de-outro-usuario.conf
 tar -xf %{SOURCE4} -C %{buildroot}%{_datadir}/raven-ci/painel
 install -dm 0750 %{buildroot}%{_sharedstatedir}/raven-ci
 install -Dpm 0644 %{SOURCE5} %{buildroot}%{_docdir}/%{name}/README.md
+install -Dpm 0644 %{SOURCE6} %{buildroot}%{_datadir}/raven-ci/agentes-de-outro-usuario.conf
 
 %pre
 %sysusers_create_compat %{SOURCE3}
@@ -74,5 +77,8 @@ fi
 %doc %{_docdir}/%{name}/README.md
 
 %changelog
+* Mon Nov 23 2026 Alex <alexkads@users.noreply.github.com> - 0.1.5-1
+- CPUWeight and IOWeight in place of Nice=10; the drop-in agentes-de-outro-usuario.conf
+
 * Sun Nov 22 2026 Alex <alexkads@users.noreply.github.com> - 0.1.3-1
 - First package: the server as a service, the agent and the panel for the browser

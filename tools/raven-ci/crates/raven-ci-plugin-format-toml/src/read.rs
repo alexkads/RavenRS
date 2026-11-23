@@ -6,7 +6,7 @@ use std::ops::Range;
 use raven_ci_plugin_api::{FormatError, PLUGIN_KEY, Pipeline, PostSteps, PostWhen, STAGE_KEY, Use};
 use ravenrs_app::{EnumOption, FieldInfo, FieldKind};
 use ravenrs_flows::{FlowDefinition, NodeDef, Retry};
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 use toml::Spanned;
 use toml::de::{DeTable, DeValue};
 
@@ -16,9 +16,11 @@ type Node<'i> = Spanned<DeValue<'i>>;
 const TOP: &[&str] = &["pipeline", "environment", "parameters", "stages", "post", "artifacts", "junit"];
 const PIPELINE: &[&str] = &["timeout", "keep", "agent"];
 const STAGE: &[&str] =
-    &["name", "steps", "parallel", "when", "timeout", "retry", "lock", "nice", "container"];
+    &["name", "steps", "parallel", "when", "timeout", "retry", "lock", "nice", "container", "credentials"];
 const WHEN: &[&str] = &["branch", "pull_request", "parameter"];
-const STEP: &[&str] = &["sh", "cargo", "uses", "with", "name", "timeout", "retry", "nice"];
+const STEP: &[&str] =
+    &["sh", "cargo", "uses", "with", "name", "timeout", "retry", "nice", "credentials", "keep_daemons"];
+const CREDENTIAL_FILE: &[&str] = &["file", "name"];
 const PARAMETER: &[&str] = &["name", "type", "default", "description", "choices"];
 const BRANCH: &[&str] = &["name", "steps"];
 const CONTAINER: &[&str] = &["image", "args", "env"];
@@ -32,6 +34,8 @@ struct StageOptions {
     retry: Option<u32>,
     nice: Option<i64>,
     container: Option<Value>,
+    /// The credentials of every `sh` of the stage, by variable (#922).
+    credentials: Map<String, Value>,
     disabled: bool,
 }
 
@@ -118,6 +122,49 @@ impl Reader<'_> {
                 None
             }
         }
+    }
+
+    /// `credentials = { TOKEN = "nome", USUARIO = "nome:user", ARQUIVO = { file = "nome", name =
+    /// ".npmrc" } }`: the variables of a step and the credentials of the vault they get.
+    fn credentials(&mut self, node: &Node<'_>) -> Map<String, Value> {
+        let mut out = Map::new();
+        let Some(table) = self.table(node, "credentials") else { return out };
+        for (key, value) in table.iter() {
+            let name: &str = key.get_ref().as_ref();
+            let fine = name.chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+                && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+            if !fine {
+                self.error(
+                    &key.span(),
+                    format!("credentials: {name:?} não é nome de variável (letras, números e _)"),
+                );
+                continue;
+            }
+            match value.get_ref() {
+                DeValue::String(credential) if !credential.trim().is_empty() => {
+                    out.insert(name.to_owned(), json!(credential.to_string()));
+                }
+                DeValue::Table(file) => {
+                    let fields = self.fields(file, CREDENTIAL_FILE, "um arquivo de credencial");
+                    match fields.get("file").and_then(|f| self.text(f, "file")) {
+                        Some(credential) => {
+                            let mut entry = Map::new();
+                            entry.insert("file".to_owned(), json!(credential));
+                            if let Some(file_name) = fields.get("name").and_then(|n| self.text(n, "name")) {
+                                entry.insert("name".to_owned(), json!(file_name));
+                            }
+                            out.insert(name.to_owned(), Value::Object(entry));
+                        }
+                        None => self.error(&value.span(), format!("credentials.{name}: diga file = \"nome\"")),
+                    }
+                }
+                _ => self.error(
+                    &value.span(),
+                    format!("credentials.{name}: o nome da credencial (\"nome\" ou \"nome:campo\") ou {{ file = \"nome\" }}"),
+                ),
+            }
+        }
+        out
     }
 
     fn duration(&mut self, node: &Node<'_>, what: &str) -> Option<u64> {
@@ -290,6 +337,30 @@ impl Read<'_> {
                 if let Some(level) = fields.get("nice").and_then(|n| self.reader.integer(n, "nice")) {
                     def = def.parameter("nice", json!(level));
                 }
+                if let Some(keep) =
+                    fields.get("keep_daemons").and_then(|k| self.reader.boolean(k, "keep_daemons"))
+                {
+                    if def.kind == "sh" {
+                        def = def.parameter("keep_daemons", json!(keep));
+                    } else {
+                        self.reader
+                            .error(&fields["keep_daemons"].span(), "keep_daemons só vale num passo sh");
+                    }
+                }
+                if let Some(credentials) = fields.get("credentials") {
+                    let own = self.reader.credentials(credentials);
+                    if def.kind == "sh" {
+                        let mut all = match def.parameters.get("credentials") {
+                            Some(Value::Object(stage)) => stage.clone(),
+                            _ => Map::new(),
+                        };
+                        all.extend(own);
+                        def = def.parameter("credentials", Value::Object(all));
+                    } else {
+                        self.reader
+                            .error(&credentials.span(), "credentials só vale num passo sh, por enquanto");
+                    }
+                }
                 def
             }
             _ => {
@@ -325,6 +396,9 @@ impl Read<'_> {
         if let Some(level) = options.nice {
             def = def.parameter("nice", json!(level));
         }
+        if !options.credentials.is_empty() && options.container.is_none() {
+            def = def.parameter("credentials", Value::Object(options.credentials.clone()));
+        }
         def
     }
 
@@ -358,6 +432,13 @@ impl Read<'_> {
             .and_then(|r| self.reader.integer(r, "retry"))
             .map(|n| u32::try_from(n.max(0)).unwrap_or(0));
         options.nice = fields.get("nice").and_then(|n| self.reader.integer(n, "nice"));
+        if let Some(credentials) = fields.get("credentials") {
+            options.credentials = self.reader.credentials(credentials);
+            if fields.contains_key("container") {
+                self.reader
+                    .error(&credentials.span(), "credentials ainda não vale num estágio com container");
+            }
+        }
         if let Some(container) = fields.get("container")
             && let Some(table) = self.reader.table(container, "container")
         {
