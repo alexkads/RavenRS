@@ -77,6 +77,9 @@ fi
 %doc %{_docdir}/%{name}/README.md
 
 %changelog
+* Mon Nov 23 2026 Alex <alexkads@users.noreply.github.com> - 0.1.6-1
+- raven-ci mcp, the summary of a build and the schema of the pipeline, for sessions of AI
+
 * Mon Nov 23 2026 Alex <alexkads@users.noreply.github.com> - 0.1.5-1
 - CPUWeight and IOWeight in place of Nice=10; the drop-in agentes-de-outro-usuario.conf
 

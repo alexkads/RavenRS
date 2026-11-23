@@ -1,5 +1,26 @@
 [
   {
+    "versao": "0.1.6",
+    "data": "2026-11-23",
+    "titulo": "O Raven CI fica pronto para sessões de IA.",
+    "importante": false,
+    "novidades": [
+      "Resumo de um build feito para ler pouco: o passo que falhou com as últimas linhas, sem o ruído de compilação e de testes que passaram, os testes quebrados com a mensagem e os diagnósticos do cargo, em menos de 8 KB (raven-ci resumo JOB, e na aba Artefatos do painel).",
+      "raven-ci mcp: um servidor MCP para o Claude Code e outros clientes rodarem um build, esperarem e lerem por que falhou, conferirem um pipeline e baixarem a evidência; uma chave de Leitores não vê as ferramentas que agem.",
+      "raven-ci esquema dá o JSON Schema do .raven-ci.toml, e raven-ci validar confere um arquivo sem servidor, com cada erro na linha.",
+      "A linha de comando sai com códigos que dizem o que houve (1 o build falhou, 3 sem servidor, 4 sem permissão…) e, com --format json, dá o erro em JSON.",
+      "raven-ci ia instalar registra o MCP no Claude Code e guarda a chave num arquivo só seu; o plugin raven-ci, com a skill, está no marketplace do repositório.",
+      "A evidência de um build traz o resumo.md, pronto para anexar a um PR."
+    ],
+    "por_que_atualizar": "Para uma sessão de IA rodar um build e saber por que falhou lendo umas centenas de tokens, e não o log inteiro.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      941
+    ]
+  },
+  {
     "versao": "0.1.5",
     "data": "2026-11-23",
     "titulo": "O Raven CI já faz o que faltava para trocar o Jenkins.",
