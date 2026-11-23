@@ -324,3 +324,44 @@ fn an_agent_that_falls_gets_its_build_again_and_one_that_does_not_come_back_leav
     assert_eq!(answer.forget, vec![run.clone()]);
     assert!(ci.agent_outcome("linux-1", &run, &RunOutcome::Finished).is_err(), "too late to end it");
 }
+
+#[test]
+fn a_build_in_the_queue_says_what_it_waits_for() {
+    let disk = OnDisk::new("agentes-espera");
+    let ci = core(&disk, None);
+    let free = job(&ci, "apps/livre", json!({ "steps": [{}] }));
+    assert_eq!(ci.waiting_for("apps/livre", free).expect("why").why, "espera um executor livre");
+
+    let number = job(&ci, "apps/imagens", json!({ "agent": "docker", "steps": [{}] }));
+    let why = ci.waiting_for("apps/imagens", number).expect("why");
+    assert_eq!(why.why, "pede o rótulo docker, e nenhum agente conectado o tem");
+    assert_eq!(why.plugin, None);
+
+    // A template brings it up, while its launcher's plugin is on.
+    let template = raven_ci_core::agents::AgentTemplate {
+        name: "docker".into(),
+        labels: vec!["docker".into()],
+        launcher: "agentes".into(),
+        settings: json!({}),
+        executors: 1,
+        max_agents: 1,
+        idle_ms: 60_000,
+    };
+    ci.save_agent_template(&template).expect("saved");
+    assert_eq!(
+        ci.waiting_for("apps/imagens", number).expect("why").why,
+        "pede o rótulo docker · o modelo docker sobe um agente"
+    );
+    ci.disable_plugin("agentes").expect("off");
+    let why = ci.waiting_for("apps/imagens", number).expect("why");
+    assert_eq!(why.why, "pede o rótulo docker · o plugin agentes está desligado");
+    assert_eq!(why.plugin.as_deref(), Some("agentes"), "the panel offers to switch it on");
+
+    // An agent with the label, connected, takes it when free.
+    ci.enable_plugin("agentes").expect("on");
+    join(&ci, "docker-1", &["docker"]);
+    assert_eq!(
+        ci.waiting_for("apps/imagens", number).expect("why").why,
+        "espera um agente com o rótulo docker ficar livre"
+    );
+}

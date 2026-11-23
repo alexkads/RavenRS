@@ -15,7 +15,8 @@
 //! | `GET /api/ci/screens` | signed in | the screens of the plugins on ([`screens`]) |
 //! | `GET /api/ci/server` | signed in | version, executors, memory of the process, plugins on |
 //! | `GET /api/ci/overview` | signed in | every job with its last build, the last durations and its parameters |
-//! | `GET /api/ci/occupancy?since_ms=` | signed in | the executors and the builds since then, with who ran each |
+//! | `GET /api/ci/occupancy?since_ms=` | signed in | the executors, the agents and their templates, and the builds since then, with who ran each and why one waits |
+//! | `GET /api/ci/history?limit=&before_ms=` | signed in | every build, the newest first, `limit` of them (50 unless said) asked before `before_ms` |
 //! | `GET /api/ci/attachment?id=` | signed in | the bytes of what a build left |
 //! | `POST /api/ci/pipeline/check` | signed in | the errors of a pipeline, with their lines |
 //! | `POST /api/ci/cancel`, `/rebuild`, `/priority` | Executores, Administradores | acting on a build |
@@ -144,7 +145,7 @@ pub fn answer(
         return Some(panel_file(options, &path[1..]));
     }
     let (need, what) = match (request.method.as_str(), path.as_slice()) {
-        ("GET", ["api", "ci", what @ ("screens" | "server" | "overview" | "occupancy" | "attachment")]) => {
+        ("GET", ["api", "ci", what @ ("screens" | "server" | "overview" | "occupancy" | "attachment" | "history")]) => {
             (Need::SignedIn, *what)
         }
         ("POST", ["api", "ci", "pipeline", "check"]) => (Need::SignedIn, "check"),
@@ -186,6 +187,11 @@ fn act(
         "occupancy" => {
             let since = query.get("since_ms").and_then(|s| s.parse().ok()).unwrap_or(0);
             occupancy(ci, options, since)?
+        }
+        "history" => {
+            let limit = query.get("limit").and_then(|s| s.parse().ok()).unwrap_or(50).clamp(1, 500);
+            let before = query.get("before_ms").and_then(|s| s.parse().ok()).unwrap_or(i64::MAX);
+            history(ci, limit, before)?
         }
         "attachment" => {
             let id = query
@@ -381,6 +387,7 @@ fn overview(ci: &Ci) -> Result<Json, CiError> {
     let now = ci.store().now_ms();
     let mut jobs = Vec::new();
     let mut running = 0;
+    let mut running_now = Vec::new();
     for job in ci.jobs()? {
         let builds = ci.builds(&job.name)?;
         running += builds.iter().filter(|b| b.status == BuildStatus::Running).count();
@@ -402,8 +409,23 @@ fn overview(ci: &Ci) -> Result<Json, CiError> {
                 "duration_ms": duration_ms(b, now),
                 "created_ms": b.created_ms,
                 "ended_ms": b.ended_ms,
+                "worker": b.worker,
+                "commit": b.commit,
             })
         });
+        for b in builds.iter().filter(|b| b.status == BuildStatus::Running) {
+            let stages = ci.stages(&b.job, b.number)?;
+            let stage = stages
+                .iter()
+                .position(|st| st.status == "running" || st.status == "pending")
+                .and_then(|at| stages.get(at));
+            running_now.push(json!({
+                "job": b.job,
+                "number": b.number,
+                "stage": stage.map(|st| st.name.clone()),
+                "worker": b.worker,
+            }));
+        }
         jobs.push(json!({
             "name": job.name,
             "title": job.title,
@@ -416,6 +438,8 @@ fn overview(ci: &Ci) -> Result<Json, CiError> {
     }
     let queue = ci.queue()?;
     let oldest = queue.iter().map(|b| b.created_ms).min();
+    let agents = ci.agents()?;
+    let templates = ci.agent_templates()?;
     Ok(json!({
         "now_ms": now,
         "jobs": jobs,
@@ -424,7 +448,50 @@ fn overview(ci: &Ci) -> Result<Json, CiError> {
         "running": running,
         "oldest_queued_ms": oldest,
         "formats": formats(ci),
+        "running_now": running_now,
+        "agents": {
+            "connected": agents.iter().filter(|a| a.connected).count(),
+            "total": agents.len(),
+            "templates": templates.iter().map(|t| t.name.clone()).collect::<Vec<_>>(),
+        },
     }))
+}
+
+/// Every build, the newest first: at most `limit`, asked before `before_ms`.
+fn history(ci: &Ci, limit: usize, before_ms: i64) -> Result<Json, CiError> {
+    let now = ci.store().now_ms();
+    let keys: Vec<(String, u64)> = {
+        let db = ci.db();
+        let mut stmt = db
+            .prepare(
+                "SELECT job, number FROM ci_builds WHERE created_ms < ?1 ORDER BY created_ms DESC, number DESC LIMIT ?2",
+            )
+            .map_err(crate::store::db)?;
+        let rows = stmt
+            .query_map(rusqlite::params![before_ms, limit as i64], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as u64))
+            })
+            .map_err(crate::store::db)?;
+        rows.collect::<Result<_, _>>().map_err(crate::store::db)?
+    };
+    let mut builds = Vec::new();
+    for (job, number) in keys {
+        let b = ci.build(&job, number)?;
+        builds.push(json!({
+            "job": b.job,
+            "number": b.number,
+            "status": to_json(&b.status),
+            "cause": b.cause,
+            "actor": b.actor,
+            "worker": b.worker,
+            "commit": b.commit,
+            "created_ms": b.created_ms,
+            "ended_ms": b.ended_ms,
+            "duration_ms": duration_ms(&b, now),
+            "reason": b.reason,
+        }));
+    }
+    Ok(json!({ "now_ms": now, "builds": builds }))
 }
 
 /// The parameters the pipeline of `job` asks for, as a form shows them; none when it does not read.
@@ -507,6 +574,10 @@ fn occupancy(ci: &Ci, options: &PanelOptions, since_ms: i64) -> Result<Json, CiE
             "end_ms": build.ended_ms,
             "priority": build.priority,
             "reason": build.reason,
+            "waiting": (build.status == BuildStatus::Queued)
+                .then(|| ci.waiting_for(&build.job, build.number).ok())
+                .flatten()
+                .map(|w| to_json(&w)),
         }));
     }
     let busy: BTreeMap<String, usize> = builds
@@ -521,7 +592,44 @@ fn occupancy(ci: &Ci, options: &PanelOptions, since_ms: i64) -> Result<Json, CiE
         .iter()
         .map(|name| json!({ "name": name, "kind": "local", "busy": busy.get(name).copied().unwrap_or(0) }))
         .collect();
-    Ok(json!({ "now_ms": ci.store().now_ms(), "executors": executors, "builds": builds }))
+    let agents: Vec<Json> = ci
+        .agents()?
+        .into_iter()
+        .map(|agent| {
+            let hello = agent.hello.as_ref();
+            json!({
+                "name": agent.name,
+                "labels": agent.labels,
+                "executors": agent.executors,
+                "connected": agent.connected,
+                "seen_ms_ago": agent.seen_ms_ago,
+                "busy": hello.map_or(0, |h| h.executors.saturating_sub(h.free)),
+                "memory_bytes": hello.and_then(|h| h.memory_bytes),
+                "launched_by": agent.launched_by,
+            })
+        })
+        .collect();
+    let templates: Vec<Json> = ci
+        .agent_templates()?
+        .into_iter()
+        .map(|t| {
+            let on = ci.registry().on().iter().any(|p| p.agent_launchers().iter().any(|l| l.id() == t.launcher));
+            json!({
+                "name": t.name,
+                "labels": t.labels,
+                "launcher": t.launcher,
+                "max_agents": t.max_agents,
+                "launcher_on": on,
+            })
+        })
+        .collect();
+    Ok(json!({
+        "now_ms": ci.store().now_ms(),
+        "executors": executors,
+        "agents": agents,
+        "templates": templates,
+        "builds": builds,
+    }))
 }
 
 /// The type an attachment was kept with.

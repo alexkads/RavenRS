@@ -184,10 +184,19 @@ fn read(ci: &Ci, what: &str, query: &BTreeMap<String, String>) -> Result<ApiResp
         "builds" => to_json(&ci.builds(wanted(query, "job")?)?),
         "build" => {
             let (job, n) = (wanted(query, "job")?, number(query, "number")?);
+            let times: Vec<Json> = ci
+                .stage_times(job, n)?
+                .into_iter()
+                .map(|(stage, start, end)| json!({ "stage": stage, "start_ms": start, "end_ms": end }))
+                .collect();
+            let started = ci.build_log(job, n, 0)?.first().map(|line| line.at_ms);
             json!({
                 "build": to_json(&ci.build(job, n)?),
                 "stages": to_json(&ci.stages(job, n)?),
                 "attachments": to_json(&ci.attachments(job, n)?),
+                "stage_times": times,
+                "started_ms": started,
+                "plugins": ci.plugins_of(job, n)?,
             })
         }
         "log" => {

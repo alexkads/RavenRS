@@ -374,6 +374,11 @@ impl Ci {
     /// The code of `order` is fetched at `commit`: its commit is pending and the notices hear the
     /// build started.
     pub(crate) fn announce_start(&self, order: &BuildOrder, commit: Option<&str>, log: &dyn BuildLog) {
+        if let Some(commit) = commit
+            && let Err(e) = crate::model::set_commit(&self.db(), &order.job, order.number, commit)
+        {
+            log.line("", &format!("guardar o commit {commit}: {e}"));
+        }
         let reported = Self::reported(&order.settings, commit);
         self.report(&order.settings, &order.job, reported.as_deref(), CommitState::Pending, "rodando", log);
         let info = BuildInfo {
