@@ -69,6 +69,9 @@ pub struct Measure {
     pub built: (f64, f64),
     /// Whether its height was left out: it holds other pieces, or fills its parent's height.
     pub height_skipped: bool,
+    /// How RavenRS draws it, as the cards of the design system do: an SVG with colors by token,
+    /// the piece at the stage's margin ([`MARGIN`]) from its top left.
+    pub drawing: String,
 }
 
 impl std::fmt::Display for Measure {
@@ -196,12 +199,14 @@ pub fn replay_with(json: &str, entries: &[Entry]) -> Result<Replay, String> {
         out.compared += 1;
         // A parent as wide as the box, with the stage's margin on each side.
         let parent = (w as f32 + 2.0 * MARGIN).max(2.0 * MARGIN + 1.0);
-        let mut built = measure::measure_stretched(&entry.meta, story, &args, theme, parent).main_box();
+        let mut measured = measure::measure_stretched(&entry.meta, story, &args, theme, parent);
+        let mut built = measured.main_box();
         // Narrower than drawn: a line that just fits in the browser, which lays text out about
         // TEXT_SHARE narrower, wrapped here. Measured again with that share of room.
         if built.0 < w - TOLERANCE {
             let room = (w * TEXT_SHARE).ceil() as f32;
-            built = measure::measure_stretched(&entry.meta, story, &args, theme, parent + room).main_box();
+            measured = measure::measure_stretched(&entry.meta, story, &args, theme, parent + room);
+            built = measured.main_box();
         }
         let fills = (built.0 - f64::from(parent - 2.0 * MARGIN)).abs() <= TOLERANCE;
         let width_room = if fills { TOLERANCE } else { TOLERANCE.max(built.0 * TEXT_SHARE) };
@@ -226,6 +231,7 @@ pub fn replay_with(json: &str, entries: &[Entry]) -> Result<Replay, String> {
             design: (w, h),
             built: (round(built.0), round(built.1)),
             height_skipped: container || fills_height,
+            drawing: crate::export::svg(&measured),
         });
     }
     Ok(out)
