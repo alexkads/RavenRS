@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/usr/bin/env bash
 # Measures the memory of Raven CI (V-02 of #803): the resident memory (RSS) of the server and of
 # the agent, idle and with one build running on the agent, as `ps` says it, in KiB.
 #
@@ -7,7 +7,8 @@
 # PASTA_DOS_BINARIOS holds `raven-ci` and `raven-ci-agent` built in release
 # (`cargo build --release -p raven-ci -p raven-ci-agent`), by default `target/release`. Everything it
 # makes goes to PASTA_TEMPORARIA (a folder of the system's temporary one by default) and is
-# removed at the end, as the processes it starts.
+# removed at the end, as the processes it starts. It is bash, which macOS and Linux both have
+# (the zsh of 0.1.3 is not on a Fedora server, where the RPM runs).
 set -u
 B=${1:-target/release}
 S=${2:-${TMPDIR:-/tmp}/raven-ci-medida-$$}
@@ -19,8 +20,8 @@ rss() { ps -o rss= -p "$1" 2>/dev/null | tr -d ' '; }
 # A mediana de N amostras de 1 s.
 mediana() {
   local pid=$1 n=$2 i vals=()
-  for i in $(seq 1 $n); do vals+=$(rss $pid); sleep 1; done
-  print -l $vals | sort -n | sed -n "$(( (n + 1) / 2 ))p"
+  for i in $(seq 1 "$n"); do vals+=("$(rss "$pid")"); sleep 1; done
+  printf '%s\n' "${vals[@]}" | sort -n | sed -n "$(( (n + 1) / 2 ))p"
 }
 
 echo "$SENHA" | "$B/raven-ci" --dados "$D" usuario criar ana --papel Leitores >/dev/null
@@ -60,5 +61,10 @@ echo "binários: raven-ci $(( $(wc -c < $B/raven-ci) / 1024 )) KiB, raven-ci-age
 kill $AGT; kill $SRV
 sleep 3
 kill -9 $AGT $SRV 2>/dev/null
-echo "processos que sobraram: $(pgrep -f "$B/raven-ci" | wc -l | tr -d ' ')"
+wait $AGT $SRV 2>/dev/null
+# Only the two it started: with PASTA_DOS_BINARIOS /usr/bin, a pattern on the path would also count
+# the server of the RPM and its agents.
+sobraram=0
+for pid in $AGT $SRV; do kill -0 "$pid" 2>/dev/null && sobraram=$((sobraram + 1)); done
+echo "processos que sobraram: $sobraram"
 rm -rf -- "${S:?}"

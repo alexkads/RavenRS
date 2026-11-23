@@ -134,6 +134,11 @@ fn child_settings(model: &JobSpec, head: &Head) -> Value {
         _ => Map::new(),
     };
     settings.remove("branches");
+    // The scan is the model's: a job of a branch that kept it was scanned by the cron as a model
+    // and failed every time ("não é de muitas branches").
+    if let Some(Value::Array(triggers)) = settings.get_mut("triggers") {
+        triggers.retain(|trigger| trigger.get("id").and_then(Value::as_str) != Some("scan"));
+    }
     let mut scm = match settings.remove("scm") {
         Some(Value::Object(scm)) => scm,
         _ => Map::new(),
@@ -153,4 +158,25 @@ fn child_settings(model: &JobSpec, head: &Head) -> Value {
     }
     settings.insert(HEAD_KEY.to_owned(), json!({ "commit": head.commit, "kind": head.kind }));
     Value::Object(settings)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_job_of_a_branch_keeps_the_triggers_of_its_model_but_the_scan() {
+        let mut model = JobSpec::new("repo", "toml", "x");
+        model.settings = json!({
+            "branches": { "id": "github", "repository": "dono/repo" },
+            "scm": { "id": "git", "url": "https://x/repo.git", "depth": 1 },
+            "triggers": [{ "id": "api" }, { "id": "scan", "every": "5m" }],
+        });
+        let head = Head { name: "main".into(), kind: HeadKind::Branch, commit: "abc".into() };
+        let child = child_settings(&model, &head);
+        assert_eq!(child["triggers"], json!([{ "id": "api" }]));
+        assert_eq!(child["scm"]["reference"], json!({ "branch": "main" }));
+        assert_eq!(child["scm"]["depth"], 1);
+        assert!(child.get("branches").is_none());
+    }
 }

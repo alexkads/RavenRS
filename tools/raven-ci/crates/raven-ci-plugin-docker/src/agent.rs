@@ -214,4 +214,18 @@ mod tests {
         assert!(image_at < server_at, "the agent's words come after the image");
         assert!(!args.iter().any(|a| a == "-p" || a.starts_with("--publish")), "nothing is published");
     }
+
+    /// The token is for the name the core chose; the container keeps a name of its own (#803,
+    /// test of the real world: the agent in a container was refused at the door, 401).
+    #[test]
+    fn the_agent_gets_in_by_the_name_of_its_token_not_by_the_container_s() {
+        let plan = AgentPlan::read(
+            &request(json!({ "agent_binary": "/opt/raven-ci-agent", "name": "docker-12-ab12cd" })),
+            0,
+        )
+        .expect("a plan");
+        let args = plan.args();
+        assert!(args.windows(2).any(|w| w[0] == "--nome" && w[1] == "docker-12-ab12cd"), "{args:?}");
+        assert!(args.windows(2).any(|w| w[0] == "--name" && w[1] == plan.name), "{args:?}");
+    }
 }

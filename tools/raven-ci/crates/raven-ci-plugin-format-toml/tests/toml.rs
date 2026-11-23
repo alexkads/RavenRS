@@ -322,3 +322,24 @@ fn retry_tries_a_step_again_until_it_passes() {
     assert_eq!(status, BuildStatus::Succeeded, "{log:#?}");
     assert!(log.contains(&"primeira".to_owned()) && log.contains(&"segunda".to_owned()), "{log:#?}");
 }
+
+/// The `keep` of the pipeline keeps that many builds of the job, unless the job says its own
+/// (#803, test of the real world: a job with `keep = 3` had kept every build).
+#[test]
+fn the_keep_of_the_pipeline_keeps_that_many_builds_and_the_job_s_own_number_wins() {
+    let ci = ci();
+    let pipeline = "[pipeline]\nkeep = 2\n\n[[stages]]\nname = \"a\"\nsteps = [\"echo oi\"]\n";
+    for _ in 0..3 {
+        assert_eq!(run(&ci, "guarda", pipeline, json!({})).0, BuildStatus::Succeeded);
+    }
+    let kept: Vec<u64> = ci.builds("guarda").expect("builds").iter().map(|b| b.number).collect();
+    assert_eq!(kept.len(), 2, "{kept:?}");
+    assert!(!kept.contains(&1), "the oldest goes: {kept:?}");
+    ci.save_job(JobSpec::new("seu", "toml", pipeline).every_request().keep_builds(3)).expect("saved");
+    for _ in 0..4 {
+        let number = ci.request_build(BuildRequest::new("seu", "teste")).expect("asked").number;
+        ci.work_until_idle("e1").expect("runs");
+        assert_eq!(ci.build("seu", number).expect("build").status, BuildStatus::Succeeded);
+    }
+    assert_eq!(ci.builds("seu").expect("builds").len(), 3, "the job's own number wins");
+}

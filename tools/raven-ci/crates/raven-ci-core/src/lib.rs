@@ -592,12 +592,19 @@ impl Ci {
     /// how many.
     pub fn prune_job(&self, job: &str) -> Result<usize, CiError> {
         let Ok(spec) = self.job(job) else { return Ok(0) };
-        if spec.keep_builds.is_none() && spec.keep_days.is_none() {
+        // The job's own number, from the configuration of the server, or else the pipeline's
+        // `keep` (`.raven-ci.toml`, a `logRotator` converted): in 0.1.3 the pipeline's was read
+        // and never used, and a job kept every build (#803, test of the real world).
+        let keep_builds = spec.keep_builds.or_else(|| {
+            let format = self.format(&spec.format).ok()?;
+            format.read(&spec.name, &spec.pipeline).ok()?.keep_builds
+        });
+        if keep_builds.is_none() && spec.keep_days.is_none() {
             return Ok(0);
         }
         let retention = Retention {
             flow_id: Some(job.to_owned()),
-            keep_last: spec.keep_builds.map(|n| n as usize),
+            keep_last: keep_builds.map(|n| n as usize),
             older_than_ms: spec.keep_days.map(|days| u64::from(days) * DAY_MS),
             ..Retention::default()
         };
