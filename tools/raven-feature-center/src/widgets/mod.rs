@@ -45,6 +45,13 @@ pub const PAGES: &[Page] = &[
         make: || Box::new(basicos::botoes::ButtonsPage),
     },
     Page {
+        id: basicos::caixas::ID,
+        caption: basicos::caixas::PAGE,
+        group: "Básicos",
+        icon: IconName::CircleCheck,
+        make: || Box::new(basicos::caixas::CheckboxesPage),
+    },
+    Page {
         id: basicos::chaves::ID,
         caption: basicos::chaves::PAGE,
         group: "Básicos",

@@ -147,6 +147,7 @@ demonstrations! {
     barra_de_titulo => "Barra de título",
     indicadores => "Indicadores",
     progresso => "Progresso",
+    caixas_de_selecao => "Caixas de seleção",
     lista => "Lista",
     agenda_por_recurso => "Agenda por recurso",
 }

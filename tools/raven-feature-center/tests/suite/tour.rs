@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use ravenrs_app::{ActionInput, Object, ObjectSpace, Query, SpaceError, Value};
 use ravenrs_app_ui::Session;
-use ravenrs_core::{AccessAction, Role, Size};
+use ravenrs_core::{AccessAction, Role, Size, Toggled};
 use ravenrs_style::Theme;
 use ravenrs_widgets::Ui;
 
@@ -1511,6 +1511,43 @@ fn toggles_switch_with_a_label_compact_or_only_an_accessible_name() {
     assert!(tree.find(Role::Switch, "Indisponível").expect("disabled").disabled);
     c.activate("Só leitura");
     assert!(c.ui.access_tree().find(Role::Switch, "Só leitura").expect("read only").read_only);
+}
+
+#[test]
+fn check_boxes_are_mixed_by_their_children_or_by_an_unknown_answer() {
+    let mut c = Center::memory("ana");
+    c.press("Caixas de seleção");
+    let state = |c: &mut Center, name: &str| {
+        c.settle();
+        c.ui.access_tree().find(Role::CheckBox, name).unwrap_or_else(|| panic!("{name}")).clone()
+    };
+    // new: a click checks it.
+    c.activate("Aceito os termos");
+    assert!(c.says("Termos: aceitos"), "{:?}", c.texts());
+    // mixed: two of three extras, so the select all is partly checked; a click checks them all,
+    // another unchecks them all; a child alone makes it mixed again.
+    assert_eq!(state(&mut c, "Todos os adicionais").toggled, Some(Toggled::Mixed));
+    c.activate("Todos os adicionais");
+    assert!(c.says("Adicionais: Seguro, Bagagem extra, Assento na janela"), "{:?}", c.texts());
+    assert_eq!(state(&mut c, "Todos os adicionais").toggled, Some(Toggled::True));
+    c.activate("Todos os adicionais");
+    assert!(c.says("Adicionais: nenhum"), "{:?}", c.texts());
+    c.activate("Seguro");
+    assert_eq!(state(&mut c, "Todos os adicionais").toggled, Some(Toggled::Mixed));
+    // leading: the children's labels line up past the width of a toggle.
+    let (child, parent) = (state(&mut c, "Seguro"), state(&mut c, "Todos os adicionais"));
+    assert!(child.bounds.width() > 0.0 && parent.bounds.width() > 0.0);
+    // optional: unknown, yes, no, and unknown again.
+    assert_eq!(state(&mut c, "Tem carro").toggled, Some(Toggled::Mixed));
+    for said in ["sim", "não", "não informado"] {
+        c.activate("Tem carro");
+        assert!(c.says(&format!("Tem carro: {said}")), "{said}: {:?}", c.texts());
+    }
+    // disabled and read_only: neither changes.
+    assert!(state(&mut c, "Indisponível").disabled);
+    c.activate("Só leitura");
+    let read_only = state(&mut c, "Só leitura");
+    assert!(read_only.read_only && read_only.toggled == Some(Toggled::True), "{read_only:?}");
 }
 
 #[test]

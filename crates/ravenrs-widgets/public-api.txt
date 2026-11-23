@@ -3050,7 +3050,9 @@ method ChatMessage::text
 method ChatMessage::when_done
 method Checkbox::disabled
 method Checkbox::leading
+method Checkbox::mixed
 method Checkbox::new
+method Checkbox::optional
 method Checkbox::read_only
 method Clipboard::new
 method Clipboard::read

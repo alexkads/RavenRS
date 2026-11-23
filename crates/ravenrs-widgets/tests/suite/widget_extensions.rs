@@ -294,6 +294,81 @@ fn input_of(tree: &AccessTree) -> &AccessNode {
     tree.nodes.iter().find(|n| n.role == Role::TextInput).expect("a text input")
 }
 
+fn check_state(ui: &mut Ui, name: &str) -> AccessNode {
+    ui.update();
+    named(&ui.access_tree(), Role::CheckBox, name).clone()
+}
+
+#[test]
+fn a_select_all_box_shows_mixed_and_checks_everything_on_click_or_space() {
+    let children = State::new(vec![true, false, true]);
+    let all = State::new(false);
+    let (c, a) = (children.clone(), all.clone());
+    let mut ui = ui(view_fn(move || {
+        // The app computes mixed from the children, and checks them all when the box turns on.
+        let some = c.get().iter().any(|on| *on);
+        let every = c.get().iter().all(|on| *on);
+        Checkbox::new("Selecionar todos", a.binding()).mixed(some && !every)
+    }));
+    let node = check_state(&mut ui, "Selecionar todos");
+    assert_eq!(node.toggled, Some(Toggled::Mixed), "announced as partly checked");
+    assert!(
+        quads(&ui).iter().any(|q| q.fill == Theme::raven_dark().color(Semantic::Accent).into()),
+        "filled"
+    );
+    // From mixed, Space checks it: the app checks every child.
+    key(&mut ui, Key::Tab);
+    key(&mut ui, Key::Space);
+    assert!(all.get(), "mixed goes to on");
+    children.set(vec![true, true, true]);
+    assert_eq!(check_state(&mut ui, "Selecionar todos").toggled, Some(Toggled::True));
+    // From on, a click unchecks it, as any check box.
+    click_node(&mut ui, Role::CheckBox, "Selecionar todos");
+    ui.update();
+    assert!(!all.get());
+    // A binding changed outside shows at once.
+    children.set(vec![false, false, false]);
+    assert_eq!(check_state(&mut ui, "Selecionar todos").toggled, Some(Toggled::False));
+}
+
+#[test]
+fn an_optional_box_goes_unknown_on_off_and_back() {
+    let answer = State::new(None::<bool>);
+    let mut ui = ui(Checkbox::optional("Tem carro", answer.binding()));
+    assert_eq!(check_state(&mut ui, "Tem carro").toggled, Some(Toggled::Mixed));
+    key(&mut ui, Key::Tab);
+    let mut seen = Vec::new();
+    for _ in 0..3 {
+        key(&mut ui, Key::Space);
+        seen.push((answer.get(), check_state(&mut ui, "Tem carro").toggled));
+    }
+    assert_eq!(
+        seen,
+        [
+            (Some(true), Some(Toggled::True)),
+            (Some(false), Some(Toggled::False)),
+            (None, Some(Toggled::Mixed))
+        ]
+    );
+    answer.set(Some(true));
+    assert_eq!(check_state(&mut ui, "Tem carro").toggled, Some(Toggled::True), "the binding from outside");
+
+    // Disabled takes nothing and leaves the tab order; read only keeps the focus and the value.
+    let off = State::new(None::<bool>);
+    let mut disabled = self::ui(Checkbox::optional("Desligada", off.binding()).disabled(true));
+    click_node(&mut disabled, Role::CheckBox, "Desligada");
+    key(&mut disabled, Key::Tab);
+    key(&mut disabled, Key::Space);
+    assert_eq!(off.get(), None);
+    assert!(check_state(&mut disabled, "Desligada").disabled);
+    let mut read_only = self::ui(Checkbox::optional("Só leitura", off.binding()).read_only(true));
+    key(&mut read_only, Key::Tab);
+    key(&mut read_only, Key::Space);
+    let node = check_state(&mut read_only, "Só leitura");
+    assert_eq!((off.get(), node.toggled, node.read_only), (None, Some(Toggled::Mixed), true));
+    assert_eq!(read_only.access_tree().focused().map(|n| n.id), Some(node.id), "still focused");
+}
+
 #[test]
 fn a_clearable_field_empties_itself_and_keeps_the_keyboard() {
     let value = State::new(String::new());

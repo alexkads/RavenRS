@@ -69,6 +69,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `Checkbox::mixed(bool)` and `Checkbox::optional(label, Binding<Option<bool>>)`: a check box shows and announces mixed ("partly checked"), either computed, as a select all over children partly checked, where a click or Space checks it, or as an answer that may be unknown, where each click or Space goes unknown, on, off. `Checkbox::new` is unchanged. The Raven Feature Center shows `Checkbox` on its page "Caixas de seleção" ([#439](https://github.com/alexkads/RavenRS/issues/439)).
 - `ravenrs-process`: `Spec::stop_leftovers` stops what a child left running in its process group the moment it ends on its own (a `sleep 600 &` that held its output open, a daemon a build started), and `Control::leftovers` names them; `stop_group(pid)` does the same for a group apart. Raven CI's step `sh` uses it, so nothing of a build outlives it ([#931](https://github.com/alexkads/RavenRS/issues/931)).
 
 - `raven-component-book --replay` ends with `N de M peças divergem (K pontos)`, a piece wrong in width and height counting as two points (`Replay::points_diverging`, `Replay::summary`). The guide of the design system says a screen is ready only when its replay finds no divergence, that a component with a card is never *Missing from the library*, and that each piece is drawn as its card draws it, with no frame, border, header style, color or inner space the card does not show. ([#921](https://github.com/alexkads/RavenRS/issues/921))
