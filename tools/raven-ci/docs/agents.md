@@ -69,7 +69,7 @@ neither a token nor a key refuses to start, saying so. It connects by itself, an
 
 ```toml
 [pipeline]
-agent = { label = "linux" }   # or "any", { docker = { image = "rust:1" } }
+agent = { label = "linux" }   # or "any", { docker = {} }, { docker = { image = "minha-imagem" } }
 ```
 
 - With a label, the build leaves the queue only for an agent with that label. The server's own
@@ -80,7 +80,12 @@ agent = { label = "linux" }   # or "any", { docker = { image = "rust:1" } }
   asks its launcher to bring an agent up, with a token used once. An agent a template brought up
   that stays idle past the template's time is taken down.
 - `{ docker = {…} }` and `{ kubernetes = {…} }` name a launcher themselves: it brings up an agent
-  for that build only, with the label `build:<job>#<number>`, taken down when the build ends.
+  for that build only, with the label `build:<job>#<number>`, taken down when the build ends,
+  with its key revoked and its name out of the list.
+- An agent brought up for a build that dies before coming in says why in the build's log (its
+  exit code and last lines): `o agente docker-3-ab12cd não subiu (tentativa 1 de 3): o contêiner
+  saiu com o código 1: … GLIBC_2.44 not found`. After 3 in a row (`tentativas` in the launcher's
+  settings) the build ends as failed with that reason, instead of waiting in the queue.
 
 ```text
 raven-ci agentes modelo local --lancador agent-local --rotulos local,linux --executores 2 --ocioso 10
@@ -185,6 +190,38 @@ raven-ci servir --executores 0
   Why `PrivateTmp=false`: see [What a build leaves behind](#what-a-build-leaves-behind).
 
   On Windows a user of its own is not done yet, and the launch is refused saying so.
+
+### In a container: `docker`
+
+`agent = { docker = {} }` runs the build in a container of its own, with the agent in it.
+
+- **The image** is `raven-ci-agente:latest`, the agent's own: Fedora with the RPM of Raven CI, `git`
+  (the agent fetches the code) and the user `agente`, not root. Make it on the machine of the
+  docker the server uses, after `pacote/gerar-rpm.sh`:
+
+  ```bash
+  tools/raven-ci/pacote/docker/gerar-imagem-agente.sh
+  ```
+
+  A build that needs more tools makes an image `FROM raven-ci-agente:latest` and names it:
+  `{ docker = { image = "raven-ci-agente-node:24" } }`. Any other image needs `agent_binary`, a
+  `raven-ci-agent` of Linux on the engine's machine built for the C library of that image: the
+  agent of the RPM is built on Fedora 45 (glibc 2.44) and does not run on Debian 12 (2.36).
+- **The way to the server.** The RPM's server listens on `127.0.0.1:8090`, which a container on
+  docker's own network does not reach. On Linux the launcher then gives the container the host's
+  network (`--network host`); on Docker Desktop it tells the agent `host.docker.internal` in place
+  of `127.0.0.1`. A server that listens on another address keeps docker's network; `network = "…"`
+  or `--network` in `args` choose one.
+- **The access to the engine.** The user of the service (`raven-ci`) has to reach the engine.
+  With Docker, that is the group `docker` (`sudo usermod -aG docker raven-ci`, then restart the
+  service), **and the group `docker` is worth root on the machine**: whoever runs builds may then
+  mount `/` in a container. Podman with no root, as the user `raven-ci`, does not give that: install
+  `podman` and the plugin finds it when there is no `docker`.
+- **Settings:** `image`, `agent_binary`, `network`, `args` (more words for `docker run`),
+  `executors`, `timeout_s` (taken down past it) and `tentativas`.
+- **When it dies**, the container is still there for its last words (it does not run with
+  `--rm`), and it is removed right after. No container with the label `raven-ci.agent` outlives
+  its build, passed, failed or cancelled.
 
 ### On another machine: `agent-remote`
 

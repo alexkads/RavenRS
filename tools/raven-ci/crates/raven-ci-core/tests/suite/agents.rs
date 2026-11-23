@@ -9,8 +9,8 @@ use std::time::Duration;
 use raven_ci_core::agents::{AgentLine, End, Hello, Join, LogBatch, ROLE_AGENT};
 use raven_ci_core::{Ci, CiOptions, Executors, JobSpec, api};
 use raven_ci_plugin_api::{
-    Attachment, BuildRequest, BuildStatus, CiPlugin, FormatError, PLUGIN_KEY, Pipeline, PipelineFormat,
-    ROLE_ADMIN, ROLE_READ, STAGE_KEY, Use,
+    AgentLauncher, Attachment, BuildRequest, BuildStatus, CiPlugin, FormatError, LaunchRequest, LaunchedAgent,
+    PLUGIN_KEY, Pipeline, PipelineFormat, ROLE_ADMIN, ROLE_READ, STAGE_KEY, Use,
 };
 use ravenrs_app::{Module, ModuleManifest};
 use ravenrs_app_server::ApiRequest;
@@ -80,6 +80,9 @@ impl PipelineFormat for Format {
             pipeline.agent =
                 Some(Use { id: "label".into(), plugin: None, settings: json!({ "label": label }) });
         }
+        if let Some(launcher) = value["launcher"].as_str() {
+            pipeline.agent = Some(Use { id: launcher.into(), plugin: None, settings: value["with"].clone() });
+        }
         Ok(pipeline)
     }
 }
@@ -103,6 +106,39 @@ impl CiPlugin for Plugin {
 
     fn pipeline_formats(&self) -> Vec<Arc<dyn PipelineFormat>> {
         vec![Arc::new(Format)]
+    }
+
+    fn agent_launchers(&self) -> Vec<Arc<dyn AgentLauncher>> {
+        vec![Arc::new(Dying)]
+    }
+}
+
+/// The launcher `morre`: its agent is never alive, and says why, as an image where the agent
+/// does not run (#934).
+struct Dying;
+
+struct Dead(String);
+
+impl LaunchedAgent for Dead {
+    fn name(&self) -> String {
+        self.0.clone()
+    }
+    fn alive(&self) -> bool {
+        false
+    }
+    fn stop(&self) {}
+    fn last_words(&self) -> Option<String> {
+        Some("o contêiner saiu com o código 1: version 'GLIBC_2.44' not found".to_owned())
+    }
+}
+
+impl AgentLauncher for Dying {
+    fn id(&self) -> &str {
+        "morre"
+    }
+    fn launch(&self, request: &LaunchRequest) -> Result<Box<dyn LaunchedAgent>, raven_ci_plugin_api::CiError> {
+        let name = request.settings["name"].as_str().unwrap_or("morto").to_owned();
+        Ok(Box::new(Dead(name)))
     }
 }
 
@@ -364,4 +400,35 @@ fn a_build_in_the_queue_says_what_it_waits_for() {
         ci.waiting_for("apps/imagens", number).expect("why").why,
         "espera um agente com o rótulo docker ficar livre"
     );
+}
+
+/// An agent brought up for a build that dies before coming in says why in the build's log, and
+/// after three of them the build fails with the reason instead of waiting forever; none of them
+/// stays in the list of agents (#934).
+#[test]
+fn a_build_whose_agents_die_before_coming_in_fails_after_three_tries_saying_why() {
+    let disk = OnDisk::new("agentes-morrem");
+    let clock = ManualClock::at(1_000_000);
+    let ci = core(&disk, Some(&clock));
+    let number = job(&ci, "apps/imagem", json!({ "launcher": "morre", "steps": [{}] }));
+    for _ in 0..6 {
+        ci.tick_agents();
+        clock.advance(31_000);
+    }
+    let build = ci.build("apps/imagem", number).expect("the build");
+    let log: Vec<String> =
+        ci.build_log("apps/imagem", number, 0).expect("log").into_iter().map(|l| l.text).collect();
+    assert_eq!(build.status, BuildStatus::Failed, "{log:#?}");
+    assert!(log.iter().any(|l| l.contains("(tentativa 1 de 3)") && l.contains("GLIBC_2.44")), "{log:#?}");
+    assert!(log.iter().any(|l| l.contains("nenhum agente subiu em 3 tentativas")), "{log:#?}");
+    assert!(!log.iter().any(|l| l.contains("tentativa 4")), "{log:#?}");
+    assert!(ci.agents().expect("agents").is_empty(), "the agents of the build left the list");
+
+    // The launcher's settings may give more tries.
+    let more = job(&ci, "apps/paciente", json!({ "launcher": "morre", "with": { "tentativas": 5 }, "steps": [{}] }));
+    for _ in 0..4 {
+        ci.tick_agents();
+        clock.advance(31_000);
+    }
+    assert_eq!(ci.build("apps/paciente", more).expect("the build").status, BuildStatus::Queued);
 }

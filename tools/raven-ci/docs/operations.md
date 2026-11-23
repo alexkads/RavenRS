@@ -122,6 +122,13 @@ settings = { min_free_gb = 10 }
 
 `url` is the address people reach the server at: the notices link to its panel.
 
+## Agents in containers
+
+`agent = { docker = {} }` needs the image of the agent (`pacote/docker/gerar-imagem-agente.sh`, on
+the machine of the engine) and the user `raven-ci` able to reach the engine: the group `docker`,
+which is worth root on the machine, or Podman with no root. See
+[In a container](agents.md#in-a-container-docker).
+
 ## What runs on the machine
 
 The service of the RPM runs as `raven-ci`, with a private `/tmp` and `CPUWeight=50`/`IOWeight=50`

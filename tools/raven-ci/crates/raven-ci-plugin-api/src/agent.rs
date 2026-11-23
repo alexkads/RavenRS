@@ -31,6 +31,14 @@ pub trait LaunchedAgent: Send + Sync {
 
     /// Takes it down, with whatever it started.
     fn stop(&self);
+
+    /// Why it ended, once it is not [`alive`](Self::alive): its exit code and the last lines it
+    /// wrote, as the launcher still has them (#934). The core puts them in the log of the build it
+    /// was for and of the server, so an agent that dies at once says why. `None` when the launcher
+    /// keeps nothing.
+    fn last_words(&self) -> Option<String> {
+        None
+    }
 }
 
 /// A way of bringing agents up: on this machine, on another, in a container, in a pod.

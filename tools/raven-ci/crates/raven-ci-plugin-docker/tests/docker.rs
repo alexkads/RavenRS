@@ -370,3 +370,45 @@ fn an_agent_comes_up_in_a_container_with_the_words_of_the_contract_and_stop_remo
         "the container outlived stop"
     );
 }
+
+/// An agent that dies at once leaves its exit code and its last lines to be read, and nothing of
+/// it stays once it is taken down (#934).
+#[cfg(unix)]
+#[test]
+fn an_agent_that_dies_says_why_and_its_container_goes() {
+    use raven_ci_plugin_api::{AgentLauncher, LaunchRequest};
+    use raven_ci_plugin_docker::DockerLauncher;
+
+    let Some(engine) = engine() else { return };
+    let build = build(&engine, &[]);
+    let dying = build.workspace.join("raven-ci-agent");
+    std::fs::write(&dying, "#!/bin/sh\necho nao-achei-a-glibc >&2\nexit 7\n").expect("the script");
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&dying, std::fs::Permissions::from_mode(0o755)).expect("runnable");
+    }
+    let request = LaunchRequest {
+        build: Some("site#2".into()),
+        labels: vec!["build:site#2".into()],
+        settings: json!({
+            "image": "alpine:3",
+            "agent_binary": dying.display().to_string(),
+            "args": ["--label", format!("raven-ci-teste={}", build.run)],
+        }),
+        server: "http://host.docker.internal:8080".into(),
+        token: "tok-uso-unico".into(),
+    };
+    let agent = DockerLauncher(State::with_engine(engine.clone())).launch(&request).expect("it starts");
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while agent.alive() && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(200));
+    }
+    let words = agent.last_words().expect("its last words");
+    assert!(words.contains("código 7") && words.contains("nao-achei-a-glibc"), "{words}");
+    let name = agent.name();
+    agent.stop();
+    assert!(
+        engine.lines(["ps", "-aq", "--filter", &format!("name=^{name}$")]).is_empty(),
+        "the container outlived stop"
+    );
+}

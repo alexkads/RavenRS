@@ -34,11 +34,14 @@
 //!   The `container` steps after it join the project's network, `<project>_default`, so the
 //!   tests reach `db:5432`.
 //! - **An agent in a container** (`agent = { docker = { … } }`, the launcher `docker`): one
-//!   container per build, `run -d --rm` of `image` (`debian:stable-slim` unless said) with the
-//!   Linux `raven-ci-agent` of `agent_binary` mounted read only as its entry, and the words of
-//!   #893 (`AgentArgs`), the token in `RAVEN_CI_AGENT_TOKEN`, never on the command line. Nothing is
-//!   published: the agent connects out. `stop` removes it, also after a start that failed
-//!   halfway, and `timeout_s` removes it when it passes its time.
+//!   container per build, `run -d` of `image` (the agent's own, `raven-ci-agente:latest`, unless
+//!   said; another image needs the Linux `raven-ci-agent` of `agent_binary`, mounted read only as
+//!   its entry), and the words of #893 (`AgentArgs`), the token in `RAVEN_CI_AGENT_TOKEN`, never on
+//!   the command line. Nothing is published: the agent connects out, by the host's network when
+//!   the server listens only on the loopback of a Linux machine. When the agent dies, its exit code
+//!   and last lines go to the log of the build, and after `tentativas` (3) the build fails (#934).
+//!   `stop` removes it, also after a start that failed halfway, and `timeout_s` removes it when it
+//!   passes its time.
 //! - **Nothing outlives the build.** Every container has the label `raven-ci.build=<run>`; the
 //!   first step of the plugin in a build asks [`BuildScope::at_end`] to bring down its compose
 //!   projects with their volumes and to remove every container, network and volume with the
@@ -80,7 +83,9 @@ use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, Module, ModuleManifest};
 use ravenrs_flows::{Catalog, NodeError};
 use serde_json::Value;
 
-pub use agent::{AGENT_IMAGE, AGENT_IN_CONTAINER, AGENT_LABEL, AgentPlan, ContainerAgent, DockerLauncher};
+pub use agent::{
+    AGENT_IMAGE, AGENT_IN_CONTAINER, AGENT_IN_IMAGE, AGENT_LABEL, AgentPlan, ContainerAgent, DockerLauncher,
+};
 pub use cleanup::{LABEL, Project, clean, project_name};
 pub use compose::{COMPOSE, Compose, Health, INSPECT_FORMAT, Service, health, services};
 pub use container::{CONTAINER, Container, RunAs, RunPlan, fetch_image};

@@ -383,6 +383,9 @@ struct Launched {
     template: Option<String>,
     /// The run of the one build it was brought up for.
     build: Option<String>,
+    /// For an agent of one build: how many agents in a row may die before coming in, before the
+    /// build is given up (`tentativas` of the launcher's settings, 3 unless said).
+    tries: u32,
     agent: Box<dyn LaunchedAgent>,
     since_ms: i64,
     idle_since_ms: Option<i64>,
@@ -399,10 +402,16 @@ struct State {
     /// Until when a template (or a build's launcher) is not tried again, after a launch that
     /// failed or an agent that died before it came in.
     backoff: HashMap<String, i64>,
+    /// How many agents brought up for a build died before coming in, by its run (#934).
+    failed_tries: HashMap<String, u32>,
 }
 
 /// How long a template that failed waits before the next try.
 const BACKOFF_MS: i64 = 30_000;
+
+/// How many agents brought up for one build may die before coming in, unless the launcher's
+/// settings say `tentativas`: then the build ends as failed, with why (#934).
+pub const LAUNCH_TRIES: u32 = 3;
 
 /// What the core keeps of its agents. See the [module](self).
 pub(crate) struct Agents {
@@ -980,6 +989,8 @@ impl Ci {
             drop(state);
             for gone in going {
                 self.log.write(&format!("agente {gone} parado: o build dele terminou"));
+                // Its key goes and it leaves the list: it was of this build only (#934).
+                let _ = self.remove_agent(&gone);
             }
         }
         self.prune_job(&row.job)?;
@@ -1273,6 +1284,7 @@ impl Ci {
                 name,
                 template: Some(template.name),
                 build: None,
+                tries: LAUNCH_TRIES,
                 agent,
                 since_ms: now,
                 idle_since_ms: None,
@@ -1292,12 +1304,29 @@ impl Ci {
             server: self.agents.server.lock().unwrap_or_else(PoisonError::into_inner).clone(),
             token: self.token_for(&name, std::slice::from_ref(&label), 1, Some(&wanted.id))?,
         };
-        let agent = self.launcher(&wanted.id)?.launch(&request)?;
+        let tries = wanted
+            .settings
+            .get("tentativas")
+            .and_then(Value::as_u64)
+            .and_then(|n| u32::try_from(n).ok())
+            .unwrap_or(LAUNCH_TRIES)
+            .max(1);
+        let agent = match self.launcher(&wanted.id)?.launch(&request) {
+            Ok(agent) => agent,
+            Err(e) => {
+                // A launch that fails counts as an agent that died before coming in; the error
+                // keeps the launcher waiting before the next try.
+                let _ = self.remove_agent(&name);
+                self.agent_died(&row.run_id, &name, tries, &e.to_string());
+                return Err(e);
+            }
+        };
         self.log.write(&format!("agente {name} subindo para {} #{} ({})", row.job, row.number, wanted.id));
         self.agents.state().launched.push(Launched {
             name,
             template: None,
             build: Some(row.run_id.clone()),
+            tries,
             agent,
             since_ms: now,
             idle_since_ms: None,
@@ -1312,6 +1341,8 @@ impl Ci {
             self.agent_templates().unwrap_or_default().into_iter().map(|t| (t.name.clone(), t)).collect();
         let mut going: Vec<(String, String)> = Vec::new();
         let mut failed: Vec<String> = Vec::new();
+        // Agents of one build that died before coming in: the run, the agent, its tries and why.
+        let mut died: Vec<(String, String, u32, String)> = Vec::new();
         {
             let mut state = self.agents.state();
             let seen: HashMap<String, (bool, bool)> = state
@@ -1324,17 +1355,30 @@ impl Ci {
             state.launched.retain_mut(|launched| {
                 let (idle, connected) = seen.get(&launched.name).copied().unwrap_or((true, false));
                 if !launched.agent.alive() {
-                    going.push((launched.name.clone(), "o processo dele acabou".to_owned()));
+                    let words = launched.agent.last_words();
+                    let why = match &words {
+                        Some(words) => format!("o processo dele acabou: {words}"),
+                        None => "o processo dele acabou".to_owned(),
+                    };
+                    going.push((launched.name.clone(), why));
                     if !seen.contains_key(&launched.name) {
                         let key =
                             launched.template.clone().or_else(|| launched.build.clone()).unwrap_or_default();
                         failed.push(key);
+                        if let Some(run) = &launched.build {
+                            let words = words.unwrap_or_else(|| "o processo dele acabou sem dizer por quê".to_owned());
+                            died.push((run.clone(), launched.name.clone(), launched.tries, words));
+                        }
                     }
                     launched.agent.stop();
                     return false;
                 }
                 if !seen.contains_key(&launched.name) && now - launched.since_ms > TOKEN_MS {
                     going.push((launched.name.clone(), "não conectou a tempo".to_owned()));
+                    if let Some(run) = &launched.build {
+                        let why = format!("não conectou em {} s", TOKEN_MS / 1000);
+                        died.push((run.clone(), launched.name.clone(), launched.tries, why));
+                    }
                     launched.agent.stop();
                     return false;
                 }
@@ -1361,6 +1405,47 @@ impl Ci {
             self.log.write(&format!("agente {name} parado: {why}"));
             let _ = self.remove_agent(&name);
         }
+        for (run, name, tries, why) in died {
+            self.agent_died(&run, &name, tries, &why);
+        }
+    }
+
+    /// The agent `name`, brought up for the build of `run`, died before coming in, saying `why`:
+    /// the build's log says it, and after `tries` of them in a row the build ends as failed, with
+    /// the reason, instead of waiting for an agent that will never come (#934).
+    fn agent_died(&self, run: &str, name: &str, tries: u32, why: &str) {
+        let count = {
+            let mut state = self.agents.state();
+            let count = state.failed_tries.entry(run.to_owned()).or_insert(0);
+            *count += 1;
+            *count
+        };
+        let Ok((row, logger)) = self.logger_of(run) else { return };
+        let said = format!("o agente {name} não subiu (tentativa {count} de {tries}): {why}");
+        raven_ci_plugin_api::BuildLog::line(&logger, "", &said);
+        self.log.write(&format!("{} #{}: {said}", row.job, row.number));
+        if count < tries {
+            return;
+        }
+        self.agents.state().failed_tries.remove(run);
+        let reason = format!("nenhum agente subiu em {tries} tentativas; a última: {why}");
+        let runtime = self.runtime();
+        let worker = "raven-ci:agentes";
+        match runtime.claim_id(run, worker) {
+            Ok(true) => {
+                let _ = runtime.fail(run, worker, &reason);
+            }
+            _ => {
+                let _ = runtime.cancel(run, &reason);
+            }
+        }
+        raven_ci_plugin_api::BuildLog::line(&logger, "", &reason);
+        if let Ok(status) = self.build(&row.job, row.number).map(|build| build.status) {
+            self.announce_end(&self.order_of(&row), None, status, &logger);
+            raven_ci_plugin_api::BuildLog::line(&logger, "", &format!("terminou: {}", status.words()));
+        }
+        self.log.write(&format!("{} #{}: {reason}", row.job, row.number));
+        let _ = self.prune_job(&row.job);
     }
 
     /// Takes down every agent the server brought up: what it does before it stops.
@@ -1436,7 +1521,12 @@ pub struct ChildAgent {
     control: ravenrs_process::Control,
     alive: Arc<AtomicBool>,
     at_stop: Mutex<Vec<Box<dyn FnOnce() + Send>>>,
+    /// The last lines it wrote and how it ended: its last words (#934).
+    last: Arc<Mutex<std::collections::VecDeque<String>>>,
 }
+
+/// How many of its last lines a [`ChildAgent`] keeps to say why it ended.
+const LAST_LINES: usize = 12;
 
 impl std::fmt::Debug for ChildAgent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -1454,22 +1544,39 @@ impl ChildAgent {
         let running = spec.spawn().map_err(|e| CiError::failed(format!("subir o agente {name}: {e}")))?;
         let control = running.control();
         let alive = Arc::new(AtomicBool::new(true));
-        let (watching, who) = (alive.clone(), name.to_owned());
+        let last: Arc<Mutex<std::collections::VecDeque<String>>> = Arc::default();
+        let (watching, who, kept) = (alive.clone(), name.to_owned(), last.clone());
         std::thread::Builder::new()
             .name(format!("raven-ci-agente-{name}"))
             .spawn(move || {
+                let keep = |line: String| {
+                    let mut kept = kept.lock().unwrap_or_else(PoisonError::into_inner);
+                    if kept.len() == LAST_LINES {
+                        kept.pop_front();
+                    }
+                    kept.push_back(line);
+                };
                 for event in running.events() {
                     match event {
                         ravenrs_process::Event::Out(line) | ravenrs_process::Event::Err(line) => {
                             log(&format!("[{who}] {line}"));
+                            if !line.trim().is_empty() {
+                                keep(line);
+                            }
                         }
-                        ravenrs_process::Event::Ended(end) => log(&format!("[{who}] terminou: {end:?}")),
+                        ravenrs_process::Event::Ended(end) => {
+                            log(&format!("[{who}] terminou: {end:?}"));
+                            keep(match end {
+                                ravenrs_process::End::Code(code) => format!("saiu com o código {code}"),
+                                other => format!("terminou: {other:?}"),
+                            });
+                        }
                     }
                 }
                 watching.store(false, Ordering::SeqCst);
             })
             .map_err(|e| CiError::failed(e.to_string()))?;
-        Ok(Self { name: name.to_owned(), control, alive, at_stop: Mutex::default() })
+        Ok(Self { name: name.to_owned(), control, alive, at_stop: Mutex::default(), last })
     }
 
     /// Writes `line` to its input, when it was started with one: a token it reads there.
@@ -1487,6 +1594,11 @@ impl ChildAgent {
 impl LaunchedAgent for ChildAgent {
     fn name(&self) -> String {
         self.name.clone()
+    }
+
+    fn last_words(&self) -> Option<String> {
+        let last = self.last.lock().unwrap_or_else(PoisonError::into_inner);
+        (!last.is_empty()).then(|| last.iter().cloned().collect::<Vec<_>>().join(" · "))
     }
 
     fn alive(&self) -> bool {

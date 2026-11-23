@@ -1,0 +1,20 @@
+# The image of the agent of Raven CI: what the launcher `docker` runs a build in, unless the job
+# names another (`agent = { docker = { image = "…" } }`). Fedora, with the RPM of Raven CI (the agent
+# at /usr/bin/raven-ci-agent, built for this C library), git, which the agent fetches code with, and
+# a user that is not root. Made by gerar-imagem-agente.sh, from the RPM pacote/gerar-rpm.sh made:
+#
+#   tools/raven-ci/pacote/docker/gerar-imagem-agente.sh
+#
+# A build that needs more tools (node, a JDK) makes an image FROM this one and names it in the job.
+FROM registry.fedoraproject.org/fedora:45
+
+COPY raven-ci-*.rpm /tmp/
+RUN dnf -y install /tmp/raven-ci-*.rpm git-core ca-certificates && dnf clean all \
+ && rm -f /tmp/raven-ci-*.rpm \
+ && raven-ci-agent --versao \
+ && useradd --create-home --uid 1000 agente \
+ && install -d -o agente -g agente /var/lib/raven-ci-agent
+
+USER agente
+WORKDIR /var/lib/raven-ci-agent
+ENTRYPOINT ["/usr/bin/raven-ci-agent"]
