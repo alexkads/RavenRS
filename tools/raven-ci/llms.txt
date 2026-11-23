@@ -1,0 +1,16 @@
+# Raven CI
+
+> A CI/CD server made of plugins, in a fraction of the memory of Jenkins. A session of AI should read the summary of a build, never its whole log, and check a pipeline before applying it.
+
+## For sessions of AI
+
+- [Raven CI for sessions of AI](docs/ai.md): the MCP server `raven-ci mcp`, the summary of a build, the schema, the exit codes and how to work.
+- [The skill](../../plugins/raven-ci/skills/raven-ci/SKILL.md): the plugin `raven-ci` of the repository's marketplace.
+
+## Guides
+
+- [The pipeline](docs/pipeline.md): `.raven-ci.toml`, field by field; `raven-ci esquema` gives its JSON Schema.
+- [Moving from Jenkins](docs/migrating-from-jenkins.md): what maps to what, and the converter of `Jenkinsfile`.
+- [Build agents](docs/agents.md): agents, templates, containers, and what a build leaves behind.
+- [Running the server](docs/operations.md): the RPM, the vault, configuration as code.
+- [Writing a plugin](docs/writing-a-plugin.md): the points of extension, in Rust or any language.

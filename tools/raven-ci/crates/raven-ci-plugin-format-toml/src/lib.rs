@@ -71,6 +71,9 @@
 //!   `timeout_ms` and `retry`.
 
 mod read;
+pub mod schema;
+
+pub use schema::schema;
 
 use std::sync::Arc;
 

@@ -6004,7 +6004,7 @@ dependencies = [
 
 [[package]]
 name = "raven-ci"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "raven-ci-core",
  "raven-ci-plugin-agent-local",
@@ -6033,6 +6033,7 @@ dependencies = [
  "ravenrs-app-server",
  "ravenrs-app-update",
  "ravenrs-process",
+ "rmcp",
  "serde",
  "serde_json",
  "tokio",

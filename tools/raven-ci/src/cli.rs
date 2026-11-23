@@ -32,10 +32,21 @@ pub const USAGE: &str = "uso: raven-ci [--dados PASTA] [--plugins PASTA]… [--f
   log JOB NUMERO [--seguir]
                           o log do build; --seguir até ele acabar
   resumo                  cada job com o último build, e a fila
+  resumo JOB [NUMERO] [--format json|md]
+                          o resumo de um build para ler pouco: o que falhou, as últimas
+                          linhas, os testes e os diagnósticos (feito para sessões de IA)
   evidencia JOB NUMERO PASTA
                           baixa os artefatos e o log do build para PASTA
-                          (estes cinco falam com --servidor URL ou RAVEN_CI_SERVIDOR,
-                          com a chave em RAVEN_CI_TOKEN)
+                          (estes falam com --servidor URL ou RAVEN_CI_SERVIDOR,
+                          com a chave em RAVEN_CI_TOKEN; saída 0 ok, 1 o build falhou,
+                          2 uso errado, 3 sem servidor, 4 sem permissão, 5 recusado,
+                          6 erro local; com --format json, o erro sai em JSON)
+  esquema                 o JSON Schema do .raven-ci.toml, para escrever um pipeline certo
+  validar ARQUIVO [--format json]
+                          confere um .raven-ci.toml ou Jenkinsfile sem servidor, com as linhas
+  mcp                     o servidor MCP para sessões de IA (Claude Code, Codex), por stdio
+  ia [instalar [--servidor URL] [--chave -] [--so-mostrar]]
+                          o que uma sessão de IA precisa saber; instalar registra o MCP
   aplicar ARQUIVO [--remover] [--servidor URL]
                           a configuração como código: jobs, pastas e plugins do arquivo
   servir --config ARQUIVO aplica o arquivo ao subir
@@ -93,6 +104,13 @@ impl Invocation {
     pub fn run(&self, out: &mut dyn Write) -> Result<i32, CiError> {
         // The commands that speak to a server open no core on this disk.
         if let Some(said) = crate::remote::run(&self.words, self.json, out) {
+            return said;
+        }
+        // Nor those for sessions of AI: the MCP server, the schema, checking a file (#941).
+        if self.words.as_slice() == ["mcp"] {
+            return crate::mcp::serve();
+        }
+        if let Some(said) = crate::ia::run(&self.words, self.json, out) {
             return said;
         }
         if let [first, rest @ ..] = self.words.as_slice()
