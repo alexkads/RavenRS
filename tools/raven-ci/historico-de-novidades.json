@@ -1,5 +1,28 @@
 [
   {
+    "versao": "0.1.8",
+    "data": "2026-11-23",
+    "titulo": "Backup com o servidor no ar, e o que faltava para rodar os jobs do Jenkins lado a lado.",
+    "importante": false,
+    "novidades": [
+      "raven-ci backup criar guarda jobs, builds, logs, anexos, usuários, credenciais e os dados dos plugins com o servidor no ar; backup ver confere um backup, e backup restaurar o põe de volta com o servidor parado, deixando o que havia em antes-da-restauracao-<quando>/. A chave do cofre só entra com --com-chave.",
+      "Um segundo servidor na mesma pasta de dados é recusado, dizendo por quê.",
+      "Um parâmetro que o pedido não diz recebe o valor padrão do pipeline, e --param SIMULAR=false é lido como o tipo do parâmetro.",
+      "artifacts = [\"relatorio/**\"] guarda todos os arquivos abaixo da pasta, como o archiveArtifacts do Jenkins.",
+      "A branch que um job busca pode vir de um parâmetro: reference = { branch = \"${BRANCH}\" }.",
+      "raven-ci plugins ligar NOME --servidor URL liga o plugin no servidor no ar, sem reiniciar; sem --servidor, o comando avisa que só grava na pasta de dados.",
+      "raven-ci validar confere um arquivo de jobs do aplicar, job por job."
+    ],
+    "por_que_atualizar": "Para ter backup do servidor e para os jobs que vêm do Jenkins rodarem com os parâmetros e os artefatos certos.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      917,
+      946
+    ]
+  },
+  {
     "versao": "0.1.7",
     "data": "2026-11-23",
     "titulo": "O Raven CI explica por que um build falhou, com IA local.",
