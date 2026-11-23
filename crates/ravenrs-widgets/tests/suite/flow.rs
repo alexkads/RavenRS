@@ -1584,8 +1584,27 @@ fn new_and_switching_keep_what_was_open_and_start_the_history_over() {
     assert_eq!(shelf.documents.len(), 1, "the one open before was kept first");
 
     // Back to the first one.
-    assert!(starting(&mut d.ui, "Untitled 2 ").is_some(), "the new one is told apart");
-    let first = starting(&mut d.ui, "Untitled 3 nodes").expect("the first, listed").id;
+    // A document is named by its title and says the rest in its description (#921).
+    let listed = |ui: &mut Ui, title: &str, detail: &str| {
+        ui.access_tree()
+            .nodes
+            .iter()
+            .find(|n| {
+                n.name.as_deref() == Some(title)
+                    && n.description.as_deref().is_some_and(|d| d.contains(detail))
+            })
+            .cloned()
+    };
+    let docs: Vec<_> =
+        d.ui.access_tree()
+            .nodes
+            .iter()
+            .filter(|n| n.name.as_deref().is_some_and(|x| x.starts_with("Untitled")))
+            .map(|n| (n.name.clone(), n.description.clone()))
+            .collect();
+    assert!(starting(&mut d.ui, "Untitled 2").is_some(), "the new one is told apart: {docs:?}");
+    let first =
+        listed(&mut d.ui, "Untitled", "3 nodes").unwrap_or_else(|| panic!("the first, listed: {docs:?}")).id;
     d.ui.perform_action(first, ravenrs_core::AccessAction::Click);
     settle(&mut d.ui);
     assert_eq!(d.graph.get(), graph());

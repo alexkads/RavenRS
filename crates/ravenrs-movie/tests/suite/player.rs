@@ -148,7 +148,13 @@ fn chapters_jump_and_the_end_stops_and_plays_again() {
     let mut ui = player(MoviePlayer::new(film()));
     click(&mut ui, "Second part");
     assert!(says_time(&mut ui, "0:06"));
-    assert!(has(&mut ui, "Second part What comes next"), "the chapter says what it teaches");
+    // A chapter is named by its title and says what it teaches in its description (#921).
+    let tree = ui.access_tree();
+    let chapter = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Second part"));
+    assert!(
+        chapter.and_then(|n| n.description.as_deref()).is_some_and(|d| d.contains("What comes next")),
+        "the chapter says what it teaches"
+    );
     click(&mut ui, "Play");
     run_to(&mut ui, 0.0, 5.0);
     assert!(says_time(&mut ui, "0:10"));

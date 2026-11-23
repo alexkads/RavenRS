@@ -37,6 +37,8 @@ pub struct Divergence {
     pub element: String,
     /// What differs, in a sentence.
     pub what: String,
+    /// In how many points: a piece wrong in width and height is one line with two points.
+    pub points: usize,
 }
 
 impl std::fmt::Display for Divergence {
@@ -90,6 +92,18 @@ impl Replay {
         pieces.sort_unstable();
         pieces.dedup();
         pieces.len()
+    }
+
+    /// How many points diverge in all: the width and the height of a piece count apart (#921).
+    pub fn points_diverging(&self) -> usize {
+        self.divergences.iter().map(|d| d.points).sum()
+    }
+
+    /// The closing line of a replay that found divergences: `N de M peças divergem (K pontos)`.
+    pub fn summary(&self) -> String {
+        let points = self.points_diverging();
+        let unit = if points == 1 { "ponto" } else { "pontos" };
+        format!("{} de {} peças divergem ({points} {unit})", self.pieces_diverging(), self.pieces)
     }
 }
 
@@ -159,8 +173,9 @@ pub fn replay_with(json: &str, entries: &[Entry]) -> Result<Replay, String> {
         } else {
             mark.to_owned()
         };
-        let mut diverge =
-            |what: String| out.divergences.push(Divergence { piece, element: label.clone(), what });
+        let mut diverge = |what: String| {
+            out.divergences.push(Divergence { piece, element: label.clone(), what, points: 1 })
+        };
         let Some((component, story_name)) = mark.split_once('/') else {
             diverge("the mark is not \"Component/Story\"".to_owned());
             continue;
@@ -224,7 +239,8 @@ pub fn replay_with(json: &str, entries: &[Entry]) -> Result<Replay, String> {
             said.push(format!("height {h} in the design, {} in RavenRS ({:+})", built.1, round(h - built.1)));
         }
         if !said.is_empty() {
-            diverge(said.join("; "));
+            let (what, points) = (said.join("; "), said.len());
+            out.divergences.push(Divergence { piece, element: label.clone(), what, points });
         }
         out.measured.push(Measure {
             element: label,

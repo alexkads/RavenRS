@@ -227,6 +227,11 @@ pub struct AccessNode {
     pub active_descendant: Option<u64>,
     /// Absolute frame in logical pixels.
     pub bounds: Rect,
+    /// The part of [`bounds`](Self::bounds) that what holds the node lets show: the frame cut by
+    /// their clips, as a cell a grid scrolled sideways or a row past the end of a list's window.
+    /// It is zero wide or tall when the node is scrolled out of sight. The edge of the window
+    /// does not cut it. [`AccessNode::new`] gives it the whole `bounds`.
+    pub visible: Rect,
     /// Child node ids in reading order.
     pub children: Vec<u64>,
     /// Actions assistive technology may request.
@@ -262,6 +267,7 @@ impl AccessNode {
             level: None,
             active_descendant: None,
             bounds,
+            visible: bounds,
             children: Vec::new(),
             actions: Vec::new(),
             test_id: None,
