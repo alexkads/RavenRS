@@ -7,7 +7,7 @@ use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
-use crate::{Button, ButtonSize, ButtonStyle, Fill, IconName, Image, View, ViewSeq, util};
+use crate::{Button, ButtonSize, ButtonStyle, Fill, IconName, Image, Labels, View, ViewSeq, util};
 
 /// How far a badge's text goes from its tone toward the ink.
 const BADGE_TEXT_TOWARD_INK: f32 = 0.3;
@@ -312,6 +312,10 @@ impl View for Divider {
 /// let mut ui = Ui::new(bar, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+/// How wide a [`ProgressBar`] marker is, and how far it reaches past the track.
+const MARKER_WIDTH: f32 = 2.0;
+const MARKER_REACH: f32 = 3.0;
+
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ProgressBar {
@@ -323,6 +327,7 @@ pub struct ProgressBar {
     detail: Option<String>,
     percent: bool,
     detail_inline: bool,
+    markers: Vec<(f32, Option<String>)>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -338,6 +343,7 @@ impl ProgressBar {
             detail: None,
             percent: false,
             detail_inline: false,
+            markers: Vec::new(),
         }
     }
 
@@ -383,6 +389,47 @@ impl ProgressBar {
         self.detail_inline = inline;
         self
     }
+
+    /// Marks a value of reference on the track, such as a limit, a goal or a floor: a stroke
+    /// across the bar at `value`, clamped to 0.0–1.0, in the theme's warning color. Each call adds
+    /// one more. Screen readers hear, after the value, whether the bar is above, below or on each
+    /// one, so passing it is never told by color alone.
+    pub fn marker(mut self, value: f32) -> Self {
+        self.markers.push((if value.is_nan() { 0.0 } else { value.clamp(0.0, 1.0) }, None));
+        self
+    }
+
+    /// Names the last marker for screen readers, as "limite 0,85": they hear "89%, acima do
+    /// limite 0,85". A marker with no name is read by where it is ("ponto de 85%"). Without a
+    /// marker, it does nothing.
+    pub fn marker_label(mut self, label: impl Into<String>) -> Self {
+        if let Some((_, name)) = self.markers.last_mut() {
+            *name = Some(label.into());
+        }
+        self
+    }
+}
+
+/// What screen readers hear as a [`ProgressBar`]'s value: the percent, and where it stands to
+/// each marker.
+fn spoken_value(bar: &ProgressBar, percent: f64, labels: &Labels) -> String {
+    let mut spoken = format!("{percent}%");
+    for (at, name) in &bar.markers {
+        let name = name.clone().unwrap_or_else(|| {
+            let at = (f64::from(*at) * 100.0).round();
+            labels.progress_mark.replace("{value}", &format!("{at}%"))
+        });
+        let place = if bar.value > *at {
+            &labels.progress_above
+        } else if bar.value < *at {
+            &labels.progress_below
+        } else {
+            &labels.progress_at
+        };
+        spoken.push_str(", ");
+        spoken.push_str(&place.replace("{marker}", &name));
+    }
+    spoken
 }
 
 impl View for ProgressBar {
@@ -395,6 +442,8 @@ impl View for ProgressBar {
         let h = self.height;
         let value = cx.animated(self.value, theme.motion.snappy).clamp(0.0, 1.0);
         let style = LayoutStyle { height: Some(h), align_self: Some(Align::Stretch), ..LayoutStyle::leaf() };
+        let marks: Vec<f32> = self.markers.iter().map(|(at, _)| *at).collect();
+        let mark_color = theme.color(Semantic::Warning);
         let node = cx.container(
             style,
             &[],
@@ -405,12 +454,23 @@ impl View for ProgressBar {
                     let bar = Rect::new(frame.x(), frame.y(), w, h);
                     scene.push_quad(Quad::new(bar, fill).radius(h / 2.0));
                 }
+                // A marker crosses the track a little above and below, so it shows over the fill.
+                for at in &marks {
+                    let x = (frame.x() + frame.width() * at - MARKER_WIDTH / 2.0)
+                        .clamp(frame.x(), frame.x() + frame.width() - MARKER_WIDTH);
+                    let stroke = Rect::new(x, frame.y() - MARKER_REACH, MARKER_WIDTH, h + 2.0 * MARKER_REACH);
+                    scene.push_quad(Quad::new(stroke, mark_color).radius(MARKER_WIDTH / 2.0));
+                }
             })),
         );
         let percent = (f64::from(self.value) * 100.0).round();
-        let mut semantics = Semantics::new(Role::ProgressIndicator)
-            .numeric(percent, 0.0, 100.0, None)
-            .value(format!("{percent}%"));
+        let spoken = if self.markers.is_empty() {
+            format!("{percent}%")
+        } else {
+            spoken_value(self, percent, &cx.labels())
+        };
+        let mut semantics =
+            Semantics::new(Role::ProgressIndicator).numeric(percent, 0.0, 100.0, None).value(spoken);
         if let Some(label) = &self.label {
             semantics = semantics.name(label.clone());
         }

@@ -69,6 +69,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `ProgressBar::marker(value)` and `marker_label(text)`: a stroke of reference across the track (a limit, a goal, a floor), in the warning color, clamped to the track; each call adds one. Screen readers hear where the value stands to each ("89%, acima do limite 0,85"), so passing it is not told by color alone. `Labels` has `progress_above`, `progress_below`, `progress_at` and `progress_mark`; a bar with no marker draws and reads as before ([#749](https://github.com/alexkads/RavenRS/issues/749)).
 - `ravenrs-process`: `Spec::stop_leftovers` stops what a child left running in its process group the moment it ends on its own (a `sleep 600 &` that held its output open, a daemon a build started), and `Control::leftovers` names them; `stop_group(pid)` does the same for a group apart. Raven CI's step `sh` uses it, so nothing of a build outlives it ([#931](https://github.com/alexkads/RavenRS/issues/931)).
 
 - `raven-component-book --replay` ends with `N de M peças divergem (K pontos)`, a piece wrong in width and height counting as two points (`Replay::points_diverging`, `Replay::summary`). The guide of the design system says a screen is ready only when its replay finds no divergence, that a component with a card is never *Missing from the library*, and that each piece is drawn as its card draws it, with no frame, border, header style, color or inner space the card does not show. ([#921](https://github.com/alexkads/RavenRS/issues/921))
