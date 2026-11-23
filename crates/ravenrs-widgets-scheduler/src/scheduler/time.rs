@@ -58,6 +58,8 @@ impl TimePoint {
 #[non_exhaustive]
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum TimeScale {
+    /// A quarter of an hour, under its day: what ran in the last hours, as a build server shows.
+    QuarterHours,
     /// An hour, under its day.
     Hours,
     /// A day, under its month.
@@ -70,7 +72,7 @@ pub enum TimeScale {
 }
 
 /// From far to near, as zooming in goes: a scale and the width of a tick.
-const ZOOM_LEVELS: [(TimeScale, f32); 8] = [
+const ZOOM_LEVELS: [(TimeScale, f32); 9] = [
     (TimeScale::Months, 56.0),
     (TimeScale::Months, 110.0),
     (TimeScale::Weeks, 60.0),
@@ -79,6 +81,7 @@ const ZOOM_LEVELS: [(TimeScale, f32); 8] = [
     (TimeScale::Days, 80.0),
     (TimeScale::Hours, 36.0),
     (TimeScale::Hours, 72.0),
+    (TimeScale::QuarterHours, 60.0),
 ];
 
 /// The stretch of time a [`Scheduler`](crate::Scheduler) shows, how wide it is and how it is marked.
@@ -142,6 +145,17 @@ impl TimeAxis {
         Self { start, end: start.plus_days(1), scale: TimeScale::Hours, tick_width: 36.0 }
     }
 
+    /// `hours` hours from the quarter of an hour `from` falls in, a tick per quarter.
+    pub fn quarter_hours(from: TimePoint, hours: u32) -> Self {
+        let start = TimePoint::from_minutes(from.minutes().div_euclid(15) * 15);
+        Self {
+            start,
+            end: start.plus_minutes(60 * i64::from(hours.max(1))),
+            scale: TimeScale::QuarterHours,
+            tick_width: 60.0,
+        }
+    }
+
     /// The same stretch of time, one step nearer. `None` when it cannot go nearer.
     pub fn zoomed_in(&self) -> Option<Self> {
         self.zoomed(1)
@@ -185,6 +199,7 @@ impl TimeAxis {
 
     fn pixels_per_minute(&self) -> f64 {
         let tick_minutes = match self.scale {
+            TimeScale::QuarterHours => 15.0,
             TimeScale::Hours => 60.0,
             TimeScale::Days => MINUTES_PER_DAY as f64,
             TimeScale::Weeks => 7.0 * MINUTES_PER_DAY as f64,
@@ -209,10 +224,11 @@ impl TimeAxis {
         self.start.plus_minutes(minutes)
     }
 
-    /// The smallest step an event moves by: a quarter of an hour on the hour
-    /// scale, a day on the others.
+    /// The smallest step an event moves by: five minutes on the scale of quarters, a quarter of
+    /// an hour on the hour scale, a day on the others.
     pub fn snap_minutes(&self) -> i64 {
         match self.scale {
+            TimeScale::QuarterHours => 5,
             TimeScale::Hours => 15,
             _ => MINUTES_PER_DAY,
         }
@@ -226,6 +242,7 @@ impl TimeAxis {
 
     fn next_tick(&self, tick: TimePoint) -> TimePoint {
         match self.scale {
+            TimeScale::QuarterHours => tick.plus_minutes(15),
             TimeScale::Hours => tick.plus_minutes(60),
             TimeScale::Days => tick.plus_days(1),
             TimeScale::Weeks => tick.plus_days(7),
@@ -259,7 +276,7 @@ impl TimeAxis {
         let Some(previous) = previous else { return true };
         let (now, then) = (tick.date(), previous.date());
         match self.scale {
-            TimeScale::Hours => now != then,
+            TimeScale::QuarterHours | TimeScale::Hours => now != then,
             TimeScale::Days | TimeScale::Weeks => now.month() != then.month() || now.year() != then.year(),
             TimeScale::Months => now.year() != then.year(),
         }
@@ -375,7 +392,7 @@ mod tests {
             steps += 1;
         }
         assert_eq!(steps, ZOOM_LEVELS.len() - 1);
-        assert_eq!(axis.scale, TimeScale::Hours);
+        assert_eq!(axis.scale, TimeScale::QuarterHours);
         while let Some(farther) = axis.zoomed_out() {
             axis = farther;
         }
@@ -399,6 +416,19 @@ mod tests {
         assert_ne!(lanes[0], lanes[1]);
         assert_ne!(lanes[0], lanes[3]);
         assert_eq!(lanes[2], lanes[0], "the third starts as the first ends, so it can reuse its lane");
+    }
+
+    #[test]
+    fn quarters_start_on_a_quarter_and_tick_every_fifteen_minutes() {
+        let axis = TimeAxis::quarter_hours(TimePoint::at(date(2026, 11, 22), 14, 7), 2);
+        assert_eq!(axis.start, TimePoint::at(date(2026, 11, 22), 14, 0));
+        assert_eq!(axis.end, TimePoint::at(date(2026, 11, 22), 16, 0));
+        let ticks = axis.ticks(0.0, axis.width());
+        assert_eq!(ticks.len(), 8, "eight quarters in two hours");
+        assert_eq!(ticks[1].start, TimePoint::at(date(2026, 11, 22), 14, 15));
+        assert_eq!(axis.width(), 8.0 * 60.0);
+        assert_eq!(axis.snap(TimePoint::at(date(2026, 11, 22), 14, 8)), TimePoint::at(date(2026, 11, 22), 14, 10));
+        assert!(axis.zoomed_in().is_none(), "the nearest level");
     }
 
     #[test]

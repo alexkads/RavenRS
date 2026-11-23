@@ -60,18 +60,27 @@ pub struct Resource {
     pub subtitle: Option<String>,
     /// The collapsible group it goes under; rows with the same group stay together.
     pub group: Option<String>,
+    /// Why it takes nothing now, as an agent that went away: its row is hatched and says so.
+    pub unavailable: Option<String>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Resource {
     /// A row with this name.
     pub fn new(id: u64, name: impl Into<String>) -> Self {
-        Self { id, name: name.into(), subtitle: None, group: None }
+        Self { id, name: name.into(), subtitle: None, group: None, unavailable: None }
     }
 
     /// Sets the second line.
     pub fn subtitle(mut self, text: impl Into<String>) -> Self {
         self.subtitle = Some(text.into());
+        self
+    }
+
+    /// Takes nothing now, and its row says `why` over a hatching (`Desconectado há 3 h`). What
+    /// it held still shows.
+    pub fn unavailable(mut self, why: impl Into<String>) -> Self {
+        self.unavailable = Some(why.into());
         self
     }
 
@@ -1045,7 +1054,7 @@ fn draw_handler(cx: &mut BuildCx<'_>, s: &Scheduler, editing: &Editing) -> Optio
 fn time_label(labels: &Labels, scale: TimeScale, time: TimePoint) -> String {
     let date = labels.short_date(time.date());
     match scale {
-        TimeScale::Hours => {
+        TimeScale::QuarterHours | TimeScale::Hours => {
             let (hour, minute) = time.hour_minute();
             format!("{date} {hour:02}:{minute:02}")
         }
@@ -1055,14 +1064,41 @@ fn time_label(labels: &Labels, scale: TimeScale, time: TimePoint) -> String {
 
 /// A stretch of time as a person reads it. Days are whole, so the last one shown is the last one in it.
 fn time_range(labels: &Labels, scale: TimeScale, start: TimePoint, end: TimePoint) -> String {
-    let last = if scale == TimeScale::Hours { end } else { end.plus_minutes(-1).max(start) };
+    let last = if matches!(scale, TimeScale::Hours | TimeScale::QuarterHours) {
+        end
+    } else {
+        end.plus_minutes(-1).max(start)
+    };
     let (from, to) = (time_label(labels, scale, start), time_label(labels, scale, last));
     if from == to { from } else { format!("{from} – {to}") }
+}
+
+/// What the toolbar calls the stretch shown: two dates, one date when it is one day, and the
+/// hours of a day (`Hoje, 14:00 – 16:00`) when the scale is of hours.
+fn axis_title(labels: &Labels, axis: &TimeAxis, today: Option<crate::date::Date>) -> String {
+    let first = axis.start.date();
+    let last = axis.end.plus_minutes(-1).max(axis.start).date();
+    let day = |date| if Some(date) == today { labels.today.clone() } else { labels.short_date(date) };
+    if first != last {
+        return format!("{} – {}", labels.short_date(first), labels.short_date(last));
+    }
+    if matches!(axis.scale, TimeScale::Hours | TimeScale::QuarterHours) {
+        let (h1, m1) = axis.start.hour_minute();
+        let (h2, m2) = axis.end.hour_minute();
+        // An axis that ends at midnight ends at 24:00 of its day, not at 00:00.
+        let h2 = if axis.end.date() != first && (h2, m2) == (0, 0) { 24 } else { h2 };
+        return format!("{}, {h1:02}:{m1:02} – {h2:02}:{m2:02}", day(first));
+    }
+    day(first)
 }
 
 fn tick_text(labels: &Labels, scale: TimeScale, time: TimePoint) -> String {
     let date = time.date();
     match scale {
+        TimeScale::QuarterHours => {
+            let (hour, minute) = time.hour_minute();
+            format!("{hour:02}:{minute:02}")
+        }
         TimeScale::Hours => format!("{:02}", time.hour_minute().0),
         TimeScale::Days => date.day().to_string(),
         TimeScale::Weeks => format!("{:02}", date.day()),
@@ -1076,7 +1112,7 @@ fn tick_text(labels: &Labels, scale: TimeScale, time: TimePoint) -> String {
 fn group_text(labels: &Labels, scale: TimeScale, time: TimePoint) -> String {
     let date = time.date();
     match scale {
-        TimeScale::Hours => labels.short_date(date),
+        TimeScale::QuarterHours | TimeScale::Hours => labels.short_date(date),
         TimeScale::Days | TimeScale::Weeks => labels.month_title(date),
         TimeScale::Months => date.year().to_string(),
     }
@@ -1093,6 +1129,39 @@ fn band(cx: &mut BuildCx<'_>, frame: Rect, fill: ravenrs_core::Color) -> NodeId 
         },
         &[],
         Paint::Quad(QuadPaint::new(fill)),
+    );
+    cx.semantics(node, Semantics::hidden());
+    node
+}
+
+/// Thin diagonal lines over `frame`, as the row of a resource that takes nothing.
+fn hatching(cx: &mut BuildCx<'_>, frame: Rect, color: ravenrs_core::Color) -> NodeId {
+    const GAP: f32 = 10.0;
+    let node = cx.container(
+        LayoutStyle {
+            absolute: Some((frame.x(), frame.y())),
+            width: Some(frame.width()),
+            height: Some(frame.height()),
+            overflow_hidden: true,
+            ..LayoutStyle::leaf()
+        },
+        &[],
+        Paint::Rich(Rc::new(move |at: Rect, paint: &mut crate::context::PaintCx<'_>| {
+            let h = at.height();
+            let mut x = at.x() - h;
+            while x < at.max_x() {
+                // Each line is cut to the box, so none runs past its edges.
+                let (x0, x1) = (x.max(at.x()), (x + h).min(at.max_x()));
+                if x1 > x0 {
+                    let points = [
+                        Point::new(x0, at.max_y() - (x0 - x)),
+                        Point::new(x1, at.max_y() - (x1 - x)),
+                    ];
+                    paint.scene.push_path(ravenrs_core::PathFill::solid(util::stroke_outline(&points, 1.0), color));
+                }
+                x += GAP;
+            }
+        })),
     );
     cx.semantics(node, Semantics::hidden());
     node
@@ -1200,11 +1269,7 @@ impl Scheduler {
             ),
         );
         if !self.card {
-            let title = format!(
-                "{} – {}",
-                labels.short_date(axis.start.date()),
-                labels.short_date(axis.end.plus_minutes(-1).date())
-            );
+            let title = axis_title(&labels, &axis, self.now.map(TimePoint::date));
             items.push(util::label(cx, &title, TextStyle::Headline, None, cx.theme().color(Semantic::Ink)));
             items.extend(today_button);
         }
@@ -1506,7 +1571,7 @@ impl View for Scheduler {
                 ));
             }
         }
-        if axis.scale == TimeScale::Days || axis.scale == TimeScale::Hours {
+        if matches!(axis.scale, TimeScale::Days | TimeScale::Hours | TimeScale::QuarterHours) {
             for tick in &ticks {
                 let weekday = tick.start.date().weekday();
                 if weekday == 0 || weekday == 6 {
@@ -1541,6 +1606,21 @@ impl View for Scheduler {
             }
             if !self.card || y + row.height() < area {
                 under.push(band(cx, Rect::new(0.0, y + row.height() - 1.0, width, 1.0), line));
+            }
+            // A resource that takes nothing now: hatched across what is in view, saying why.
+            if let Row::Resource { index, height, .. } = row
+                && let Some(why) = &self.resources[*index].unavailable
+            {
+                let from = left.max(0.0);
+                let frame = Rect::new(from, y, (right.min(width) - from).max(0.0), *height - 1.0);
+                under.push(hatching(cx, frame, line));
+                under.push(placed_text(
+                    cx,
+                    Rect::new(scroll.x + 12.0, y, (view.width - 24.0).max(0.0), *height),
+                    why,
+                    TextStyle::Callout,
+                    muted,
+                ));
             }
             match row {
                 Row::Group { name, count, collapsed: is_collapsed, .. } => {
