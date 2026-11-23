@@ -87,7 +87,7 @@ fn main() -> std::process::ExitCode {
                 for d in &replay.divergences {
                     println!("{d}");
                 }
-                println!("{} de {} peças divergem", replay.divergences.len(), replay.compared);
+                println!("{} de {} peças divergem", replay.pieces_diverging(), replay.pieces);
                 std::process::ExitCode::FAILURE
             }
             Err(why) => {

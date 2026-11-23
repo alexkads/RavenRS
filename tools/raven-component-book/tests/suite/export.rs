@@ -400,6 +400,26 @@ fn the_workspace_of_fermata_is_built_as_it_was_drawn() {
 }
 
 #[test]
+fn a_piece_counts_once_and_a_container_answers_only_for_its_width() {
+    // A button wrong in width and height is one piece, said in one line; the card around it is a
+    // container, whose height comes from what it holds; the sidebar fills the height of the screen.
+    let screen = r#"{"elements": [
+        {"rcb": "Card/Default", "box": [0, 0, 300, 999]},
+        {"rcb": "Button/Primary", "box": [10, 10, 200, 60]},
+        {"rcb": "Sidebar/Compact, with sections", "box": [400, 0, 248, 900]}
+    ]}"#;
+    let replay = raven_component_book::replay::replay(screen).expect("a screen");
+    let said: Vec<String> = replay.divergences.iter().map(ToString::to_string).collect();
+    assert_eq!(replay.pieces, 3);
+    assert_eq!(replay.pieces_diverging(), 1, "only the button: {said:#?}");
+    assert_eq!(said.len(), 1, "{said:#?}");
+    assert!(
+        said[0].starts_with("Button/Primary") && said[0].contains("width") && said[0].contains("height"),
+        "{said:#?}"
+    );
+}
+
+#[test]
 fn any_icon_of_the_set_is_a_setting_the_replay_takes() {
     // The cards offer a sample of icons; the card of Icon lists all of them (#831).
     let screen = r#"{"elements": [

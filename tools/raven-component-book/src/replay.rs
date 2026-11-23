@@ -16,7 +16,7 @@
 //! The places of the pieces are the design's: what is compared is what each piece is.
 
 use ravenrs::prelude::IconName;
-use ravenrs::widgets::book::{ArgValue, Args, Control, Meta};
+use ravenrs::widgets::book::{ArgValue, Args, Control, Extent, Meta};
 use serde_json::Value;
 
 use crate::index::{self, Entry};
@@ -31,6 +31,8 @@ pub const TEXT_SHARE: f64 = 0.03;
 /// A piece of the screen that RavenRS does not build as it was drawn.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Divergence {
+    /// Which piece, by its place in the screen's list: one piece may diverge in several points.
+    pub piece: usize,
     /// Which piece: its mark and the settings it changed.
     pub element: String,
     /// What differs, in a sentence.
@@ -46,10 +48,40 @@ impl std::fmt::Display for Divergence {
 /// What came back from the design, checked: the pieces compared and what differs.
 #[derive(Clone, Debug, Default)]
 pub struct Replay {
+    /// How many pieces the screen marks.
+    pub pieces: usize,
     /// How many marked pieces were compared.
     pub compared: usize,
     /// What RavenRS does not build as it was drawn.
     pub divergences: Vec<Divergence>,
+}
+
+impl Replay {
+    /// How many pieces diverge, each counted once however many points it diverges in (#921).
+    pub fn pieces_diverging(&self) -> usize {
+        let mut pieces: Vec<usize> = self.divergences.iter().map(|d| d.piece).collect();
+        pieces.sort_unstable();
+        pieces.dedup();
+        pieces.len()
+    }
+}
+
+/// Whether box `outer` holds box `inner` whole, and is larger: a piece drawn inside another.
+fn holds(outer: [f64; 4], inner: [f64; 4]) -> bool {
+    let [ox, oy, ow, oh] = outer;
+    let [ix, iy, iw, ih] = inner;
+    ix >= ox - 0.5
+        && iy >= oy - 0.5
+        && ix + iw <= ox + ow + 0.5
+        && iy + ih <= oy + oh + 0.5
+        && iw * ih < ow * oh
+}
+
+fn box_of(element: &Value) -> Option<[f64; 4]> {
+    element["box"]
+        .as_array()
+        .and_then(|b| b.iter().map(Value::as_f64).collect::<Option<Vec<_>>>())
+        .and_then(|b| <[f64; 4]>::try_from(b).ok())
 }
 
 /// A setting as the design wrote it, in the kind its component declares.
@@ -89,8 +121,9 @@ pub fn replay_with(json: &str, entries: &[Entry]) -> Result<Replay, String> {
     let screen: Value = serde_json::from_str(json).map_err(|e| format!("not the JSON of a screen: {e}"))?;
     let elements = screen["elements"].as_array().ok_or("the JSON has no \"elements\" list")?;
     let theme = measure::themes()[0].1;
-    let mut out = Replay::default();
-    for element in elements {
+    let mut out = Replay { pieces: elements.len(), ..Replay::default() };
+    let boxes: Vec<Option<[f64; 4]>> = elements.iter().map(box_of).collect();
+    for (piece, element) in elements.iter().enumerate() {
         let mark = element["rcb"].as_str().unwrap_or_default();
         let changed = element.get("args").cloned().unwrap_or(Value::Object(Default::default()));
         let label = if changed.as_object().is_some_and(|o| !o.is_empty()) {
@@ -98,7 +131,8 @@ pub fn replay_with(json: &str, entries: &[Entry]) -> Result<Replay, String> {
         } else {
             mark.to_owned()
         };
-        let mut diverge = |what: String| out.divergences.push(Divergence { element: label.clone(), what });
+        let mut diverge =
+            |what: String| out.divergences.push(Divergence { piece, element: label.clone(), what });
         let Some((component, story_name)) = mark.split_once('/') else {
             diverge("the mark is not \"Component/Story\"".to_owned());
             continue;
@@ -144,7 +178,13 @@ pub fn replay_with(json: &str, entries: &[Entry]) -> Result<Replay, String> {
         if (built.0 - w).abs() > width_room {
             said.push(format!("width {w} in the design, {} in RavenRS ({:+})", built.0, round(w - built.0)));
         }
-        if (built.1 - h).abs() > TOLERANCE {
+        // The height of a piece that holds other marked pieces comes from them, and they are
+        // checked themselves; one that fills its parent's height takes the height of the screen.
+        let container = boxes.iter().enumerate().any(|(other, inner)| {
+            other != piece && boxes[piece].zip(*inner).is_some_and(|(outer, inner)| holds(outer, inner))
+        });
+        let fills_height = entry.meta.sizing.height == Some(Extent::Fill);
+        if !container && !fills_height && (built.1 - h).abs() > TOLERANCE {
             said.push(format!("height {h} in the design, {} in RavenRS ({:+})", built.1, round(h - built.1)));
         }
         if !said.is_empty() {
