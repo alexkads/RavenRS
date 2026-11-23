@@ -44,6 +44,13 @@ pub const PAGES: &[Page] = &[
         make: || Box::new(basicos::chaves::TogglesPage),
     },
     Page {
+        id: basicos::progresso::ID,
+        caption: basicos::progresso::PAGE,
+        group: "Básicos",
+        icon: IconName::Activity,
+        make: || Box::new(basicos::progresso::ProgressPage),
+    },
+    Page {
         id: basicos::texto::ID,
         caption: basicos::texto::PAGE,
         group: "Básicos",

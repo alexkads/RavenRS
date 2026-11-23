@@ -57,6 +57,7 @@ fn progress(args: &Args) -> AnyView {
     if !args.text("detail").is_empty() {
         bar = bar.detail(args.text("detail"));
     }
+    bar = bar.detail_inline(args.bool("detail_inline"));
     Box::new(bar)
 }
 
@@ -140,11 +141,24 @@ impl ComponentBook for ProgressBar {
             .arg(ArgType::text("label", ""))
             .arg(ArgType::bool("percent", false))
             .arg(ArgType::text("detail", ""))
+            .arg(
+                ArgType::bool("detail_inline", false)
+                    .description("The detail on the line of the label, before the percent."),
+            )
             .story("Plain", Args::new().with("value", 0.25))
             .story("Success", Args::new().with("value", 0.9).with("tone", ArgValue::choice("Success")))
             .story(
                 "With label",
                 Args::new().with("label", "Copying").with("percent", true).with("detail", "12 of 30 photos"),
+            )
+            .story(
+                "Detail inline",
+                Args::new()
+                    .with("value", 0.6)
+                    .with("label", "Stage 3 of 5 · Tests")
+                    .with("percent", true)
+                    .with("detail", "812 of 1,360 tests")
+                    .with("detail_inline", true),
             )
             .story_with("All tones", Args::new(), all_progress_tones)
     }

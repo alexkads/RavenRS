@@ -1428,6 +1428,27 @@ impl Center {
 }
 
 #[test]
+fn the_progress_bar_says_its_stage_and_puts_the_detail_beside_the_label_or_under_the_bar() {
+    let mut c = Center::memory("ana");
+    c.press("Progresso");
+    let height = |c: &mut Center, name: &str| {
+        let tree = c.ui.access_tree();
+        tree.find(Role::ProgressIndicator, name).unwrap_or_else(|| panic!("{name}")).bounds.height()
+    };
+    // detail_inline: one line of words over the bar; screen readers hear the detail all the same.
+    assert!(c.says("60%") && c.says("816 de 1.360 testes"), "{:?}", c.texts());
+    let inline = height(&mut c, "Estágio 3 de 5 · Testes");
+    c.press("Avançar um estágio");
+    assert!(c.says("Estágio 4 de 5 · Testes") && c.says("80%"), "{:?}", c.texts());
+    // Off: the detail goes under the bar, a line more.
+    c.activate("Detalhe na linha do rótulo");
+    let under = height(&mut c, "Estágio 4 de 5 · Testes");
+    assert!(inline + 10.0 < under, "inline {inline}, under {under}");
+    // tone, color, height, label, percent and detail of the others.
+    assert!(c.says("Disco") && c.says("Cor própria, 10 pt") && c.says("12 de 30 fotos"), "{:?}", c.texts());
+}
+
+#[test]
 fn toggles_switch_with_a_label_compact_or_only_an_accessible_name() {
     let mut c = Center::memory("ana");
     c.press("Chaves");

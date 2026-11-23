@@ -105,7 +105,7 @@
 {"crate": "ravenrs-widgets-base", "tipo": "PageHeader", "pendente": true, "issue": 579, "conhecidos": ["action", "badge", "compact", "description", "new"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Pagination", "pendente": true, "issue": 579, "conhecidos": ["compact", "labels", "new"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Popover", "pendente": true, "issue": 579, "conhecidos": ["min_width", "new", "padding", "placement", "surface"]},
-{"crate": "ravenrs-widgets-base", "tipo": "ProgressBar", "pendente": true, "issue": 579, "conhecidos": ["color", "detail", "height", "label", "new", "percent", "tone"]},
+{"crate": "ravenrs-widgets-base", "tipo": "ProgressBar", "pagina": "Progresso", "recursos": ["color", "detail", "detail_inline", "height", "label", "new", "percent", "tone"]},
 {"crate": "ravenrs-widgets-base", "tipo": "PropertyRow", "pendente": true, "issue": 579, "conhecidos": ["new", "with"]},
 {"crate": "ravenrs-widgets-base", "tipo": "QuarterTurn", "pendente": true, "issue": 579, "conhecidos": ["new"]},
 {"crate": "ravenrs-widgets-base", "tipo": "RadioGroup", "pendente": true, "issue": 579, "conhecidos": ["label", "new"]},

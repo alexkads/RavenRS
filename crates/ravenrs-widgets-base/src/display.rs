@@ -322,6 +322,7 @@ pub struct ProgressBar {
     label: Option<String>,
     detail: Option<String>,
     percent: bool,
+    detail_inline: bool,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -336,6 +337,7 @@ impl ProgressBar {
             label: None,
             detail: None,
             percent: false,
+            detail_inline: false,
         }
     }
 
@@ -372,6 +374,13 @@ impl ProgressBar {
     /// A line in small text below the bar, such as how many are done.
     pub fn detail(mut self, detail: impl Into<String>) -> Self {
         self.detail = Some(detail.into());
+        self
+    }
+
+    /// Puts the detail on the line of the label, before the percentage (`812 de 1.360 testes ·
+    /// 60%`), instead of under the bar: a bar that takes one line of words.
+    pub fn detail_inline(mut self, inline: bool) -> Self {
+        self.detail_inline = inline;
         self
     }
 }
@@ -424,8 +433,15 @@ impl View for ProgressBar {
                 &[name],
                 Paint::None,
             ));
-            if self.percent {
-                let number = util::label(cx, &format!("{percent}%"), TextStyle::Callout, None, muted);
+            let beside = self.detail.as_deref().filter(|_| self.detail_inline);
+            let end = match (beside, self.percent) {
+                (Some(detail), true) => Some(format!("{detail} · {percent}%")),
+                (Some(detail), false) => Some(detail.to_owned()),
+                (None, true) => Some(format!("{percent}%")),
+                (None, false) => None,
+            };
+            if let Some(end) = end {
+                let number = util::label(cx, &end, TextStyle::Callout, None, muted);
                 cx.semantics(number, Semantics::hidden());
                 head.push(number);
             }
@@ -440,7 +456,9 @@ impl View for ProgressBar {
             ));
         }
         rows.push(node);
-        if let Some(detail) = &self.detail {
+        if let Some(detail) =
+            self.detail.as_ref().filter(|_| !self.detail_inline || (self.label.is_none() && !self.percent))
+        {
             let line = util::label(cx, detail, TextStyle::Caption, None, muted);
             cx.semantics(line, Semantics::hidden());
             rows.push(line);
