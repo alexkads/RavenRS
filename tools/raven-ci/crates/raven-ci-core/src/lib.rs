@@ -344,10 +344,16 @@ impl Ci {
     /// pipeline is read now, with the plugins on, and every step it uses has to be there.
     pub fn request_build(&self, request: BuildRequest) -> Result<Ticket, CiError> {
         let job = self.job(&request.job)?;
-        let format = self.format(&job.format)?;
-        let mut pipeline = format.read(&job.name, &job.pipeline).map_err(|errors| {
+        let from_scm = self.pipeline_from_scm(&job)?;
+        let (format_id, text) = match &from_scm {
+            Some((format, text, _)) => (format.as_str(), text.as_str()),
+            None => (job.format.as_str(), job.pipeline.as_str()),
+        };
+        let format = self.format(format_id)?;
+        let mut pipeline = format.read(&job.name, text).map_err(|errors| {
             let said: Vec<String> = errors.iter().map(ToString::to_string).collect();
-            CiError::failed(format!("o pipeline de {}: {}", job.name, said.join("; ")))
+            let whence = from_scm.as_ref().map(|(_, _, from)| format!(" ({} do repositório)", from.file));
+            CiError::failed(format!("o pipeline de {}{}: {}", job.name, whence.unwrap_or_default(), said.join("; ")))
         })?;
         pipeline.flow.id = job.name.clone();
         let on: Vec<String> = self.registry.on().iter().map(|plugin| plugin.name().to_owned()).collect();
@@ -375,7 +381,9 @@ impl Ci {
             })?;
         }
         let input = lifecycle::start_item(&job.name, &request.parameters);
-        let extras = lifecycle::Extras::of(&pipeline).to_value();
+        let mut extras = lifecycle::Extras::of(&pipeline);
+        extras.pipeline_from = from_scm.map(|(_, _, from)| from);
+        let extras = extras.to_value();
         let mut run = Request::new(pipeline.flow.clone())
             .starting(&pipeline.start, vec![input])
             .priority(request.priority);

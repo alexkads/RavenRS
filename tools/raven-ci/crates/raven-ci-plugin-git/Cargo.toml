@@ -12,10 +12,12 @@ publish = false
 raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
 ravenrs-app.workspace = true
 ravenrs-git.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 raven-ci-core = { path = "../raven-ci-core" }
 raven-ci-plugin-api = { path = "../raven-ci-plugin-api", features = ["testing"] }
+raven-ci-plugin-format-jenkinsfile = { path = "../raven-ci-plugin-format-jenkinsfile" }
 raven-ci-plugin-format-toml = { path = "../raven-ci-plugin-format-toml" }
 raven-ci-plugin-shell = { path = "../raven-ci-plugin-shell" }
 ravenrs-git.workspace = true

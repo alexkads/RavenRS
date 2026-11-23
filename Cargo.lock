@@ -6303,6 +6303,7 @@ version = "0.1.0"
 dependencies = [
  "raven-ci-core",
  "raven-ci-plugin-api",
+ "raven-ci-plugin-format-jenkinsfile",
  "raven-ci-plugin-format-toml",
  "raven-ci-plugin-shell",
  "ravenrs-app",

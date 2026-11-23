@@ -70,6 +70,9 @@ pub(crate) struct Extras {
     /// Where the build runs, when the pipeline says: a label, a launcher.
     #[serde(default)]
     pub agent: Option<Use>,
+    /// The file of the repository the pipeline was read from, when it was (`pipeline_from`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pipeline_from: Option<crate::multibranch::PipelineFrom>,
 }
 
 /// Post steps as kept: the flow in its JSON.
@@ -92,6 +95,7 @@ impl Extras {
             publishers: pipeline.publishers.clone(),
             timeout_ms: pipeline.timeout_ms,
             agent: pipeline.agent.clone(),
+            pipeline_from: None,
         }
     }
 
@@ -285,6 +289,10 @@ impl Ci {
                 return site.fail(&reason);
             }
             core(log.as_ref(), &format!("build {} #{} em {}", order.job, order.number, workspace.display()));
+            if let Some(from) = &extras.pipeline_from {
+                let at = if from.commit.is_empty() { String::new() } else { format!(" no commit {}", from.commit) };
+                core(log.as_ref(), &format!("pipeline: {} do repositório, em {}{at}", from.file, from.head));
+            }
             if let Err(reason) = self.hooks_before(settings, &context) {
                 core(log.as_ref(), &reason);
                 site.fail(&reason)?;
@@ -292,7 +300,22 @@ impl Ci {
                 return Ok(());
             }
             let commit = match self.fetch(settings, &context, log.as_ref()) {
-                Ok(commit) => commit,
+                Ok(commit) => {
+                    if let (Some(from), Some(fetched)) = (&extras.pipeline_from, &commit)
+                        && !from.commit.is_empty()
+                        && &from.commit != fetched
+                        && settings.pointer("/scm/merge_onto_target").and_then(Value::as_bool) != Some(true)
+                    {
+                        core(
+                            log.as_ref(),
+                            &format!(
+                                "a branch andou entre o pedido e o build: o pipeline é o de {}, e o código é o de {fetched}",
+                                from.commit
+                            ),
+                        );
+                    }
+                    commit
+                }
                 Err(e) => {
                     let reason = format!("buscar o código: {e}");
                     core(log.as_ref(), &reason);

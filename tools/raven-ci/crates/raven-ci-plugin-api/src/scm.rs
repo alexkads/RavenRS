@@ -133,3 +133,41 @@ pub trait BranchSource: Send + Sync {
         Ok(None)
     }
 }
+
+/// The branches a job of many branches takes, as its `branches` settings say: `"branches":
+/// "main"` or `"branches": ["main", "release/*"]`, and `main` when they say none. The same rule
+/// for every [`BranchSource`], so a job reads the same on GitHub and on a plain git server.
+pub fn wanted_branches(settings: &Value) -> Vec<String> {
+    match settings.get("branches") {
+        Some(Value::String(one)) => vec![one.clone()],
+        Some(Value::Array(many)) => many.iter().filter_map(Value::as_str).map(str::to_owned).collect(),
+        _ => vec!["main".to_owned()],
+    }
+}
+
+/// Whether the branch `name` is one of `patterns` (see [`wanted_branches`]), where a pattern
+/// ending in `*` takes every branch that starts with what comes before it.
+pub fn branch_chosen(name: &str, patterns: &[String]) -> bool {
+    patterns.iter().any(|pattern| match pattern.strip_suffix('*') {
+        Some(prefix) => name.starts_with(prefix),
+        None => name == pattern,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn the_branches_wanted_are_main_unless_said_and_a_star_takes_a_prefix() {
+        assert_eq!(wanted_branches(&json!({})), vec!["main"]);
+        assert_eq!(wanted_branches(&json!({ "branches": "dev" })), vec!["dev"]);
+        let many = wanted_branches(&json!({ "branches": ["main", "release/*"] }));
+        assert!(branch_chosen("release/1.2", &many));
+        assert!(branch_chosen("main", &many));
+        assert!(!branch_chosen("mainline", &many));
+        assert!(branch_chosen("qualquer", &["*".to_owned()]));
+    }
+}

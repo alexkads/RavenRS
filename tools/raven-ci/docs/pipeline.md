@@ -209,8 +209,57 @@ A build of a pipeline that names a step whose plugin is switched off is refused 
 `falta o plugin X`, before any step runs. The editor of the pipeline in the panel shows the same
 errors on their lines as you type.
 
+## Reading the pipeline from the repository
+
+A job can keep its pipeline itself (`pipeline = """…"""`), or read it from the repository it
+builds, so the pipeline changes with the code and nothing is applied on the server again. This
+is Jenkins's "Pipeline script from SCM". Both kinds of job read it with plain `git`, on any
+server `git clone` reaches: GitHub, Azure DevOps, Gitea, a mirror on the machine, a private
+repository with the job's credential.
+
+**A job of one branch** says where the file is in its settings:
+
+```toml
+[[jobs]]
+name = "loja/main"
+settings = { pipeline_from = "scm", scm = { id = "git", url = "https://git.exemplo/loja.git", credential = "git-loja", file = "Jenkinsfile" } }
+```
+
+- When a build is asked for, the core reads the file at the tip of the branch the build fetches
+  (`scm.reference`, else the last part of the job's name: `main`) and keeps that pipeline with
+  the build, so a rerun does the same.
+- `file` is optional: without it, the first file of the job's format (`.raven-ci.toml`).
+- The format comes from the file's name: `Jenkinsfile` is read by `format-jenkinsfile`, and
+  `.raven-ci.toml` by `format-toml`.
+- The log of the build says it: `pipeline: Jenkinsfile do repositório, em main no commit …`. If
+  the branch moves between the request and the build, the log says that the pipeline is of one
+  commit and the code of another.
+- A file the branch does not have refuses the build with `o repositório não tem … em main`.
+
+**A job of many branches** over plain git says `branches = { id = "git" }`:
+
+```toml
+settings = { branches = { id = "git", branches = ["main", "release/*"] }, scm = { id = "git", url = "https://git.exemplo/loja.git", credential = "git-loja" } }
+```
+
+- The scan lists the branches with `git ls-remote` and keeps one job per branch, each with the
+  file of its own branch. The address and the credential come from `scm` unless `branches` says
+  its own.
+- `branches` takes the same patterns as the source `github`: a name, or a prefix ending in `*`;
+  `main` when it says none.
+- `pull_requests = true` takes the `refs/pull/N/head` the server publishes (GitHub, Gitea) as
+  jobs `PR-N`. A ref does not say which branch the pull request goes into, so its target is
+  `target`, or the first branch named without `*`. The source `github` knows the target of each
+  one and leaves out forks: prefer it for a repository on GitHub with pull requests.
+- The plugin `git` keeps one bare repository per address in its folder (`fontes/`), and fetches
+  into it only the commit of each branch (`--depth 1`). The credential travels in `git`'s
+  environment, never in an argument nor in that folder.
+
 ## Where it comes from
 
 - The reader: `crates/raven-ci-plugin-format-toml/src/read.rs`.
 - The steps: the crates `raven-ci-plugin-shell`, `-cargo`, `-docker`, `-kubernetes` and `-lock`.
 - The examples run for real: `crates/raven-ci-plugin-format-toml/tests/toml.rs`.
+- The pipeline from the repository: `crates/raven-ci-core/src/multibranch.rs` and
+  `crates/raven-ci-plugin-git/src/branches.rs`, tested in
+  `crates/raven-ci-plugin-git/tests/pipeline_do_repositorio.rs`.

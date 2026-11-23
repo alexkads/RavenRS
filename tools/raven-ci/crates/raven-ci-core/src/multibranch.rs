@@ -18,7 +18,7 @@
 
 use std::sync::Arc;
 
-use raven_ci_plugin_api::{BranchSource, BuildRequest, CiError, Head, HeadKind};
+use raven_ci_plugin_api::{BranchSource, BuildRequest, CiError, Head, HeadKind, Reference};
 use serde_json::{Map, Value, json};
 
 use crate::{Ci, JobSpec};
@@ -29,15 +29,38 @@ pub const HEAD_KEY: &str = "$head";
 const DAY_MS: i64 = 24 * 60 * 60 * 1000;
 
 impl Ci {
-    fn source(&self, id: &str) -> Result<Arc<dyn BranchSource>, CiError> {
+    pub(crate) fn source(&self, id: &str) -> Result<Arc<dyn BranchSource>, CiError> {
         self.registry
             .on()
             .iter()
             .flat_map(|plugin| plugin.branch_sources())
             .find(|source| source.id() == id)
             .ok_or_else(|| {
-                CiError::unavailable(format!("falta o plugin {id}: o job de muitas branches o usa"))
+                CiError::unavailable(format!(
+                    "falta o plugin {id}: o job o usa para ler as branches ou o pipeline do repositório"
+                ))
             })
+    }
+
+    /// The first file name the format `id` reads: `.raven-ci.toml` for `toml`.
+    pub(crate) fn first_file_of(&self, id: &str) -> Option<String> {
+        self.registry
+            .on()
+            .iter()
+            .flat_map(|plugin| plugin.pipeline_formats())
+            .find(|format| format.id() == id)
+            .and_then(|format| format.file_names().into_iter().next())
+    }
+
+    /// The format that reads the file `path`, by its name: `jenkinsfile` for `ci/Jenkinsfile`.
+    pub(crate) fn format_of_file(&self, path: &str) -> Option<String> {
+        let name = path.rsplit('/').next().unwrap_or(path);
+        self.registry
+            .on()
+            .iter()
+            .flat_map(|plugin| plugin.pipeline_formats())
+            .find(|format| format.file_names().iter().any(|file| file == name))
+            .map(|format| format.id().to_owned())
     }
 
     /// Looks again at the heads of the job of many branches `job` (see the [module](self)); what
@@ -48,19 +71,17 @@ impl Ci {
             model.settings.get("branches").cloned().ok_or_else(|| {
                 CiError::settings("branches", format!("o job {job} não é de muitas branches"))
             })?;
+        let branches = with_scm(branches, &model.settings);
         let id = branches.get("id").and_then(Value::as_str).unwrap_or_default().to_owned();
         let source = self.source(&id)?;
         let heads = source.discover(&branches)?;
         let file = match branches.get("file").and_then(Value::as_str) {
             Some(file) => Some(file.to_owned()),
-            None => self
-                .registry
-                .on()
-                .iter()
-                .flat_map(|plugin| plugin.pipeline_formats())
-                .find(|format| format.id() == model.format)
-                .and_then(|format| format.file_names().into_iter().next()),
+            None => self.first_file_of(&model.format),
         };
+        // The format of the children is the file's: a `Jenkinsfile` is read as one even when the
+        // model's own pipeline is TOML.
+        let format = file.as_deref().and_then(|file| self.format_of_file(file)).unwrap_or(model.format.clone());
         let mut changes = Vec::new();
         let prefix = format!("{job}/");
         for head in &heads {
@@ -69,12 +90,14 @@ impl Ci {
             let seen = before
                 .as_ref()
                 .and_then(|child| child.settings.pointer(&format!("/{HEAD_KEY}/commit")).cloned());
-            let pipeline = match &file {
-                Some(file) => source.file(&branches, head, file)?.unwrap_or_else(|| model.pipeline.clone()),
-                None => model.pipeline.clone(),
+            let (pipeline, format) = match &file {
+                Some(file) => match source.file(&branches, head, file)? {
+                    Some(text) => (text, format.clone()),
+                    None => (model.pipeline.clone(), model.format.clone()),
+                },
+                None => (model.pipeline.clone(), model.format.clone()),
             };
-            let mut child =
-                JobSpec::new(&name, &model.format, pipeline).settings(child_settings(&model, head));
+            let mut child = JobSpec::new(&name, &format, pipeline).settings(child_settings(&model, head));
             child.title = Some(head.name.clone());
             child.keep_builds = model.keep_builds;
             child.keep_days = model.keep_days;
@@ -125,6 +148,103 @@ impl Ci {
         }
         Ok(changes)
     }
+}
+
+/// Where the pipeline of a build came from, when it came from the repository: kept with the
+/// build and said in its log.
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub(crate) struct PipelineFrom {
+    /// The file: `Jenkinsfile`.
+    pub file: String,
+    /// The commit it was read at; empty when the source did not say.
+    pub commit: String,
+    /// The branch or the pull request: `main`, `PR-12`.
+    pub head: String,
+}
+
+impl Ci {
+    /// The pipeline of `job` read from its repository, when its settings say `pipeline_from =
+    /// "scm"` or name a file in `scm.file`: the format (by the file's name), the text and where it
+    /// came from. `None` when the job keeps its pipeline itself.
+    ///
+    /// The file is read by the [`BranchSource`] with the id of the job's `scm` (`git` reads any
+    /// server), at the tip of the branch the build fetches: `scm.reference`, else the last part of
+    /// the job's name, as the build does.
+    pub(crate) fn pipeline_from_scm(
+        &self,
+        job: &JobSpec,
+    ) -> Result<Option<(String, String, PipelineFrom)>, CiError> {
+        let settings = &job.settings;
+        let named = settings.pointer("/scm/file").and_then(Value::as_str).map(str::to_owned);
+        let asked = settings.get("pipeline_from").and_then(Value::as_str);
+        if let Some(other) = asked.filter(|asked| !matches!(*asked, "scm" | "job")) {
+            return Err(CiError::settings(
+                "pipeline_from",
+                format!("\"{other}\" não existe: use \"scm\" (o arquivo do repositório) ou \"job\""),
+            ));
+        }
+        if asked == Some("job") || (asked.is_none() && named.is_none()) {
+            return Ok(None);
+        }
+        let scm = settings.get("scm").cloned().ok_or_else(|| {
+            CiError::settings("pipeline_from", "o pipeline vem do repositório, mas o job não diz o scm")
+        })?;
+        let id = scm.get("id").and_then(Value::as_str).unwrap_or("git").to_owned();
+        let source = self.source(&id)?;
+        let file = named.or_else(|| self.first_file_of(&job.format)).ok_or_else(|| {
+            CiError::settings("scm.file", "diga o arquivo do pipeline no repositório")
+        })?;
+        let format = self.format_of_file(&file).unwrap_or_else(|| job.format.clone());
+        let reference: Option<Reference> =
+            scm.get("reference").cloned().and_then(|value| serde_json::from_value(value).ok());
+        let branch_of_name = || job.name.rsplit('/').next().unwrap_or(&job.name).to_owned();
+        let head = match reference {
+            Some(Reference::PullRequest { number, target }) => Head {
+                name: format!("PR-{number}"),
+                kind: HeadKind::PullRequest { number, target, from_fork: false },
+                commit: String::new(),
+            },
+            Some(Reference::Commit(commit)) => {
+                Head { name: commit.clone(), kind: HeadKind::Branch, commit }
+            }
+            Some(Reference::Branch(branch)) => self.tip(&source, &scm, &branch)?,
+            Some(_) | None => self.tip(&source, &scm, &branch_of_name())?,
+        };
+        let text = source.file(&scm, &head, &file)?.ok_or_else(|| {
+            CiError::failed(format!("o repositório não tem {file} em {}", head.name))
+        })?;
+        let from = PipelineFrom { file, commit: head.commit.clone(), head: head.name.clone() };
+        Ok(Some((format, text, from)))
+    }
+
+    /// The head of `branch` as the source finds it now.
+    fn tip(&self, source: &Arc<dyn BranchSource>, scm: &Value, branch: &str) -> Result<Head, CiError> {
+        let mut only = scm.clone();
+        if let Value::Object(object) = &mut only {
+            object.insert("branches".to_owned(), json!([branch]));
+            object.insert("pull_requests".to_owned(), json!(false));
+        }
+        source
+            .discover(&only)?
+            .into_iter()
+            .find(|head| head.name == branch)
+            .ok_or_else(|| CiError::failed(format!("a branch {branch} não existe no repositório")))
+    }
+}
+
+/// The settings of a source with what it can take from the job's `scm` when it does not say it
+/// itself: the address and the credential, so a job of many branches over plain git names its
+/// repository once.
+pub(crate) fn with_scm(source: Value, settings: &Value) -> Value {
+    let Value::Object(mut source) = source else { return source };
+    for field in ["url", "credential"] {
+        if !source.contains_key(field)
+            && let Some(value) = settings.pointer(&format!("/scm/{field}"))
+        {
+            source.insert(field.to_owned(), value.clone());
+        }
+    }
+    Value::Object(source)
 }
 
 /// The settings of the job of `head`, made from the model's.

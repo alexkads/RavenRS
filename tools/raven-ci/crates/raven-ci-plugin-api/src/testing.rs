@@ -77,6 +77,13 @@ impl FakeHost {
         self
     }
 
+    /// With `dir` as its own folder, instead of one under the system's temporary folder: for a
+    /// test that looks at what the plugin kept there.
+    pub fn with_dir(mut self, dir: &std::path::Path) -> Self {
+        self.dir = dir.to_path_buf();
+        self
+    }
+
     /// Keeping the secret `name`.
     pub fn with_secret(mut self, name: &str, value: &str) -> Self {
         self.secrets.insert(name.to_owned(), value.to_owned());

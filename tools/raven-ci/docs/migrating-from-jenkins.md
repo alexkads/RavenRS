@@ -15,7 +15,8 @@ a `Jenkinsfile`, what has no counterpart, and how to switch without a day with n
 | agent, node, executor | `raven-ci-agent` ([Build agents](agents.md)), or the executors of the server itself (`--executores N`) |
 | label of a node | `agent = { label = "linux" }` on the pipeline, `--rotulos linux` on the agent |
 | cloud of agents (Docker, Kubernetes) | `agent = { docker = { … } }` and `agent = { kubernetes = { … } }`, one container or pod per build |
-| multibranch pipeline | a job with `branches` (plugin `github`): one job per branch and per pull request, each with the pipeline of its own head, built merged onto its target |
+| multibranch pipeline | a job with `branches`: one job per branch (and per pull request), each with the pipeline of its own head. `branches = { id = "github" }` knows the pull requests and builds them merged onto their target; `branches = { id = "git" }` works on any git server ([Reading the pipeline from the repository](pipeline.md#reading-the-pipeline-from-the-repository)) |
+| "Pipeline script from SCM" | `pipeline_from = "scm"` in the job's settings, with `scm.file = "Jenkinsfile"` (or `.raven-ci.toml`): the file is read from the tip of the branch at every build |
 | GitHub Branch Source, status on the commit | the plugins `github` (branches and status) and `git` (fetching) |
 | Azure DevOps | the plugin `azure-devops`: fetching with a PAT and the status on the pull request |
 | `triggers { cron(…) }`, `pollSCM(…)` | in the job's `triggers`: `{"id": "cron", "schedule": "0 3 * * *", "zone": "America/Sao_Paulo"}` or `{"id": "cron", "every": "1h"}`; `{"id": "poll", "url": "…", "branch": "main", "every": "5m"}`; and, for a job of many branches, `{"id": "scan", "every": "5m"}`. The converter lists the `cron` and `pollSCM` of a `Jenkinsfile` with the line to put on the job |

@@ -112,6 +112,15 @@ pub struct JobConfig {
 }
 
 impl JobConfig {
+    /// Whether its pipeline comes from its repository and none is needed here: a job of many
+    /// branches, or one with `pipeline_from = "scm"` or `scm.file`.
+    fn reads_the_repository(&self) -> bool {
+        let Some(settings) = &self.settings else { return false };
+        settings.get("branches").is_some()
+            || settings.get("pipeline_from").and_then(Value::as_str) == Some("scm")
+            || settings.pointer("/scm/file").is_some()
+    }
+
     /// The job it says, once its pipeline is in it.
     pub fn spec(&self) -> Result<JobSpec, CiError> {
         let pipeline = match (&self.pipeline, &self.file) {
@@ -125,10 +134,12 @@ impl JobConfig {
             (Some(_), Some(_)) => {
                 return Err(CiError::settings(format!("jobs.{}", self.name), "diga pipeline ou file, um só"));
             }
+            // The pipeline comes from the repository: of each branch, or of the one branch.
+            (None, None) if self.reads_the_repository() => String::new(),
             (None, None) => {
                 return Err(CiError::settings(
                     format!("jobs.{}", self.name),
-                    "falta o pipeline (pipeline ou file)",
+                    "falta o pipeline (pipeline, file, ou settings.pipeline_from = \"scm\")",
                 ));
             }
         };
@@ -292,6 +303,8 @@ impl Ci {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use super::*;
 
     #[test]
@@ -314,6 +327,15 @@ mod tests {
         assert!(twice.expect_err("refused").to_string().contains("duas vezes"));
         let none = JobConfig { name: "b".into(), ..JobConfig::default() }.spec().expect_err("no pipeline");
         assert!(none.to_string().contains("falta o pipeline"), "{none}");
+        // A job that reads its pipeline from the repository needs none here (#928).
+        for settings in [
+            json!({ "pipeline_from": "scm", "scm": { "id": "git", "url": "u" } }),
+            json!({ "scm": { "id": "git", "url": "u", "file": "Jenkinsfile" } }),
+            json!({ "branches": { "id": "git" }, "scm": { "id": "git", "url": "u" } }),
+        ] {
+            let job = JobConfig { name: "c".into(), settings: Some(settings), ..JobConfig::default() };
+            assert_eq!(job.spec().expect("no pipeline needed").pipeline, "");
+        }
     }
 
     /// The jobs a scan made for the branches of a job of many branches are not the file's to keep or
