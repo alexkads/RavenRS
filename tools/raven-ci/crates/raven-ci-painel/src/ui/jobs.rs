@@ -1,13 +1,16 @@
-//! The jobs (P-01, #885; page T1 and interaction I1): four numbers, the folders in a tree, every
-//! job in a grid with its last build, its duration and the trend of the last ones, and the dialog
-//! that asks for a build with its parameters.
+//! The jobs (P-01, #885; page T1 and interaction I1, as #919 draws them): four numbers (the queue,
+//! what runs and in which stage, the agents, the memory), the notice of a plugin switched off that
+//! a build waits for, every job in a grid with its last build, its agent, its duration and the
+//! trend of the last ones (a double click or Enter opens the last build; Disparar is in the
+//! palette, ⌘K), cards on a phone, and the dialog that asks for a build with its parameters and
+//! says how many builds wait before it.
 
 use std::rc::Rc;
 
 use ravenrs::prelude::*;
 use serde_json::{Value as Json, json};
 
-use super::{Pagina, S, nada};
+use super::{Pagina, S, casca, nada};
 use crate::texto;
 
 /// A cell of the grid.
@@ -16,18 +19,16 @@ type Cell = ravenrs::prelude::Value;
 /// The page of the jobs.
 pub(super) fn page(s: &Rc<S>) -> AnyView {
     let overview = s.overview.get();
+    let occupancy = s.occupancy.get();
     let server = s.server.get();
     let now = overview["now_ms"].as_i64().unwrap_or(0);
     let jobs: Vec<Json> = overview["jobs"].as_array().cloned().unwrap_or_default();
-    let folder = s.folder.get();
-    let shown: Vec<&Json> = jobs
-        .iter()
-        .filter(|job| match &folder {
-            None => true,
-            Some(f) => {
-                job["folder"].as_str().is_some_and(|mine| mine == f || mine.starts_with(&format!("{f}/")))
-            }
-        })
+    let waiting: Vec<Json> = occupancy["builds"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|b| b["status"] == "queued")
+        .cloned()
         .collect();
 
     let queued = overview["queued"].as_u64().unwrap_or(0);
@@ -36,132 +37,238 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
         |t| format!("O mais antigo espera {}", texto::ago(t, now)),
     );
     let running = overview["running"].as_u64().unwrap_or(0);
-    let executors = server["executors"].as_u64().unwrap_or(0);
+    let running_now = overview["running_now"].as_array().cloned().unwrap_or_default();
+    let running_detail = match running_now.first() {
+        Some(build) => format!(
+            "{}{}",
+            build["job"].as_str().unwrap_or_default().replace('/', " · "),
+            build["stage"].as_str().map(|st| format!(", estágio {st}")).unwrap_or_default()
+        ),
+        None => "Nenhum build em andamento".to_owned(),
+    };
+    let (ready, total, kinds) = agents_summary(&server, &occupancy);
     let memory = server["memory_bytes"].as_u64().map_or_else(|| "—".to_owned(), texto::bytes);
+    let columns = if s.width.get() < casca::TWO_COLUMNS_BELOW { 2 } else { 4 };
     let numbers = Grid::new(
-        4,
+        columns,
         vec![
             stat("NA FILA", queued.to_string(), oldest),
-            stat("RODANDO", running.to_string(), "Builds em andamento agora".to_owned()),
-            stat(
-                "EXECUTORES",
-                format!("{} de {executors}", executors.saturating_sub(running.min(executors))),
-                "Livres agora".to_owned(),
-            ),
-            stat("MEMÓRIA DO SERVIDOR", memory, "Lida do processo, ao vivo".to_owned()),
+            stat("RODANDO", running.to_string(), running_detail),
+            stat("AGENTES", format!("{ready} de {total}"), kinds),
+            stat("MEMÓRIA DO SERVIDOR", memory, "Lida do processo, ao vivo; meta ≤ 60 MB".to_owned()),
         ],
     )
-    .spacing(12.0);
+    .spacing(24.0);
 
-    let rows: Vec<Vec<Cell>> = shown
-        .iter()
-        .map(|job| {
-            let last = &job["last"];
-            let status = last["status"].as_str().unwrap_or("none").to_owned();
-            let name = job["name"].as_str().unwrap_or_default().to_owned();
-            let title = job["title"].as_str().map_or_else(|| name.clone(), str::to_owned);
-            let trend: Vec<String> = job["trend_ms"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter_map(Json::as_i64)
-                .map(|ms| ms.to_string())
-                .collect();
-            vec![
-                name.into(),
-                status.into(),
-                title.into(),
-                last["number"].as_u64().map_or_else(|| "—".to_owned(), |n| format!("#{n}")).into(),
-                last["cause"].as_str().unwrap_or("Nunca rodou").to_owned().into(),
-                last["duration_ms"].as_i64().map_or_else(|| "—".to_owned(), texto::duration).into(),
-                trend.join(",").into(),
-                last["created_ms"].as_i64().map_or_else(|| "—".to_owned(), |t| texto::ago(t, now)).into(),
-            ]
-        })
-        .collect();
-    let opener = {
-        let s = s.clone();
-        move |row: &Vec<Cell>| open_last(&s, &row[0].key_text())
+    let header = {
+        let mut header = PageHeader::new("Jobs")
+            .description("Pipelines deste servidor, com o último build de cada um.")
+            .badge(Badge::new(jobs.len().to_string()));
+        if s.admin() {
+            let new_job = s.clone();
+            header = header.action(Button::new("Novo job").icon(IconName::Plus).on_click(move || {
+                new_job.config_job.set(None);
+                new_job.config_new.set(true);
+                new_job.go(Pagina::Configuracao);
+            }));
+        }
+        header
     };
-    let grid = DataGrid::new(
-        GridData::new(rows),
-        [
-            GridColumn::text("Job").hidden(),
-            GridColumn::text("Estado").width(130.0).template(|value| status_badge(&value.key_text())),
-            GridColumn::text("Job").fill(),
-            GridColumn::text("Último build").width(110.0),
-            GridColumn::text("Gatilho").width(200.0),
-            GridColumn::text("Duração").width(120.0),
-            GridColumn::text("Últimos 10").width(140.0).template(|value| sparkline(&value.key_text())),
-            GridColumn::text("Quando").width(110.0),
-        ],
-    )
-    .key_column(0)
-    .selected_keys(s.job_keys.binding())
-    .striped(true)
-    .empty_text("Nenhum job ainda. Grave um pipeline em Configuração.")
-    .on_row_open(opener)
-    .height(420.0);
 
-    let tree = folders_tree(s, &overview);
-    let actions = {
-        let (open, dispatch) = (s.clone(), s.clone());
-        HStack::new((
-            Button::new("Abrir o último build")
-                .icon(IconName::FileText)
-                .style(ButtonStyle::Secondary)
-                .on_click(move || match open.job_keys.get().into_iter().next() {
-                    Some(job) => open_last(&open, &job),
-                    None => open.message.set("Escolha um job na grade.".to_owned()),
-                }),
-            Button::new("Disparar").icon(IconName::Play).shortcut("D").on_click(move || {
-                match dispatch.job_keys.get().into_iter().next() {
-                    Some(job) => ask_build(&dispatch, &job),
-                    None => dispatch.message.set("Escolha na grade o job a disparar.".to_owned()),
-                }
-            }),
-        ))
-        .spacing(8.0)
-    };
-    let header = PageHeader::new("Jobs")
-        .description("Pipelines deste servidor, com o último build de cada um.")
-        .badge(Badge::new(jobs.len().to_string()))
-        .action(actions);
-    let waiting = jobs.iter().filter(|j| j["last"]["status"] == "queued").count();
-    let notice: AnyView = if waiting > 0 && running == 0 && executors > 0 {
-        Box::new(
-            Alert::message(format!(
-                "{waiting} job(s) na fila e nenhum rodando: veja a fila e os executores."
-            ))
-            .tone(Tone::Warning),
-        )
+    // A plugin switched off that a build in the queue waits for (I5).
+    let notice: AnyView =
+        match waiting.iter().find_map(|b| b["waiting"]["plugin"].as_str().map(str::to_owned)) {
+            Some(plugin) => {
+                let how_many = waiting.iter().filter(|b| b["waiting"]["plugin"] == plugin.as_str()).count();
+                let open = s.clone();
+                Box::new(
+                    Alert::message(format!(
+                        "O plugin {plugin} está desligado: {how_many} {} na fila por ele.",
+                        if how_many == 1 { "build espera" } else { "builds esperam" }
+                    ))
+                    .tone(Tone::Warning)
+                    .compact()
+                    .action("Abrir plugins", move || open.go(Pagina::Plugins)),
+                )
+            }
+            None => nada(),
+        };
+
+    let rows: Vec<Vec<Cell>> = jobs.iter().map(|job| row_of(job, &waiting, now)).collect();
+    let rows_shown = rows.len().clamp(1, 12);
+    let list: AnyView = if s.phone() {
+        Box::new(VStack::new(rows.iter().map(|row| phone_card(s, row)).collect::<Vec<_>>()).spacing(12.0))
     } else {
-        nada()
+        let opener = {
+            let s = s.clone();
+            move |row: &Vec<Cell>| open_last(&s, &row[0].key_text())
+        };
+        let grid = DataGrid::new(
+            GridData::new(rows),
+            [
+                GridColumn::text("Job").hidden(),
+                GridColumn::text("Estado").width(130.0).template(|value| status_badge(&value.key_text())),
+                GridColumn::text("Job").fill().template(|value| job_name(&value.key_text())),
+                GridColumn::text("Último build").width(110.0),
+                GridColumn::text("Gatilho").width(190.0),
+                GridColumn::text("Agente").width(160.0),
+                GridColumn::text("Duração").width(110.0).align(CellAlign::End),
+                GridColumn::text("Últimos 10").width(140.0).template(|value| sparkline(&value.key_text())),
+                GridColumn::text("Quando").width(100.0),
+            ],
+        )
+        .key_column(0)
+        .selected_keys(s.job_keys.binding())
+        .striped(true)
+        .empty_text("Nenhum job ainda. Crie um com Novo job.")
+        .name_column(2)
+        .on_row_open(opener)
+        // As tall as its rows, as T1 draws it: the bar (50), the titles and the filters (38 each)
+        // and 36 a row; past twelve rows it scrolls.
+        .height(GRID_TOP + 36.0 * rows_shown as f32 + 1.0);
+        Box::new(grid)
     };
     Box::new(
-        VStack::new((
-            header,
-            numbers,
-            notice,
-            HStack::new((tree, VStack::new((grid,)).align(Align::Stretch).grow(1.0)))
-                .spacing(16.0)
-                .align(Align::Start),
-        ))
-        .spacing(20.0)
-        .padding(24.0)
-        .align(Align::Stretch),
+        VStack::new((header, numbers, notice, list))
+            .spacing(24.0)
+            .padding(if s.phone() { Insets::uniform(16.0) } else { super::PAGE_PADDING })
+            .align(Align::Stretch),
     )
 }
 
-/// A number of the top of the page, in a card.
-fn stat(label: &str, value: String, detail: String) -> AnyView {
+/// The agents ready and known, and in words what they are: the executors of the server, the
+/// agents connected and the templates whose launcher is on.
+fn agents_summary(server: &Json, occupancy: &Json) -> (usize, usize, String) {
+    let executors = usize::try_from(server["executors"].as_u64().unwrap_or(0)).unwrap_or(0);
+    let agents = occupancy["agents"].as_array().cloned().unwrap_or_default();
+    let templates = occupancy["templates"].as_array().cloned().unwrap_or_default();
+    let connected = agents.iter().filter(|a| a["connected"] == true).count();
+    let launchable = templates.iter().filter(|t| t["launcher_on"] == true).count();
+    let mut kinds = Vec::new();
+    if executors > 0 {
+        kinds.push("o servidor".to_owned());
+    }
+    if !agents.is_empty() {
+        kinds.push(if agents.len() == 1 {
+            "1 agente".to_owned()
+        } else {
+            format!("{} agentes", agents.len())
+        });
+    }
+    kinds.extend(templates.iter().filter_map(|t| t["name"].as_str().map(str::to_owned)));
+    let said = if kinds.is_empty() { "Só os executores do servidor".to_owned() } else { join_words(&kinds) };
+    (
+        usize::from(executors > 0) + connected + launchable,
+        usize::from(executors > 0) + agents.len() + templates.len(),
+        said,
+    )
+}
+
+/// `a, b e c`.
+fn join_words(words: &[String]) -> String {
+    match words {
+        [] => String::new(),
+        [one] => capitalized(one),
+        [rest @ .., last] => capitalized(&format!("{} e {last}", rest.join(", "))),
+    }
+}
+
+fn capitalized(text: &str) -> String {
+    let mut chars = text.chars();
+    chars.next().map(|c| c.to_uppercase().chain(chars).collect()).unwrap_or_default()
+}
+
+/// The row of a job: its key, status, name, last build, trigger, agent, duration, trend, when.
+fn row_of(job: &Json, waiting: &[Json], now: i64) -> Vec<Cell> {
+    let last = &job["last"];
+    let name = job["name"].as_str().unwrap_or_default().to_owned();
+    let status = last["status"].as_str().unwrap_or("none").to_owned();
+    let trend: Vec<String> = job["trend_ms"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Json::as_i64)
+        .map(|ms| ms.to_string())
+        .collect();
+    let agent = match waiting.iter().find(|b| b["job"] == name.as_str()) {
+        Some(build) if status == "queued" => {
+            build["waiting"]["why"].as_str().map(short_wait).unwrap_or_else(|| "na fila".to_owned())
+        }
+        _ => last["worker"].as_str().map(agent_words).unwrap_or_else(|| "—".to_owned()),
+    };
+    vec![
+        name.clone().into(),
+        status.into(),
+        name.into(),
+        last["number"].as_u64().map_or_else(|| "—".to_owned(), |n| format!("#{n}")).into(),
+        last["cause"].as_str().unwrap_or("Nunca rodou").to_owned().into(),
+        agent.into(),
+        last["duration_ms"]
+            .as_i64()
+            .filter(|_| last["status"] != "queued")
+            .map_or_else(|| "—".to_owned(), texto::duration)
+            .into(),
+        trend.join(",").into(),
+        last["created_ms"].as_i64().map_or_else(|| "—".to_owned(), |t| texto::ago(t, now)).into(),
+    ]
+}
+
+/// Who ran a build, as the grid says it: `executor-1` of the server, an agent by its name.
+pub(super) fn agent_words(worker: &str) -> String {
+    worker.strip_prefix("agente/").map_or_else(|| format!("servidor · {worker}"), str::to_owned)
+}
+
+/// The reason a build waits, short enough for a cell: `espera rótulo docker`.
+fn short_wait(why: &str) -> String {
+    match why.split_once("rótulo ") {
+        Some((_, rest)) => format!("espera rótulo {}", rest.split([' ', ',']).next().unwrap_or(rest)),
+        None => why.to_owned(),
+    }
+}
+
+/// A job's name as the grid shows it: what is above it, then the job, muted (`apps · site`).
+fn job_name(name: &str) -> AnyView {
+    match name.rsplit_once('/') {
+        Some((above, own)) => Box::new(
+            HStack::new((
+                Text::new(above.replace('/', " · ")).font_weight(Weight::SEMIBOLD),
+                Text::new(format!("· {own}")).foreground(Semantic::InkMuted),
+            ))
+            .spacing(4.0),
+        ),
+        None => Box::new(Text::new(name.to_owned()).font_weight(Weight::SEMIBOLD)),
+    }
+}
+
+/// A job on a phone (T7): a card with its status, its name and its last build, that opens it.
+fn phone_card(s: &Rc<S>, row: &[Cell]) -> AnyView {
+    let key = row[0].key_text();
+    let open = {
+        let (s, key) = (s.clone(), key.clone());
+        move || open_last(&s, &key)
+    };
     Box::new(
         Card::new(
-            VStack::new((Stat::new(label, value), Text::new(detail).foreground(Semantic::InkMuted)))
-                .spacing(4.0),
+            VStack::new((
+                HStack::new((job_name(&key), Spacer::new(), status_badge(&row[1].key_text())))
+                    .align(Align::Center),
+                Text::new(format!("{} · {} · {}", row[3].key_text(), row[4].key_text(), row[8].key_text()))
+                    .foreground(Semantic::InkMuted),
+            ))
+            .spacing(6.0)
+            .align(Align::Stretch),
         )
-        .padding(16.0),
+        .padding(16.0)
+        .on_click(open),
     )
+}
+
+/// How tall a grid is above its rows: the bar, the titles and the filters.
+const GRID_TOP: f32 = 50.0 + 38.0 + 38.0;
+
+/// A number of the top of the page, in a card.
+fn stat(label: &str, value: String, detail: String) -> AnyView {
+    Box::new(Card::new(Stat::new(label, value).caption(detail)))
 }
 
 /// The badge of a build's status.
@@ -191,59 +298,6 @@ fn sparkline(values: &str) -> AnyView {
     )
 }
 
-/// The folders of jobs as a tree; choosing one shows only its jobs.
-fn folders_tree(s: &Rc<S>, overview: &Json) -> AnyView {
-    let mut root = TreeNode::new("", "Todos os jobs").icon(IconName::Layers);
-    let folders = overview["folders"].as_array().cloned().unwrap_or_default();
-    let mut paths: Vec<String> =
-        folders.iter().filter_map(|f| f["path"].as_str().map(str::to_owned)).collect();
-    paths.sort();
-    // Each folder under its parent: the deepest are put in first, then hung from the one above.
-    let mut nodes: Vec<(String, TreeNode)> = Vec::new();
-    for path in paths.iter().filter(|p| !p.is_empty()) {
-        let label = path.rsplit('/').next().unwrap_or(path);
-        let count = folders
-            .iter()
-            .find(|f| f["path"] == path.as_str())
-            .and_then(|f| f["jobs"].as_array().map(Vec::len))
-            .unwrap_or(0);
-        nodes.push((
-            path.clone(),
-            TreeNode::new(path.clone(), format!("{label} ({count})")).icon(IconName::Package),
-        ));
-    }
-    while let Some((path, node)) = nodes.pop() {
-        match path.rsplit_once('/').map(|(parent, _)| parent.to_owned()) {
-            Some(parent) if nodes.iter().any(|(p, _)| *p == parent) => {
-                if let Some((_, above)) = nodes.iter_mut().find(|(p, _)| *p == parent) {
-                    *above = std::mem::replace(above, TreeNode::new("", "")).child(node);
-                }
-            }
-            _ => root = root.child(node),
-        }
-    }
-    let chosen = s.folder.get().unwrap_or_default();
-    let selected = State::new(Some(chosen));
-    let choose = {
-        let s = s.clone();
-        move |key: &str| s.folder.set((!key.is_empty()).then(|| key.to_owned()))
-    };
-    let expanded = State::new(paths.iter().cloned().chain([String::new()]).collect());
-    Box::new(
-        VStack::new((
-            Text::new("PASTAS").style(TextStyle::Caption).foreground(Semantic::InkMuted),
-            TreeView::new(vec![root])
-                .selected(selected.binding())
-                .expanded(expanded.binding())
-                .on_open(choose)
-                .label("Pastas de jobs")
-                .height(300.0),
-        ))
-        .spacing(8.0)
-        .width(220.0),
-    )
-}
-
 /// Opens the last build of `job`, or says it never ran.
 fn open_last(s: &Rc<S>, job: &str) {
     let overview = s.overview.get();
@@ -270,6 +324,9 @@ fn fields_of(s: &S, job: &str) -> Vec<ParamField> {
         .map(|p| {
             let name = p["name"].as_str().unwrap_or_default();
             let caption = p["caption"].as_str().filter(|c| !c.is_empty()).unwrap_or(name);
+            // A field says the parameter's name, as the steps read it (BRANCH, E2E); a switch says
+            // what it does (T6).
+            let label = if p["kind"] == "bool" { caption } else { name };
             let kind = match p["kind"].as_str() {
                 Some("bool") => ParamKind::Boolean,
                 Some("choice") => ParamKind::Choice(
@@ -283,7 +340,7 @@ fn fields_of(s: &S, job: &str) -> Vec<ParamField> {
                 ),
                 _ => ParamKind::Text,
             };
-            let field = ParamField::new(name, caption, kind);
+            let field = ParamField::new(name, label, kind);
             match &p["default"] {
                 Json::Bool(b) => field.default(*b),
                 Json::String(t) if !t.is_empty() => field.default(t.clone()),
@@ -357,15 +414,27 @@ pub(super) fn dispatch_dialog(s: &Rc<S>) -> AnyView {
     } else {
         Box::new(Alert::new("Não entrou na fila", error).tone(Tone::Danger))
     };
+    let ahead = s.overview.get()["queued"].as_u64().unwrap_or(0);
+    let queue = Alert::message(match ahead {
+        0 => "Ninguém na fila: começa assim que um executor ficar livre.".to_owned(),
+        1 => "1 build na fila antes deste".to_owned(),
+        n => format!("{n} builds na fila antes deste"),
+    })
+    .tone(Tone::Neutral)
+    .compact();
     Box::new(
         Dialog::new(s.dispatch_open.binding(), format!("Disparar {job}"))
             .description("Os parâmetros vêm do pipeline. O build entra na fila do servidor.")
             .width(460.0)
             .close_on_backdrop(false)
             .content(
-                VStack::new((ParameterForm::new(fields, s.dispatch_values.binding()).live(true), problem))
-                    .spacing(12.0)
-                    .align(Align::Stretch),
+                VStack::new((
+                    ParameterForm::new(fields, s.dispatch_values.binding()).live(true),
+                    queue,
+                    problem,
+                ))
+                .spacing(12.0)
+                .align(Align::Stretch),
             )
             .action(Button::new("Cancelar").style(ButtonStyle::Secondary).on_click(close))
             .action(Button::new("Disparar").icon(IconName::Play).shortcut("⌘ Enter").on_click(fire)),

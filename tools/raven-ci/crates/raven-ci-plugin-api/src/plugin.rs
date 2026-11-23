@@ -137,6 +137,15 @@ pub trait CiPlugin: Module + Send + Sync {
     fn build_hooks(&self) -> Vec<Arc<dyn BuildHook>> {
         Vec::new()
     }
+
+    /// The scenarios of Raven Test Studio (the text of `.raventest` files) that test the screens
+    /// this plugin puts in the panel: its pages and its tabs on the page of a build. The panel
+    /// offers them with its own when the plugin is on, and `raven_ci_painel::e2e` plays them in a
+    /// test of the plugin's crate. Keep the files in the plugin's `tests/e2e/` and bring them with
+    /// `include_str!`. A plugin with no screen gives none (#919).
+    fn scenarios(&self) -> Vec<String> {
+        Vec::new()
+    }
 }
 
 /// An extension point, as the list of plugins names what each offers.

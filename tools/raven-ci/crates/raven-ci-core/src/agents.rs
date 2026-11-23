@@ -316,6 +316,25 @@ pub struct AgentView {
     pub launched_by: Option<String>,
 }
 
+/// Why a build waits in the queue: [`Ci::waiting_for`].
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct Waiting {
+    /// What it waits for, in words.
+    pub why: String,
+    /// The plugin switched off that would let it go, when that is the reason.
+    pub plugin: Option<String>,
+}
+
+impl Waiting {
+    fn new(why: impl Into<String>) -> Self {
+        Self { why: why.into(), plugin: None }
+    }
+
+    fn off(plugin: &str, why: String) -> Self {
+        Self { why, plugin: Some(plugin.to_owned()) }
+    }
+}
+
 /// How agents of some labels are brought up when none is connected: like a cloud of Jenkins.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AgentTemplate {
@@ -1011,6 +1030,48 @@ impl Ci {
         let rows = stmt.query_map([], |row| row.get::<_, String>(0)).map_err(db_error)?;
         let bodies: Vec<String> = rows.collect::<Result<_, _>>().map_err(db_error)?;
         Ok(bodies.iter().filter_map(|body| serde_json::from_str(body).ok()).collect())
+    }
+
+    /// Why a build of the queue still waits, in words for the panel, and the plugin that would let
+    /// it go when one is switched off: a label no agent connected has, a template whose launcher is
+    /// off, or only a free executor (#919).
+    pub fn waiting_for(&self, job: &str, number: u64) -> Result<Waiting, CiError> {
+        let row = model::build(&self.db(), job, number)?;
+        let Some(wanted) = Extras::from_value(&row.extras).agent else {
+            return Ok(Waiting::new("espera um executor livre"));
+        };
+        let plugin_off = |name: &str| -> Result<bool, CiError> {
+            let known = self.registry.list()?.into_iter().any(|p| p.name == name);
+            Ok(known && !self.registry.on().iter().any(|p| p.name() == name))
+        };
+        if wanted.id != "label" {
+            let launcher = wanted.plugin.clone().unwrap_or_else(|| wanted.id.clone());
+            if plugin_off(&launcher)? {
+                return Ok(Waiting::off(
+                    &launcher,
+                    format!("pede um agente {launcher} · o plugin {launcher} está desligado"),
+                ));
+            }
+            return Ok(Waiting::new(format!("espera o agente {launcher} que sobe só para ele")));
+        }
+        let label = wanted.settings.get("label").and_then(Value::as_str).unwrap_or_default().to_owned();
+        let agents = self.agents()?;
+        let with_label = |connected: bool| {
+            agents.iter().filter(|a| a.connected == connected).any(|a| a.labels.contains(&label))
+        };
+        if with_label(true) {
+            return Ok(Waiting::new(format!("espera um agente com o rótulo {label} ficar livre")));
+        }
+        match self.agent_templates()?.into_iter().find(|t| t.labels.contains(&label)) {
+            Some(template) if plugin_off(&template.launcher)? => Ok(Waiting::off(
+                &template.launcher,
+                format!("pede o rótulo {label} · o plugin {} está desligado", template.launcher),
+            )),
+            Some(template) => {
+                Ok(Waiting::new(format!("pede o rótulo {label} · o modelo {} sobe um agente", template.name)))
+            }
+            None => Ok(Waiting::new(format!("pede o rótulo {label}, e nenhum agente conectado o tem"))),
+        }
     }
 
     /// Forgets the template `name`; the agents it brought up stay until they are idle.

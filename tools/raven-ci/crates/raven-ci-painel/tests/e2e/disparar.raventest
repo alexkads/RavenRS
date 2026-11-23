@@ -4,8 +4,8 @@ open Raven CI                                          | Abrir o painel do Raven
 fill Usuário = bia                                     | Escrever o usuário
 fill Senha = senha-do-teste-e2e                        | Escrever a senha
 click Entrar                                           | Entrar
-click imagens-base                                     | Escolher o job imagens-base
-click Disparar                                         | Disparar o build
-mention Build 1 de imagens-base na fila. = imagens-base | O aviso diz o número e o job
+click Buscar comandos                                  | Abrir a paleta de comandos
+click Disparar apps/loja-web                           | Disparar o build da loja pela paleta
+mention Build 2 de apps/loja-web na fila. = apps/loja-web | O aviso diz o número e o job
 click #item:Fila e agentes                             | Ir à fila
-mention imagens-base #1 = imagens-base                 | O build está na fila
+mention apps · loja-web #2 = loja-web                  | O build novo está na fila

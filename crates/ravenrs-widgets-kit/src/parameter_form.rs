@@ -611,7 +611,8 @@ impl Parts {
                 }
             },
         );
-        Box::new(Select::new(selected, words).label(field.label.clone()))
+        // As wide as the form, as the text fields beside it are.
+        Box::new(Select::new(selected, words).label(field.label.clone()).fill())
     }
 
     fn list(

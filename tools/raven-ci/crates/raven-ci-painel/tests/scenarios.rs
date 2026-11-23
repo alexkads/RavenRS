@@ -16,3 +16,17 @@ fn every_scenario_of_tests_e2e_passes() {
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
+
+/// The scenarios a plugin brings for its own screens, played as a test of the plugin's crate
+/// does it: the demonstration's page Travas and tab Cobertura (#919).
+#[test]
+fn the_scenarios_a_plugin_brings_play_with_the_plugin_on() {
+    let plugin: std::sync::Arc<dyn raven_ci_plugin_api::CiPlugin> =
+        std::sync::Arc::new(raven_ci_painel::e2e::Demonstracao);
+    let played = raven_ci_painel::e2e::play_plugin_scenarios(&plugin).unwrap_or_else(|why| panic!("{why}"));
+    assert_eq!(played, 1);
+    assert!(
+        raven_ci_painel::e2e::all_scenarios().len() > raven_ci_painel::e2e::SCENARIOS.len(),
+        "the tool sees the plugin's too"
+    );
+}

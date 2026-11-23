@@ -415,6 +415,7 @@ impl Ci {
         let record = runtime.get(&row.run_id).map_err(runtime_error)?;
         let parts = runtime.parts(&row.run_id).map_err(runtime_error)?;
         let (status, reason) = model::status_of(&record, &parts);
+        let commit = model::commit_of(&self.db(), &row.job, row.number)?;
         Ok(Build {
             job: row.job,
             number: row.number,
@@ -428,6 +429,8 @@ impl Ci {
             priority: record.priority,
             joined: record.joined,
             reason,
+            commit,
+            worker: record.worker,
             run_id: row.run_id,
         })
     }
@@ -463,6 +466,46 @@ impl Ci {
         let flow = FlowDefinition::from_json(&row.flow).map_err(|e| CiError::failed(e.to_string()))?;
         let parts = self.runtime().parts(&row.run_id).map_err(runtime_error)?;
         Ok(model::stages_of(&flow, &parts))
+    }
+
+    /// When each stage of the build began and ended, by the lines its steps wrote: `(stage,
+    /// first, last)` in ms, for the stages that wrote any (#919).
+    pub fn stage_times(&self, job: &str, number: u64) -> Result<Vec<(String, i64, i64)>, CiError> {
+        let stages = self.stages(job, number)?;
+        let lines = self.build_log(job, number, 0)?;
+        let mut out = Vec::new();
+        for stage in &stages {
+            let mine: Vec<i64> = lines
+                .iter()
+                .filter(|line| stage.steps.iter().any(|step| step.node == line.step))
+                .map(|line| line.at_ms)
+                .collect();
+            if let (Some(first), Some(last)) = (mine.iter().min(), mine.iter().max()) {
+                out.push((stage.name.clone(), *first, *last));
+            }
+        }
+        Ok(out)
+    }
+
+    /// The plugins the build uses: those that bring its kinds of step, and those its job's
+    /// pipeline names (its code, its agent, its publishers), by name (#919).
+    pub fn plugins_of(&self, job: &str, number: u64) -> Result<Vec<String>, CiError> {
+        let owners = self.registry.step_owners();
+        let mut used: std::collections::BTreeSet<String> = self
+            .stages(job, number)?
+            .iter()
+            .flat_map(|stage| stage.steps.iter())
+            .filter_map(|step| owners.get(&step.kind).cloned())
+            .collect();
+        if let Ok(spec) = self.job(job)
+            && let Ok(format) = self.format(&spec.format)
+            && let Ok(pipeline) = format.read(&spec.name, &spec.pipeline)
+        {
+            used.extend(pipeline.needs().into_iter().map(|(plugin, _)| plugin));
+            used.insert(format_owner(self, &spec.format));
+        }
+        used.retain(|name| !name.is_empty());
+        Ok(used.into_iter().collect())
     }
 
     /// Cancels the build `number` of `job`, saying `reason`; where it is after.
@@ -847,4 +890,14 @@ impl host::Attachments for Ci {
     fn snapshot(&self) -> Result<raven_ci_plugin_api::CiSnapshot, CiError> {
         Ci::snapshot(self)
     }
+}
+
+/// The plugin on that reads pipelines of the format `id`; empty when none does.
+fn format_owner(ci: &Ci, id: &str) -> String {
+    ci.registry
+        .on()
+        .iter()
+        .find(|plugin| plugin.pipeline_formats().iter().any(|format| format.id() == id))
+        .map(|plugin| plugin.name().to_owned())
+        .unwrap_or_default()
 }

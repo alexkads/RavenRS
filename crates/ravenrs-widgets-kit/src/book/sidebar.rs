@@ -84,6 +84,10 @@ impl ComponentBook for Sidebar<(AnyView,)> {
     fn book() -> Meta {
         Meta::new("Navigation/Sidebar", render)
             .summary("Navigation column with sections, items and counts.")
+            // A navigation column runs the height of the window it sits in.
+            .sizing(
+                ravenrs_widgets_base::book::Sizing::new().height(ravenrs_widgets_base::book::Extent::Fill),
+            )
             .arg(ArgType::bool("open", true).description(
                 "Open with names; closed, as the collapsible mode leaves it (icons only, or hidden).",
             ))

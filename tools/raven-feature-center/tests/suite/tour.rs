@@ -1256,6 +1256,10 @@ fn the_flow_diagram_shows_every_feature_and_its_connections_hang_as_cables() {
     assert!(c.says("Nós no diagrama: 6"), "the diagram itself is the same");
     c.activate("Execução de fora");
     assert!(!c.says("3 itens"));
+    // height: a strip 200 pt tall, as wide as the page.
+    c.activate("Faixa de 200 pt");
+    assert!(c.says("Nós no diagrama: 6"), "the diagram is the same in the strip");
+    c.activate("Faixa de 200 pt");
     // Read only: the lock is not offered.
     c.activate("Só leitura");
     assert!(!c.says("Destravar edição"), "no way out of the lock");
@@ -1425,6 +1429,59 @@ impl Center {
         self.settle();
         self.ui.access_tree().nodes.iter().any(|n| n.name.as_deref() == Some(name))
     }
+}
+
+#[test]
+fn the_progress_bar_says_its_stage_and_puts_the_detail_beside_the_label_or_under_the_bar() {
+    let mut c = Center::memory("ana");
+    c.press("Progresso");
+    let height = |c: &mut Center, name: &str| {
+        let tree = c.ui.access_tree();
+        tree.find(Role::ProgressIndicator, name).unwrap_or_else(|| panic!("{name}")).bounds.height()
+    };
+    // detail_inline: one line of words over the bar; screen readers hear the detail all the same.
+    assert!(c.says("60%") && c.says("816 de 1.360 testes"), "{:?}", c.texts());
+    let inline = height(&mut c, "Estágio 3 de 5 · Testes");
+    c.press("Avançar um estágio");
+    assert!(c.says("Estágio 4 de 5 · Testes") && c.says("80%"), "{:?}", c.texts());
+    // Off: the detail goes under the bar, a line more.
+    c.activate("Detalhe na linha do rótulo");
+    let under = height(&mut c, "Estágio 4 de 5 · Testes");
+    assert!(inline + 10.0 < under, "inline {inline}, under {under}");
+    // tone, color, height, label, percent and detail of the others.
+    assert!(c.says("Disco") && c.says("Cor própria, 10 pt") && c.says("12 de 30 fotos"), "{:?}", c.texts());
+}
+
+#[test]
+fn the_scheduler_shows_each_resource_compact_or_on_two_lines_and_tells_its_events() {
+    let mut c = Center::memory("ana");
+    c.press("Agenda por recurso");
+    // resources, resources_title, compact and legend: the title of the column, the legend, a row
+    // per resource; the one away says why.
+    assert!(c.says("AGENTES") && c.says("A linha vertical é agora"), "{:?}", c.texts());
+    assert!(c.has_name("oficina-1") && c.has_name("vps-backup"), "{:?}", c.texts());
+    assert!(
+        c.says("Desconectado há 3 h · o build que estava nele foi retomado no oficina-1"),
+        "{:?}",
+        c.texts()
+    );
+    // on_open: opening an event says which.
+    let tree = c.ui.access_tree();
+    let event = tree
+        .nodes
+        .iter()
+        .find(|n| n.name.as_deref().is_some_and(|t| t.starts_with("site #56")))
+        .map(|n| n.id);
+    if let Some(id) = event {
+        c.ui.perform_action(id, ravenrs::core::AccessAction::Click);
+    }
+    // The toggles change the look and the page stays whole.
+    for name in
+        ["Compacto", "Barra", "Cartão", "Avatares", "Linhas que preenchem", "Só leitura", "Nomes estreitos"]
+    {
+        c.activate(name);
+    }
+    assert!(c.has_name("oficina-1"), "{:?}", c.texts());
 }
 
 #[test]
@@ -1761,7 +1818,7 @@ fn the_build_log_shows_colors_folds_its_stages_searches_and_points_at_a_line() {
             .iter()
             .find(|n| n.role == Role::ListItem && n.name.as_deref().is_some_and(|t| t.starts_with(&start)))
     };
-    let (long, next) = (item(8), item(7));
+    let (long, next) = (item(10), item(9));
     let long = long.expect("the long line").bounds;
     assert!(long.height() <= 20.5, "one line high: {long:?}");
     assert!(next.expect("the line before").bounds.max_y() <= long.origin.y + 0.5, "no overlap");
@@ -1770,11 +1827,15 @@ fn the_build_log_shows_colors_folds_its_stages_searches_and_points_at_a_line() {
     c.type_into("Buscar no log", "fail");
     assert!(c.says("1 linhas com o termo"), "{:?}", c.texts());
 
+    // Each stage says how it ran, and a line with no colors takes them from its first word.
+    assert!(c.says("· git · 8 s"), "{:?}", c.texts());
+    assert!(c.says("SLOW") && c.says("Baixar log"), "{:?}", c.texts());
+
     // A stage folds and says how much it hides.
-    c.press("Checkout");
-    assert!(c.says("2 linhas dobradas"), "{:?}", c.texts());
+    c.press("Checkout · git · 8 s");
+    assert!(c.says("· git · 8 s · 2 linhas dobradas"), "{:?}", c.texts());
     assert!(!c.says("HEAD is now at"), "its lines are hidden");
-    c.press("Checkout · 2 linhas dobradas");
+    c.press("Checkout · git · 8 s · 2 linhas dobradas");
     assert!(c.says("HEAD is now at"), "and come back");
 
     // A line is pointed at by its number.
@@ -1784,11 +1845,95 @@ fn the_build_log_shows_colors_folds_its_stages_searches_and_points_at_a_line() {
     // A new line comes, and the settings change what shows.
     c.press("Chegar linha nova");
     assert!(c.says("nova::linha_1"), "{:?}", c.texts());
-    assert!(c.says("9 linhas no log."), "{:?}", c.texts());
+    assert!(c.says("11 linhas no log."), "{:?}", c.texts());
+
+    // One stage alone, and back to every line.
+    c.activate("Só o estágio Testes");
+    assert!(c.says("Só Testes") && !c.says("HEAD is now at"), "{:?}", c.texts());
+    c.press("Mostrar tudo");
+    assert!(c.says("HEAD is now at"), "{:?}", c.texts());
     c.activate("Números das linhas");
     assert!(!c.has_name("Apontar a linha 2"), "no numbers");
     c.activate("Busca");
     assert!(!c.has_name("Buscar no log") && !c.says("linhas com o termo"), "no search field");
     c.activate("Seguir o fim");
-    assert!(c.says("Ir para o fim") || c.has_name("Ir para o fim"), "the way back to the end stays");
+    assert!(c.has_name("Seguir o fim"), "the switch stays, to follow again");
+}
+
+#[test]
+fn the_stats_say_their_number_with_a_caption_and_the_change_since_before() {
+    let mut c = Center::memory("ana");
+    c.press("Indicadores");
+    // new and caption: the label in capitals, the number and the line under it.
+    assert!(c.says("NA FILA") && c.says("O mais antigo espera há 40 s"), "{:?}", c.texts());
+    c.press("Chegou um build");
+    assert!(c.says("3") && c.says("O mais antigo espera há 60 s"), "{:?}", c.texts());
+    c.press("Saiu um build");
+    c.press("Saiu um build");
+    c.press("Saiu um build");
+    assert!(c.says("Ninguém espera"), "{:?}", c.texts());
+    // large: the same stat, in the size of the number a screen is about.
+    c.activate("Grande");
+    assert!(c.says("NA FILA"), "{:?}", c.texts());
+    // delta and delta_toned: the change, up or down, good or bad.
+    for change in ["+12,4%", "-3,1%", "+8%", "-0,4%"] {
+        assert!(c.says(change), "{change}: {:?}", c.texts());
+    }
+    assert!(c.says("Lida do processo, ao vivo; meta ≤ 60 MB"), "{:?}", c.texts());
+}
+
+#[test]
+fn the_list_packs_its_rows_tells_their_state_and_runs_their_action() {
+    let mut c = Center::memory("ana");
+    c.press("Lista");
+    let height = |c: &mut Center, name: &str| {
+        c.settle();
+        let tree = c.ui.access_tree();
+        tree.nodes
+            .iter()
+            .find(|n| n.name.as_deref() == Some(name))
+            .unwrap_or_else(|| panic!("{name}"))
+            .bounds
+            .height()
+    };
+    // compact: rows of 48, the subtitle beside the title; the title names the row and the rest
+    // describes it.
+    let compact = height(&mut c, "Checkout");
+    assert!((compact - 48.0).abs() < 0.5, "{compact}");
+    let tree = c.ui.access_tree();
+    let lint = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Lint")).expect("Lint");
+    assert_eq!(lint.description.as_deref(), Some("cargo clippy · 1 min 40 s"));
+    c.activate("Compacta");
+    assert!(height(&mut c, "Checkout") > compact, "two lines when not compact");
+    // on_click and selected: a click opens the row.
+    c.press("Lint");
+    assert!(c.says("Aberto: Lint"), "{:?}", c.texts());
+    // action: the button at the end of the row.
+    c.press("Ligar o plugin");
+    assert!(c.says("Ação: ligar o plugin"), "{:?}", c.texts());
+    // avatar and trailing.
+    assert!(c.has_name("Ana Lima") && c.has_name("Bia Souza"), "{:?}", c.texts());
+}
+
+#[test]
+fn the_title_bar_draws_the_window_buttons_and_the_bar_of_a_phone() {
+    let mut c = Center::memory("ana");
+    c.press("Barra de título");
+    assert!(c.says("Relatório.pdf") && c.says("Raven CI"), "{:?}", c.texts());
+    // on_minimize, on_close: a button shows when it has a handler, and runs it.
+    c.press("Minimizar");
+    assert!(c.says("Minimizar"), "{:?}", c.texts());
+    c.press("Fechar");
+    assert!(c.says("Fechar"), "{:?}", c.texts());
+    // on_maximize and maximized: the middle button says it restores once maximized.
+    c.press("Maximizar");
+    assert!(c.has_name("Restaurar"), "{:?}", c.texts());
+    // mobile: the menu before the title and the search after it.
+    c.press("Abrir o menu");
+    assert!(c.says("Menu aberto"), "{:?}", c.texts());
+    c.press("Buscar comandos");
+    assert!(c.says("Busca aberta"), "{:?}", c.texts());
+    // active: without the keyboard the bar goes quiet, and still shows.
+    c.activate("Com o teclado");
+    assert!(c.says("Relatório.pdf"), "{:?}", c.texts());
 }

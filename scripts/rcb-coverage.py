@@ -23,9 +23,9 @@ A component that implements it also has the stories the design tool needs (#768)
 
 - at least one story;
 - for a setting of choices (`ArgType::choice`) of up to 12 options, a story for each option (not
-  for `icon`, a sample of the icon set that the card of `Icon` lists whole): one
-  that sets it, the default when some story leaves it as it is, or a story drawn its own way
-  (`story_with`) whose name says the setting, as "All sizes";
+  for `icon` and the like of `badge_icon`, a sample of the icon set that the card of `Icon` lists
+  whole): one that sets it, the default when some story leaves it as it is, or a story drawn its
+  own way (`story_with`) whose name says the setting, as "All sizes";
 - for an on/off setting of a state (`disabled`, `read_only`, `loading`, `error`), a story with it on.
 
 What does not have them yet is listed in pendentes.json with `"conteudo": true` and its issue; such
@@ -86,7 +86,7 @@ def content_problems(text, consts):
     story_names = [(kind, (re.match(r'\s*"([^"]*)"', c) or [None, ""])[1], c) for kind, c in stories]
     problems = []
     for name, expr, default in CHOICE.findall(text):
-        if name == "icon":
+        if name == "icon" or name.endswith("_icon"):
             continue
         options = options_of(expr, consts)
         if not options or len(options) > MAX_OPTIONS:

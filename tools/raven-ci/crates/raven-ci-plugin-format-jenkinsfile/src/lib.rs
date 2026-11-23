@@ -46,7 +46,9 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use raven_ci_plugin_api::{CiError, CiPlugin, CliCommand, FormatError, Pipeline, PipelineFormat};
+use raven_ci_plugin_api::{
+    CiError, CiPlugin, CliCommand, FormatError, HttpRequest, HttpResponse, Pipeline, PipelineFormat, Route,
+};
 use raven_ci_plugin_format_toml::TomlFormat;
 use ravenrs_app::{Module, ModuleManifest, VersionRange};
 
@@ -86,6 +88,44 @@ impl CiPlugin for JenkinsfilePlugin {
     fn cli_commands(&self) -> Vec<Arc<dyn CliCommand>> {
         vec![Arc::new(ConvertCommand)]
     }
+
+    fn routes(&self) -> Vec<Route> {
+        vec![Route::new("POST", CONVERT_ROUTE, convert_route)]
+    }
+}
+
+/// Where the panel asks for a conversion: `{"text": "<Jenkinsfile>"}` gives
+/// `{"toml", "complete", "notes": [{"kind", "line", "column", "what", "why"}]}`, for anyone signed
+/// in (#919).
+pub const CONVERT_ROUTE: &str = "/api/ci/jenkinsfile/convert";
+
+fn convert_route(request: &HttpRequest) -> HttpResponse {
+    let asked: serde_json::Value = serde_json::from_slice(&request.body).unwrap_or_default();
+    let Some(text) = asked["text"].as_str() else {
+        return HttpResponse::json(400, &serde_json::json!({ "message": "falta o text, com o Jenkinsfile" }));
+    };
+    let conversion = convert(text);
+    let notes: Vec<serde_json::Value> = conversion
+        .notes
+        .iter()
+        .map(|note| {
+            serde_json::json!({
+                "kind": match note.kind {
+                    convert::NoteKind::Warning => "aviso",
+                    convert::NoteKind::Ignored => "ignorado",
+                    convert::NoteKind::NotConverted => "não convertido",
+                },
+                "line": note.line,
+                "column": note.column,
+                "what": note.what,
+                "why": note.why,
+            })
+        })
+        .collect();
+    HttpResponse::json(
+        200,
+        &serde_json::json!({ "toml": conversion.toml, "complete": conversion.complete(), "notes": notes }),
+    )
 }
 
 /// The format `jenkinsfile`. See the [crate](crate).

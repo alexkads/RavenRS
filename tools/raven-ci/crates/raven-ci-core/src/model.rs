@@ -83,7 +83,40 @@ pub(crate) fn prepare(conn: &Connection) -> Result<(), CiError> {
         conn.execute_batch("ALTER TABLE ci_builds ADD COLUMN extras TEXT NOT NULL DEFAULT '{}'")
             .map_err(db)?;
     }
+    // And one made before #919 did not keep the commit each build fetched.
+    let has_commit: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM pragma_table_info('ci_builds') WHERE name = 'commit_sha'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(db)?;
+    if !has_commit {
+        conn.execute_batch("ALTER TABLE ci_builds ADD COLUMN commit_sha TEXT").map_err(db)?;
+    }
     Ok(())
+}
+
+/// Keeps the commit a build fetched.
+pub(crate) fn set_commit(conn: &Connection, job: &str, number: u64, commit: &str) -> Result<(), CiError> {
+    conn.execute(
+        "UPDATE ci_builds SET commit_sha = ?3 WHERE job = ?1 AND number = ?2",
+        params![job, number as i64, commit],
+    )
+    .map_err(db)?;
+    Ok(())
+}
+
+/// The commit a build fetched, when it fetched one.
+pub(crate) fn commit_of(conn: &Connection, job: &str, number: u64) -> Result<Option<String>, CiError> {
+    conn.query_row(
+        "SELECT commit_sha FROM ci_builds WHERE job = ?1 AND number = ?2",
+        params![job, number as i64],
+        |row| row.get(0),
+    )
+    .optional()
+    .map(Option::flatten)
+    .map_err(db)
 }
 
 /// A job as it is asked to be: its name (a path such as `apps/site`), the format of its pipeline
@@ -221,6 +254,10 @@ pub struct Build {
     pub reason: Option<String>,
     /// Its run in the queue.
     pub run_id: String,
+    /// The commit it fetched, when its job fetches code.
+    pub commit: Option<String>,
+    /// Who took it from the queue: `executor-1` of the server, or `agente/<name>`.
+    pub worker: Option<String>,
 }
 
 /// A step of a build.

@@ -15,10 +15,15 @@ mod build;
 mod casca;
 mod config;
 mod fila;
+mod historico;
 mod jobs;
 mod plugin;
 
 /// The role that administers the server.
+/// The margins of a page beside the sidebar, as the boards draw them: 24 above, 32 on the sides
+/// and below (T1).
+const PAGE_PADDING: Insets = Insets { top: 24.0, right: 32.0, bottom: 32.0, left: 32.0 };
+
 const ADMIN: &str = "Administradores";
 /// The role that runs builds.
 const RUN: &str = "Executores";
@@ -28,6 +33,8 @@ const RUN: &str = "Executores";
 pub enum Pagina {
     /// The jobs (T1).
     Jobs,
+    /// Every build, the newest first.
+    Historico,
     /// A build: its job and number (T2).
     Build(String, u64),
     /// The queue and the executors (T3).
@@ -67,6 +74,11 @@ pub(crate) struct S {
     audit: State<Json>,
     build: State<Json>,
     plugin_data: State<BTreeMap<String, Json>>,
+    history: State<Json>,
+    // How wide the window is, read at each build: the pages lay out by it (I7).
+    width: Cell<f32>,
+    sidebar: SidebarState,
+    palette_open: State<bool>,
     message: State<String>,
     // The live channel, and when the log was last read without it.
     live: RefCell<Option<LiveFeed>>,
@@ -74,7 +86,6 @@ pub(crate) struct S {
     polled_at: Cell<f64>,
     confirm: ConfirmDialog,
     // The jobs (P-01).
-    folder: State<Option<String>>,
     job_keys: State<BTreeSet<String>>,
     dispatch_open: State<bool>,
     dispatch_job: State<String>,
@@ -85,22 +96,40 @@ pub(crate) struct S {
     log_of: RefCell<Option<(String, u64)>>,
     log_seq: Cell<u64>,
     log_section: RefCell<String>,
+    log_sections: RefCell<BTreeMap<String, usize>>,
+    stage_pick: State<FlowSelection>,
+    stage_picked: RefCell<Vec<String>>,
     stage_of_step: RefCell<BTreeMap<String, String>>,
     build_tab: State<usize>,
+    stage_only: State<Option<String>>,
     graph: State<FlowGraph>,
     graph_of: RefCell<String>,
     // The queue (P-03).
     selected_event: State<Option<u64>>,
+    agent_dialog: State<bool>,
+    agent_name: State<String>,
+    agent_labels: State<String>,
+    agent_token: State<String>,
     // The pipeline (P-04).
     config_job: State<Option<String>>,
+    config_new: State<bool>,
+    config_name: State<String>,
     config_pick: State<usize>,
     jobs_full: State<Json>,
     config_tab: State<usize>,
     config_text: State<String>,
     config_checked: RefCell<String>,
     config_errors: State<Vec<(usize, String)>>,
+    jenkinsfile: State<String>,
+    jenkinsfile_done: RefCell<String>,
+    conversion: State<Json>,
+    jenkinsfile_caret: State<Cursor>,
+    jenkinsfile_focus: State<bool>,
     // Plugins and people (P-05).
     plugin_filter: State<usize>,
+    plugin_query: State<String>,
+    plugin_settings: State<ParamValues>,
+    add_plugin_open: State<bool>,
     plugin_open: State<Option<String>>,
     sheet_open: State<bool>,
     admin_tab: State<usize>,
@@ -143,12 +172,15 @@ impl Painel {
             audit: State::new(json!([])),
             build: State::new(Json::Null),
             plugin_data: State::new(BTreeMap::new()),
+            history: State::new(Json::Null),
+            width: Cell::new(1440.0),
+            sidebar: SidebarState::new(true),
+            palette_open: State::new(false),
             message: State::new(String::new()),
             live: RefCell::new(None),
             waker: RefCell::new(None),
             polled_at: Cell::new(0.0),
             confirm: ConfirmDialog::new(),
-            folder: State::new(None),
             job_keys: State::new(BTreeSet::new()),
             dispatch_open: State::new(false),
             dispatch_job: State::new(String::new()),
@@ -158,19 +190,37 @@ impl Painel {
             log_of: RefCell::new(None),
             log_seq: Cell::new(0),
             log_section: RefCell::new(String::new()),
+            log_sections: RefCell::new(BTreeMap::new()),
+            stage_pick: State::new(FlowSelection::default()),
+            stage_picked: RefCell::new(Vec::new()),
             stage_of_step: RefCell::new(BTreeMap::new()),
             build_tab: State::new(0),
+            stage_only: State::new(None),
             graph: State::new(FlowGraph::new()),
             graph_of: RefCell::new(String::new()),
             selected_event: State::new(None),
+            agent_dialog: State::new(false),
+            agent_name: State::new(String::new()),
+            agent_labels: State::new(String::new()),
+            agent_token: State::new(String::new()),
             config_job: State::new(None),
+            config_new: State::new(false),
+            config_name: State::new(String::new()),
             config_pick: State::new(0),
             jobs_full: State::new(json!([])),
             config_tab: State::new(0),
             config_text: State::new(String::new()),
             config_checked: RefCell::new(String::new()),
             config_errors: State::new(Vec::new()),
+            jenkinsfile: State::new(String::new()),
+            jenkinsfile_done: RefCell::new(String::new()),
+            conversion: State::new(Json::Null),
+            jenkinsfile_caret: State::new(Cursor::at(0)),
+            jenkinsfile_focus: State::new(false),
             plugin_filter: State::new(0),
+            plugin_query: State::new(String::new()),
+            plugin_settings: State::new(ParamValues::new()),
+            add_plugin_open: State::new(false),
             plugin_open: State::new(None),
             sheet_open: State::new(false),
             admin_tab: State::new(0),
@@ -333,7 +383,11 @@ impl S {
     pub(crate) fn go(self: &Rc<Self>, page: Pagina) {
         self.page.set(page.clone());
         match page {
-            Pagina::Jobs => self.load_overview(),
+            Pagina::Jobs => {
+                self.load_overview();
+                self.load_occupancy();
+            }
+            Pagina::Historico => self.read("/api/ci/history?limit=200", |s, body| s.history.set(body)),
             Pagina::Build(job, number) => self.open_build(&job, number),
             Pagina::Fila => {
                 self.load_occupancy();
@@ -341,9 +395,11 @@ impl S {
             }
             Pagina::Configuracao => {
                 self.load_overview();
+                self.load_occupancy();
                 self.read("/api/ci/jobs", |s, body| s.jobs_full.set(body));
             }
             Pagina::Plugins => {
+                self.load_overview();
                 self.read("/api/ci/plugins", |s, body| s.plugins.set(body));
                 self.read("/api/ci/audit?limit=50", |s, body| s.audit.set(body));
             }
@@ -387,13 +443,16 @@ impl S {
         }
         if builds || plugins || all {
             // The count of the queue in the menu comes from the overview, whatever the page.
-            if !matches!(self.page.get(), Pagina::Jobs | Pagina::Fila | Pagina::Configuracao) {
+            if !matches!(
+                self.page.get(),
+                Pagina::Jobs | Pagina::Fila | Pagina::Configuracao | Pagina::Plugins
+            ) {
                 self.load_overview();
             }
             match self.page.get() {
                 Pagina::Build(job, number) => self.reload_build(&job, number),
                 Pagina::Plugins if plugins => self.go(Pagina::Plugins),
-                Pagina::Jobs | Pagina::Fila | Pagina::Configuracao => self.go(self.page.get()),
+                Pagina::Jobs | Pagina::Fila | Pagina::Historico => self.go(self.page.get()),
                 _ => {}
             }
         }
@@ -412,8 +471,10 @@ impl View for Painel {
         s.listen();
         s.hear();
         S::poll_without_live(s, cx);
+        s.fit_to(cx.viewport().width);
         let content: AnyView = match s.page.get() {
             Pagina::Jobs => jobs::page(s),
+            Pagina::Historico => historico::page(s),
             Pagina::Build(job, number) => build::page(s, &job, number),
             Pagina::Fila => fila::page(s),
             Pagina::Configuracao => config::page(s),
@@ -422,14 +483,41 @@ impl View for Painel {
             Pagina::Usuarios => admin::users(s),
             Pagina::Plugin(name) => plugin::page(s, &name),
         };
+        // On a phone the menu hides behind a button on a bar of its own, and the status bar goes (T7).
+        let top: AnyView = if s.phone() {
+            let search = s.palette_open.clone();
+            Box::new(
+                TitleBar::new("Raven CI")
+                    .leading(SidebarTrigger::new(s.sidebar.clone()).icon(IconName::Menu))
+                    .action(
+                        IconButton::new(IconName::Search)
+                            .label("Buscar comandos")
+                            .on_click(move || search.set(true)),
+                    )
+                    .mobile(),
+            )
+        } else {
+            nada()
+        };
+        let status: AnyView = if s.phone() { nada() } else { Box::new(self.status_bar()) };
+        // The sidebar runs the height of the window; the page and its status bar sit beside it,
+        // with no gap (T1).
         cx.child(
             &VStack::new((
-                HStack::new((self.sidebar(), ScrollView::new((content,)).grow(1.0)))
-                    .align(Align::Stretch)
-                    .grow(1.0),
-                self.status_bar(),
+                top,
+                HStack::new((
+                    self.sidebar(),
+                    VStack::new((ScrollView::new((content,)).grow(1.0), status))
+                        .spacing(0.0)
+                        .align(Align::Stretch)
+                        .grow(1.0),
+                ))
+                .spacing(0.0)
+                .align(Align::Stretch)
+                .grow(1.0),
                 s.confirm.clone(),
                 jobs::dispatch_dialog(s),
+                self.palette(),
             ))
             .spacing(0.0)
             .align(Align::Stretch)

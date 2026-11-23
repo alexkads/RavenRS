@@ -2247,7 +2247,6 @@
    "tipo": "LogView",
    "rts": {
     "ids": [
-     "line:<numero>",
      "number:<numero>",
      "section:<numero>"
     ],

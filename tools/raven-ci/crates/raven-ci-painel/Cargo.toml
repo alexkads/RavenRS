@@ -1,7 +1,7 @@
 [package]
 name = "raven-ci-painel"
 description = "The panel of Raven CI, on the desktop and in the browser: jobs, builds with their log live, the queue, the pipeline, plugins and people, made only of RavenRS components over the server's API."
-version = "0.1.0"
+version = "0.1.1"
 edition.workspace = true
 # raven-ci-core (ravenrs-flows-runtime, rusqlite 0.41) needs 1.89 for the test session.
 rust-version = "1.89"
@@ -26,6 +26,13 @@ serde_json.workspace = true
 raven-ci-core = { path = "../raven-ci-core" }
 raven-ci-plugin-api = { path = "../raven-ci-plugin-api", features = ["testing"] }
 raven-ci-plugin-api-trigger = { path = "../raven-ci-plugin-api-trigger" }
+# The demonstration builds for real, as the design draws it (#919): commands, TOML, the converter of
+# Jenkinsfiles, the locks, and docker switched off for a build that waits for it.
+raven-ci-plugin-docker = { path = "../raven-ci-plugin-docker" }
+raven-ci-plugin-format-jenkinsfile = { path = "../raven-ci-plugin-format-jenkinsfile" }
+raven-ci-plugin-format-toml = { path = "../raven-ci-plugin-format-toml" }
+raven-ci-plugin-lock = { path = "../raven-ci-plugin-lock" }
+raven-ci-plugin-shell = { path = "../raven-ci-plugin-shell" }
 ravenrs-app.workspace = true
 ravenrs-app-server.workspace = true
 ravenrs-e2e.workspace = true

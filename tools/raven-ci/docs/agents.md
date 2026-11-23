@@ -91,7 +91,9 @@ raven-ci agentes modelos
 
 1. A **token used once**: 32 random bytes, kept only as their SHA-256, for 10 minutes, for one
    name. A launcher gets one in `LaunchRequest::token`; for an agent installed by hand,
-   `raven-ci agentes token linux-1 --rotulos linux` prints one.
+   `raven-ci agentes token linux-1 --rotulos linux` prints one, and so does "Adicionar agente" on the
+   page Fila e agentes of the panel (`POST /api/ci/agents/token`, for administrators), with the
+   command to run on the agent's machine.
 2. `POST entrar` spends it, whatever comes of the try, and makes the agent a key of
    `ravenrs-app-server` for the user `agente:linux-1`, whose only role, `Agentes`
    (`raven_ci_plugin_api::ROLE_AGENT`), opens the routes of agents and nothing else (not the

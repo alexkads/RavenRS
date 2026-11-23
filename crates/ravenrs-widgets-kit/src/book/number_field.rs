@@ -35,8 +35,8 @@ fn render(args: &Args) -> AnyView {
         let arg_step = args.number("step");
         let arg_suffix = args.text("suffix");
 
-        let (seats, price) = (State::new(Some(12.0)), State::new(Some(129_990_i64)));
-        VStack::new((
+        let seats = State::new(Some(12.0));
+        {
             {
                 let mut it = NumberField::new(seats.binding()).range(0.0, 100.0);
                 if arg_spin_buttons {
@@ -58,12 +58,15 @@ fn render(args: &Args) -> AnyView {
                     it = it.suffix(arg_suffix.clone());
                 }
                 it
-            },
-            NumberField::money(price.binding(), "$").label("Price"),
-        ))
-        .spacing(12.0)
-        .align(Align::Stretch)
+            }
+        }
     })
+}
+
+/// An amount of money, with its currency before it.
+fn money(_: &Args) -> AnyView {
+    let price = State::new(Some(129_990_i64));
+    Box::new(NumberField::money(price.binding(), "$").label("Price"))
 }
 
 impl ComponentBook for NumberField {
@@ -83,5 +86,7 @@ impl ComponentBook for NumberField {
             .story("Example", Args::new())
             .story("Disabled", Args::new().with("disabled", true))
             .story("Read only", Args::new().with("read_only", true))
+            .story("Field only", Args::new().with("label", ""))
+            .story_with("Money", Args::new(), money)
     }
 }

@@ -3,6 +3,7 @@
 //! [`PAGES`] is the one list: the center puts each page in its navigation as a dashboard, and the
 //! mode `componentes` (#587) shows the same pages with no application framework around them.
 
+pub mod agenda;
 pub mod atualizacao;
 pub mod basicos;
 pub mod doca;
@@ -30,6 +31,13 @@ pub struct Page {
 /// Every page of a component, in the order of the navigation.
 pub const PAGES: &[Page] = &[
     Page {
+        id: basicos::barra_de_titulo::ID,
+        caption: basicos::barra_de_titulo::PAGE,
+        group: "Básicos",
+        icon: IconName::PanelLeft,
+        make: || Box::new(basicos::barra_de_titulo::TitleBarPage),
+    },
+    Page {
         id: basicos::botoes::ID,
         caption: basicos::botoes::PAGE,
         group: "Básicos",
@@ -44,6 +52,20 @@ pub const PAGES: &[Page] = &[
         make: || Box::new(basicos::chaves::TogglesPage),
     },
     Page {
+        id: basicos::indicadores::ID,
+        caption: basicos::indicadores::PAGE,
+        group: "Básicos",
+        icon: IconName::TrendingUp,
+        make: || Box::new(basicos::indicadores::StatPage),
+    },
+    Page {
+        id: basicos::progresso::ID,
+        caption: basicos::progresso::PAGE,
+        group: "Básicos",
+        icon: IconName::Activity,
+        make: || Box::new(basicos::progresso::ProgressPage),
+    },
+    Page {
         id: basicos::texto::ID,
         caption: basicos::texto::PAGE,
         group: "Básicos",
@@ -56,6 +78,13 @@ pub const PAGES: &[Page] = &[
         group: "Kit",
         icon: IconName::Sigma,
         make: || Box::new(kit::expressoes::ExpressionsPage),
+    },
+    Page {
+        id: kit::lista::ID,
+        caption: kit::lista::PAGE,
+        group: "Kit",
+        icon: IconName::List,
+        make: || Box::new(kit::lista::ListPage),
     },
     Page {
         id: kit::parametros::ID,
@@ -77,6 +106,13 @@ pub const PAGES: &[Page] = &[
         group: "Listas e árvores",
         icon: IconName::FileText,
         make: || Box::new(listas::log::LogPage),
+    },
+    Page {
+        id: agenda::scheduler::ID,
+        caption: agenda::scheduler::PAGE,
+        group: "Listas e árvores",
+        icon: IconName::Calendar,
+        make: || Box::new(agenda::scheduler::SchedulerPage),
     },
     Page {
         id: graficos::fluxo::ID,

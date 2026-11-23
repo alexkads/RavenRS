@@ -78,6 +78,8 @@ pub enum Kind {
     ShowMenu,
     /// Closes the target (a dialog, a popover, a menu) through the action it declares.
     Dismiss,
+    /// Clicks the target twice, as a person opens a row of a grid.
+    DoubleClick,
 }
 
 impl Kind {
@@ -100,6 +102,7 @@ impl Kind {
             Self::SetValue => "set-value",
             Self::ShowMenu => "show-menu",
             Self::Dismiss => "dismiss",
+            Self::DoubleClick => "double-click",
         }
     }
 
@@ -122,6 +125,7 @@ impl Kind {
             "set-value" | "definir-valor" => Self::SetValue,
             "show-menu" | "abrir-menu" => Self::ShowMenu,
             "dismiss" | "dispensar" | "fechar" => Self::Dismiss,
+            "double-click" | "duplo-clique" | "clicar-duas-vezes" => Self::DoubleClick,
             _ => return None,
         })
     }
@@ -187,6 +191,7 @@ impl Block {
             Kind::SetValue => Command::SetValue { target, text },
             Kind::ShowMenu => Command::ShowMenu { target },
             Kind::Dismiss => Command::Dismiss { target },
+            Kind::DoubleClick => Command::DoubleClick { target },
         })
     }
 }
@@ -455,6 +460,7 @@ pub fn scenario_schema() -> serde_json::Value {
         Kind::SetValue,
         Kind::ShowMenu,
         Kind::Dismiss,
+        Kind::DoubleClick,
     ]
     .iter()
     .map(|k| k.word())

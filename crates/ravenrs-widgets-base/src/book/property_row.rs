@@ -18,27 +18,24 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 #[allow(unused_imports)]
 use std::rc::Rc;
 
-/// The gallery's example of `PropertyRow`, with its settings taken from the story.
-#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+/// One row: the label and its value, as a panel of details lists them (#921).
 fn render(args: &Args) -> AnyView {
-    Box::new({
-        VStack::new((
-            {
-                let mut it = PropertyRow::new("Camera", "NIKON D3100");
-                it
-            },
-            PropertyRow::new("Lens", ""),
-            PropertyRow::with("Status", Badge::new("Edited").tone(Tone::Success)),
-        ))
-        .spacing(8.0)
-        .align(Align::Stretch)
-    })
+    Box::new(PropertyRow::new(args.text("label"), args.text("value")))
+}
+
+/// A value that is a view: a badge that says a state.
+fn with_badge(_: &Args) -> AnyView {
+    Box::new(PropertyRow::with("Status", Badge::new("Edited").tone(Tone::Success)))
 }
 
 impl ComponentBook for PropertyRow {
     fn book() -> Meta {
         Meta::new("Layout/PropertyRow", render)
             .summary("A label on the left and its value on the right.")
+            .arg(ArgType::text("label", "Camera"))
+            .arg(ArgType::text("value", "NIKON D3100"))
             .story("Example", Args::new())
+            .story("Empty value", Args::new().with("label", "Lens").with("value", ""))
+            .story_with("With a badge", Args::new(), with_badge)
     }
 }

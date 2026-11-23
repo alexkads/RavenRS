@@ -39,6 +39,11 @@ fn alert(args: &Args) -> AnyView {
     if args.bool("compact") {
         alert = alert.compact();
     }
+    let action = args.text("action");
+    if !action.is_empty() {
+        let pressed = ravenrs_reactive::State::new(0);
+        return Box::new(alert.action(action, move || pressed.update(|n| *n += 1)));
+    }
     Box::new(alert)
 }
 
@@ -57,6 +62,7 @@ fn progress(args: &Args) -> AnyView {
     if !args.text("detail").is_empty() {
         bar = bar.detail(args.text("detail"));
     }
+    bar = bar.detail_inline(args.bool("detail_inline"));
     Box::new(bar)
 }
 
@@ -100,6 +106,10 @@ impl ComponentBook for Alert {
             .arg(ArgType::text("message", "The site is live."))
             .arg(ArgType::choice("tone", TONES, "Success"))
             .arg(ArgType::bool("compact", false))
+            .arg(
+                ArgType::text("action", "")
+                    .description("A button at the end that says what to do; empty shows none."),
+            )
             .story("Success", Args::new())
             .story(
                 "Danger",
@@ -107,6 +117,14 @@ impl ComponentBook for Alert {
                     .with("title", "Payment failed")
                     .with("message", "Update your card.")
                     .with("tone", ArgValue::choice("Danger")),
+            )
+            .story(
+                "With an action",
+                Args::new()
+                    .with("title", "1 part not converted")
+                    .with("message", "Line 13 runs free Groovy, which the server does not run.")
+                    .with("tone", ArgValue::choice("Danger"))
+                    .with("action", "Go to line 13"),
             )
             .story(
                 "Message only",
@@ -140,11 +158,24 @@ impl ComponentBook for ProgressBar {
             .arg(ArgType::text("label", ""))
             .arg(ArgType::bool("percent", false))
             .arg(ArgType::text("detail", ""))
+            .arg(
+                ArgType::bool("detail_inline", false)
+                    .description("The detail on the line of the label, before the percent."),
+            )
             .story("Plain", Args::new().with("value", 0.25))
             .story("Success", Args::new().with("value", 0.9).with("tone", ArgValue::choice("Success")))
             .story(
                 "With label",
                 Args::new().with("label", "Copying").with("percent", true).with("detail", "12 of 30 photos"),
+            )
+            .story(
+                "Detail inline",
+                Args::new()
+                    .with("value", 0.6)
+                    .with("label", "Stage 3 of 5 · Tests")
+                    .with("percent", true)
+                    .with("detail", "812 of 1,360 tests")
+                    .with("detail_inline", true),
             )
             .story_with("All tones", Args::new(), all_progress_tones)
     }

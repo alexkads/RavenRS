@@ -100,6 +100,9 @@ settings = { min_free_gb = 10 }
   at `/hooks/metrics` with `open = true` for a Prometheus with no token.
 - **Notices**: the plugins `email` and `webhook-out` tell of a build that failed, of one that passed
   again, or of every build, by what each job says in `notify`.
+- **The panel**: Jobs says what waits and why, Fila e agentes shows the last two hours of each
+  executor and agent, a build that waits for a plugin switched off offers "Ligar o plugin", and
+  Histórico lists every build (`GET /api/ci/history`).
 - **Logs**: the server writes to its output (an agent that would not come up, a plugin that did
   not start, a notice that failed, each line of the agents it brought up); with the RPM,
   `journalctl -u raven-ci`; in the container, `docker logs raven-ci-teste`. The log of each build is in the panel and at
