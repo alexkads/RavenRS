@@ -34,7 +34,7 @@ impl SystemSound {
             let (sender, receiver) = mpsc::channel();
             let worker = std::thread::Builder::new().name("ravenrs-sound".to_owned()).spawn(move || {
                 let mut output = Output::default();
-                let mut voice = Voice::default();
+                let mut voice = super::Voice::default();
                 loop {
                     let order = if output.is_open() {
                         match receiver.recv_timeout(QUIET_BEFORE_CLOSING) {
@@ -322,7 +322,7 @@ fn macos_voice(voices: &str, language: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Output, Voice, macos_voice};
+    use super::{Output, macos_voice};
     use ravenrs_widgets::SoundClip;
 
     #[test]
