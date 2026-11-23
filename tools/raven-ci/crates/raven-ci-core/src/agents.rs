@@ -1057,12 +1057,12 @@ impl Ci {
         let label = wanted.settings.get("label").and_then(Value::as_str).unwrap_or_default().to_owned();
         let agents = self.agents()?;
         let with_label = |connected: bool| {
-            agents.iter().filter(|a| a.connected == connected).any(|a| a.labels.iter().any(|l| *l == label))
+            agents.iter().filter(|a| a.connected == connected).any(|a| a.labels.contains(&label))
         };
         if with_label(true) {
             return Ok(Waiting::new(format!("espera um agente com o rótulo {label} ficar livre")));
         }
-        match self.agent_templates()?.into_iter().find(|t| t.labels.iter().any(|l| *l == label)) {
+        match self.agent_templates()?.into_iter().find(|t| t.labels.contains(&label)) {
             Some(template) if plugin_off(&template.launcher)? => Ok(Waiting::off(
                 &template.launcher,
                 format!("pede o rótulo {label} · o plugin {} está desligado", template.launcher),
