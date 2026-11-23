@@ -77,5 +77,8 @@ fi
 %doc %{_docdir}/%{name}/README.md
 
 %changelog
+* Mon Nov 23 2026 Alex <alexkads@users.noreply.github.com> - 0.1.5-1
+- CPUWeight and IOWeight in place of Nice=10; the drop-in agentes-de-outro-usuario.conf
+
 * Sun Nov 22 2026 Alex <alexkads@users.noreply.github.com> - 0.1.3-1
 - First package: the server as a service, the agent and the panel for the browser

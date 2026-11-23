@@ -5,7 +5,7 @@
     "raven-ci"
   ],
   "package": "raven-ci",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "summary": "A small CI/CD server whose core holds only the queue, the model of jobs and builds and the register of plugins; every function of a CI (pipeline formats, steps, git, providers, triggers, publishers, agents) is a plugin, compiled in or a program of any language over JSON-RPC.",
   "when_to_use": [
     "To see which plugins Raven CI has, whether each is on, and why one was refused.",
