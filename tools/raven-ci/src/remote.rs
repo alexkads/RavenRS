@@ -46,7 +46,7 @@ fn failed(e: impl std::fmt::Display) -> CiError {
 
 /// What the words after a command say: the plain words, and the flags.
 #[derive(Debug, Default, PartialEq, Eq)]
-struct Args {
+pub(crate) struct Args {
     words: Vec<String>,
     server: Option<String>,
     json: bool,
@@ -224,6 +224,16 @@ pub(crate) struct Refused {
 }
 
 impl Refused {
+    /// The refusal as JSON, as `--format json` writes it: `{codigo, saida, mensagem}`.
+    pub(crate) fn to_json(&self) -> Value {
+        json!({ "codigo": self.exit.name(), "saida": self.exit.code(), "mensagem": self.why })
+    }
+
+    /// The same, for what is not a refusal of the server.
+    pub(crate) fn local_json(why: impl Into<String>) -> Value {
+        Self::local(why).to_json()
+    }
+
     /// What the server refused.
     fn new(why: impl Into<String>) -> Self {
         Self::with(Exit::Refused, why)
@@ -239,7 +249,7 @@ impl Refused {
     }
 
     /// Something on this machine.
-    fn local(why: impl Into<String>) -> Self {
+    pub(crate) fn local(why: impl Into<String>) -> Self {
         Self::with(Exit::Local, why)
     }
 }
@@ -256,10 +266,10 @@ impl From<std::io::Error> for Refused {
     }
 }
 
-type Said = Result<i32, Refused>;
+pub(crate) type Said = Result<i32, Refused>;
 
 /// A server of Raven CI, and how to reach it.
-struct Server {
+pub(crate) struct Server {
     base: String,
     token: Option<String>,
     agent: ureq::Agent,
@@ -279,13 +289,15 @@ fn encode(text: &str) -> String {
 }
 
 impl Server {
-    fn new(server: Option<String>) -> Self {
+    pub(crate) fn new(server: Option<String>) -> Self {
         let base = server
             .or_else(|| std::env::var("RAVEN_CI_SERVIDOR").ok().filter(|s| !s.trim().is_empty()))
             .unwrap_or_else(|| DEFAULT_SERVER.to_owned())
             .trim_end_matches('/')
             .to_owned();
-        let token = std::env::var("RAVEN_CI_TOKEN").ok().filter(|t| !t.trim().is_empty());
+        // The key: RAVEN_CI_TOKEN, else the one `ia instalar` saved (#941).
+        let token =
+            std::env::var("RAVEN_CI_TOKEN").ok().filter(|t| !t.trim().is_empty()).or_else(crate::ia::saved_key);
         let agent = ureq::Agent::config_builder()
             .http_status_as_error(false)
             .timeout_global(Some(Duration::from_secs(60)))
@@ -295,7 +307,7 @@ impl Server {
     }
 
     /// `GET` of `path` with `query`: the status, the type and the bytes of the answer.
-    fn fetch(&self, path: &str, query: &[(&str, String)]) -> Result<(u16, String, Vec<u8>), Refused> {
+    pub(crate) fn fetch(&self, path: &str, query: &[(&str, String)]) -> Result<(u16, String, Vec<u8>), Refused> {
         let mut url = format!("{}{path}", self.base);
         for (i, (name, value)) in query.iter().enumerate() {
             url.push(if i == 0 { '?' } else { '&' });
@@ -349,12 +361,12 @@ impl Server {
         Ok((status, kind, bytes))
     }
 
-    fn get(&self, path: &str, query: &[(&str, String)]) -> Result<Value, Refused> {
+    pub(crate) fn get(&self, path: &str, query: &[(&str, String)]) -> Result<Value, Refused> {
         let (_, _, bytes) = self.fetch(path, query)?;
         serde_json::from_slice(&bytes).map_err(|e| Refused::new(format!("a resposta de {path} não é JSON: {e}")))
     }
 
-    fn post(&self, path: &str, body: &Value) -> Result<Value, Refused> {
+    pub(crate) fn post(&self, path: &str, body: &Value) -> Result<Value, Refused> {
         let mut request =
             self.agent.post(&format!("{}{path}", self.base)).header("Content-Type", "application/json");
         if let Some(token) = &self.token {
@@ -381,12 +393,12 @@ impl Server {
     }
 
     /// The build `number` of `job`, with its stages and attachments.
-    fn build(&self, job: &str, number: u64) -> Result<Value, Refused> {
+    pub(crate) fn build(&self, job: &str, number: u64) -> Result<Value, Refused> {
         self.get("/api/ci/build", &[("job", job.to_owned()), ("number", number.to_string())])
     }
 
     /// The lines of the log of the build after `after`.
-    fn log(&self, job: &str, number: u64, after: u64) -> Result<Vec<Value>, Refused> {
+    pub(crate) fn log(&self, job: &str, number: u64, after: u64) -> Result<Vec<Value>, Refused> {
         let lines = self.get(
             "/api/ci/log",
             &[("job", job.to_owned()), ("number", number.to_string()), ("after", after.to_string())],
@@ -579,6 +591,42 @@ fn resumo_do_build(server: &Server, job: &str, number: Option<&str>, args: &Args
     Ok(if ended(status) && status != "succeeded" { Exit::BuildFailed.code() } else { Exit::Done.code() })
 }
 
+/// What `evidencia` downloads, as JSON: for the MCP's `evidencia`.
+pub(crate) fn evidencia_json(server: &Server, job: &str, number: u64, folder: &Path) -> Result<Value, Refused> {
+    let args = Args { json: true, ..Args::default() };
+    let mut said = Vec::new();
+    evidencia(server, job, &number.to_string(), folder, &args, &mut said)?;
+    serde_json::from_slice(&said).map_err(|e| Refused::local(e.to_string()))
+}
+
+/// Every job with its last build, and the queue: what `resumo` shows and the MCP's
+/// `resumo_geral` gives.
+pub(crate) fn overview(server: &Server) -> Result<Value, Refused> {
+    let jobs = server.get("/api/ci/jobs", &[])?;
+    let queue = server.get("/api/ci/queue", &[])?;
+    let mut rows = Vec::new();
+    for job in jobs.as_array().into_iter().flatten() {
+        let name = job.get("name").and_then(Value::as_str).unwrap_or_default().to_owned();
+        let builds = server.get("/api/ci/builds", &[("job", name.clone())])?;
+        let latest = builds
+            .as_array()
+            .and_then(|list| list.iter().max_by_key(|b| b.get("number").and_then(Value::as_u64)))
+            .cloned();
+        rows.push(json!({
+            "job": name,
+            "last": latest.as_ref().and_then(|b| b.get("number")).cloned().unwrap_or(Value::Null),
+            "status": latest.as_ref().and_then(|b| b.get("status")).cloned().unwrap_or(Value::Null),
+        }));
+    }
+    let queue: Vec<Value> = queue
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|b| json!({ "job": b.get("job"), "number": b.get("number"), "status": b.get("status") }))
+        .collect();
+    Ok(json!({ "jobs": rows, "queue": queue }))
+}
+
 fn resumo(server: &Server, args: &Args, out: &mut dyn Write) -> Said {
     let jobs = server.get("/api/ci/jobs", &[])?;
     let queue = server.get("/api/ci/queue", &[])?;
@@ -714,7 +762,7 @@ fn inside(folder: &Path, name: &str) -> Option<PathBuf> {
 }
 
 /// `evidencia JOB NUMERO PASTA`.
-fn evidencia(
+pub(crate) fn evidencia(
     server: &Server,
     job: &str,
     number: &str,
@@ -753,8 +801,16 @@ fn evidencia(
         .collect();
     let log_path = folder.join("log.txt");
     std::fs::write(&log_path, text)?;
+    // The summary beside them: what goes with a pull request (#941).
+    let summary_path = folder.join("resumo.md");
+    let query = [("job", job.to_owned()), ("number", number.to_string()), ("format", "md".to_owned())];
+    let (_, _, summary) = server.fetch("/api/ci/build/summary", &query)?;
+    std::fs::write(&summary_path, summary)?;
     if args.json {
-        write_json(out, &json!({ "artifacts": kept, "log": log_path.display().to_string() }))?;
+        write_json(
+            out,
+            &json!({ "artifacts": kept, "log": log_path.display().to_string(), "resumo": summary_path.display().to_string() }),
+        )?;
     } else {
         for item in &kept {
             writeln!(out, "{} ({} bytes)", item["path"].as_str().unwrap_or_default(), item["size"])?;

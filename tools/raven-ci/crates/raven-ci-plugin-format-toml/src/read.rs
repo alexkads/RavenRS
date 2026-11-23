@@ -13,18 +13,19 @@ use toml::de::{DeTable, DeValue};
 type Node<'i> = Spanned<DeValue<'i>>;
 
 /// The keys at the top of the file.
-const TOP: &[&str] = &["pipeline", "environment", "parameters", "stages", "post", "artifacts", "junit"];
-const PIPELINE: &[&str] = &["timeout", "keep", "agent"];
-const STAGE: &[&str] =
+pub(crate) const TOP: &[&str] = &["pipeline", "environment", "parameters", "stages", "post", "artifacts", "junit"];
+pub(crate) const PIPELINE: &[&str] = &["timeout", "keep", "agent"];
+pub(crate) const STAGE: &[&str] =
     &["name", "steps", "parallel", "when", "timeout", "retry", "lock", "nice", "container", "credentials"];
-const WHEN: &[&str] = &["branch", "pull_request", "parameter"];
-const STEP: &[&str] =
+pub(crate) const WHEN: &[&str] = &["branch", "pull_request", "parameter"];
+pub(crate) const STEP: &[&str] =
     &["sh", "cargo", "uses", "with", "name", "timeout", "retry", "nice", "credentials", "keep_daemons"];
-const CREDENTIAL_FILE: &[&str] = &["file", "name"];
-const PARAMETER: &[&str] = &["name", "type", "default", "description", "choices"];
-const BRANCH: &[&str] = &["name", "steps"];
-const CONTAINER: &[&str] = &["image", "args", "env"];
-const POST: &[&str] = &["always", "success", "failure"];
+pub(crate) const CREDENTIAL_FILE: &[&str] = &["file", "name"];
+pub(crate) const PARAMETER: &[&str] = &["name", "type", "default", "description", "choices"];
+pub(crate) const BRANCH: &[&str] = &["name", "steps"];
+pub(crate) const CONTAINER: &[&str] = &["image", "args", "env"];
+pub(crate) const AGENT: &[&str] = &["label", "docker", "kubernetes"];
+pub(crate) const POST: &[&str] = &["always", "success", "failure"];
 
 /// What a stage gives each of its steps.
 #[derive(Clone, Default)]
@@ -715,7 +716,7 @@ fn agent_of(reader: &mut Reader<'_>, node: &Node<'_>) -> Option<Use> {
     match node.get_ref() {
         DeValue::String(text) if text.as_ref() == "any" => None,
         DeValue::Table(table) => {
-            let fields = reader.fields(table, &["label", "docker", "kubernetes"], "agent");
+            let fields = reader.fields(table, AGENT, "agent");
             if fields.len() != 1 {
                 reader.error(&node.span(), "agent diz um, e só um, de label, docker ou kubernetes");
                 return None;

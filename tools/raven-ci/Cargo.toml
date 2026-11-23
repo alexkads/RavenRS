@@ -46,6 +46,8 @@ serde.workspace = true
 serde_json.workspace = true
 # The commands that speak to a server (src/remote.rs).
 ureq = { version = "3.5", default-features = false, features = ["rustls"] }
+# raven-ci mcp: the MCP server for sessions of AI (src/mcp.rs, #941), as ravenrs-mcp is made.
+rmcp.workspace = true
 
 [dev-dependencies]
 ravenrs-process.workspace = true

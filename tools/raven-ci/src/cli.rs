@@ -41,6 +41,12 @@ pub const USAGE: &str = "uso: raven-ci [--dados PASTA] [--plugins PASTA]… [--f
                           com a chave em RAVEN_CI_TOKEN; saída 0 ok, 1 o build falhou,
                           2 uso errado, 3 sem servidor, 4 sem permissão, 5 recusado,
                           6 erro local; com --format json, o erro sai em JSON)
+  esquema                 o JSON Schema do .raven-ci.toml, para escrever um pipeline certo
+  validar ARQUIVO [--format json]
+                          confere um .raven-ci.toml ou Jenkinsfile sem servidor, com as linhas
+  mcp                     o servidor MCP para sessões de IA (Claude Code, Codex), por stdio
+  ia [instalar [--servidor URL] [--chave -] [--so-mostrar]]
+                          o que uma sessão de IA precisa saber; instalar registra o MCP
   aplicar ARQUIVO [--remover] [--servidor URL]
                           a configuração como código: jobs, pastas e plugins do arquivo
   servir --config ARQUIVO aplica o arquivo ao subir
@@ -98,6 +104,10 @@ impl Invocation {
     pub fn run(&self, out: &mut dyn Write) -> Result<i32, CiError> {
         // The commands that speak to a server open no core on this disk.
         if let Some(said) = crate::remote::run(&self.words, self.json, out) {
+            return said;
+        }
+        // Nor those for sessions of AI: the schema, checking a file, the MCP server (#941).
+        if let Some(said) = crate::ia::run(&self.words, self.json, out) {
             return said;
         }
         if let [first, rest @ ..] = self.words.as_slice()

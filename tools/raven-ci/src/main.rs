@@ -27,6 +27,8 @@ mod agentes;
 mod apply;
 mod cli;
 mod compilar;
+mod ia;
+mod mcp;
 mod plugins;
 mod remote;
 mod self_test;

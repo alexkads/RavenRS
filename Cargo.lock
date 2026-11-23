@@ -6033,6 +6033,7 @@ dependencies = [
  "ravenrs-app-server",
  "ravenrs-app-update",
  "ravenrs-process",
+ "rmcp",
  "serde",
  "serde_json",
  "tokio",
