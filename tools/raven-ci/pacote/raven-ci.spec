@@ -45,7 +45,6 @@ install -Dpm 0755 %{SOURCE1} %{buildroot}%{_bindir}/raven-ci-agent
 install -Dpm 0644 %{SOURCE2} %{buildroot}%{_unitdir}/raven-ci.service
 install -Dpm 0644 %{SOURCE3} %{buildroot}%{_sysusersdir}/raven-ci.conf
 install -dm 0755 %{buildroot}%{_datadir}/raven-ci/painel
-%{_datadir}/raven-ci/agentes-de-outro-usuario.conf
 tar -xf %{SOURCE4} -C %{buildroot}%{_datadir}/raven-ci/painel
 install -dm 0750 %{buildroot}%{_sharedstatedir}/raven-ci
 install -Dpm 0644 %{SOURCE5} %{buildroot}%{_docdir}/%{name}/README.md
@@ -73,6 +72,7 @@ fi
 %{_unitdir}/raven-ci.service
 %{_sysusersdir}/raven-ci.conf
 %{_datadir}/raven-ci/painel
+%{_datadir}/raven-ci/agentes-de-outro-usuario.conf
 %attr(0750,raven-ci,raven-ci) %dir %{_sharedstatedir}/raven-ci
 %doc %{_docdir}/%{name}/README.md
 
