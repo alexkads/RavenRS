@@ -32,10 +32,15 @@ pub const USAGE: &str = "uso: raven-ci [--dados PASTA] [--plugins PASTA]… [--f
   log JOB NUMERO [--seguir]
                           o log do build; --seguir até ele acabar
   resumo                  cada job com o último build, e a fila
+  resumo JOB [NUMERO] [--format json|md]
+                          o resumo de um build para ler pouco: o que falhou, as últimas
+                          linhas, os testes e os diagnósticos (feito para sessões de IA)
   evidencia JOB NUMERO PASTA
                           baixa os artefatos e o log do build para PASTA
-                          (estes cinco falam com --servidor URL ou RAVEN_CI_SERVIDOR,
-                          com a chave em RAVEN_CI_TOKEN)
+                          (estes falam com --servidor URL ou RAVEN_CI_SERVIDOR,
+                          com a chave em RAVEN_CI_TOKEN; saída 0 ok, 1 o build falhou,
+                          2 uso errado, 3 sem servidor, 4 sem permissão, 5 recusado,
+                          6 erro local; com --format json, o erro sai em JSON)
   aplicar ARQUIVO [--remover] [--servidor URL]
                           a configuração como código: jobs, pastas e plugins do arquivo
   servir --config ARQUIVO aplica o arquivo ao subir

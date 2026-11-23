@@ -70,8 +70,8 @@ impl Args {
                 "--servidor" => args.server = Some(value("--servidor")?),
                 "--format" => match value("--format")?.as_str() {
                     "json" => args.json = true,
-                    "text" => args.json = false,
-                    other => return Err(format!("--format aceita json ou text, não {other}")),
+                    "text" | "md" => args.json = false,
+                    other => return Err(format!("--format aceita json, text ou md, não {other}")),
                 },
                 "--param" => {
                     let pair = value("--param")?;
@@ -110,12 +110,10 @@ pub fn run(words: &[String], json: bool, out: &mut dyn Write) -> Option<Result<i
 }
 
 fn run_command(command: &str, words: &[String], json: bool, out: &mut dyn Write) -> Result<i32, CiError> {
+    let wants_json = json || words.windows(2).any(|pair| pair[0] == "--format" && pair[1] == "json");
     let mut args = match Args::parse(words) {
         Ok(args) => args,
-        Err(why) => {
-            writeln!(out, "{why}").map_err(failed)?;
-            return Ok(2);
-        }
+        Err(why) => return refuse(out, &Refused::usage(why), wants_json),
     };
     args.json |= json;
     let server = Server::new(args.server.clone());
@@ -126,12 +124,14 @@ fn run_command(command: &str, words: &[String], json: bool, out: &mut dyn Write)
         ("status", [job, number]) => status(&server, job, Some(number), &args, out),
         ("log", [job, number]) => log(&server, job, number, &args, out),
         ("resumo", []) => resumo(&server, &args, out),
+        ("resumo", [job]) => resumo_do_build(&server, job, None, &args, out),
+        ("resumo", [job, number]) => resumo_do_build(&server, job, Some(number), &args, out),
         ("aplicar", [file]) => aplicar(&server, file, &args, out),
         ("credencial", ["criar", name]) => {
             let mut text = String::new();
             match std::io::Read::read_to_string(&mut std::io::stdin(), &mut text) {
                 Ok(_) => credencial_criar(&server, name, &text, &args, out),
-                Err(e) => Err(Refused(format!("a entrada: {e}"))),
+                Err(e) => Err(Refused::local(format!("a entrada: {e}"))),
             }
         }
         ("credencial", ["listar"]) => credencial_listar(&server, &args, out),
@@ -140,31 +140,119 @@ fn run_command(command: &str, words: &[String], json: bool, out: &mut dyn Write)
             evidencia(&server, job, number, Path::new(folder), &args, out)
         }
         _ => {
+            if args.json {
+                return refuse(out, &Refused::usage(format!("{command}: palavras que ele não aceita; veja raven-ci ajuda")), true);
+            }
             writeln!(out, "{}", crate::cli::USAGE).map_err(failed)?;
-            return Ok(2);
+            return Ok(Exit::Usage.code());
         }
     };
     match said {
         Ok(code) => Ok(code),
-        Err(Refused(why)) => {
-            writeln!(out, "{why}").map_err(failed)?;
-            Ok(1)
+        Err(refused) => refuse(out, &refused, args.json),
+    }
+}
+
+/// Says `refused` to whoever ran the command: in words, or with `--format json` as
+/// `{"codigo", "saida", "mensagem"}`; its exit code.
+fn refuse(out: &mut dyn Write, refused: &Refused, json: bool) -> Result<i32, CiError> {
+    if json {
+        let said = serde_json::json!({ "codigo": refused.exit.name(), "saida": refused.exit.code(), "mensagem": refused.why });
+        writeln!(out, "{said}").map_err(failed)?;
+    } else {
+        writeln!(out, "{}", refused.why).map_err(failed)?;
+    }
+    Ok(refused.exit.code())
+}
+
+/// How a command ends, as its exit code says (#941): what a script or a session of AI reads to
+/// tell a build that failed from a server that did not answer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Exit {
+    /// 0: done, and the build passed.
+    Done,
+    /// 1: the build ended and did not pass.
+    BuildFailed,
+    /// 2: the words of the command are wrong.
+    Usage,
+    /// 3: the server did not answer.
+    Unreachable,
+    /// 4: no key, a key the server refused, or a key without the role.
+    Denied,
+    /// 5: the server answered with a refusal: a job that is not there, a wrong value.
+    Refused,
+    /// 6: something on this machine: a file, the input.
+    Local,
+}
+
+impl Exit {
+    /// Every one, in the order of their codes.
+    pub const ALL: [Self; 7] =
+        [Self::Done, Self::BuildFailed, Self::Usage, Self::Unreachable, Self::Denied, Self::Refused, Self::Local];
+
+    /// The exit code.
+    pub fn code(self) -> i32 {
+        match self {
+            Self::Done => 0,
+            Self::BuildFailed => 1,
+            Self::Usage => 2,
+            Self::Unreachable => 3,
+            Self::Denied => 4,
+            Self::Refused => 5,
+            Self::Local => 6,
+        }
+    }
+
+    /// Its name in the JSON of an error: `sem_servidor`.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Done => "ok",
+            Self::BuildFailed => "build_falhou",
+            Self::Usage => "uso",
+            Self::Unreachable => "sem_servidor",
+            Self::Denied => "sem_permissao",
+            Self::Refused => "recusado",
+            Self::Local => "local",
         }
     }
 }
 
-/// A refusal to tell whoever ran the command, in words.
-struct Refused(String);
+/// A refusal to tell whoever ran the command, in words, with how the command ends.
+pub(crate) struct Refused {
+    exit: Exit,
+    why: String,
+}
+
+impl Refused {
+    /// What the server refused.
+    fn new(why: impl Into<String>) -> Self {
+        Self::with(Exit::Refused, why)
+    }
+
+    fn with(exit: Exit, why: impl Into<String>) -> Self {
+        Self { exit, why: why.into() }
+    }
+
+    /// Words of the command that are wrong.
+    fn usage(why: impl Into<String>) -> Self {
+        Self::with(Exit::Usage, why)
+    }
+
+    /// Something on this machine.
+    fn local(why: impl Into<String>) -> Self {
+        Self::with(Exit::Local, why)
+    }
+}
 
 impl From<CiError> for Refused {
     fn from(e: CiError) -> Self {
-        Self(e.to_string())
+        Self::local(e.to_string())
     }
 }
 
 impl From<std::io::Error> for Refused {
     fn from(e: std::io::Error) -> Self {
-        Self(e.to_string())
+        Self::local(e.to_string())
     }
 }
 
@@ -222,7 +310,7 @@ impl Server {
     }
 
     fn unreachable(&self, e: &ureq::Error) -> Refused {
-        Refused(format!(
+        Refused::with(Exit::Unreachable, format!(
             "o servidor em {} não respondeu ({e}); ele está de pé? (raven-ci servir, ou --servidor URL)",
             self.base
         ))
@@ -241,28 +329,29 @@ impl Server {
             .with_config()
             .limit(u64::MAX)
             .read_to_vec()
-            .map_err(|e| Refused(format!("a resposta de {}: {e}", self.base)))?;
+            .map_err(|e| Refused::new(format!("a resposta de {}: {e}", self.base)))?;
         if status == 401 {
             let why = if self.token.is_some() {
                 "o servidor não aceitou o RAVEN_CI_TOKEN; confira a chave"
             } else {
                 "o servidor pede login: ponha uma chave em RAVEN_CI_TOKEN (crie com POST /api/auth/keys)"
             };
-            return Err(Refused(why.to_owned()));
+            return Err(Refused::with(Exit::Denied, why.to_owned()));
         }
         if !(200..300).contains(&status) {
             let message = serde_json::from_slice::<Value>(&bytes)
                 .ok()
                 .and_then(|value| value.get("message").and_then(Value::as_str).map(str::to_owned))
                 .unwrap_or_else(|| String::from_utf8_lossy(&bytes).chars().take(200).collect());
-            return Err(Refused(format!("o servidor respondeu {status}: {message}")));
+            let exit = if status == 403 { Exit::Denied } else { Exit::Refused };
+            return Err(Refused::with(exit, format!("o servidor respondeu {status}: {message}")));
         }
         Ok((status, kind, bytes))
     }
 
     fn get(&self, path: &str, query: &[(&str, String)]) -> Result<Value, Refused> {
         let (_, _, bytes) = self.fetch(path, query)?;
-        serde_json::from_slice(&bytes).map_err(|e| Refused(format!("a resposta de {path} não é JSON: {e}")))
+        serde_json::from_slice(&bytes).map_err(|e| Refused::new(format!("a resposta de {path} não é JSON: {e}")))
     }
 
     fn post(&self, path: &str, body: &Value) -> Result<Value, Refused> {
@@ -273,7 +362,7 @@ impl Server {
         }
         let answer = request.send(body.to_string()).map_err(|e| self.unreachable(&e))?;
         let (_, _, bytes) = self.read(answer)?;
-        serde_json::from_slice(&bytes).map_err(|e| Refused(format!("a resposta de {path} não é JSON: {e}")))
+        serde_json::from_slice(&bytes).map_err(|e| Refused::new(format!("a resposta de {path} não é JSON: {e}")))
     }
 
     fn delete(&self, path: &str, query: &[(&str, String)]) -> Result<Value, Refused> {
@@ -288,7 +377,7 @@ impl Server {
         }
         let answer = request.call().map_err(|e| self.unreachable(&e))?;
         let (_, _, bytes) = self.read(answer)?;
-        serde_json::from_slice(&bytes).map_err(|e| Refused(format!("a resposta de {path} não é JSON: {e}")))
+        serde_json::from_slice(&bytes).map_err(|e| Refused::new(format!("a resposta de {path} não é JSON: {e}")))
     }
 
     /// The build `number` of `job`, with its stages and attachments.
@@ -326,7 +415,7 @@ fn ended(status: &str) -> bool {
 }
 
 fn number_of(text: &str) -> Result<u64, Refused> {
-    text.parse().map_err(|_| Refused(format!("{text} não é o número de um build")))
+    text.parse().map_err(|_| Refused::usage(format!("{text} não é o número de um build")))
 }
 
 fn write_json(out: &mut dyn Write, value: &Value) -> Result<(), Refused> {
@@ -406,7 +495,7 @@ fn last(server: &Server, job: &str) -> Result<u64, Refused> {
     builds
         .as_array()
         .and_then(|list| list.iter().filter_map(|b| b.get("number").and_then(Value::as_u64)).max())
-        .ok_or_else(|| Refused(format!("o job {job} ainda não tem builds")))
+        .ok_or_else(|| Refused::new(format!("o job {job} ainda não tem builds")))
 }
 
 /// `status JOB [NUMERO]`.
@@ -471,6 +560,25 @@ fn log(server: &Server, job: &str, number: &str, args: &Args, out: &mut dyn Writ
 }
 
 /// `resumo`.
+/// `resumo JOB [NUMERO]`: the summary of a build for programs and sessions of AI (#941), in
+/// Markdown, or in JSON with `--format json`. It ends with 1 when the build failed.
+fn resumo_do_build(server: &Server, job: &str, number: Option<&str>, args: &Args, out: &mut dyn Write) -> Said {
+    let mut query = vec![("job", job.to_owned())];
+    if let Some(number) = number {
+        query.push(("number", number_of(number)?.to_string()));
+    }
+    let summary = server.get("/api/ci/build/summary", &query)?;
+    if args.json {
+        write_json(out, &summary)?;
+    } else {
+        query.push(("format", "md".to_owned()));
+        let (_, _, bytes) = server.fetch("/api/ci/build/summary", &query)?;
+        out.write_all(&bytes)?;
+    }
+    let status = summary.get("status").and_then(Value::as_str).unwrap_or_default();
+    Ok(if ended(status) && status != "succeeded" { Exit::BuildFailed.code() } else { Exit::Done.code() })
+}
+
 fn resumo(server: &Server, args: &Args, out: &mut dyn Write) -> Said {
     let jobs = server.get("/api/ci/jobs", &[])?;
     let queue = server.get("/api/ci/queue", &[])?;
@@ -521,7 +629,7 @@ fn resumo(server: &Server, args: &Args, out: &mut dyn Write) -> Said {
 /// it, and the whole sent to `POST /api/ci/config`.
 fn aplicar(server: &Server, file: &str, args: &Args, out: &mut dyn Write) -> Said {
     let config = raven_ci_core::config::ServerConfig::read(Path::new(file))?;
-    let body = serde_json::to_value(&config).map_err(|e| Refused(e.to_string()))?;
+    let body = serde_json::to_value(&config).map_err(|e| Refused::local(e.to_string()))?;
     let path = if args.remove { "/api/ci/config?remover=1" } else { "/api/ci/config" };
     let answer = server.post(path, &body)?;
     let changes: Vec<String> = answer["changes"]
@@ -539,10 +647,10 @@ fn aplicar(server: &Server, file: &str, args: &Args, out: &mut dyn Write) -> Sai
 /// standard input): never in the words of the command, which anyone on the machine reads in `ps`.
 fn credencial_criar(server: &Server, name: &str, text: &str, args: &Args, out: &mut dyn Write) -> Said {
     let Some(kind) = &args.kind else {
-        return Err(Refused("diga o tipo: --tipo token, user-password, ssh-key ou arquivo".to_owned()));
+        return Err(Refused::usage("diga o tipo: --tipo token, user-password, ssh-key ou arquivo".to_owned()));
     };
     let fields: Value = serde_json::from_str(text).map_err(|_| {
-        Refused(
+        Refused::usage(
             "os campos vêm em JSON na entrada: echo '{\"token\": \"...\"}' | raven-ci credencial criar NOME --tipo token --servidor URL"
                 .to_owned(),
         )

@@ -11,6 +11,8 @@
 //! # What it answers
 //!
 //! - `GET /health`, with no one signed in (the HTTP layer of the server answers it).
+//! - For anyone signed in, `GET /api/ci/build/summary?job=&number=[&format=md]`: the summary of a
+//!   build for programs and sessions of AI (#941, [`summary`](crate::summary)).
 //! - For anyone signed in, to read: `GET /api/ci/jobs`, `/api/ci/builds?job=`,
 //!   `/api/ci/build?job=&number=` (with its stages and attachments), `/api/ci/log?job=&number=&after=`
 //!   (the lines after `after`, for a reader that follows) and `/api/ci/queue`.
@@ -113,6 +115,12 @@ fn answer(ci: &Ci, request: &ApiRequest, who: &mut dyn FnMut() -> Option<Caller>
     }
     if path.as_slice() == ["api", "ci", "credentials"] {
         return Some(credentials(ci, request, who));
+    }
+    if path.as_slice() == ["api", "ci", "build", "summary"] && request.method == "GET" {
+        if who().is_none() {
+            return Some(unauthorized());
+        }
+        return Some(summary(ci, &request.query).unwrap_or_else(|e| from_error(&e)));
     }
     if let ["api", "ci", what] = path.as_slice()
         && request.method == "GET"
@@ -253,6 +261,27 @@ fn read(ci: &Ci, what: &str, query: &BTreeMap<String, String>) -> Result<ApiResp
         _ => to_json(&ci.queue()?),
     };
     Ok(json(200, &body))
+}
+
+/// `GET /api/ci/build/summary?job=&number=[&format=md]`: the summary of a build for programs and
+/// sessions of AI ([`summary`](crate::summary)), in JSON or, with `format=md`, as Markdown. With no
+/// `number`, the last build of the job.
+fn summary(ci: &Ci, query: &BTreeMap<String, String>) -> Result<ApiResponse, CiError> {
+    let job = wanted(query, "job")?;
+    let n = match query.get("number") {
+        Some(_) => number(query, "number")?,
+        None => ci
+            .builds(job)?
+            .first()
+            .map(|build| build.number)
+            .ok_or_else(|| CiError::unavailable(format!("o job {job} ainda não tem build")))?,
+    };
+    let summary = ci.summary(job, n)?;
+    if query.get("format").is_some_and(|f| f == "md") {
+        let text = crate::summary::to_markdown(&summary);
+        return Ok(ApiResponse::raw(200, "text/markdown; charset=utf-8".to_owned(), text.into_bytes()));
+    }
+    Ok(json(200, &to_json(&summary)))
 }
 
 /// The route of a plugin on that answers `request`, when there is one.

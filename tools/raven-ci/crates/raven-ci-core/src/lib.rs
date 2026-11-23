@@ -47,6 +47,7 @@ pub mod people;
 mod registry;
 mod snapshot;
 mod store;
+pub mod summary;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
