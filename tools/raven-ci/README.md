@@ -24,6 +24,7 @@ The plan and the state of each part are in [#803](https://github.com/alexkads/Ra
 | [Running the server](docs/operations.md) | installing, the folder of data, roles, the vault and its key, metrics, updating, and what to do when something goes wrong |
 | [Build agents](docs/agents.md) | agents on other machines, as other users, in containers and pods, and how they resume a build |
 | [Writing a plugin](docs/writing-a-plugin.md) | both kinds of plugin, the manifest, the protocol and the tests |
+| [Raven CI for sessions of AI](docs/ai.md) | the MCP server `raven-ci mcp`, the summary of a build in a few hundred tokens, the schema of the pipeline, the exit codes, and how a session should work |
 
 ## From nothing to a first build
 

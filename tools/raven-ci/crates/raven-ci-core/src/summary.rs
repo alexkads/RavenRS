@@ -97,8 +97,10 @@ pub struct FailedStep {
     pub title: String,
     /// Why, as the step said.
     pub error: Option<String>,
-    /// The last lines it wrote, oldest first.
+    /// The last lines it wrote, oldest first, with no noise.
     pub tail: Vec<String>,
+    /// How many lines of noise it wrote that the tail leaves out: `Compiling …`, `test … ok`.
+    pub noise_left_out: usize,
 }
 
 /// The count of the tests and the ones that failed.
@@ -162,8 +164,56 @@ pub struct AttachmentLine {
     pub size: u64,
 }
 
-/// `text` cut at [`LINE_CHARS`] characters, with `…` when cut.
+/// `text` without the codes of color of a terminal: `ESC[1m`, and the `[1m` left of one whose
+/// `ESC` was taken out. They are many bytes and say nothing to whoever reads the summary.
+fn without_colors(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let chars: Vec<char> = text.chars().collect();
+    let mut n = 0;
+    while n < chars.len() {
+        let start = if chars[n] == '\u{1b}' && chars.get(n + 1) == Some(&'[') { n + 1 } else { n };
+        if chars[start] == '[' {
+            let mut end = start + 1;
+            while end < chars.len() && end - start <= 12 && (chars[end].is_ascii_digit() || chars[end] == ';') {
+                end += 1;
+            }
+            if end < chars.len() && chars[end] == 'm' && (end > start + 1 || start > n) {
+                n = end + 1;
+                continue;
+            }
+        }
+        if chars[n] != '\u{1b}' {
+            out.push(chars[n]);
+        }
+        n += 1;
+    }
+    out
+}
+
+/// Whether `line` says nothing about why a step failed: progress of a build, a test that passed,
+/// a blank line. The tail leaves them out, so the lines that matter fit.
+fn noise(line: &str) -> bool {
+    let line = without_colors(line);
+    let line = line.trim();
+    const PROGRESS: [&str; 9] = [
+        "Compiling ",
+        "Checking ",
+        "Downloaded ",
+        "Downloading ",
+        "Fresh ",
+        "Locking ",
+        "Adding ",
+        "Updating ",
+        "Blocking waiting",
+    ];
+    line.is_empty()
+        || PROGRESS.iter().any(|start| line.starts_with(start))
+        || (line.starts_with("test ") && (line.ends_with("... ok") || line.ends_with("... ignored")))
+}
+
+/// `text` with no colors, cut at [`LINE_CHARS`] characters, with `…` when cut.
 fn cut(text: &str) -> String {
+    let text = without_colors(text);
     let text = text.trim_end();
     if text.chars().count() <= LINE_CHARS {
         return text.to_owned();
@@ -224,6 +274,11 @@ fn diagnostics_of(value: &Value) -> Diagnostics {
     let warnings = all.iter().filter(|d| level(d) == "warning").count() as u64;
     let mut sorted: Vec<&Value> = all.iter().collect();
     sorted.sort_by_key(|d| u8::from(level(d) != "error"));
+    // `cargo test` builds the library and its tests: the same diagnostic comes twice.
+    let mut seen = std::collections::BTreeSet::new();
+    sorted.retain(|d| {
+        seen.insert((level(d), text_of(d, "code"), text_of(d, "file"), d.get("line").and_then(Value::as_u64), text_of(d, "message")))
+    });
     let first = sorted
         .into_iter()
         .map(|d| {
@@ -300,27 +355,36 @@ impl Ci {
         let failed = stages.iter().find_map(|stage| {
             stage.steps.iter().find(|step| step.status == "failed").map(|step| (stage.name.clone(), step.clone()))
         });
-        let tail_of = |step: &str| -> Vec<String> {
-            let lines: Vec<&str> =
-                log.iter().filter(|line| line.step == step).map(|line| line.text.as_str()).collect();
-            lines[lines.len().saturating_sub(TAIL_LINES)..].iter().map(|line| cut(line)).collect()
+        let tail_of = |step: &str| -> (Vec<String>, usize) {
+            let all: Vec<&str> = log.iter().filter(|line| line.step == step).map(|line| line.text.as_str()).collect();
+            let lines: Vec<&str> = all.iter().copied().filter(|line| !noise(line)).collect();
+            let tail = lines[lines.len().saturating_sub(TAIL_LINES)..].iter().map(|line| cut(line)).collect();
+            (tail, all.len() - lines.len())
         };
         let failed = match failed {
-            Some((stage, step)) => Some(FailedStep {
-                stage,
-                tail: tail_of(&step.node),
-                step: step.node,
-                title: step.title,
-                error: step.error.as_deref().map(cut),
-            }),
+            Some((stage, step)) => {
+                let (tail, noise_left_out) = tail_of(&step.node);
+                Some(FailedStep {
+                    stage,
+                    tail,
+                    noise_left_out,
+                    step: step.node,
+                    title: step.title,
+                    error: step.error.as_deref().map(cut),
+                })
+            }
             // Failed before any step: what the core said.
-            None if build.status == BuildStatus::Failed => Some(FailedStep {
-                stage: String::new(),
-                step: String::new(),
-                title: "antes dos passos".to_owned(),
-                error: build.reason.as_deref().map(cut),
-                tail: tail_of(""),
-            }),
+            None if build.status == BuildStatus::Failed => {
+                let (tail, noise_left_out) = tail_of("");
+                Some(FailedStep {
+                    stage: String::new(),
+                    step: String::new(),
+                    title: "antes dos passos".to_owned(),
+                    error: build.reason.as_deref().map(cut),
+                    tail,
+                    noise_left_out,
+                })
+            }
             None => None,
         };
         let mut summary = BuildSummary {
@@ -395,6 +459,9 @@ pub fn to_markdown(summary: &BuildSummary) -> String {
         out.push_str(&format!("\n## O que falhou: {at}\n\n"));
         if let Some(error) = &failed.error {
             out.push_str(&format!("{error}\n\n"));
+        }
+        if failed.noise_left_out > 0 {
+            out.push_str(&format!("_As últimas linhas, sem {} de progresso e testes que passaram:_\n\n", failed.noise_left_out));
         }
         if !failed.tail.is_empty() {
             out.push_str("```text\n");
@@ -473,6 +540,32 @@ mod tests {
         assert_eq!((diagnostics.errors, diagnostics.warnings), (1, 1));
         assert_eq!(diagnostics.first[0].place.as_deref(), Some("b.rs:9:5"));
         assert_eq!(diagnostics.first[0].code.as_deref(), Some("E0308"));
+    }
+
+    #[test]
+    fn the_codes_of_color_go_and_the_text_stays() {
+        assert_eq!(without_colors("\u{1b}[1m\u{1b}[94m|\u{1b}[0m texto"), "| texto");
+        assert_eq!(without_colors("[1m[33m^^^^^[0m ajuda"), "^^^^^ ajuda");
+        assert_eq!(without_colors("vetor[3] e [m] ficam"), "vetor[3] e [m] ficam");
+    }
+
+    #[test]
+    fn progress_and_tests_that_passed_are_noise_and_failures_are_not() {
+        for line in ["   Compiling serde v1.0.228", "test testes::soma_1 ... ok", "", "\u{1b}[1m\u{1b}[32m   Compiling\u{1b}[0m x"] {
+            assert!(noise(line), "{line:?}");
+        }
+        for line in ["test testes::soma_errada ... FAILED", "thread 'x' panicked at src/lib.rs:6:32:", "error[E0308]: tipos"] {
+            assert!(!noise(line), "{line:?}");
+        }
+    }
+
+    #[test]
+    fn the_same_diagnostic_twice_is_named_once() {
+        let twice = json!([
+            { "level": "warning", "code": "unused", "message": "aviso", "file": "a.rs", "line": 1 },
+            { "level": "warning", "code": "unused", "message": "aviso", "file": "a.rs", "line": 1 }
+        ]);
+        assert_eq!(diagnostics_of(&twice).first.len(), 1);
     }
 
     #[test]

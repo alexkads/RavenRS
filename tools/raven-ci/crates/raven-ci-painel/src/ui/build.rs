@@ -500,7 +500,15 @@ fn actions(s: &Rc<S>, job: &str, number: u64, running: bool, phone: bool) -> Any
 fn tabs(s: &Rc<S>, body: &Json, job: &str, number: u64) -> AnyView {
     let attachments = body["attachments"].as_array().cloned().unwrap_or_default();
     let tests: Vec<&Json> = attachments.iter().filter(|a| a["kind"] == "junit").collect();
-    let artifacts: Vec<&Json> = attachments.iter().filter(|a| a["kind"] != "junit").collect();
+    // The summary of the build for sessions of AI (#941), first among what the build left.
+    let summary_row = json!({
+        "name": "resumo.md (para IA)",
+        "mime": "text/markdown",
+        "summary": "o que falhou, as últimas linhas, os testes e os diagnósticos; raven-ci resumo JOB NUMERO",
+        "url": s.client.url_of(&format!("/api/ci/build/summary?job={}&number={number}&format=md", escaped(job))),
+    });
+    let mut artifacts: Vec<&Json> = vec![&summary_row];
+    artifacts.extend(attachments.iter().filter(|a| a["kind"] != "junit"));
     let log = LogView::new(s.log.clone())
         .follow_end(true)
         .searchable(true)
@@ -536,7 +544,7 @@ fn tabs(s: &Rc<S>, body: &Json, job: &str, number: u64) -> AnyView {
             attachment_grid(s, &tests, "Nenhum resultado de teste. O plugin junit põe os seus aqui."),
         )
         .tab(
-            if s.phone() { "Artefatos".to_owned() } else { format!("Artefatos · {}", artifacts.len()) },
+            if s.phone() { "Artefatos".to_owned() } else { format!("Artefatos · {}", artifacts.len() - 1) },
             attachment_grid(s, &artifacts, "Nenhum artefato. O plugin artifacts põe os seus aqui."),
         )
         .tab("Parâmetros", parameters(&body["build"]["parameters"]));
@@ -559,9 +567,12 @@ fn attachment_grid(s: &S, attachments: &[&Json], empty: &str) -> AnyView {
             vec![
                 a["name"].as_str().unwrap_or_default().to_owned().into(),
                 a["mime"].as_str().unwrap_or_default().to_owned().into(),
-                texto::bytes(a["size"].as_u64().unwrap_or(0)).into(),
+                a["size"].as_u64().map(texto::bytes).unwrap_or_default().into(),
                 summary(&a["summary"]).into(),
-                s.client.url_of(&format!("/api/ci/attachment?id={id}")).into(),
+                a["url"]
+                    .as_str()
+                    .map_or_else(|| s.client.url_of(&format!("/api/ci/attachment?id={id}")), str::to_owned)
+                    .into(),
             ]
         })
         .collect();

@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "raven-ci": {
+      "command": "raven-ci",
+      "args": [
+        "mcp"
+      ]
+    }
+  }
+}
