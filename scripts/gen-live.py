@@ -4,8 +4,9 @@
 Puts `#[cfg_attr(feature = "live", ravenrs_live::expose)]` on every inherent `impl` block, public
 enum, public struct and inline public module of those crates, and writes a `src/live_list.rs`
 for each crate that registers them: ravenrs-widgets (with the crates under it), ravenrs-movie,
-ravenrs-app and ravenrs-app-ui. Run it after adding a component; scripts/check-component-list.py
-fails while it is out of date."""
+ravenrs-app and ravenrs-app-ui. Run it after adding a component; scripts/check.sh fails while it
+is out of date (`--check`). An item behind its own `#[cfg(..)]`, as the `testing` module, is
+registered behind the same condition. `--self-test` checks how that condition is read."""
 import pathlib
 import re
 import subprocess
@@ -153,9 +154,40 @@ def gated_exports(lib):
     return gated
 
 
+def item_gate(out):
+    """The condition of a `#[cfg(..)]` among the attributes right above an item, or None."""
+    for line in reversed(out):
+        line = line.strip()
+        if not line.startswith("#[") and not line.startswith("///") and not line.startswith("//"):
+            return None
+        if found := re.fullmatch(r"#\[cfg\((.+)\)\]", line):
+            return found[1]
+    return None
+
+
 def rust_files(src):
     return [p for p in sorted(src.rglob("*.rs")) if p.name not in ("live_list.rs", "live.rs")]
 
+
+def self_test():
+    """The cases of #828: what decides the `cfg` an item's call takes."""
+    cases = [
+        (["#[cfg(feature = \"testing\")]", "#[cfg_attr(feature = \"live\", ravenrs_live::expose)]"], 'feature = "testing"'),
+        (["/// Drivers.", "#[cfg(feature = \"testing\")]", "/// More."], 'feature = "testing"'),
+        (["#[derive(Clone)]", "#[cfg(all(unix, feature = \"x\"))]"], 'all(unix, feature = "x")'),
+        (["#[cfg(feature = \"testing\")]", "fn other() {}", "#[derive(Clone)]"], None),
+        (["}", ""], None),
+        ([], None),
+    ]
+    for above, wanted in cases:
+        got = item_gate(above)
+        assert got == wanted, f"{above}: {got!r}, wanted {wanted!r}"
+    print(f"gen-live self-test: {len(cases)} cases")
+
+
+if "--self-test" in sys.argv:
+    self_test()
+    sys.exit(0)
 
 stale = []
 counts = []
@@ -291,6 +323,12 @@ def generate(target):
                 ty = found["ty"]
                 if ty in name_gates and not module_cfg:
                     cfg = f"    #[cfg({name_gates[ty]})]\n"
+                # A `#[cfg(..)]` on the item itself, as `pub mod testing` behind the `testing`
+                # feature, goes on its call too, or the list names what the build left out (#828).
+                if own_gate := item_gate(out):
+                    gate_now = cfg.strip()[len("#[cfg(") : -len(")]")] if cfg else None
+                    both = f"all({gate_now}, {own_gate})" if gate_now and gate_now != own_gate else own_gate
+                    cfg = f"    #[cfg({both})]\n"
                 if wanted is not None and ty not in wanted:
                     out.append(line)
                     continue
