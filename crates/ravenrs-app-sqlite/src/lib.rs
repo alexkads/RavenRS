@@ -36,7 +36,9 @@ use rusqlite::{Connection, ErrorCode, OptionalExtension, params_from_iter};
 
 mod backup;
 
-pub use backup::{BackupError, BackupInfo, BackupStamp, Backups, COPIES_KEPT, KeptCopy, SqliteBackups};
+pub use backup::{
+    BackupError, BackupInfo, BackupStamp, Backups, COPIES_KEPT, KeptCopy, SqliteBackups, unstamped_copy,
+};
 
 fn quoted(name: &str) -> String {
     format!("\"{}\"", name.replace('"', "\"\""))

@@ -322,7 +322,7 @@ fn macos_voice(voices: &str, language: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Output, Voice, macos_voice};
+    use super::{Output, macos_voice};
     use ravenrs_widgets::SoundClip;
 
     #[test]
@@ -354,7 +354,7 @@ mod tests {
     #[test]
     #[ignore = "it speaks out loud; run it with --ignored"]
     fn the_voice_starts_and_stops_when_told() {
-        let mut voice = Voice::default();
+        let mut voice = super::Voice::default();
         voice.speak("Clique em Salvar lançamento para guardar a despesa.", "pt-BR");
         std::thread::sleep(std::time::Duration::from_millis(400));
         let child = voice.speaking.as_mut().map(|child| child.try_wait().map(|status| status.is_none()));

@@ -31,8 +31,29 @@ Everything of a server is in one folder (`--dados`, `RAVEN_CI_HOME` or `~/.raven
 | `espacos/` | the folder of each build running | no: each one is removed at the end of its build |
 | `logs/` | the output of the service, when launchd or the installer keeps it | as long as you want |
 
-Backup and restore of this folder, with the server running, is task O-04 of #803 (#917). Until
-then, copy the folder with the server stopped.
+### Backup and restore
+
+```bash
+raven-ci --dados /var/lib/raven-ci backup criar                 # with the server running
+raven-ci --dados /var/lib/raven-ci backup ver PASTA              # what it holds, checked
+sudo systemctl stop raven-ci
+sudo -u raven-ci raven-ci --dados /var/lib/raven-ci backup restaurar PASTA
+sudo systemctl start raven-ci
+```
+
+- **A backup** (`backup criar [PASTA]`, in `backups/raven-ci-<data>` of the folder of data unless
+  said) copies each database with `VACUUM INTO`, consistent even with a build writing, checked and
+  stamped with the version; the vault, the people and the data of the plugins as files. It leaves
+  out what comes back by itself: `espacos/`, the repositories of `git`, the locks of `lock`, the
+  journals of SQLite. `raven-ci-backup.json` lists each file with its size.
+- **The key of the vault** goes in only with `--com-chave`: a backup with it opens every
+  credential. Without it, keep `cofre.chave` apart (a password manager); restoring a backup with no
+  key on a new machine needs that file, or `RAVEN_CI_CHAVE`.
+- **Restoring** checks the backup first, is refused while a server uses the folder, moves what is
+  there to `antes-da-restauracao-<quando>/`, and only then puts the backup in place. A backup with
+  no key leaves the key that is there.
+- **`--dados`** matters: without it, the command line uses `~/.raven-ci`, which for the user
+  `raven-ci` of the RPM is `/var/lib/raven-ci/.raven-ci`, not the folder of the service.
 
 ## Who may do what
 
@@ -175,7 +196,7 @@ drop-in `/usr/share/raven-ci/agentes-de-outro-usuario.conf` (`NoNewPrivileges=fa
   volume keeps the data.
 
 The database moves to a new version by itself when the server opens it. Going back to an older
-version after that is not guaranteed: copy the folder of data before updating.
+version after that is not guaranteed: `raven-ci backup criar` before updating.
 
 ## When something goes wrong
 

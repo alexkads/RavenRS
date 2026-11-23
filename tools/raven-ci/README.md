@@ -103,8 +103,9 @@ cargo run -p raven-ci -- --plugins tools/raven-ci/plugins plugins listar
 |---|---|
 | `raven-ci plugins listar` | every plugin: version, origin, state (on, off, refused with why) and points |
 | `raven-ci plugins info NOME` | one plugin: dependencies, permissions declared and granted, configuration, memory, audit |
-| `raven-ci plugins ligar NOME` / `desligar NOME` | switches it, and says what else changed |
+| `raven-ci plugins ligar NOME` / `desligar NOME` | switches it, and says what else changed. On the folder of data, which a server already running reads only when it restarts; with `--servidor URL` (or `RAVEN_CI_SERVIDOR`) and a key of Administradores, on the server that is running, at once (`listar` too) |
 | `raven-ci plugins compilar PASTA` | builds a plugin written in Rust with the standard traits (`cargo build --release`, a target of its own removed at the end) and installs it in `plugins/<nome>/`; refuses one that asks for another `raven-ci-plugin-api` |
+| `raven-ci backup criar [PASTA] [--com-chave]`, `backup ver PASTA`, `backup restaurar PASTA` | the folder of data in a backup, with the server running, and back, with it stopped ([Operations](docs/operations.md#backup-and-restore)) |
 | `raven-ci converter Jenkinsfile [--saida ARQ] [--substituir]` | the `.raven-ci.toml` of a declarative `Jenkinsfile`, with what was not converted, ignored or converted with a difference in comments at its start, each with its line; exits with 1 when a part was not converted (plugin `format-jenkinsfile`) |
 | `raven-ci <comando>` | a command a plugin brings, such as `raven-ci hello Ana` |
 | `raven-ci servir [--endereco HOST:PORTA] [--executores N]` | the server: HTTP with sign-in (`/health` open; `/api/ci/jobs`, `build`, `log?after=`, `queue` and the routes of the plugins behind a token), the executors and the triggers of the jobs; it stops on Ctrl+C or `SIGTERM` |

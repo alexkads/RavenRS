@@ -5,14 +5,15 @@
     "raven-ci"
   ],
   "package": "raven-ci",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "summary": "A small CI/CD server whose core holds only the queue, the model of jobs and builds and the register of plugins; every function of a CI (pipeline formats, steps, git, providers, triggers, publishers, agents) is a plugin, compiled in or a program of any language over JSON-RPC.",
   "when_to_use": [
     "To see which plugins Raven CI has, whether each is on, and why one was refused.",
     "To switch a plugin on or off without restarting anything.",
     "To check that the core and the API of plugins work on this machine (--self-test).",
     "To ask a running server for a build, follow it and take its evidence from a terminal or an agent (rodar, status, log, resumo, evidencia, with --format json).",
-    "To install the server as a service of the system (servico instalar)."
+    "To install the server as a service of the system (servico instalar).",
+    "To back up the folder of data with the server running, and put it back on another machine (backup criar, backup restaurar)."
   ],
   "commands": [
     {
@@ -24,12 +25,24 @@
       "does": "Shows one plugin: dependencies with the versions accepted, permissions declared and granted, configuration and memory."
     },
     {
-      "command": "raven-ci plugins ligar NOME",
-      "does": "Switches the plugin on and says what else changed."
+      "command": "raven-ci plugins ligar NOME [--servidor URL]",
+      "does": "Switches the plugin on and says what else changed. Without --servidor, on the folder of data, which a server already running reads only when it restarts; with --servidor (and a key of Administradores), on the server that is running, at once."
     },
     {
-      "command": "raven-ci plugins desligar NOME",
-      "does": "Switches the plugin off, with the plugins that need it, and says which."
+      "command": "raven-ci plugins desligar NOME [--servidor URL]",
+      "does": "Switches the plugin off, with the plugins that need it, and says which; with --servidor, on the server that is running."
+    },
+    {
+      "command": "raven-ci backup criar [PASTA] [--com-chave] [--format json]",
+      "does": "Backs up the folder of data with the server running: each database with VACUUM INTO, checked and stamped, and the vault, people and data of the plugins; the key of the vault only with --com-chave. Without PASTA, in <dados>/backups/raven-ci-<data>."
+    },
+    {
+      "command": "raven-ci backup ver PASTA [--format json]",
+      "does": "What a backup holds, with each database checked by its stamp and quick_check."
+    },
+    {
+      "command": "raven-ci backup restaurar PASTA [--format json]",
+      "does": "Puts a backup back as the folder of data, with the server stopped; what was there goes to antes-da-restauracao-<quando>/. Refused while a server uses the folder."
     },
     {
       "command": "raven-ci servir [--endereco HOST:PORTA] [--executores N]",

@@ -1,18 +1,22 @@
 {
-  "versao": "0.1.7",
-  "titulo": "O Raven CI explica por que um build falhou, com IA local.",
+  "versao": "0.1.8",
+  "titulo": "Backup com o servidor no ar, e o que faltava para rodar os jobs do Jenkins lado a lado.",
   "importante": false,
   "novidades": [
-    "raven-ci explicar JOB dá, em duas ou três frases, por que o build falhou e o que mudar, escritas por um modelo de IA que roda na própria máquina; a ferramenta explicar do MCP faz o mesmo.",
-    "O modelo nunca roda no processo do servidor: o subpacote raven-ci-explicador traz um socket do systemd que abre, para cada pedido, uma instância com memória própria e sem rede.",
-    "A explicação fica guardada com o build: pedir de novo não roda o modelo outra vez.",
-    "O plugin explain vem desligado; um plugin desligado agora diz, na rota, como ligá-lo, em vez de responder que a rota não existe."
+    "raven-ci backup criar guarda jobs, builds, logs, anexos, usuários, credenciais e os dados dos plugins com o servidor no ar; backup ver confere um backup, e backup restaurar o põe de volta com o servidor parado, deixando o que havia em antes-da-restauracao-<quando>/. A chave do cofre só entra com --com-chave.",
+    "Um segundo servidor na mesma pasta de dados é recusado, dizendo por quê.",
+    "Um parâmetro que o pedido não diz recebe o valor padrão do pipeline, e --param SIMULAR=false é lido como o tipo do parâmetro.",
+    "artifacts = [\"relatorio/**\"] guarda todos os arquivos abaixo da pasta, como o archiveArtifacts do Jenkins.",
+    "A branch que um job busca pode vir de um parâmetro: reference = { branch = \"${BRANCH}\" }.",
+    "raven-ci plugins ligar NOME --servidor URL liga o plugin no servidor no ar, sem reiniciar; sem --servidor, o comando avisa que só grava na pasta de dados.",
+    "raven-ci validar confere um arquivo de jobs do aplicar, job por job."
   ],
-  "por_que_atualizar": "Para entender a falha de um build sem ler o log e sem mandar nada para fora da máquina.",
+  "por_que_atualizar": "Para ter backup do servidor e para os jobs que vêm do Jenkins rodarem com os parâmetros e os artefatos certos.",
   "contribuidores": [
     "Alex S S Fonseca"
   ],
   "issues": [
-    942
+    917,
+    946
   ]
 }

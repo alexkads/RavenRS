@@ -35,6 +35,7 @@
 
 pub mod agents;
 pub mod api;
+pub mod backup;
 pub mod config;
 pub mod credentials;
 pub mod external;
@@ -43,6 +44,7 @@ mod lifecycle;
 mod model;
 pub mod multibranch;
 pub mod panel;
+mod parameters;
 pub mod people;
 mod registry;
 mod snapshot;
@@ -343,7 +345,7 @@ impl Ci {
 
     /// Asks for a build; its number, and whether it joined an equal build in the queue. The
     /// pipeline is read now, with the plugins on, and every step it uses has to be there.
-    pub fn request_build(&self, request: BuildRequest) -> Result<Ticket, CiError> {
+    pub fn request_build(&self, mut request: BuildRequest) -> Result<Ticket, CiError> {
         let job = self.job(&request.job)?;
         let from_scm = self.pipeline_from_scm(&job)?;
         let (format_id, text) = match &from_scm {
@@ -379,6 +381,7 @@ impl Ci {
                 )));
             }
         }
+        request.parameters = parameters::complete(&pipeline.parameters, &request.parameters);
         if !pipeline.parameters.is_empty() {
             let mut entity = EntityInfo::new("Parameters");
             entity.fields = pipeline.parameters.clone();

@@ -315,7 +315,7 @@ fn plugin_route(
             &json!({
                 "error": "plugin_off",
                 "plugin": name,
-                "message": format!("o plugin {name} está desligado: ligue-o em Plugins, ou com raven-ci plugins ligar {name}"),
+                "message": format!("o plugin {name} está desligado: ligue-o na página Plugins do painel, ou com raven-ci plugins ligar {name} --servidor URL"),
             }),
         ));
     };

@@ -190,6 +190,16 @@ impl BuildLog for BuildLogger {
     }
 }
 
+/// `text` with each `${NOME}` of a parameter of the build swapped for its value; a name that is
+/// no parameter stays as it was.
+pub(crate) fn with_parameters(text: &str, parameters: &Map<String, Value>) -> String {
+    let mut out = text.to_owned();
+    for (name, value) in parameters {
+        out = out.replace(&format!("${{{name}}}"), &as_variable(value));
+    }
+    out
+}
+
 /// A value of a parameter as a variable of the environment: text as it is, the rest as JSON.
 fn as_variable(value: &Value) -> String {
     match value {
@@ -303,7 +313,7 @@ impl Ci {
                 finish(&self.workspaces, &workspace, keep, log.as_ref());
                 return Ok(());
             }
-            let commit = match self.fetch(settings, &context, log.as_ref()) {
+            let commit = match self.fetch(settings, &context, &order.parameters, log.as_ref()) {
                 Ok(commit) => {
                     if let (Some(from), Some(fetched)) = (&extras.pipeline_from, &commit)
                         && !from.commit.is_empty()
@@ -490,6 +500,7 @@ impl Ci {
         &self,
         settings: &Value,
         context: &BuildContext,
+        parameters: &Map<String, Value>,
         log: &dyn BuildLog,
     ) -> Result<Option<String>, CiError> {
         let Some(scm) = settings.get("scm") else { return Ok(None) };
@@ -506,7 +517,14 @@ impl Ci {
             })?;
         let request = CheckoutRequest {
             url: scm.url,
-            reference: scm.reference.unwrap_or_else(|| Reference::Branch(context.head().to_owned())),
+            reference: match scm.reference {
+                // `{"branch": "${BRANCH}"}`: the branch a person picks when asking for the build,
+                // as the parameterized job of Azure DevOps of the reference Jenkins does (V-03).
+                Some(Reference::Branch(branch)) => Reference::Branch(with_parameters(&branch, parameters)),
+                Some(Reference::Commit(commit)) => Reference::Commit(with_parameters(&commit, parameters)),
+                Some(other) => other,
+                None => Reference::Branch(context.head().to_owned()),
+            },
             workspace: context.workspace.clone(),
             depth: scm.depth,
             credential: scm.credential,

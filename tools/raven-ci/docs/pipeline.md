@@ -118,7 +118,13 @@ needs it reads it by name. Every log hides each secret read.
 | `description` | what the panel says beside it |
 
 A build asked through the API, the panel or `raven-ci rodar JOB --param NOME=VALOR` gets the
-values; a value of the wrong kind is refused before the build starts.
+values; a value of the wrong kind is refused before the build starts. A parameter the request
+does not say gets its `default`, as in Jenkins, and the build keeps it. A value that comes as
+text (the command line, a form) is read as its parameter's kind: `true`, `false`, `1`, `0`, `sim`
+and `não` for a `bool`, a number for a number.
+
+A parameter can also name what the job fetches: `scm = { …, reference = { branch = "${BRANCH}" } }`
+in the job's settings fetches the branch the person asked for.
 
 ## `[[stages]]`
 
@@ -221,8 +227,9 @@ change how the build ended.
 They go at the top of the file, before `[pipeline]`.
 
 - **`artifacts`**: the files the patterns find (`*`, `**`, `?`), kept with the build and given back
-  by `GET /api/ci/artifacts?job=&number=` and by `raven-ci evidencia`. A pattern that finds
-  nothing is said in the log; nothing outside the build's folder is taken.
+  by `GET /api/ci/artifacts?job=&number=` and by `raven-ci evidencia`. `relatorio/**` is every
+  file under `relatorio`, as in Jenkins's `archiveArtifacts`. A pattern that finds nothing is
+  said in the log; nothing outside the build's folder is taken.
 - **`junit`**: the JUnit XML files of the tests (Maven Surefire, pytest, nextest, the end-to-end
   runner of RavenRS). The build keeps the counts and the names of what failed; the job keeps the
   trend.

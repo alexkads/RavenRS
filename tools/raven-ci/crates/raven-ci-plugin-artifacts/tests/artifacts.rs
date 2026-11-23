@@ -58,6 +58,22 @@ fn the_patterns_find_each_file_once_and_refuse_what_leaves_the_folder() {
 }
 
 #[test]
+fn a_folder_ending_in_two_stars_is_every_file_under_it_as_in_jenkins() {
+    // `archiveArtifacts artifacts: 'relatorio/**'` of the job faxina of the Jenkins of the
+    // oficina found nothing in Raven CI: to `glob`, a `**` at the end is only folders (V-03).
+    let ws = folder("duas-estrelas");
+    write(&ws.0, "relatorio/resumo.md", "x");
+    write(&ws.0, "relatorio/descricao.txt", "x");
+    write(&ws.0, "relatorio/fundo/junit.xml", "x");
+    write(&ws.0, "fora.log", "x");
+    let found = find(&ws.0, &["relatorio/**".to_owned()], &|_| {});
+    let names: Vec<String> = found.into_iter().map(|f| f.name).collect();
+    assert_eq!(names, ["relatorio/descricao.txt", "relatorio/fundo/junit.xml", "relatorio/resumo.md"]);
+    let all: Vec<String> = find(&ws.0, &["**".to_owned()], &|_| {}).into_iter().map(|f| f.name).collect();
+    assert_eq!(all.len(), 4, "{all:?}");
+}
+
+#[test]
 #[cfg(unix)]
 fn a_link_that_leads_out_of_the_folder_is_refused() {
     let ws = folder("link");

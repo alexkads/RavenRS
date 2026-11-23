@@ -22,6 +22,7 @@ a `Jenkinsfile`, what has no counterpart, and how to switch without a day with n
 | `triggers { cron(…) }`, `pollSCM(…)` | in the job's `triggers`: `{"id": "cron", "schedule": "0 3 * * *", "zone": "America/Sao_Paulo"}` or `{"id": "cron", "every": "1h"}`; `{"id": "poll", "url": "…", "branch": "main", "every": "5m"}`; and, for a job of many branches, `{"id": "scan", "every": "5m"}`. The converter lists the `cron` and `pollSCM` of a `Jenkinsfile` with the line to put on the job |
 | GitHub webhook | `{"id": "github-webhook", …}` on the job and the webhook pointed at `/hooks/github` |
 | "Build with Parameters", remote API | `POST /api/ci/run`, the panel's Disparar, `raven-ci rodar JOB --param NOME=VALOR` |
+| `checkout scmGit(branches: [[name: "*/${params.BRANCH}"]])` | `scm = { id = "git", url = "…", credential = "…", reference = { branch = "${BRANCH}" } }` on the job, with the parameter `BRANCH` in the pipeline |
 | credentials (with their description) | the vault: the page Credenciais of the panel, `POST /api/ci/credentials`, or `raven-ci credencial criar NOME --tipo token\|user-password\|ssh-key\|arquivo [--servidor URL]` |
 | `withCredentials([string(…), usernamePassword(…), file(…), sshUserPrivateKey(…)])` | `credentials = { VAR = "nome", USER = "nome:user", ARQUIVO = { file = "nome" } }` on the stage or the step; the converter writes it |
 | `junit`, `archiveArtifacts` | `junit = [...]` and `artifacts = [...]` in the pipeline |

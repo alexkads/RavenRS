@@ -53,12 +53,14 @@ fn listing_gives_each_plugin_and_its_state_as_json() {
 fn switching_hello_off_and_on_is_kept_in_the_folder_of_data() {
     let data = Data::new("ligar");
     let off = data.run(&["plugins", "desligar", "hello"]);
-    assert_eq!(text(&off), "hello: desligado\n");
+    assert!(text(&off).starts_with("hello: desligado\n"), "{}", text(&off));
+    // It says it went to the folder, which a server already running reads only when it restarts (#946).
+    assert!(text(&off).contains("use --servidor URL"), "{}", text(&off));
     let listed = text(&data.run(&["plugins", "listar"]));
     let line = listed.lines().find(|l| l.starts_with("hello")).expect("hello is listed");
     assert!(line.contains("desligado"), "{line}");
     let on = data.run(&["plugins", "ligar", "hello"]);
-    assert_eq!(text(&on), "hello: ligado\n");
+    assert!(text(&on).starts_with("hello: ligado\n"), "{}", text(&on));
 }
 
 #[test]

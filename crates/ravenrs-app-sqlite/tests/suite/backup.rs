@@ -5,7 +5,9 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, ObjectSpace, Query, Value};
-use ravenrs_app_sqlite::{BackupError, BackupStamp, Backups, SqliteBackups, SqliteDatabase, TableMap};
+use ravenrs_app_sqlite::{
+    BackupError, BackupStamp, Backups, SqliteBackups, SqliteDatabase, TableMap, unstamped_copy,
+};
 use rusqlite::Connection;
 
 fn member() -> EntityInfo {
@@ -226,4 +228,43 @@ fn a_backup_has_what_was_committed_while_the_database_is_in_use() {
     let info = church(&database, "central", &at).save(&at.join("backup.db")).expect("saved");
     assert!(info.rows.contains(&("members".to_owned(), 2)), "{:?}", info.rows);
     other.execute_batch("ROLLBACK").expect("rolled back");
+}
+
+/// A bare connection of an application with tables of its own (Raven CI, #917): a backup made while
+/// another connection writes, inspected, and copied back as a plain database without the stamp.
+#[test]
+fn a_bare_connection_is_backed_up_and_copied_back_without_the_stamp() {
+    let folder = folder("bare");
+    let file = folder.join("app.sqlite");
+    let writer = Connection::open(&file).expect("opens");
+    writer
+        .execute_batch(
+            "PRAGMA journal_mode = WAL; CREATE TABLE jobs (name TEXT); INSERT INTO jobs VALUES ('a'), ('b');",
+        )
+        .expect("tables");
+    let reader = Rc::new(
+        Connection::open_with_flags(&file, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).expect("reads"),
+    );
+    let backups = reader.backups(BackupStamp::new("Raven CI").version("0.1.8"));
+    let backup = folder.join("backup").join("app.sqlite");
+    backups.save(&backup).expect("saved while another connection holds it");
+    writer.execute("INSERT INTO jobs VALUES ('c')", []).expect("written after");
+    let info = backups.inspect(&backup).expect("inspected");
+    assert_eq!(info.stamp.application, "Raven CI");
+    assert_eq!(info.rows, vec![("jobs".to_owned(), 2)]);
+
+    let back = folder.join("back").join("app.sqlite");
+    unstamped_copy(&backup, &back).expect("copied");
+    let copy = Connection::open(&back).expect("opens");
+    let tables: Vec<String> = copy
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
+        .expect("query")
+        .query_map([], |row| row.get(0))
+        .expect("rows")
+        .collect::<Result<_, _>>()
+        .expect("names");
+    assert_eq!(tables, ["jobs"], "no stamp left");
+    assert!(matches!(unstamped_copy(&backup, &back), Err(BackupError::Exists(_))));
+    assert!(matches!(unstamped_copy(&file, &folder.join("x.sqlite")), Err(BackupError::NotABackup)));
+    let _ = std::fs::remove_dir_all(&folder);
 }
