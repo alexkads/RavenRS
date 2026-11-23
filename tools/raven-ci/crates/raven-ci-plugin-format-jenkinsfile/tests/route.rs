@@ -1,5 +1,6 @@
 //! The route of the converter the panel calls (#919): the TOML, whether it is complete, and each
 //! note with its line.
+#![allow(clippy::expect_used, reason = "tests fail loudly")]
 
 use raven_ci_plugin_api::{CiPlugin, HttpRequest};
 use raven_ci_plugin_format_jenkinsfile::{CONVERT_ROUTE, JenkinsfilePlugin};

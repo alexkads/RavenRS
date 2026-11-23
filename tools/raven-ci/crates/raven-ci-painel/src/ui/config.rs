@@ -10,7 +10,7 @@ use std::rc::Rc;
 use ravenrs::prelude::*;
 use serde_json::{Value as Json, json};
 
-use super::{S, nada};
+use super::S;
 
 /// The format the converter of Jenkinsfiles brings.
 const JENKINSFILE: &str = "jenkinsfile";

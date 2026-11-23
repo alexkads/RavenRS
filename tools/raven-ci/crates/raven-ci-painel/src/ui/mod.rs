@@ -82,7 +82,6 @@ pub(crate) struct S {
     polled_at: Cell<f64>,
     confirm: ConfirmDialog,
     // The jobs (P-01).
-    folder: State<Option<String>>,
     job_keys: State<BTreeSet<String>>,
     dispatch_open: State<bool>,
     dispatch_job: State<String>,
@@ -178,7 +177,6 @@ impl Painel {
             waker: RefCell::new(None),
             polled_at: Cell::new(0.0),
             confirm: ConfirmDialog::new(),
-            folder: State::new(None),
             job_keys: State::new(BTreeSet::new()),
             dispatch_open: State::new(false),
             dispatch_job: State::new(String::new()),
