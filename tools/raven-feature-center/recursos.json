@@ -96,7 +96,7 @@
 {"crate": "ravenrs-widgets-base", "tipo": "Icon", "pendente": true, "issue": 579, "conhecidos": ["color", "new", "size"]},
 {"crate": "ravenrs-widgets-base", "tipo": "IconButton", "pendente": true, "issue": 579, "conhecidos": ["description", "disabled", "label", "new", "on_click", "selected", "size", "style"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Image", "pendente": true, "issue": 579, "conhecidos": ["alt", "content_mode", "corner_radius", "crossfade", "from_bytes", "height", "new", "opacity", "size", "stretch", "width"]},
-{"crate": "ravenrs-widgets-base", "tipo": "InputOtp", "pendente": true, "issue": 579, "conhecidos": ["new", "on_complete"]},
+{"crate": "ravenrs-widgets-base", "tipo": "InputOtp", "pagina": "Código de verificação", "recursos": ["disabled", "new", "on_complete"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Kbd", "pendente": true, "issue": 579, "conhecidos": ["inherit_color", "new"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Label", "pendente": true, "issue": 579, "conhecidos": ["hint", "ink", "new", "required", "text"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Link", "pendente": true, "issue": 579, "conhecidos": ["icon", "muted", "new", "style"]},

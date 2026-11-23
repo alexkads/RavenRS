@@ -69,6 +69,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `InputOtp::disabled(bool)`: the boxes lock while the code is verified. They fade, leave the tab order, take no typing nor a value set by a test, and never complete again; what was typed stays, and screen readers hear the field as unavailable. The Raven Feature Center shows `InputOtp` on its page "Código de verificação" ([#567](https://github.com/alexkads/RavenRS/issues/567)).
 - `ravenrs-process`: `Spec::stop_leftovers` stops what a child left running in its process group the moment it ends on its own (a `sleep 600 &` that held its output open, a daemon a build started), and `Control::leftovers` names them; `stop_group(pid)` does the same for a group apart. Raven CI's step `sh` uses it, so nothing of a build outlives it ([#931](https://github.com/alexkads/RavenRS/issues/931)).
 
 - `raven-component-book --replay` ends with `N de M peças divergem (K pontos)`, a piece wrong in width and height counting as two points (`Replay::points_diverging`, `Replay::summary`). The guide of the design system says a screen is ready only when its replay finds no divergence, that a component with a card is never *Missing from the library*, and that each piece is drawn as its card draws it, with no frame, border, header style, color or inner space the card does not show. ([#921](https://github.com/alexkads/RavenRS/issues/921))

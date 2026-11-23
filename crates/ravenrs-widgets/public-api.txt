@@ -3777,6 +3777,7 @@ method InlineRename::on_rename
 method InlineRename::placeholder
 method InlineRename::size
 method InlineRename::width
+method InputOtp::disabled
 method InputOtp::new
 method InputOtp::on_complete
 method Jack::at
