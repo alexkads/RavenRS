@@ -293,6 +293,11 @@ settings = { branches = { id = "git", branches = ["main", "release/*"] }, scm = 
   jobs `PR-N`. A ref does not say which branch the pull request goes into, so its target is
   `target`, or the first branch named without `*`. The source `github` knows the target of each
   one and leaves out forks: prefer it for a repository on GitHub with pull requests.
+- **A pull request with no file of its own runs its target's**, on any source, as the merge it is
+  built from would, and as Jenkins reads the `Jenkinsfile` of the merge: a pull request opened
+  before the repository had a `.raven-ci.toml` runs the pipeline of the branch it goes into
+  (#958). One with a file keeps its own. With `scm = { merge_onto_target = false }` the pull
+  request is built alone, so only its own file counts, and with none it runs the model's pipeline.
 - The plugin `git` keeps one bare repository per address in its folder (`fontes/`), and fetches
   into it only the commit of each branch (`--depth 1`). The credential travels in `git`'s
   environment, never in an argument nor in that folder.

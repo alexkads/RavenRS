@@ -6,8 +6,11 @@
 //! source its heads and keeps one job per head, `<model>/<head>` (`repo/main`, `repo/PR-12`):
 //!
 //! - **Its pipeline** is the file of the head named by `branches.file` (by default the first file
-//!   name of the model's format, `.raven-ci.toml`), read with [`BranchSource::file`]; with none, the
-//!   model's own pipeline.
+//!   name of the model's format, `.raven-ci.toml`), read with [`BranchSource::file`]. A pull request
+//!   built merged onto its target that has no such file takes its target's, as the merge would
+//!   (and as Jenkins reads the `Jenkinsfile` of the merge): a pull request opened before the file
+//!   came runs the pipeline of the branch it goes into (#958). With no file anywhere, the model's
+//!   own pipeline.
 //! - **Its settings** are the model's, but `branches`, with `scm` made from the head: the branch,
 //!   or the pull request with `merge_onto_target` (true unless the model's `scm` says otherwise),
 //!   and `$head`, what the scan last saw. The status of a pull request goes to its own commit, not
@@ -91,11 +94,18 @@ impl Ci {
             let seen = before
                 .as_ref()
                 .and_then(|child| child.settings.pointer(&format!("/{HEAD_KEY}/commit")).cloned());
-            let (pipeline, format) = match &file {
+            let found = match &file {
                 Some(file) => match source.file(&branches, head, file)? {
-                    Some(text) => (text, format.clone()),
-                    None => (model.pipeline.clone(), model.format.clone()),
+                    Some(text) => Some(text),
+                    None => match merged_onto(head, &heads, &model.settings) {
+                        Some(target) => source.file(&branches, &target, file)?,
+                        None => None,
+                    },
                 },
+                None => None,
+            };
+            let (pipeline, format) = match found {
+                Some(text) => (text, format.clone()),
                 None => (model.pipeline.clone(), model.format.clone()),
             };
             let mut child = JobSpec::new(&name, &format, pipeline).settings(child_settings(&model, head));
@@ -229,6 +239,26 @@ impl Ci {
             .find(|head| head.name == branch)
             .ok_or_else(|| CiError::failed(format!("a branch {branch} não existe no repositório")))
     }
+}
+
+/// The head of the branch a pull request is built merged onto, to read its pipeline from when the
+/// pull request has none (#958): the one the scan found, with its commit, or else the branch by its
+/// name. `None` for a branch, and for a pull request the model builds alone
+/// (`scm.merge_onto_target = false`), whose pipeline can only be its own.
+fn merged_onto(head: &Head, heads: &[Head], settings: &Value) -> Option<Head> {
+    let HeadKind::PullRequest { target, .. } = &head.kind else {
+        return None;
+    };
+    if settings.pointer("/scm/merge_onto_target").and_then(Value::as_bool) == Some(false) {
+        return None;
+    }
+    let found = heads.iter().find(|other| matches!(other.kind, HeadKind::Branch) && other.name == *target);
+    Some(found.cloned().unwrap_or_else(|| Head {
+        name: target.clone(),
+        kind: HeadKind::Branch,
+        // A provider that reads by commit takes a branch's name as well (`?ref=main`).
+        commit: target.clone(),
+    }))
 }
 
 /// The settings of a source with what it can take from the job's `scm` when it does not say it
