@@ -643,12 +643,15 @@ field Labels::lightbox_previous
 field Labels::list_name
 field Labels::listen
 field Labels::loading
+field Labels::log_download
 field Labels::log_folded
-field Labels::log_go_to_end
+field Labels::log_follow_end
 field Labels::log_matches
 field Labels::log_name
+field Labels::log_only
 field Labels::log_point_line
 field Labels::log_search
+field Labels::log_show_all
 field Labels::marquee
 field Labels::minimap
 field Labels::month_year
@@ -865,6 +868,7 @@ field Resource::group
 field Resource::id
 field Resource::name
 field Resource::subtitle
+field Resource::unavailable
 field RunOutput::lines
 field RunOutput::problems
 field Scan::from_reader
@@ -3531,6 +3535,7 @@ method FlowCanvas::runs
 method FlowCanvas::selection
 method FlowCanvas::size
 method FlowCanvas::snap
+method FlowCanvas::status_icons
 method FlowCanvas::validate
 method FlowCanvas::view
 method FlowFileFormat::new
@@ -3853,12 +3858,17 @@ method LogBuffer::line
 method LogBuffer::new
 method LogBuffer::push
 method LogBuffer::section
+method LogBuffer::section_detail
+method LogBuffer::text
+method LogView::download
 method LogView::follow_end
 method LogView::height
+method LogView::keyword
 method LogView::label
 method LogView::line_numbers
 method LogView::new
 method LogView::on_line
+method LogView::only_section
 method LogView::searchable
 method LookupField::disabled
 method LookupField::label
@@ -4092,6 +4102,7 @@ method RemoteRows::refresh
 method Resource::group
 method Resource::new
 method Resource::subtitle
+method Resource::unavailable
 method Ribbon::app_menu
 method Ribbon::new
 method Ribbon::page
@@ -4520,6 +4531,7 @@ method Time::new
 method TimeAxis::days
 method TimeAxis::hours
 method TimeAxis::months
+method TimeAxis::quarter_hours
 method TimeAxis::shifted
 method TimeAxis::snap
 method TimeAxis::snap_minutes
@@ -5850,6 +5862,7 @@ variant TabsVariant::Underline
 variant TimeScale::Days
 variant TimeScale::Hours
 variant TimeScale::Months
+variant TimeScale::QuarterHours
 variant TimeScale::Weeks
 variant TimelineEdit::Began
 variant TimelineEdit::Moved
