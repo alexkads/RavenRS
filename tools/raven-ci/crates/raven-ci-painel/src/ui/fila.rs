@@ -154,6 +154,9 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
         .now(TimePoint::from_minutes(now))
         .read_only(true)
         .resource_width(200.0)
+        .compact(true)
+        .legend("A linha vertical é agora")
+        .resources_title("AGENTES")
         .selection(s.selected_event.binding())
         .on_open(open);
 

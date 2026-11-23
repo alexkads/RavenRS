@@ -4,7 +4,7 @@ open Raven CI                                          | Abrir o painel do Raven
 fill Usuário = bia                                     | Escrever o usuário
 fill Senha = senha-do-teste-e2e                        | Escrever a senha
 click Entrar                                           | Entrar
-click Abrir o último build apps/site                   | Abrir o último build do site
+duplo-clique #row:apps/site                            | Abrir o último build do site
 wait Build #2                                          | A página do build abre
 check #node:estagio-2 = Testes                         | O diagrama tem o estágio Testes
 mention Apontar a linha 7 SLOW [12.4s] raven-ci registry::reloads_without_restart = SLOW | A linha lenta dos testes está no log

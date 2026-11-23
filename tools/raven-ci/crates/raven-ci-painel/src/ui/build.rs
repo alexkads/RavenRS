@@ -263,7 +263,12 @@ pub(super) fn page(s: &Rc<S>, job: &str, number: u64) -> AnyView {
             }
         }
     };
-    let breadcrumb = Breadcrumb::new(trail).on_navigate(back);
+    // On a phone the place of the build is a muted line, as the board T7 draws it.
+    let breadcrumb: AnyView = if s.phone() {
+        Box::new(Text::new(job.replace('/', " · ")).style(TextStyle::Callout).foreground(Semantic::InkMuted))
+    } else {
+        Box::new(Breadcrumb::new(trail).on_navigate(back))
+    };
 
     let mut said = vec![build["cause"].as_str().unwrap_or_default().to_owned()];
     if let Some(commit) = build["commit"].as_str() {
@@ -330,7 +335,7 @@ pub(super) fn page(s: &Rc<S>, job: &str, number: u64) -> AnyView {
         _ => Tone::Accent,
     });
     if let Some(tests) = tests_said(&body) {
-        progress = progress.detail(tests);
+        progress = progress.detail(tests).detail_inline(true);
     }
 
     let reason = build["reason"].as_str();
@@ -349,13 +354,11 @@ pub(super) fn page(s: &Rc<S>, job: &str, number: u64) -> AnyView {
             let kinds = kinds_of(stage);
             canvas = canvas.kind(format!("estagio-{i}"), FlowKind::new(kind_icon(&kinds), kinds));
         }
-        // As wide as the page leaves it: the window, less the menu and the margins.
-        let menu = if s.narrow() { 72.0 } else { 248.0 };
-        let wide = (s.width.get() - menu - 64.0 - 16.0).max(320.0);
+        // As tall as the strip of stages, as wide as the page leaves it.
         Box::new(
             Card::new(
                 VStack::new((
-                    canvas.size(wide, 150.0),
+                    canvas.height(150.0),
                     Text::new("Clique num estágio para ver só o log dele")
                         .style(TextStyle::Callout)
                         .foreground(Semantic::InkMuted),
@@ -418,7 +421,9 @@ fn stage_list(s: &Rc<S>, body: &Json, stages: &[Json]) -> AnyView {
                 let (s, id) = (s.clone(), format!("estagio-{i}"));
                 move || s.stage_pick.set(FlowSelection { nodes: vec![id.clone()], edges: Vec::new() })
             };
-            Box::new(ListItem::new(name).icon(icon).subtitle(state).trailing(took).on_click(pick))
+            // One line, as the board draws it: the time when it has one, else the state in words.
+            let end = if took.is_empty() { state.to_owned() } else { took };
+            Box::new(ListItem::new(name).icon(icon).trailing(end).on_click(pick))
         })
         .collect();
     Box::new(Card::new(VStack::new(rows).align(Align::Stretch)).padding(0.0))
@@ -547,16 +552,16 @@ fn tabs(s: &Rc<S>, body: &Json, job: &str, number: u64) -> AnyView {
         Tabs::new(s.build_tab.binding())
             .tab("Log", log)
             .tab(
-                format!("Testes · {}", tests.len()),
+                if s.phone() { "Testes".to_owned() } else { format!("Testes · {}", tests.len()) },
                 attachment_grid(s, &tests, "Nenhum resultado de teste. O plugin junit põe os seus aqui."),
             )
             .tab(
-                format!("Artefatos · {}", artifacts.len()),
+                if s.phone() { "Artefatos".to_owned() } else { format!("Artefatos · {}", artifacts.len()) },
                 attachment_grid(s, &artifacts, "Nenhum artefato. O plugin artifacts põe os seus aqui."),
             )
             .tab("Parâmetros", parameters(&body["build"]["parameters"]))
             .tab(
-                format!("Plugins · {}", plugins.len()),
+                if s.phone() { "Plugins".to_owned() } else { format!("Plugins · {}", plugins.len()) },
                 VStack::new(plugin_parts).spacing(12.0).align(Align::Stretch),
             ),
     )

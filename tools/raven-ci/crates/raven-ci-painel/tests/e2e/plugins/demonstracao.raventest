@@ -7,7 +7,7 @@ click Entrar                                           | Entrar
 click #item:Travas                                     | Abrir a página que o plugin pôs no menu
 mention compilacao = compilacao                        | A página mostra a trava de compilação
 click #item:Jobs                                       | Ir aos jobs
-click Abrir o último build apps/site                   | Abrir o último build do site
+duplo-clique #row:apps/site                            | Abrir o último build do site
 wait Build #2                                          | A página do build abre
 click Plugins · 2                                      | Ver os plugins do build
 wait 81,4%                                             | A aba Cobertura do plugin mostra a cobertura

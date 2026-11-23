@@ -38,6 +38,20 @@ fn pictures_of_the_screens() {
             .save(folder.join(format!("{name}.png")))
             .expect("saved");
     };
+    // A double click on the row of a job, as a person opens its last build.
+    let open_row = |ui: &mut Ui, name: &str| {
+        settle(ui);
+        let tree = ui.access_tree();
+        let row = tree
+            .nodes
+            .iter()
+            .find(|n| n.test_id.as_deref() == Some(format!("row:{name}").as_str()))
+            .unwrap_or_else(|| panic!("the row {name}"))
+            .bounds;
+        let at = ravenrs::core::Point::new(row.x() + 200.0, row.y() + row.height() / 2.0);
+        ui.handle_event(&ravenrs::core::Event::DoubleClick { position: at });
+        settle(ui);
+    };
     let press = |ui: &mut Ui, name: &str| {
         settle(ui);
         let id = ui.access_tree().nodes.iter().find(|n| n.name.as_deref() == Some(name)).expect(name).id;
@@ -46,7 +60,7 @@ fn pictures_of_the_screens() {
     };
     snap(&mut door, "0-entrar");
     snap(&mut ui, "1-jobs");
-    press(&mut ui, "Abrir o último build apps/site");
+    open_row(&mut ui, "apps/site");
     snap(&mut ui, "2-build");
     press(&mut ui, "Fila e agentes");
     snap(&mut ui, "3-fila");
@@ -61,12 +75,13 @@ fn pictures_of_the_screens() {
     press(&mut ui, "Histórico");
     snap(&mut ui, "8-historico");
     press(&mut ui, "Jobs");
+    press(&mut ui, "Buscar comandos");
     press(&mut ui, "Disparar api-pedidos");
     snap(&mut ui, "11-disparar");
     press(&mut ui, "Cancelar");
     // The same build in a narrow window and on a phone (I7, T7).
     press(&mut ui, "Jobs");
-    press(&mut ui, "Abrir o último build apps/site");
+    open_row(&mut ui, "apps/site");
     for (name, wide) in [("9-build-estreito", 1000u32), ("10-build-celular", 390u32)] {
         ui.set_viewport(Size::new(wide as f32, height as f32), 1.0);
         settle(&mut ui);

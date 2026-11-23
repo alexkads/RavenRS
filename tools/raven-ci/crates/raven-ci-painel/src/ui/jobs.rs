@@ -1,8 +1,9 @@
 //! The jobs (P-01, #885; page T1 and interaction I1, as #919 draws them): four numbers (the queue,
 //! what runs and in which stage, the agents, the memory), the notice of a plugin switched off that
 //! a build waits for, every job in a grid with its last build, its agent, its duration and the
-//! trend of the last ones, Disparar on each row, cards on a phone, and the dialog that asks for a
-//! build with its parameters and says how many builds wait before it.
+//! trend of the last ones (a double click or Enter opens the last build; Disparar is in the
+//! palette, ⌘K), cards on a phone, and the dialog that asks for a build with its parameters and
+//! says how many builds wait before it.
 
 use std::rc::Rc;
 
@@ -101,7 +102,7 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
             let s = s.clone();
             move |row: &Vec<Cell>| open_last(&s, &row[0].key_text())
         };
-        let mut grid = DataGrid::new(
+        let grid = DataGrid::new(
             GridData::new(rows),
             [
                 GridColumn::text("Job").hidden(),
@@ -122,20 +123,6 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
         .name_column(2)
         .on_row_open(opener)
         .height(420.0);
-        let open = s.clone();
-        grid = grid.row_action(GridRowAction::new(
-            "Abrir o último build",
-            IconName::FileText,
-            move |row: &Vec<Cell>| {
-                open_last(&open, &row[0].key_text());
-            },
-        ));
-        if s.runs() {
-            let dispatch = s.clone();
-            grid = grid.row_action(GridRowAction::new("Disparar", IconName::Play, move |row: &Vec<Cell>| {
-                ask_build(&dispatch, &row[0].key_text());
-            }));
-        }
         Box::new(grid)
     };
     Box::new(

@@ -4,7 +4,8 @@ open Raven CI                                          | Abrir o painel do Raven
 fill Usuário = bia                                     | Escrever o usuário
 fill Senha = senha-do-teste-e2e                        | Escrever a senha
 click Entrar                                           | Entrar
-click Disparar apps/loja-web                           | Disparar o build da loja
+click Buscar comandos                                  | Abrir a paleta de comandos
+click Disparar apps/loja-web                           | Disparar o build da loja pela paleta
 mention Build 2 de apps/loja-web na fila. = apps/loja-web | O aviso diz o número e o job
 click #item:Fila e agentes                             | Ir à fila
 mention apps · loja-web #2 = loja-web                  | O build novo está na fila
