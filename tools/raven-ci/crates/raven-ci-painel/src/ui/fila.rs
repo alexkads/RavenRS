@@ -165,7 +165,7 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
         Box::new(Text::new("Ninguém na fila.").foreground(Semantic::InkMuted))
     } else {
         let rows: Vec<AnyView> = waiting.iter().map(|b| queued_row(s, b, now_ms)).collect();
-        Box::new(Card::new(VStack::new(rows).align(Align::Stretch)).padding(0.0))
+        Box::new(List::new(rows).compact())
     };
 
     let grid_rows: Vec<Vec<ravenrs::prelude::Value>> = agent_rows(&occupancy);
@@ -350,10 +350,10 @@ fn queued_row(s: &Rc<S>, build: &Json, now_ms: i64) -> AnyView {
     let since = build["created_ms"].as_i64().map(|t| texto::ago(t, now_ms)).unwrap_or_default();
     let why = build["waiting"]["why"].as_str().unwrap_or("espera um executor livre").to_owned();
     let plugin = build["waiting"]["plugin"].as_str().map(str::to_owned);
-    let action: AnyView = match (&plugin, s.admin(), s.runs()) {
+    let action: Option<AnyView> = match (&plugin, s.admin(), s.runs()) {
         (Some(plugin), true, _) => {
             let (s, plugin) = (s.clone(), plugin.clone());
-            Box::new(
+            Some(Box::new(
                 Button::new("Ligar o plugin").style(ButtonStyle::Ghost).size(ButtonSize::Small).on_click(
                     move || {
                         let name = plugin.clone();
@@ -368,11 +368,11 @@ fn queued_row(s: &Rc<S>, build: &Json, now_ms: i64) -> AnyView {
                         });
                     },
                 ),
-            )
+            ))
         }
         (None, _, true) => {
             let (s, job) = (s.clone(), job.clone());
-            Box::new(
+            Some(Box::new(
                 Button::new("Subir na fila")
                     .icon(IconName::ArrowUp)
                     .style(ButtonStyle::Secondary)
@@ -388,21 +388,16 @@ fn queued_row(s: &Rc<S>, build: &Json, now_ms: i64) -> AnyView {
                             }
                         });
                     }),
-            )
+            ))
         }
-        _ => nada(),
+        _ => None,
     };
-    Box::new(
-        HStack::new((
-            Icon::new(if plugin.is_some() { IconName::Plug } else { IconName::Clock })
-                .color(Semantic::Warning),
-            Text::new(format!("{} #{number}", job.replace('/', " · "))).font_weight(Weight::SEMIBOLD),
-            Text::new(format!("{why} · pedido {since}")).foreground(Semantic::InkMuted).truncate(),
-            Spacer::new(),
-            action,
-        ))
-        .spacing(12.0)
-        .padding(12.0)
-        .align(Align::Center),
-    )
+    let mut row = ListItem::new(format!("{} #{number}", job.replace('/', " · ")))
+        .icon(if plugin.is_some() { IconName::Plug } else { IconName::Clock })
+        .tone(Tone::Warning)
+        .subtitle(format!("{why} · pedido {since}"));
+    if let Some(action) = action {
+        row = row.action(action);
+    }
+    Box::new(row)
 }

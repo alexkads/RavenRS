@@ -483,17 +483,14 @@ impl View for Painel {
         let top: AnyView = if s.phone() {
             let search = s.palette_open.clone();
             Box::new(
-                HStack::new((
-                    SidebarTrigger::new(s.sidebar.clone()),
-                    Text::new("Raven CI").style(TextStyle::Headline),
-                    Spacer::new(),
-                    IconButton::new(IconName::Search)
-                        .label("Buscar comandos")
-                        .on_click(move || search.set(true)),
-                ))
-                .spacing(8.0)
-                .padding(8.0)
-                .align(Align::Center),
+                TitleBar::new("Raven CI")
+                    .leading(SidebarTrigger::new(s.sidebar.clone()).icon(IconName::Menu))
+                    .action(
+                        IconButton::new(IconName::Search)
+                            .label("Buscar comandos")
+                            .on_click(move || search.set(true)),
+                    )
+                    .mobile(),
             )
         } else {
             nada()

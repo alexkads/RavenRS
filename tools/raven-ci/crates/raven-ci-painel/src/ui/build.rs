@@ -288,21 +288,10 @@ pub(super) fn page(s: &Rc<S>, job: &str, number: u64) -> AnyView {
             format!("pedido {}", texto::ago(t, now))
         });
     }
-    // On a phone the words wrap under the title, and the buttons go to the foot of the page.
+    // On a phone the title and its state on one line, as T7 draws them, and the buttons go to the
+    // foot of the page.
     let header: AnyView = if s.phone() {
-        Box::new(
-            VStack::new((
-                HStack::new((
-                    Text::new(format!("Build #{number}")).style(TextStyle::Title),
-                    jobs::status_badge(&status),
-                ))
-                .spacing(8.0)
-                .align(Align::Center),
-                Text::new(said.join(" · ")).style(TextStyle::Callout).foreground(Semantic::InkMuted),
-            ))
-            .spacing(4.0)
-            .align(Align::Stretch),
-        )
+        Box::new(PageHeader::new(format!("Build #{number}")).badge(jobs::status_badge(&status)).compact())
     } else {
         Box::new(
             PageHeader::new(format!("Build #{number}"))
@@ -354,20 +343,8 @@ pub(super) fn page(s: &Rc<S>, job: &str, number: u64) -> AnyView {
             let kinds = kinds_of(stage);
             canvas = canvas.kind(format!("estagio-{i}"), FlowKind::new(kind_icon(&kinds), kinds));
         }
-        // As tall as the strip of stages, as wide as the page leaves it.
-        Box::new(
-            Card::new(
-                VStack::new((
-                    canvas.height(150.0),
-                    Text::new("Clique num estágio para ver só o log dele")
-                        .style(TextStyle::Callout)
-                        .foreground(Semantic::InkMuted),
-                ))
-                .spacing(4.0)
-                .align(Align::Stretch),
-            )
-            .padding(8.0),
-        )
+        // A strip of 198 as wide as the page leaves it, with what a click does beside the zoom.
+        Box::new(canvas.height(198.0).hint("Clique num estágio para ver só o log dele"))
     };
 
     let main = VStack::new((tabs(s, &body, job, number),)).align(Align::Stretch).grow(1.0);
@@ -421,12 +398,18 @@ fn stage_list(s: &Rc<S>, body: &Json, stages: &[Json]) -> AnyView {
                 let (s, id) = (s.clone(), format!("estagio-{i}"));
                 move || s.stage_pick.set(FlowSelection { nodes: vec![id.clone()], edges: Vec::new() })
             };
+            let tone = match stage["status"].as_str() {
+                Some("done") => Tone::Success,
+                Some("running") => Tone::Accent,
+                Some("failed") => Tone::Danger,
+                _ => Tone::Neutral,
+            };
             // One line, as the board draws it: the time when it has one, else the state in words.
             let end = if took.is_empty() { state.to_owned() } else { took };
-            Box::new(ListItem::new(name).icon(icon).trailing(end).on_click(pick))
+            Box::new(ListItem::new(name).icon(icon).tone(tone).trailing(end).on_click(pick))
         })
         .collect();
-    Box::new(Card::new(VStack::new(rows).align(Align::Stretch)).padding(0.0))
+    Box::new(List::new(rows).compact())
 }
 
 /// Repetir (R) and, while it runs, Cancelar (⌘ .), for those who may act on builds. On a phone
@@ -524,7 +507,6 @@ fn tabs(s: &Rc<S>, body: &Json, job: &str, number: u64) -> AnyView {
     let artifacts: Vec<&Json> = attachments.iter().filter(|a| a["kind"] != "junit").collect();
     let log = LogView::new(s.log.clone())
         .follow_end(true)
-        .line_numbers(true)
         .searchable(true)
         .keyword("PASS", Tone::Success)
         .keyword("SLOW", Tone::Warning)
@@ -533,7 +515,10 @@ fn tabs(s: &Rc<S>, body: &Json, job: &str, number: u64) -> AnyView {
         .only_section(s.stage_only.binding())
         .download(format!("{}-{number}.log", job.replace('/', "-")))
         .label("Log do build")
-        .height(if s.phone() { 280.0 } else { 440.0 });
+        // On a phone only the lines, as T7 draws them.
+        .controls(!s.phone())
+        .line_numbers(!s.phone())
+        .height(if s.phone() { 326.0 } else { 268.0 });
     let plugins: Vec<String> = body["plugins"]
         .as_array()
         .into_iter()
@@ -548,23 +533,25 @@ fn tabs(s: &Rc<S>, body: &Json, job: &str, number: u64) -> AnyView {
         plugin_parts.push(Box::new(Text::new(caption).style(TextStyle::Headline)));
         plugin_parts.push(plugin::screen_view(s, screen, Some((job, number))));
     }
-    Box::new(
-        Tabs::new(s.build_tab.binding())
-            .tab("Log", log)
-            .tab(
-                if s.phone() { "Testes".to_owned() } else { format!("Testes · {}", tests.len()) },
-                attachment_grid(s, &tests, "Nenhum resultado de teste. O plugin junit põe os seus aqui."),
-            )
-            .tab(
-                if s.phone() { "Artefatos".to_owned() } else { format!("Artefatos · {}", artifacts.len()) },
-                attachment_grid(s, &artifacts, "Nenhum artefato. O plugin artifacts põe os seus aqui."),
-            )
-            .tab("Parâmetros", parameters(&body["build"]["parameters"]))
-            .tab(
-                if s.phone() { "Plugins".to_owned() } else { format!("Plugins · {}", plugins.len()) },
-                VStack::new(plugin_parts).spacing(12.0).align(Align::Stretch),
-            ),
-    )
+    let tabs = Tabs::new(s.build_tab.binding())
+        .tab("Log", log)
+        .tab(
+            if s.phone() { "Testes".to_owned() } else { format!("Testes · {}", tests.len()) },
+            attachment_grid(s, &tests, "Nenhum resultado de teste. O plugin junit põe os seus aqui."),
+        )
+        .tab(
+            if s.phone() { "Artefatos".to_owned() } else { format!("Artefatos · {}", artifacts.len()) },
+            attachment_grid(s, &artifacts, "Nenhum artefato. O plugin artifacts põe os seus aqui."),
+        )
+        .tab("Parâmetros", parameters(&body["build"]["parameters"]));
+    // A phone has room for four tabs on a line (T7); the plugins' tab is for a wider window.
+    if s.phone() {
+        return Box::new(tabs);
+    }
+    Box::new(tabs.tab(
+        format!("Plugins · {}", plugins.len()),
+        VStack::new(plugin_parts).spacing(12.0).align(Align::Stretch),
+    ))
 }
 
 /// What a build left, in a grid, with the address that downloads each.

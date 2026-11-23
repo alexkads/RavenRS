@@ -262,13 +262,7 @@ fn phone_card(s: &Rc<S>, row: &[Cell]) -> AnyView {
 
 /// A number of the top of the page, in a card.
 fn stat(label: &str, value: String, detail: String) -> AnyView {
-    Box::new(
-        Card::new(
-            VStack::new((Stat::new(label, value), Text::new(detail).foreground(Semantic::InkMuted)))
-                .spacing(4.0),
-        )
-        .padding(16.0),
-    )
+    Box::new(Card::new(Stat::new(label, value).caption(detail)))
 }
 
 /// The badge of a build's status.
@@ -414,8 +408,8 @@ pub(super) fn dispatch_dialog(s: &Rc<S>) -> AnyView {
     let ahead = s.overview.get()["queued"].as_u64().unwrap_or(0);
     let queue = Alert::message(match ahead {
         0 => "Ninguém na fila: começa assim que um executor ficar livre.".to_owned(),
-        1 => "Na fila: 1 build antes deste.".to_owned(),
-        n => format!("Na fila: {n} builds antes deste."),
+        1 => "1 build na fila antes deste".to_owned(),
+        n => format!("{n} builds na fila antes deste"),
     })
     .tone(Tone::Neutral)
     .compact();

@@ -8,6 +8,6 @@ mention O plugin docker está desligado: 1 build espera na fila por ele. = docke
 click Abrir plugins                                    | O aviso leva aos plugins
 wait Tudo o que o servidor faz vem de um plugin. Desligado, ele não ocupa memória nem aparece nas telas. | A página de plugins abre
 click #item:Fila e agentes                             | Ir à fila
-mention pede o rótulo docker · o plugin docker está desligado · pedido agora = docker | O build na fila diz por quê
+mention imagens-base #1 = o plugin docker está desligado                             | O build na fila diz por quê
 click Ligar o plugin                                   | Ligar o plugin docker da própria fila
 mention Plugin docker ligado. = ligado                 | O aviso diz que ligou

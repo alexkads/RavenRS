@@ -342,7 +342,7 @@ fn sheet(s: &Rc<S>, all: &[Json]) -> AnyView {
     ))
     .spacing(12.0)
     .align(Align::Stretch);
-    Box::new(Sheet::new(s.sheet_open.binding(), name).content(content).width(340.0))
+    Box::new(Sheet::new(s.sheet_open.binding(), name).content(content).width(320.0))
 }
 
 /// The audit, the newest first.
