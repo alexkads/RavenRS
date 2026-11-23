@@ -6,6 +6,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Breaking
 
+- `ravenrs-core`: `AccessNode` has the field `visible`, the part of its `bounds` that what holds it lets show (a cell a grid scrolled sideways, a row past the end of a list); `AccessNode::new` gives it the whole `bounds`, and field-by-field literals need it. `raven-component-book`: `Divergence` has `points`, in how many points a piece diverges. ([#921](https://github.com/alexkads/RavenRS/issues/921))
+
 - `ravenrs-e2e-wire`: `Command` has `DoubleClick` and `Kind` has `DoubleClick` (the step `double-click`, or `duplo-clique`, that opens a row of a grid); an exhaustive `match` on either needs the new arm ([#921](https://github.com/alexkads/RavenRS/issues/921)).
 - `ListItem` names itself by its title and gives its subtitle and trailing words as its description, instead of a name made of all its words; a scenario that found a row by all its words finds it by the title and checks the rest with `mention` ([#921](https://github.com/alexkads/RavenRS/issues/921)).
 - `Labels`: `log_go_to_end` ("Ir para o fim") is gone, as the `LogView` follows the end with a switch now; it has `log_follow_end`, `log_download`, `log_only` and `log_show_all`. `Resource` has the field `unavailable`; field-by-field literals need it (`Resource::new` sets it). `LogBuffer::section` gives the place of the section it starts ([#919](https://github.com/alexkads/RavenRS/issues/919)).
@@ -66,6 +68,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `Labels` has `flow_arrange`, `flow_input`, `flow_output` and `flow_pick_port`, for the arrange button and the ports of a `FlowCanvas`. Literals with `..Default::default()` do not change.
 
 ### Added
+
+- `raven-component-book --replay` ends with `N de M peças divergem (K pontos)`, a piece wrong in width and height counting as two points (`Replay::points_diverging`, `Replay::summary`). The guide of the design system says a screen is ready only when its replay finds no divergence, that a component with a card is never *Missing from the library*, and that each piece is drawn as its card draws it, with no frame, border, header style, color or inner space the card does not show. ([#921](https://github.com/alexkads/RavenRS/issues/921))
 
 - Pieces the boards of the Raven CI asked for, each with its story in the book and its page in the feature center ([#921](https://github.com/alexkads/RavenRS/issues/921)): `Stat::caption`, a muted line under the value; `List::compact`, rows of 48 with the subtitle beside the title, and `ListItem::tone` and `ListItem::action`; `TitleBar::mobile`, the bar on top of a phone's screen, and `SidebarTrigger::icon`; `ProgressBar::detail_inline`; `Scheduler::compact`, `legend` and `resources_title`; `FlowCanvas::height`, a strip as wide as its parent, and `FlowCanvas::hint`, what a click does beside the zoom; `LogView::controls`, the lines alone. The books of `Alert` (action), `PageHeader` (badge), `Stat`, `Chart` (Sparkline), `PropertyRow`, `List`, `NumberField` and `TitleBar` give the settings a screen uses.
 - `raven-component-book --replay` counts pieces, not points, and leaves out the height of a piece that holds others or fills its parent; `--verbose` lists every piece with its size in the design and in RavenRS, and `--draw <file>` writes each piece as RavenRS draws it, so a board follows the book ([#921](https://github.com/alexkads/RavenRS/issues/921)).
@@ -307,6 +311,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `create-ravenrs`: a guide for machines with little memory (LLD, two jobs, no debug info), and `npm run test:e2e:linux` takes `--memory`, `--jobs`, `--logs` and `--case`, building `hello`, `app-sqlite` and `relatorios` in a container of 4 GB. ([#220](https://github.com/alexkads/RavenRS/issues/220))
 
 ### Fixed
+
+- `raven-component-book` measures what a story shows: rectangles and images are cut by their clips, as text already was, and the parts of the accessibility tree reach as far as their `visible`. A `DataGrid` in a narrow box measures the box, not the sum of its columns, and the height it declares, not the rows past it; 41 stories of 21 components and one pattern that scroll or clip (`DataGrid`, `VirtualList`, `CardView`, `ScrollView`, `EventCalendar`, `DocumentTabs`, `Ticker`, the `FilteredGrid` pattern…) now publish the size they show. What overflows a narrow parent with nothing clipping it still counts. ([#921](https://github.com/alexkads/RavenRS/issues/921))
 
 - `FlowCanvas`: fitting the diagram waits for its nodes, keeps above the zoom controls, keeps at most a sixth of a short strip as its margin, and fits again when the canvas changes size and the view was not moved; a canvas only read shows no undo bar in its story ([#921](https://github.com/alexkads/RavenRS/issues/921)).
 - `LogView` is never wider than its parent: the longest line scrolls across instead of pushing the log out of a phone's screen ([#921](https://github.com/alexkads/RavenRS/issues/921)).

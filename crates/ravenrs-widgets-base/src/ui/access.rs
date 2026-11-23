@@ -327,6 +327,7 @@ impl Builder<'_> {
                 None => {
                     let id = self.id_for(e.widget);
                     let mut label = AccessNode::new(id, Role::Label, ui.screen_frame(i));
+                    label.visible = ui.visible_frame(i);
                     label.name = Some(text);
                     label.test_id = self.claim_test_tag(
                         own_tag,
@@ -358,6 +359,7 @@ impl Builder<'_> {
         let id = self.id_for(e.widget);
         let index = self.nodes.len();
         let mut a = AccessNode::new(id, role, ui.screen_frame(i));
+        a.visible = ui.visible_frame(i);
         a.focusable = focusable;
         a.test_id = self.claim_test_tag(
             own_tag,

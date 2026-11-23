@@ -305,3 +305,31 @@ fn custom_components_describe_themselves() {
     let rating = node(&tree, Role::Slider, "Rating");
     assert_eq!(rating.numeric.map(|v| v.value), Some(3.0));
 }
+
+#[test]
+fn a_node_says_how_much_of_it_shows_and_the_window_does_not_cut_it() {
+    // A grid scrolls its columns sideways inside its width: the header beyond it shows nothing,
+    // the one across its edge shows up to it (#921).
+    let data = GridData::new((0..3).map(|i| vec![Value::Text(format!("Customer {i}"))]).collect());
+    let columns = vec![
+        GridColumn::text("Name").width(200.0),
+        GridColumn::text("Plan").width(200.0),
+        GridColumn::text("Seats").width(200.0),
+    ];
+    let grid = DataGrid::new(data, columns).toolbar(false).search_panel(false).height(300.0);
+    let tree = ui(VStack::new((grid,)).width(300.0)).access_tree();
+    let grid = tree.nodes.iter().find(|n| n.role == Role::Grid).expect("grid");
+    let edge = grid.bounds.max_x();
+    let name = node(&tree, Role::ColumnHeader, "Name");
+    assert_eq!(name.visible, name.bounds, "the first header shows whole");
+    let plan = node(&tree, Role::ColumnHeader, "Plan");
+    assert!(plan.bounds.max_x() > edge && (plan.visible.max_x() - edge).abs() < 1.0, "{plan:?}");
+    let seats = node(&tree, Role::ColumnHeader, "Seats");
+    assert!(seats.visible.width() == 0.0 || seats.visible.height() == 0.0, "{seats:?}");
+    // Past the edge of the window, a node still shows where it is: nothing holding it clips it.
+    let wide = HStack::new((Button::new("Left"), Spacer::new(), Button::new("Right"))).width(1200.0);
+    let tree = ui(wide).access_tree();
+    let right = node(&tree, Role::Button, "Right");
+    assert!(right.bounds.x() > 800.0, "{right:?}");
+    assert_eq!(right.visible, right.bounds);
+}

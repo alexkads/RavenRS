@@ -111,6 +111,10 @@ fn the_design_system_has_a_card_a_preview_and_a_json_for_every_component() {
         readme.contains("## Checking a screen") && readme.contains("querySelectorAll('[data-rcb]')"),
         "the guide gives the script that writes a screen"
     );
+    // A screen is approved only with a clean replay, and a component with a card is never missing (#921).
+    assert!(readme.contains("A screen is ready only when its replay finds no divergence"));
+    assert!(readme.contains("look for its card in the list below"));
+    assert!(readme.contains("Add no frame, border, header style"));
     // Every icon has its character in RavenIcons on the card of Icon.
     let icons = std::fs::read_to_string(project.join("components/Icon/README.md")).expect("Icon");
     assert!(icons.contains("| `wallet` | `Wallet` | `&#xe204;` |"), "{icons}");
@@ -412,11 +416,29 @@ fn a_piece_counts_once_and_a_container_answers_only_for_its_width() {
     let said: Vec<String> = replay.divergences.iter().map(ToString::to_string).collect();
     assert_eq!(replay.pieces, 3);
     assert_eq!(replay.pieces_diverging(), 1, "only the button: {said:#?}");
+    assert_eq!(replay.points_diverging(), 2, "width and height: {said:#?}");
+    assert_eq!(replay.summary(), "1 de 3 peças divergem (2 pontos)");
     assert_eq!(said.len(), 1, "{said:#?}");
     assert!(
         said[0].starts_with("Button/Primary") && said[0].contains("width") && said[0].contains("height"),
         "{said:#?}"
     );
+}
+
+#[test]
+fn a_grid_measures_the_box_it_shows_and_an_overflow_still_counts() {
+    // A grid scrolls its columns sideways and its rows down inside its box: the columns beyond
+    // it and the rows past its height do not reach (#921). What overflows a narrow parent, with
+    // nothing that clips it, still does.
+    let screen = r#"{"elements": [
+        {"rcb": "DataGrid/Example", "box": [0, 0, 300, 380]},
+        {"rcb": "HStack/Space between", "box": [0, 400, 288, 40]}
+    ]}"#;
+    let replay = raven_component_book::replay::replay(screen).expect("a screen");
+    let said: Vec<String> = replay.divergences.iter().map(ToString::to_string).collect();
+    assert_eq!(replay.measured[0].built, (300.0, 380.0), "{said:#?}");
+    assert_eq!(said.len(), 1, "{said:#?}");
+    assert!(said[0].starts_with("HStack/Space between") && said[0].contains("width 288"), "{said:#?}");
 }
 
 #[test]
@@ -453,6 +475,7 @@ fn the_replay_exits_with_one_when_a_piece_diverges() {
     let failed = run(&bad);
     assert_eq!(failed.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&failed.stdout).contains("Button/Secondary"));
+    assert!(String::from_utf8_lossy(&failed.stdout).contains("peças divergem (1 ponto)"));
     let _ = std::fs::remove_dir_all(&dir);
 }
 
