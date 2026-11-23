@@ -144,6 +144,11 @@ demonstrations! {
     editor_de_tokens => "Editor de tokens",
     simulacao_de_parcelas => "Simulação de parcelas",
     trocar_senha => "Trocar senha",
+    barra_de_titulo => "Barra de título",
+    indicadores => "Indicadores",
+    progresso => "Progresso",
+    lista => "Lista",
+    agenda_por_recurso => "Agenda por recurso",
 }
 
 #[test]
