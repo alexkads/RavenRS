@@ -137,7 +137,7 @@ fn answer(shared: &Shared, request: &HttpRequest, make: bool) -> HttpResponse {
     let Some(host) = shared.lock().unwrap_or_else(PoisonError::into_inner).clone() else {
         return refused(
             503,
-            "o plugin explain está desligado: ligue-o em Plugins, ou com raven-ci plugins ligar explain",
+            "o plugin explain está desligado: ligue-o na página Plugins do painel, ou com raven-ci plugins ligar explain --servidor URL",
         );
     };
     if make && !request.may_run() {

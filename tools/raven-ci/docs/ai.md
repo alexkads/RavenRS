@@ -110,9 +110,15 @@ raven-ci explicar JOB [NUMERO]          # the tool explicar of the MCP does the 
 
   ```bash
   sudo dnf install raven-ci-explicador-<versão>.rpm
+  sudo install -d -o raven-ci -g raven-ci /var/lib/raven-ci-explicador/modelos
   sudo -u raven-ci raven-ci-explicador baixar --pasta /var/lib/raven-ci-explicador/modelos
-  raven-ci plugins ligar explain
+  raven-ci plugins ligar explain --servidor http://127.0.0.1:8090
   ```
+
+  With the server running, switch it on through the server (`--servidor`, with a key of
+  Administradores in `RAVEN_CI_TOKEN`) or on the page Plugins of the panel. Without `--servidor`,
+  `plugins ligar` writes the folder of data, which a server already running only reads when it
+  restarts.
 
   Off, its route and its tool say how to switch it on.
 - **Settings**: `modelo` (`qwen3-1.7b-q4`; any text model of `ravenrs-ai`), `socket`, `programa`,

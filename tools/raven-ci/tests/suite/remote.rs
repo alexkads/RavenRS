@@ -9,7 +9,7 @@ use std::process::Output;
 use raven_ci_core::{Ci, JobSpec};
 use serde_json::{Value, json};
 
-use crate::server::{Running, raven, start_with, token};
+use crate::server::{Running, create_user, raven, start_with, token};
 
 /// `demo` passes and leaves `relatorio.txt`; `quebra` fails. Both take requests by the API.
 fn jobs(dir: &Path) {
@@ -135,6 +135,34 @@ fn a_credential_is_made_listed_and_revoked_on_the_server() {
     let revoked = remote(&running, Some(&key), &["credencial", "apagar", "npm-feed"]);
     assert_eq!(revoked.status.code(), Some(0), "{}", said(&revoked));
     assert!(said(&remote(&running, Some(&key), &["credencial", "listar"])).contains("nenhuma credencial"));
+}
+
+/// `plugins ligar NOME --servidor URL` switches a plugin of the server that is running, at once
+/// (#946): without the server, the command wrote the folder of data, and the 0.1.7 told a person to
+/// switch `explain` on that way with nothing happening. A key of a reader is refused.
+#[test]
+fn a_plugin_is_switched_on_the_server_that_is_running() {
+    let running = start_with("remoto-plugins", jobs);
+    let key = token(&running, "ana");
+    let listed = said(&remote(&running, Some(&key), &["plugins", "listar"]));
+    assert!(listed.lines().any(|l| l.starts_with("explain") && l.contains("desligado")), "{listed}");
+
+    let on = remote(&running, Some(&key), &["plugins", "ligar", "explain"]);
+    assert_eq!(on.status.code(), Some(0), "{}", said(&on));
+    assert!(said(&on).contains("explain ligado"), "{}", said(&on));
+    let listed: Value = serde_json::from_str(&said(&remote(
+        &running,
+        Some(&key),
+        &["plugins", "listar", "--format", "json"],
+    )))
+    .expect("json");
+    let explain = listed.as_array().into_iter().flatten().find(|p| p["name"] == "explain").expect("listed");
+    assert_eq!(explain["enabled"], true, "{explain}");
+
+    create_user(&running.dir, "caio", "Leitores");
+    let reader = token(&running, "caio");
+    let refused = remote(&running, Some(&reader), &["plugins", "desligar", "explain", "--format", "json"]);
+    assert_eq!(refused.status.code(), Some(4), "{}", said(&refused));
 }
 
 /// The summary of a build for programs and sessions of AI (#941): a build that fails with a test
