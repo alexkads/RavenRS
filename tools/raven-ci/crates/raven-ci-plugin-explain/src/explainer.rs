@@ -70,7 +70,10 @@ pub fn explain(host: &dyn Host, settings: &Value, summary: &Value) -> Result<Mad
         as_child(&program, &folder, &request, crate::deadline(settings))?
     };
     let answer: Value = serde_json::from_str(said.trim()).map_err(|_| {
-        CiError::failed(format!("o explicador respondeu o que não é JSON: {}", said.chars().take(200).collect::<String>()))
+        CiError::failed(format!(
+            "o explicador respondeu o que não é JSON: {}",
+            said.chars().take(200).collect::<String>()
+        ))
     })?;
     if let Some(error) = answer.get("erro").and_then(Value::as_str) {
         return Err(CiError::failed(format!("o explicador não explicou: {error}")));
@@ -105,7 +108,12 @@ fn through_socket(socket: &Path, _: &str, _: std::time::Duration) -> Result<Stri
     Err(CiError::unavailable(format!("o socket {} só existe com o systemd", socket.display())))
 }
 
-fn as_child(program: &Path, folder: &Path, request: &str, deadline: std::time::Duration) -> Result<String, CiError> {
+fn as_child(
+    program: &Path,
+    folder: &Path,
+    request: &str,
+    deadline: std::time::Duration,
+) -> Result<String, CiError> {
     let running = ravenrs_process::Spec::new(program.as_os_str())
         .args(["--pasta".into(), folder.as_os_str().to_owned()])
         .stdin()

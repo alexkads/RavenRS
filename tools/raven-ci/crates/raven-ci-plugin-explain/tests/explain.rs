@@ -51,7 +51,8 @@ fn core(name: &str) -> (Disk, Arc<Ci>, Arc<ExplainPlugin>) {
 }
 
 fn ask(plugin: &ExplainPlugin, method: &str, job: &str, number: u64, role: &str) -> (u16, Value) {
-    let route = plugin.routes().into_iter().find(|r| r.method == method && r.path == PATH).expect("the route");
+    let route =
+        plugin.routes().into_iter().find(|r| r.method == method && r.path == PATH).expect("the route");
     let request = HttpRequest {
         method: method.to_owned(),
         path: PATH.to_owned(),
@@ -65,7 +66,8 @@ fn ask(plugin: &ExplainPlugin, method: &str, job: &str, number: u64, role: &str)
 }
 
 fn build(ci: &Ci, job: &str, steps: &str) -> u64 {
-    ci.save_job(JobSpec::new(job, "toml", format!("[[stages]]\nname = \"Testa\"\nsteps = {steps}\n"))).expect("job");
+    ci.save_job(JobSpec::new(job, "toml", format!("[[stages]]\nname = \"Testa\"\nsteps = {steps}\n")))
+        .expect("job");
     let n = ci.request_build(BuildRequest::new(job, "teste")).expect("asked").number;
     ci.work_until_idle("e1").expect("runs");
     n
@@ -85,7 +87,10 @@ fn it_is_off_from_the_start_and_explains_a_failure_once_when_on() {
     let program = fake_model(&disk.0);
     ci.configure_plugin("explain", json!({ "programa": program.display().to_string(), "socket": disk.0.join("sem-socket").display().to_string() }))
         .expect("configured");
-    assert!(!ci.registry().list().expect("plugins").iter().any(|p| p.name == "explain" && p.enabled), "configuring does not switch it on");
+    assert!(
+        !ci.registry().list().expect("plugins").iter().any(|p| p.name == "explain" && p.enabled),
+        "configuring does not switch it on"
+    );
     ci.enable_plugin("explain").expect("on");
 
     let failed = build(&ci, "quebra", "['echo antes', 'echo o-erro-que-importa >&2; exit 4']");
@@ -117,7 +122,10 @@ fn it_is_off_from_the_start_and_explains_a_failure_once_when_on() {
     assert_eq!((status, read["guardada"].clone()), (200, json!(true)));
     // It is an attachment of the build.
     let attachments = ci.attachments("quebra", failed).expect("attachments");
-    assert!(attachments.iter().any(|a| a.kind == "explicacao" && a.name == "explicacao.md"), "{attachments:?}");
+    assert!(
+        attachments.iter().any(|a| a.kind == "explicacao" && a.name == "explicacao.md"),
+        "{attachments:?}"
+    );
 }
 
 #[test]

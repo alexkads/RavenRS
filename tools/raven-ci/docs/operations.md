@@ -129,6 +129,14 @@ the machine of the engine) and the user `raven-ci` able to reach the engine: the
 which is worth root on the machine, or Podman with no root. See
 [In a container](agents.md#in-a-container-docker).
 
+## Explaining failures with local AI
+
+The subpackage `raven-ci-explicador` brings the program and `raven-ci-explicador.socket`, which
+starts one instance per request with `MemoryMax=6G` and no network, out of the server's cgroup.
+Download a model once (`sudo -u raven-ci raven-ci-explicador baixar --pasta
+/var/lib/raven-ci-explicador/modelos`) and switch the plugin `explain` on. See
+[Explaining a failure with local AI](ai.md#explaining-a-failure-with-local-ai).
+
 ## What runs on the machine
 
 The service of the RPM runs as `raven-ci`, with a private `/tmp` and `CPUWeight=50`/`IOWeight=50`

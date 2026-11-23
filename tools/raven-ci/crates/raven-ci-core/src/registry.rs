@@ -216,8 +216,11 @@ impl Registry {
     /// What changed, in words.
     pub fn apply(&self) -> Result<Vec<String>, CiError> {
         let mut inner = self.lock();
-        let rows: Vec<PluginRow> =
-            inner.entries.iter().map(|entry| self.store.plugin_or(entry.name(), entry.plugin.on_from_the_start())).collect::<Result<_, _>>()?;
+        let rows: Vec<PluginRow> = inner
+            .entries
+            .iter()
+            .map(|entry| self.store.plugin_or(entry.name(), entry.plugin.on_from_the_start()))
+            .collect::<Result<_, _>>()?;
         let enabled: Vec<usize> = (0..inner.entries.len()).filter(|&i| rows[i].enabled).collect();
         let entries: Vec<ModuleEntry> = enabled
             .iter()

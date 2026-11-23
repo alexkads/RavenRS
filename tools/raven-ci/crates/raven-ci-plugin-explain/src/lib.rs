@@ -135,7 +135,10 @@ fn refused(status: u16, message: impl Into<String>) -> HttpResponse {
 /// The answer to `request`: the explanation kept, or, when `make`, one made now and kept.
 fn answer(shared: &Shared, request: &HttpRequest, make: bool) -> HttpResponse {
     let Some(host) = shared.lock().unwrap_or_else(PoisonError::into_inner).clone() else {
-        return refused(503, "o plugin explain está desligado: ligue-o em Plugins, ou com raven-ci plugins ligar explain");
+        return refused(
+            503,
+            "o plugin explain está desligado: ligue-o em Plugins, ou com raven-ci plugins ligar explain",
+        );
     };
     if make && !request.may_run() {
         return refused(403, "só Executores e Administradores pedem a explicação de um build");

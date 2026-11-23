@@ -35,11 +35,21 @@ pub fn user(summary: &Value) -> String {
         out.push_str(&format!("Motivo: {reason}\n"));
     }
     if let Some(failed) = summary.get("failed").filter(|f| f.is_object()) {
-        out.push_str(&format!("Estágio que falhou: {}; passo: {}.\n", text(failed, "stage"), text(failed, "title")));
+        out.push_str(&format!(
+            "Estágio que falhou: {}; passo: {}.\n",
+            text(failed, "stage"),
+            text(failed, "title")
+        ));
         if let Some(error) = failed.get("error").and_then(Value::as_str) {
             out.push_str(&format!("Erro do passo: {error}\n"));
         }
-        let tail: Vec<&str> = failed.get("tail").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).collect();
+        let tail: Vec<&str> = failed
+            .get("tail")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .collect();
         if !tail.is_empty() {
             out.push_str("Últimas linhas do passo:\n");
             for line in &tail[tail.len().saturating_sub(TAIL)..] {
@@ -61,7 +71,13 @@ pub fn user(summary: &Value) -> String {
     }
     if let Some(diagnostics) = summary.get("diagnostics").filter(|d| d.is_object()) {
         for d in diagnostics.get("first").and_then(Value::as_array).into_iter().flatten().take(MOST) {
-            out.push_str(&format!("- {} {} {}: {}\n", text(d, "level"), text(d, "code"), text(d, "place"), text(d, "message")));
+            out.push_str(&format!(
+                "- {} {} {}: {}\n",
+                text(d, "level"),
+                text(d, "code"),
+                text(d, "place"),
+                text(d, "message")
+            ));
         }
     }
     out
@@ -85,9 +101,15 @@ mod tests {
         });
         let text = user(&summary);
         assert!(text.starts_with("Build loja #7: falhou."), "{text}");
-        assert!(text.contains("passo: cargo test") && text.contains("- teste testes::soma: esperava 5, veio 4"), "{text}");
+        assert!(
+            text.contains("passo: cargo test") && text.contains("- teste testes::soma: esperava 5, veio 4"),
+            "{text}"
+        );
         assert!(text.contains("src/lib.rs:1:42"), "{text}");
-        assert!(text.contains("linha 40") && !text.contains("linha 20\n"), "only the last {TAIL} lines: {text}");
+        assert!(
+            text.contains("linha 40") && !text.contains("linha 20\n"),
+            "only the last {TAIL} lines: {text}"
+        );
         assert!(SYSTEM.contains("Nunca invente"));
     }
 }

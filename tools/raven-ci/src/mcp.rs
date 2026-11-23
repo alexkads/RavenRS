@@ -285,7 +285,8 @@ impl RavenCiServer {
                 Some(number) => number,
                 None => last(server, &input.job)?,
             };
-            let path = format!("/api/ci/build/explain?job={}&number={number}", crate::cliente::encode(&input.job));
+            let path =
+                format!("/api/ci/build/explain?job={}&number={number}", crate::cliente::encode(&input.job));
             server.post(&path, &json!({}))
         })
         .await

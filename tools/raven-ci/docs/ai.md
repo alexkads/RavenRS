@@ -87,6 +87,41 @@ expects 5 where `soma(2, 2)` gives 4, and the unused `sobra` makes the 2 warning
 tokens of such a session are its own context (the instructions and skills it loads), which the
 cache serves; what the build adds to it is the summary.
 
+## Explaining a failure with local AI
+
+Whoever has no session of AI open (a person in the panel, a script) gets the cause in two or three
+sentences from the plugin `explain` (#942), written by a model of `ravenrs-ai` that runs on the
+machine. Nothing leaves it: the model reads the summary, whose log is already hidden.
+
+```bash
+raven-ci explicar JOB [NUMERO]          # the tool explicar of the MCP does the same
+```
+
+- **The model never runs in the server's process.** It takes gigabytes, and the RPM holds the
+  server to 256 MB. The plugin hands the summary to the program `raven-ci-explicador`:
+  - in the RPM, through `raven-ci-explicador.socket`: each request starts an instance of its own
+    (`raven-ci-explicador@.service`), with `MemoryMax=6G`, no network (`PrivateNetwork=yes`) and at
+    most 5 minutes, which ends with the answer and gives its memory back;
+  - elsewhere (a desktop, a test), as a child of the server, the program `programa`.
+- **Once is enough.** The explanation is kept with the build (`explicacao.md`, of kind
+  `explicacao`); asking again gives it back without running the model. `GET
+  /api/ci/build/explain?job=&number=` reads it; `POST` makes it (Executores and Administradores).
+- **Off from the start.** It needs the subpackage and a model:
+
+  ```bash
+  sudo dnf install raven-ci-explicador-<versão>.rpm
+  sudo -u raven-ci raven-ci-explicador baixar --pasta /var/lib/raven-ci-explicador/modelos
+  raven-ci plugins ligar explain
+  ```
+
+  Off, its route and its tool say how to switch it on.
+- **Settings**: `modelo` (`qwen3-1.7b-q4`; any text model of `ravenrs-ai`), `socket`, `programa`,
+  `pasta`, `prazo_s`.
+
+Measured on an Apple M2 Pro with `lfm3-1.7b-q4` (23/11/2026), on the summary of a `cargo test` with
+one test broken: 11.2 s, 1.4 GB at the peak, and the answer named the test, `src/lib.rs` at line
+305, the values 4 and 5, and what to change. The program has 9.5 MB.
+
 ## Exit codes
 
 | Code | Name in JSON | Means |
@@ -108,5 +143,8 @@ standard output.
 - The MCP server: `src/mcp.rs`, made as `crates/ravenrs-mcp` is (`rmcp`, standard input).
 - The schema: `crates/raven-ci-plugin-format-toml/src/schema.rs`, checked against the examples of
   the guides in `crates/raven-ci-plugin-format-toml/tests/schema.rs`.
-- `esquema`, `validar` and `ia`: `src/ia.rs`. The exit codes: `Exit` in `src/remote.rs`.
+- `esquema`, `validar` and `ia`: `src/ia.rs`. The exit codes: `Exit` in `src/saida.rs`.
+- The explanation: `crates/raven-ci-plugin-explain` (the plugin, tested with a fake model in
+  `tests/explain.rs`) and `crates/raven-ci-explicador` (the program and its prompt); the units of
+  systemd in `pacote/`.
 - Tested on the binary against `raven-ci servir`: `tests/suite/ia.rs` and `tests/suite/remote.rs`.
