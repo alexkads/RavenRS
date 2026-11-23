@@ -39,6 +39,11 @@ fn alert(args: &Args) -> AnyView {
     if args.bool("compact") {
         alert = alert.compact();
     }
+    let action = args.text("action");
+    if !action.is_empty() {
+        let pressed = ravenrs_reactive::State::new(0);
+        return Box::new(alert.action(action, move || pressed.update(|n| *n += 1)));
+    }
     Box::new(alert)
 }
 
@@ -101,6 +106,10 @@ impl ComponentBook for Alert {
             .arg(ArgType::text("message", "The site is live."))
             .arg(ArgType::choice("tone", TONES, "Success"))
             .arg(ArgType::bool("compact", false))
+            .arg(
+                ArgType::text("action", "")
+                    .description("A button at the end that says what to do; empty shows none."),
+            )
             .story("Success", Args::new())
             .story(
                 "Danger",
@@ -108,6 +117,14 @@ impl ComponentBook for Alert {
                     .with("title", "Payment failed")
                     .with("message", "Update your card.")
                     .with("tone", ArgValue::choice("Danger")),
+            )
+            .story(
+                "With an action",
+                Args::new()
+                    .with("title", "1 part not converted")
+                    .with("message", "Line 13 runs free Groovy, which the server does not run.")
+                    .with("tone", ArgValue::choice("Danger"))
+                    .with("action", "Go to line 13"),
             )
             .story(
                 "Message only",

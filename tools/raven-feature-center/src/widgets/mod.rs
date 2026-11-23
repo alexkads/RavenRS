@@ -31,6 +31,13 @@ pub struct Page {
 /// Every page of a component, in the order of the navigation.
 pub const PAGES: &[Page] = &[
     Page {
+        id: basicos::barra_de_titulo::ID,
+        caption: basicos::barra_de_titulo::PAGE,
+        group: "Básicos",
+        icon: IconName::PanelLeft,
+        make: || Box::new(basicos::barra_de_titulo::TitleBarPage),
+    },
+    Page {
         id: basicos::botoes::ID,
         caption: basicos::botoes::PAGE,
         group: "Básicos",
@@ -43,6 +50,13 @@ pub const PAGES: &[Page] = &[
         group: "Básicos",
         icon: IconName::Settings,
         make: || Box::new(basicos::chaves::TogglesPage),
+    },
+    Page {
+        id: basicos::indicadores::ID,
+        caption: basicos::indicadores::PAGE,
+        group: "Básicos",
+        icon: IconName::TrendingUp,
+        make: || Box::new(basicos::indicadores::StatPage),
     },
     Page {
         id: basicos::progresso::ID,
@@ -64,6 +78,13 @@ pub const PAGES: &[Page] = &[
         group: "Kit",
         icon: IconName::Sigma,
         make: || Box::new(kit::expressoes::ExpressionsPage),
+    },
+    Page {
+        id: kit::lista::ID,
+        caption: kit::lista::PAGE,
+        group: "Kit",
+        icon: IconName::List,
+        make: || Box::new(kit::lista::ListPage),
     },
     Page {
         id: kit::parametros::ID,

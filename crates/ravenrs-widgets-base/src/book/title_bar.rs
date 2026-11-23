@@ -24,11 +24,21 @@ fn render(args: &Args) -> AnyView {
     Box::new({
         let arg_active = args.bool("active");
         let arg_maximized = args.bool("maximized");
+        let arg_mobile = args.bool("mobile");
 
         let maximized = State::new(args.bool("maximized_state"));
-        view_fn(move || {
+        view_fn(move || -> AnyView {
+            // On a phone: the menu before the title, a search after it, and no window buttons.
+            if arg_mobile {
+                return Box::new(
+                    TitleBar::new("Raven CI")
+                        .leading(IconButton::new(IconName::Menu).label("Open the menu"))
+                        .action(IconButton::new(IconName::Search).label("Search"))
+                        .mobile(),
+                );
+            }
             let toggle = maximized.clone();
-            {
+            Box::new({
                 let mut it = TitleBar::new("Report.pdf")
                     .leading(Icon::new(IconName::File).size(16.0))
                     .action(IconButton::new(IconName::Search).label("Search").size(ButtonSize::Mini))
@@ -39,7 +49,7 @@ fn render(args: &Args) -> AnyView {
                 it = it.active(arg_active);
                 it = it.maximized(arg_maximized);
                 it
-            }
+            })
         })
     })
 }
@@ -51,7 +61,9 @@ impl ComponentBook for TitleBar {
             .arg(ArgType::bool("active", true))
             .arg(ArgType::bool("maximized", false))
             .arg(ArgType::bool("maximized_state", false).description("How the example starts."))
+            .arg(ArgType::bool("mobile", false).description("The bar on top of a phone's screen."))
             .story("Example", Args::new())
             .story("Maximized state", Args::new().with("maximized_state", true))
+            .story("Mobile", Args::new().with("mobile", true))
     }
 }

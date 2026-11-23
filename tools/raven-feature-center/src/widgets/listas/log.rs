@@ -41,6 +41,7 @@ impl View for LogPage {
         let follow = cx.use_state(|| true);
         let numbers = cx.use_state(|| true);
         let search = cx.use_state(|| true);
+        let bar = cx.use_state(|| true);
         let said = cx.use_state(|| "Nenhuma linha apontada.".to_string());
         let added = cx.use_state(|| 0_u32);
         let tones = cx.use_state(|| true);
@@ -60,6 +61,7 @@ impl View for LogPage {
             .follow_end(follow.get())
             .line_numbers(numbers.get())
             .searchable(search.get())
+            .controls(bar.get())
             .height(260.0)
             .label("Log do build 42")
             .on_line(move |number| told.set(format!("Linha apontada: {number}.")))
@@ -87,6 +89,7 @@ impl View for LogPage {
                     Toggle::new(follow.binding()).label("Começar no fim"),
                     Toggle::new(numbers.binding()).label("Números das linhas"),
                     Toggle::new(search.binding()).label("Busca"),
+                    Toggle::new(bar.binding()).label("Barra sobre as linhas"),
                     Toggle::new(tones.binding()).label("Tons pela primeira palavra"),
                     Toggle::new(alone.binding()).label("Só o estágio Testes"),
                     Button::new("Chegar linha nova").style(ButtonStyle::Secondary).on_click(move || {

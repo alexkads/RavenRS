@@ -32,6 +32,7 @@ fn render(args: &Args) -> AnyView {
         let arg_grid = args.number("grid") as f32;
         let arg_grow = args.number("grow") as f32;
         let arg_label = args.text("label");
+        let arg_hint = args.text("hint");
         let arg_locked = args.bool("locked");
         let arg_minimap = args.bool("minimap");
         let arg_ports_on_hover = args.bool("ports_on_hover");
@@ -118,6 +119,9 @@ fn render(args: &Args) -> AnyView {
             it = if wide > 0.0 { it.size(wide, tall) } else { it.height(tall) };
             it = it.cables(arg_cables);
             it = it.controls(arg_controls);
+            if !arg_hint.is_empty() {
+                it = it.hint(arg_hint.clone());
+            }
             it = it.editable_titles(arg_editable_titles);
             it = it.grid(arg_grid);
             if arg_grow > 0.0 && args.number("width") > 0.0 {
@@ -148,40 +152,46 @@ fn render(args: &Args) -> AnyView {
         };
         VStack::new((
             view_fn(move || {
-                // Undo and redo here go through the same history as Cmd+Z in the canvas.
+                // Undo and redo here go through the same history as Cmd+Z in the canvas; a canvas
+                // only read has nothing to undo, and the story is the canvas alone.
+                if arg_read_only {
+                    return None;
+                }
                 let (back, again) = (undo.clone(), redo.clone());
                 let (g1, g2) = (written.clone(), written.clone());
                 let toggle = shown.clone();
-                HStack::new((
-                    Button::new("Undo")
-                        .style(ButtonStyle::Secondary)
-                        .icon(IconName::Undo2)
-                        .disabled(!undo.get().can_undo())
-                        .on_click(move || {
-                            let mut h = back.get();
-                            if let Some(before) = h.undo(g1.get()) {
-                                back.set(h);
-                                g1.set(before);
-                            }
-                        }),
-                    Button::new("Redo")
-                        .style(ButtonStyle::Secondary)
-                        .icon(IconName::Redo2)
-                        .disabled(!redo.get().can_redo())
-                        .on_click(move || {
-                            let mut h = again.get();
-                            if let Some(after) = h.redo(g2.get()) {
-                                again.set(h);
-                                g2.set(after);
-                            }
-                        }),
-                    Button::new("Show JSON")
-                        .style(ButtonStyle::Ghost)
-                        .icon(IconName::Code)
-                        .selected(shown.get())
-                        .on_click(move || toggle.update(|on| *on = !*on)),
-                ))
-                .spacing(8.0)
+                Some(
+                    HStack::new((
+                        Button::new("Undo")
+                            .style(ButtonStyle::Secondary)
+                            .icon(IconName::Undo2)
+                            .disabled(!undo.get().can_undo())
+                            .on_click(move || {
+                                let mut h = back.get();
+                                if let Some(before) = h.undo(g1.get()) {
+                                    back.set(h);
+                                    g1.set(before);
+                                }
+                            }),
+                        Button::new("Redo")
+                            .style(ButtonStyle::Secondary)
+                            .icon(IconName::Redo2)
+                            .disabled(!redo.get().can_redo())
+                            .on_click(move || {
+                                let mut h = again.get();
+                                if let Some(after) = h.redo(g2.get()) {
+                                    again.set(h);
+                                    g2.set(after);
+                                }
+                            }),
+                        Button::new("Show JSON")
+                            .style(ButtonStyle::Ghost)
+                            .icon(IconName::Code)
+                            .selected(shown.get())
+                            .on_click(move || toggle.update(|on| *on = !*on)),
+                    ))
+                    .spacing(8.0),
+                )
             }),
             // The diagram as it is now, as the app would save it; `FlowGraph::from_json` reads it back.
             view_fn(move || {
@@ -206,6 +216,7 @@ impl ComponentBook for FlowCanvas {
             .arg(ArgType::number("width", 880.0, 0.0, 2000.0, 1.0).description("0 takes the width of the parent."))
             .arg(ArgType::number("height", 368.0, 80.0, 1200.0, 1.0))
             .arg(ArgType::text("label", "").description("Empty leaves it as the component has it."))
+            .arg(ArgType::text("hint", "").description("What a click does, after the zoom; empty shows none."))
             .arg(ArgType::bool("locked", false))
             .arg(ArgType::bool("minimap", true))
             .arg(ArgType::bool("ports_on_hover", false))
@@ -227,7 +238,8 @@ impl ComponentBook for FlowCanvas {
                     .with("status_icons", true)
                     .with("minimap", false)
                     .with("width", 0.0)
-                    .with("height", 198.0),
+                    .with("height", 198.0)
+                    .with("hint", "Click a stage to see only its log"),
             )
             .story(
                 "Run with status icons",

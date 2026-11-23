@@ -63,6 +63,7 @@ impl View for FlowPage {
         let titles = cx.use_state(|| true);
         let told = cx.use_state(|| false);
         let strip = cx.use_state(|| false);
+        let hint = cx.use_state(|| false);
         let read_only = cx.use_state(|| false);
         // Off, the wheel scrolls this page past the diagram instead of panning it.
         let wheel = cx.use_state(|| true);
@@ -155,6 +156,8 @@ impl View for FlowPage {
             .grow(0.0);
         // height: a strip as wide as the page, as the stages of a build.
         let canvas = if strip.get() { canvas.height(200.0) } else { canvas };
+        // hint: what a click does, at the end of the zoom controls.
+        let canvas = if hint.get() { canvas.hint("Clique num nó para ver os detalhes") } else { canvas };
         // A run that happened in the app, as it tells the canvas: the order arrived and went on,
         // the stock check waits, and the note did not run.
         let canvas = if told.get() {
@@ -185,6 +188,7 @@ impl View for FlowPage {
                 Toggle::new(titles.binding()).label("Títulos editáveis"),
                 Toggle::new(told.binding()).label("Execução de fora"),
                 Toggle::new(strip.binding()).label("Faixa de 200 pt"),
+                Toggle::new(hint.binding()).label("Dica nos controles"),
                 Toggle::new(read_only.binding()).label("Só leitura"),
                 Toggle::new(wheel.binding()).label("Roda move o diagrama"),
             ],

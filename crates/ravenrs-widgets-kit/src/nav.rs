@@ -1053,22 +1053,31 @@ impl<V: View> View for SidebarInset<V> {
 /// A button that opens and closes a [`Sidebar`], sharing its [`SidebarState`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
-pub struct SidebarTrigger(SidebarState);
+pub struct SidebarTrigger {
+    state: SidebarState,
+    icon: IconName,
+}
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SidebarTrigger {
     /// A trigger for the sidebar that uses `state`.
     pub fn new(state: SidebarState) -> Self {
-        Self(state)
+        Self { state, icon: IconName::PanelLeft }
+    }
+
+    /// Another icon than the panel's, such as [`IconName::Menu`] on a phone's bar.
+    pub fn icon(mut self, icon: IconName) -> Self {
+        self.icon = icon;
+        self
     }
 }
 
-struct SidebarTriggerButton(SidebarState);
+struct SidebarTriggerButton(SidebarState, IconName);
 
 impl View for SidebarTriggerButton {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let state = self.0.clone();
-        let button = IconButton::new(IconName::PanelLeft)
+        let button = IconButton::new(self.1)
             .label(cx.labels().toggle_sidebar.clone())
             .size(ButtonSize::Small)
             .on_click(move || state.toggle());
@@ -1082,7 +1091,7 @@ impl View for SidebarTriggerButton {
 impl View for SidebarTrigger {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let name = cx.labels().toggle_sidebar.clone();
-        cx.child(&Tooltip::new(SidebarTriggerButton(self.0.clone()), name))
+        cx.child(&Tooltip::new(SidebarTriggerButton(self.state.clone(), self.icon), name))
     }
 }
 

@@ -18,8 +18,7 @@ use super::virtual_list::{ScrollCommand, VirtualList};
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
 use crate::view::View;
 use crate::{
-    Button, ButtonSize, ButtonStyle, HStack, Icon, IconName, Spacer, Text, TextField, Toggle, Tone, VStack,
-    util,
+    Button, ButtonSize, ButtonStyle, HStack, Icon, IconName, Spacer, Text, TextField, Toggle, Tone, util,
 };
 
 /// The height of one line, in points.
@@ -218,6 +217,7 @@ pub struct LogView {
     follow_end: bool,
     line_numbers: bool,
     searchable: bool,
+    controls: bool,
     height: f32,
     label: Option<String>,
     on_line: Option<Rc<dyn Fn(usize)>>,
@@ -245,6 +245,7 @@ impl LogView {
             follow_end: true,
             line_numbers: true,
             searchable: true,
+            controls: true,
             height: 320.0,
             label: None,
             on_line: None,
@@ -269,6 +270,13 @@ impl LogView {
     /// Whether it has a search field above the lines; on by default.
     pub fn searchable(mut self, searchable: bool) -> Self {
         self.searchable = searchable;
+        self
+    }
+
+    /// Whether the bar above the lines shows at all: search, follow the end and download. On by
+    /// default; off leaves only the lines, as a phone's screen has room for.
+    pub fn controls(mut self, controls: bool) -> Self {
+        self.controls = controls;
         self
     }
 
@@ -626,7 +634,24 @@ impl View for LogView {
             ));
         }
         // In a narrow window the controls go on to a second line instead of out of view.
-        cx.child(&VStack::new((HStack::new(bar).spacing(8.0).align(Align::Center).wrap(), list)).spacing(8.0))
+        // As wide as its parent and never wider: the longest line scrolls across instead of
+        // pushing the log out of a phone's screen.
+        let list = cx.child(&list);
+        let children = if self.controls {
+            vec![cx.child(&HStack::new(bar).spacing(8.0).align(Align::Center).wrap()), list]
+        } else {
+            vec![list]
+        };
+        cx.container(
+            LayoutStyle {
+                spacing: 8.0,
+                min_width: Some(0.0),
+                align: Align::Stretch,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &children,
+            Paint::None,
+        )
     }
 }
 

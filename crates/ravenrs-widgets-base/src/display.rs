@@ -739,6 +739,7 @@ pub struct Stat {
     label: String,
     value: String,
     delta: Option<(String, bool, bool)>,
+    caption: Option<String>,
     large: bool,
 }
 
@@ -746,7 +747,14 @@ pub struct Stat {
 impl Stat {
     /// A stat showing `value` under `label`.
     pub fn new(label: impl Into<String>, value: impl Into<String>) -> Self {
-        Self { label: label.into(), value: value.into(), delta: None, large: false }
+        Self { label: label.into(), value: value.into(), delta: None, caption: None, large: false }
+    }
+
+    /// A muted line under the value that says where it comes from or what it means, such as
+    /// "The oldest waits 40 s". It wraps when the stat is narrower than it.
+    pub fn caption(mut self, text: impl Into<String>) -> Self {
+        self.caption = Some(text.into());
+        self
     }
 
     /// The one number a screen is about, in the `metric` size.
@@ -791,6 +799,10 @@ impl View for Stat {
                 .tone(if *good { Tone::Success } else { Tone::Danger })
                 .icon(if *up { IconName::TrendingUp } else { IconName::TrendingDown });
             children.push(cx.child(&badge));
+        }
+        if let Some(caption) = &self.caption {
+            let attrs = util::attrs(&theme, TextStyle::Callout, None);
+            children.push(cx.text(caption, &attrs, theme.color(Semantic::InkMuted), LayoutStyle::leaf()));
         }
         cx.container(
             LayoutStyle { spacing: 6.0, ..LayoutStyle::stack(Axis::Vertical) },

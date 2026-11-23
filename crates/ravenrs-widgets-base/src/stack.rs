@@ -1011,6 +1011,8 @@ impl View for FooterArea<'_> {
 
 /// The height of a [`TitleBar`], in logical pixels.
 const TITLE_BAR_HEIGHT: f32 = 38.0;
+/// The height of a [`TitleBar::mobile`], room for a finger on each button.
+const MOBILE_BAR_HEIGHT: f32 = 56.0;
 
 /// A title bar drawn by the app: what comes first, the title, the actions and the buttons of
 /// the window. A button shows only when it has a handler. A double click on the bar does the
@@ -1042,6 +1044,7 @@ pub struct TitleBar {
     on_context_menu: Option<Rc<dyn Fn(Point)>>,
     maximized: bool,
     active: bool,
+    mobile: bool,
 }
 
 impl std::fmt::Debug for TitleBar {
@@ -1064,7 +1067,15 @@ impl TitleBar {
             on_context_menu: None,
             maximized: false,
             active: true,
+            mobile: false,
         }
+    }
+
+    /// The bar on top of a phone's screen: 56 tall, the title in the headline size, usually with
+    /// the button that opens the sidebar before it and a search after it.
+    pub fn mobile(mut self) -> Self {
+        self.mobile = true;
+        self
     }
 
     /// Any view before the title, such as an icon or a menu.
@@ -1126,9 +1137,14 @@ impl View for TitleBar {
             children.push(cx.keyed_child(1, leading));
         }
         let ink = theme.color(if self.active { Semantic::Ink } else { Semantic::InkMuted });
+        let (style, weight) = if self.mobile {
+            (TextStyle::Headline, Weight::SEMIBOLD)
+        } else {
+            (TextStyle::Callout, Weight::MEDIUM)
+        };
         children.push(cx.text_truncated(
             &self.title,
-            &util::attrs(&theme, TextStyle::Callout, Some(Weight::MEDIUM)),
+            &util::attrs(&theme, style, Some(weight)),
             ink,
             LayoutStyle { grow: 1.0, min_width: Some(0.0), ..LayoutStyle::leaf() },
         ));
@@ -1161,7 +1177,7 @@ impl View for TitleBar {
         let line = theme.color(Semantic::Border);
         let node = cx.container(
             LayoutStyle {
-                height: Some(TITLE_BAR_HEIGHT),
+                height: Some(if self.mobile { MOBILE_BAR_HEIGHT } else { TITLE_BAR_HEIGHT }),
                 padding: Insets::symmetric(0.0, theme.spacing.s3),
                 spacing: theme.spacing.s2,
                 align: Align::Center,

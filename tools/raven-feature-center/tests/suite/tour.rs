@@ -1859,3 +1859,81 @@ fn the_build_log_shows_colors_folds_its_stages_searches_and_points_at_a_line() {
     c.activate("Seguir o fim");
     assert!(c.has_name("Seguir o fim"), "the switch stays, to follow again");
 }
+
+#[test]
+fn the_stats_say_their_number_with_a_caption_and_the_change_since_before() {
+    let mut c = Center::memory("ana");
+    c.press("Indicadores");
+    // new and caption: the label in capitals, the number and the line under it.
+    assert!(c.says("NA FILA") && c.says("O mais antigo espera há 40 s"), "{:?}", c.texts());
+    c.press("Chegou um build");
+    assert!(c.says("3") && c.says("O mais antigo espera há 60 s"), "{:?}", c.texts());
+    c.press("Saiu um build");
+    c.press("Saiu um build");
+    c.press("Saiu um build");
+    assert!(c.says("Ninguém espera"), "{:?}", c.texts());
+    // large: the same stat, in the size of the number a screen is about.
+    c.activate("Grande");
+    assert!(c.says("NA FILA"), "{:?}", c.texts());
+    // delta and delta_toned: the change, up or down, good or bad.
+    for change in ["+12,4%", "-3,1%", "+8%", "-0,4%"] {
+        assert!(c.says(change), "{change}: {:?}", c.texts());
+    }
+    assert!(c.says("Lida do processo, ao vivo; meta ≤ 60 MB"), "{:?}", c.texts());
+}
+
+#[test]
+fn the_list_packs_its_rows_tells_their_state_and_runs_their_action() {
+    let mut c = Center::memory("ana");
+    c.press("Lista");
+    let height = |c: &mut Center, name: &str| {
+        c.settle();
+        let tree = c.ui.access_tree();
+        tree.nodes
+            .iter()
+            .find(|n| n.name.as_deref() == Some(name))
+            .unwrap_or_else(|| panic!("{name}"))
+            .bounds
+            .height()
+    };
+    // compact: rows of 48, the subtitle beside the title; the title names the row and the rest
+    // describes it.
+    let compact = height(&mut c, "Checkout");
+    assert!((compact - 48.0).abs() < 0.5, "{compact}");
+    let tree = c.ui.access_tree();
+    let lint = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Lint")).expect("Lint");
+    assert_eq!(lint.description.as_deref(), Some("cargo clippy · 1 min 40 s"));
+    c.activate("Compacta");
+    assert!(height(&mut c, "Checkout") > compact, "two lines when not compact");
+    // on_click and selected: a click opens the row.
+    c.press("Lint");
+    assert!(c.says("Aberto: Lint"), "{:?}", c.texts());
+    // action: the button at the end of the row.
+    c.press("Ligar o plugin");
+    assert!(c.says("Ação: ligar o plugin"), "{:?}", c.texts());
+    // avatar and trailing.
+    assert!(c.has_name("Ana Lima") && c.has_name("Bia Souza"), "{:?}", c.texts());
+}
+
+#[test]
+fn the_title_bar_draws_the_window_buttons_and_the_bar_of_a_phone() {
+    let mut c = Center::memory("ana");
+    c.press("Barra de título");
+    assert!(c.says("Relatório.pdf") && c.says("Raven CI"), "{:?}", c.texts());
+    // on_minimize, on_close: a button shows when it has a handler, and runs it.
+    c.press("Minimizar");
+    assert!(c.says("Minimizar"), "{:?}", c.texts());
+    c.press("Fechar");
+    assert!(c.says("Fechar"), "{:?}", c.texts());
+    // on_maximize and maximized: the middle button says it restores once maximized.
+    c.press("Maximizar");
+    assert!(c.has_name("Restaurar"), "{:?}", c.texts());
+    // mobile: the menu before the title and the search after it.
+    c.press("Abrir o menu");
+    assert!(c.says("Menu aberto"), "{:?}", c.texts());
+    c.press("Buscar comandos");
+    assert!(c.says("Busca aberta"), "{:?}", c.texts());
+    // active: without the keyboard the bar goes quiet, and still shows.
+    c.activate("Com o teclado");
+    assert!(c.says("Relatório.pdf"), "{:?}", c.texts());
+}

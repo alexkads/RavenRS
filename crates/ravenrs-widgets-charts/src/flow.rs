@@ -42,6 +42,8 @@ const ZOOM_RANGE: (f32, f32) = (0.25, 2.0);
 const ZOOM_STEP: f32 = 1.25;
 /// Room left around the diagram when it is fitted to the view, in screen pixels.
 const FIT_MARGIN: f32 = 48.0;
+/// How tall the bar of zoom controls is, in screen pixels.
+const CONTROLS_HEIGHT: f32 = 40.0;
 /// How near a line the pointer must be to pick it, in screen pixels.
 const EDGE_REACH: f32 = 6.0;
 /// How near a port the pointer must be to drop a connection on it, in screen pixels.
@@ -330,10 +332,11 @@ impl FlowViewport {
         Self { offset: Point::new(anchor.x - under.x * zoom, anchor.y - under.y * zoom), zoom, fit: false }
     }
 
-    /// The zoom and offset that show `bounds` whole and centered in a view of `size`.
+    /// The zoom and offset that show `bounds` whole and centered in a view of `size`. A short
+    /// strip keeps at most a sixth of its height around the diagram, not the whole margin.
     pub fn fitting(bounds: Rect, size: Size, least: f32, most: f32) -> Self {
-        let room =
-            Size::new((size.width - FIT_MARGIN * 2.0).max(1.0), (size.height - FIT_MARGIN * 2.0).max(1.0));
+        let margin = FIT_MARGIN.min(size.height / 6.0).min(size.width / 6.0);
+        let room = Size::new((size.width - margin * 2.0).max(1.0), (size.height - margin * 2.0).max(1.0));
         let zoom = (room.width / bounds.width().max(1.0))
             .min(room.height / bounds.height().max(1.0))
             .clamp(least, most);
@@ -632,6 +635,7 @@ pub struct FlowCanvas {
     grid: f32,
     snap: bool,
     controls: bool,
+    hint: Option<String>,
     minimap: bool,
     status_icons: bool,
     locked: bool,
@@ -682,6 +686,7 @@ impl FlowCanvas {
             grid: 24.0,
             snap: true,
             controls: true,
+            hint: None,
             minimap: true,
             status_icons: false,
             locked: false,
@@ -910,6 +915,13 @@ impl FlowCanvas {
     /// Whether the zoom controls show in the bottom left corner (on by default).
     pub fn controls(mut self, controls: bool) -> Self {
         self.controls = controls;
+        self
+    }
+
+    /// A short line at the end of the zoom controls that says what a click does, such as "Click
+    /// a stage to see only its log". It shows with the controls.
+    pub fn hint(mut self, text: impl Into<String>) -> Self {
+        self.hint = Some(text.into());
         self
     }
 
@@ -2949,14 +2961,39 @@ impl View for FlowCanvas {
         let graph = self.graph.get();
         let size = cx.scroll_viewport();
         let mut view = flow.view.get();
+        // A view fitted to a size the canvas no longer has, and not moved since, fits again: the
+        // first size can be one that another view left at this place in the tree, and a window
+        // that changes size keeps the diagram whole.
+        let fitted: State<Option<(Size, FlowViewport)>> = cx.use_state(|| None);
+        if let (Some((at, fitted_view)), Some(size)) = (fitted.get(), size)
+            && at != size
+            && fitted_view == view
+        {
+            view.fit = true;
+        }
         if view.fit
             && let Some(size) = size
         {
-            view = match graph.bounds() {
-                Some(bounds) => FlowViewport::fitting(bounds, size, self.range.0, self.range.1.min(1.0)),
-                None => FlowViewport::at(Point::new(FIT_MARGIN, FIT_MARGIN), 1.0),
+            // With the zoom controls showing, the diagram fits above them, not under them.
+            let above = if self.controls {
+                Size::new(size.width, (size.height - CONTROLS_HEIGHT - 2.0 * cx.theme().spacing.s4).max(1.0))
+            } else {
+                size
             };
-            flow.view.set(view);
+            match graph.bounds() {
+                Some(bounds) => {
+                    view = FlowViewport::fitting(bounds, above, self.range.0, self.range.1.min(1.0));
+                    flow.view.set(view);
+                    fitted.set(Some((size, view)));
+                }
+                // Nothing to fit yet, as while the nodes are loading: it fits when they come.
+                None => {
+                    view = FlowViewport {
+                        fit: true,
+                        ..FlowViewport::at(Point::new(FIT_MARGIN, FIT_MARGIN), 1.0)
+                    }
+                }
+            }
         }
         if let (Some(arrivals), Some(size)) = (&self.arrivals, size)
             && let Some(node) = arrivals.get()
@@ -3218,7 +3255,18 @@ impl View for FlowCanvas {
         }
         if let Some(size) = size {
             if self.controls {
-                children.push(controls(cx, &flow, view, is_locked, self.read_only, size, &theme, palette));
+                let hint = self.hint.as_deref();
+                children.push(controls(
+                    cx,
+                    &flow,
+                    view,
+                    is_locked,
+                    self.read_only,
+                    hint,
+                    size,
+                    &theme,
+                    palette,
+                ));
             }
             if self.minimap && !graph.nodes.is_empty() {
                 let map = MiniMap {
@@ -3393,6 +3441,7 @@ fn controls(
     view: FlowViewport,
     locked: bool,
     read_only: bool,
+    hint: Option<&str>,
     size: Size,
     theme: &Theme,
     p: Palette,
@@ -3494,7 +3543,19 @@ fn controls(
         &[percent],
         Paint::None,
     );
-    let height = 40.0;
+    // What a click does, after the zoom, in the muted words of the controls.
+    let hint = hint.map(|hint| {
+        let words = util::label(cx, hint, TextStyle::Callout, None, p.muted);
+        cx.container(
+            LayoutStyle {
+                padding: ravenrs_core::Insets::symmetric(0.0, theme.spacing.s2),
+                ..LayoutStyle::leaf()
+            },
+            &[words],
+            Paint::None,
+        )
+    });
+    let height = CONTROLS_HEIGHT;
     let node = cx.container(
         LayoutStyle {
             absolute: Some((theme.spacing.s4, size.height - theme.spacing.s4 - height)),
@@ -3511,6 +3572,7 @@ fn controls(
             .chain(debug)
             .chain(export)
             .chain([percent])
+            .chain(hint)
             .collect::<Vec<_>>(),
         Paint::Quad(crate::context::QuadPaint {
             corner_radius: theme.radii.md,

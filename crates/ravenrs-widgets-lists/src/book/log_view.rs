@@ -55,6 +55,7 @@ fn render(args: &Args) -> AnyView {
         .follow_end(args.bool("follow_end"))
         .line_numbers(args.bool("line_numbers"))
         .searchable(args.bool("searchable"))
+        .controls(args.bool("controls"))
         .height(args.number("height") as f32)
         .label(args.text("label"))
         .on_line(|number| println!("line {number}"));
@@ -82,6 +83,7 @@ impl ComponentBook for LogView {
             .arg(ArgType::bool("follow_end", true))
             .arg(ArgType::bool("line_numbers", true))
             .arg(ArgType::bool("searchable", true))
+            .arg(ArgType::bool("controls", true).description("The bar above the lines; off leaves the lines alone."))
             .arg(ArgType::number("height", 220.0, 80.0, 1040.0, 1.0))
             .arg(ArgType::text("label", "Build log"))
             .arg(ArgType::bool("stages", false))
@@ -91,6 +93,7 @@ impl ComponentBook for LogView {
             .story("Example", Args::new())
             .story("No numbers", Args::new().with("line_numbers", false))
             .story("No search", Args::new().with("searchable", false))
+            .story("Lines only", Args::new().with("controls", false).with("line_numbers", false))
             .story("From the top", Args::new().with("follow_end", false))
             .story(
                 "Build stages",

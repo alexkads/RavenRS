@@ -8,11 +8,18 @@ use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_style::{Semantic, TextStyle, Weight};
 
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
-use crate::{Avatar, IconName, View, ViewSeq, util};
+use crate::{AnyView, Avatar, IconName, Tone, View, ViewSeq, util};
+
+/// How tall a row of a [`List::compact`] is, in logical pixels.
+const COMPACT_ROW: f32 = 48.0;
+
+/// What a [`List::compact`] tells the rows built inside it.
+struct CompactRows;
 
 /// A bordered list; rows are separated by hairlines.
 pub struct List<C> {
     rows: C,
+    compact: bool,
 }
 
 impl<C> fmt::Debug for List<C> {
@@ -25,14 +32,25 @@ impl<C> fmt::Debug for List<C> {
 impl<C: ViewSeq> List<C> {
     /// A list of `rows`, usually [`ListItem`]s.
     pub fn new(rows: C) -> Self {
-        Self { rows }
+        Self { rows, compact: false }
+    }
+
+    /// Rows of 48 from edge to edge, for a list of stages or a queue: the icon without its tile
+    /// and in the color of its [`ListItem::tone`], the subtitle beside the title, and no arrow.
+    pub fn compact(mut self) -> Self {
+        self.compact = true;
+        self
     }
 }
 
 impl<C: ViewSeq> View for List<C> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
+        let outer = self.compact.then(|| cx.replace_scoped(Some(Rc::new(CompactRows))));
         let rows = cx.children(&self.rows);
+        if let Some(outer) = outer {
+            cx.replace_scoped::<CompactRows>(outer);
+        }
         let mut children = Vec::with_capacity(rows.len() * 2);
         for (i, row) in rows.into_iter().enumerate() {
             if i > 0 {
@@ -43,8 +61,9 @@ impl<C: ViewSeq> View for List<C> {
             cx.semantics_if_none(row, Semantics::new(Role::ListItem));
             children.push(row);
         }
+        // Compact rows reach the hairline around them.
         let style = LayoutStyle {
-            padding: Insets::uniform(4.0),
+            padding: Insets::uniform(if self.compact { 1.0 } else { 4.0 }),
             align: Align::Stretch,
             ..LayoutStyle::stack(Axis::Vertical)
         };
@@ -65,13 +84,15 @@ enum Leading {
     Avatar(String),
 }
 
-/// A list row: leading icon or avatar, title, subtitle and trailing text.
+/// A list row: leading icon or avatar, title, subtitle, trailing text and an action.
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ListItem {
     title: String,
     subtitle: Option<String>,
     leading: Leading,
+    tone: Option<Tone>,
     trailing: Option<String>,
+    action: Option<AnyView>,
     selected: bool,
     on_click: Option<Rc<dyn Fn()>>,
 }
@@ -90,7 +111,9 @@ impl ListItem {
             title: title.into(),
             subtitle: None,
             leading: Leading::None,
+            tone: None,
             trailing: None,
+            action: None,
             selected: false,
             on_click: None,
         }
@@ -120,6 +143,19 @@ impl ListItem {
         self
     }
 
+    /// The color of the leading icon, for what the row's state means: a stage that passed in
+    /// [`Tone::Success`], a build that waits in [`Tone::Warning`].
+    pub fn tone(mut self, tone: Tone) -> Self {
+        self.tone = Some(tone);
+        self
+    }
+
+    /// A view at the very end of the row, usually a small button: "Turn the plugin on".
+    pub fn action(mut self, view: impl View + 'static) -> Self {
+        self.action = Some(Box::new(view));
+        self
+    }
+
     /// Highlights the row as selected.
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
@@ -136,12 +172,16 @@ impl ListItem {
 impl View for ListItem {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
+        let compact = cx.scoped::<CompactRows>().is_some();
         let hovered = cx.is_hovered() && self.on_click.is_some();
+        let icon_color = self.tone.map_or(theme.color(Semantic::InkMuted), |tone| tone.color(&theme));
         let mut children = Vec::new();
         match &self.leading {
             Leading::None => {}
+            // In a compact list the icon stands alone, in the color of the row's state.
+            Leading::Icon(icon) if compact => children.push(util::icon(cx, *icon, 16.0, icon_color)),
             Leading::Icon(icon) => {
-                let i = util::icon(cx, *icon, 18.0, theme.color(Semantic::InkMuted));
+                let i = util::icon(cx, *icon, 18.0, icon_color);
                 children.push(cx.container(
                     LayoutStyle {
                         width: Some(36.0),
@@ -167,14 +207,27 @@ impl View for ListItem {
             theme.color(Semantic::Ink),
         )];
         if let Some(s) = &self.subtitle {
-            text.push(util::label(cx, s, TextStyle::Callout, None, theme.color(Semantic::InkMuted)));
+            let attrs = util::attrs(&theme, TextStyle::Callout, None);
+            let muted = theme.color(Semantic::InkMuted);
+            // Beside the title, a long subtitle ends in an ellipsis instead of a second line.
+            text.push(if compact {
+                cx.text_truncated(
+                    s,
+                    &attrs,
+                    muted,
+                    LayoutStyle { min_width: Some(0.0), ..LayoutStyle::leaf() },
+                )
+            } else {
+                util::label(cx, s, TextStyle::Callout, None, muted)
+            });
         }
         children.push(cx.container(
             LayoutStyle {
                 grow: 1.0,
                 min_width: Some(0.0),
-                spacing: 2.0,
-                ..LayoutStyle::stack(Axis::Vertical)
+                spacing: if compact { 12.0 } else { 2.0 },
+                align: if compact { Align::Center } else { Align::Start },
+                ..LayoutStyle::stack(if compact { Axis::Horizontal } else { Axis::Vertical })
             },
             &text,
             Paint::None,
@@ -186,7 +239,10 @@ impl View for ListItem {
             let style = LayoutStyle { min_width: Some(width), ..LayoutStyle::leaf() };
             children.push(cx.text(t, &attrs, theme.color(Semantic::InkMuted), style));
         }
-        if self.on_click.is_some() {
+        if let Some(action) = &self.action {
+            children.push(cx.child(action.as_ref()));
+        }
+        if self.on_click.is_some() && !compact {
             children.push(util::icon(cx, IconName::ChevronRight, 16.0, theme.color(Semantic::InkMuted)));
         }
         let fill = if self.selected {
@@ -196,24 +252,40 @@ impl View for ListItem {
         } else {
             Color::TRANSPARENT
         };
-        let style = LayoutStyle {
-            padding: Insets::symmetric(10.0, 12.0),
-            spacing: 12.0,
-            align: Align::Center,
-            ..LayoutStyle::stack(Axis::Horizontal)
+        let style = if compact {
+            LayoutStyle {
+                min_height: Some(COMPACT_ROW),
+                padding: Insets::symmetric(0.0, 16.0),
+                spacing: 12.0,
+                align: Align::Center,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            }
+        } else {
+            LayoutStyle {
+                padding: Insets::symmetric(10.0, 12.0),
+                spacing: 12.0,
+                align: Align::Center,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            }
         };
+        let radius = if compact { 0.0 } else { 10.0 };
         let node = cx.container(
             style,
             &children,
-            Paint::Quad(QuadPaint { corner_radius: 10.0, ..QuadPaint::new(fill) }),
+            Paint::Quad(QuadPaint { corner_radius: radius, ..QuadPaint::new(fill) }),
         );
-        cx.semantics(
-            node,
-            Semantics::new(if self.on_click.is_some() { Role::Button } else { Role::ListItem }),
-        );
+        // The title names the row; the subtitle and the words at its end describe it.
+        let said: Vec<&str> = self.subtitle.iter().chain(&self.trailing).map(String::as_str).collect();
+        let mut semantics =
+            Semantics::new(if self.on_click.is_some() { Role::Button } else { Role::ListItem })
+                .name(self.title.clone());
+        if !said.is_empty() {
+            semantics = semantics.description(said.join(" · "));
+        }
+        cx.semantics(node, semantics);
         if let Some(h) = &self.on_click {
             cx.on_click(node, h.clone());
-            cx.focusable(node, 10.0);
+            cx.focusable(node, radius);
             cx.cursor(node, CursorIcon::Pointer);
         }
         node
