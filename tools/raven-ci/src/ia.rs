@@ -1,5 +1,6 @@
 //! What makes Raven CI friendly to sessions of AI and to programs (#941), apart from the server:
-//! `esquema`, `validar`, `ia instalar` and `ia` (what a session needs to know, in one page).
+//! `esquema`, `validar`, `ia instalar` and `ia` (what a session needs to know, in one page). The
+//! command `mcp` is [`crate::mcp`], run by [`crate::cli`].
 //!
 //! # Its role
 //!
@@ -16,33 +17,22 @@
 //!   `.raven-ci.toml`), as the server would, and checks that every step is of a plugin that comes
 //!   with Raven CI. It ends with 0 when the file is right, 1 with the errors, 6 when the file
 //!   cannot be read. With `--format json`: `{arquivo, formato, valido, erros: [{linha, mensagem}]}`.
-//! - **`ia instalar`** saves the key (from the standard input, `--chave -`) in [`key_file`], only
+//! - **`ia instalar`** saves the key (from the standard input, `--chave -`) in [`key_file`](crate::chave::key_file), only
 //!   its owner reads it, and registers the server `raven-ci mcp` in Claude Code
 //!   (`claude mcp add --scope user`) with the address of the server; the key never goes to the
 //!   configuration of Claude Code. With `--so-mostrar` it only says what it would do.
 
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use raven_ci_core::Ci;
 use raven_ci_plugin_api::{CiError, PipelineFormat};
 use serde_json::{Value, json};
 
-use crate::remote::Exit;
+use crate::saida::Exit;
 
 fn failed(e: impl std::fmt::Display) -> CiError {
     CiError::failed(e.to_string())
-}
-
-/// Where the key a session uses is kept, when `RAVEN_CI_TOKEN` does not say it: readable only by
-/// its owner.
-pub fn key_file() -> PathBuf {
-    crate::versao::APP.home().join("chave-do-servidor")
-}
-
-/// The key in [`key_file`], when there is one.
-pub fn saved_key() -> Option<String> {
-    std::fs::read_to_string(key_file()).ok().map(|key| key.trim().to_owned()).filter(|key| !key.is_empty())
 }
 
 /// Runs `words` when they are one of these commands; the exit code, or `None` for other words.
@@ -62,7 +52,6 @@ pub fn run(words: &[String], json: bool, out: &mut dyn Write) -> Option<Result<i
         ["validar", file] => validar(Path::new(file), json, out),
         ["ia", "instalar"] => instalar(&words, out),
         ["ia"] => guia(out),
-        ["mcp"] => crate::mcp::serve(),
         _ => return None,
     })
 }
@@ -152,7 +141,7 @@ fn instalar(words: &[&str], out: &mut dyn Write) -> Result<i32, CiError> {
     let server = flag(words, "--servidor")
         .map(str::to_owned)
         .or_else(|| std::env::var("RAVEN_CI_SERVIDOR").ok().filter(|s| !s.trim().is_empty()))
-        .unwrap_or_else(|| crate::remote::DEFAULT_SERVER.to_owned());
+        .unwrap_or_else(|| crate::cliente::DEFAULT_SERVER.to_owned());
     let program = std::env::current_exe().map_err(failed)?.display().to_string();
     if flag(words, "--chave") == Some("-") {
         let mut key = String::new();
@@ -163,8 +152,9 @@ fn instalar(words: &[&str], out: &mut dyn Write) -> Result<i32, CiError> {
             return Ok(Exit::Usage.code());
         }
         if !only_show {
-            save_key(key)?;
-            writeln!(out, "chave guardada em {} (só o dono lê)", key_file().display()).map_err(failed)?;
+            crate::chave::save_key(key).map_err(failed)?;
+            writeln!(out, "chave guardada em {} (só o dono lê)", crate::chave::key_file().display())
+                .map_err(failed)?;
         }
     }
     let add = vec![
@@ -192,7 +182,7 @@ fn instalar(words: &[&str], out: &mut dyn Write) -> Result<i32, CiError> {
         "a skill: claude plugin marketplace add alexkads/RavenRS && claude plugin install raven-ci@ravenrs"
     )
     .map_err(failed)?;
-    if saved_key().is_none() && std::env::var("RAVEN_CI_TOKEN").is_err() {
+    if crate::chave::saved_key().is_none() && std::env::var("RAVEN_CI_TOKEN").is_err() {
         writeln!(
             out,
             "falta a chave: crie uma de programa (POST /api/auth/keys) e guarde com: echo CHAVE | raven-ci ia instalar --chave -"
@@ -217,21 +207,6 @@ fn instalar(words: &[&str], out: &mut dyn Write) -> Result<i32, CiError> {
             Ok(Exit::Local.code())
         }
     }
-}
-
-/// Keeps `key` in [`key_file`], readable only by its owner.
-fn save_key(key: &str) -> Result<(), CiError> {
-    let file = key_file();
-    if let Some(dir) = file.parent() {
-        std::fs::create_dir_all(dir).map_err(failed)?;
-    }
-    let _ = std::fs::remove_file(&file);
-    let mut options = std::fs::OpenOptions::new();
-    options.write(true).create_new(true);
-    #[cfg(unix)]
-    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
-    let mut handle = options.open(&file).map_err(failed)?;
-    handle.write_all(key.as_bytes()).map_err(failed)
 }
 
 /// `raven-ci ia`: what a session of AI needs to know, in one page.

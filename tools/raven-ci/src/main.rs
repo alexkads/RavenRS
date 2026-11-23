@@ -25,12 +25,15 @@
 
 mod agentes;
 mod apply;
+mod chave;
 mod cli;
+mod cliente;
 mod compilar;
 mod ia;
 mod mcp;
 mod plugins;
 mod remote;
+mod saida;
 mod self_test;
 mod server;
 mod service;

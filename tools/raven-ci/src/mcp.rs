@@ -36,7 +36,8 @@ use rmcp::{ServerHandler, ServiceExt, schemars, tool, tool_handler, tool_router}
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
-use crate::remote::{Refused, Server};
+use crate::cliente::Server;
+use crate::saida::Refused;
 
 /// The tools that act on builds: off for a key of a reader.
 pub const ACTING: [&str; 3] = ["rodar", "cancelar", "repetir"];
@@ -181,10 +182,11 @@ impl RavenCiServer {
     }
 
     #[tool(
+        name = "build",
         description = "O resumo de um build, feito para ler pouco: estado, causa, commit, duração, o estágio e o passo que falharam com as últimas 30 linhas, os testes que falharam com a mensagem, os diagnósticos do cargo com arquivo e linha, e o que o build guardou. Menos de 8 KB.",
         annotations(read_only_hint = true, open_world_hint = false)
     )]
-    async fn build(&self, Parameters(input): Parameters<BuildOf>) -> CallToolResult {
+    async fn build_summary(&self, Parameters(input): Parameters<BuildOf>) -> CallToolResult {
         blocking(move |server| {
             let number = match input.numero {
                 Some(number) => number,

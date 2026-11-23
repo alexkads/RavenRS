@@ -106,7 +106,10 @@ impl Invocation {
         if let Some(said) = crate::remote::run(&self.words, self.json, out) {
             return said;
         }
-        // Nor those for sessions of AI: the schema, checking a file, the MCP server (#941).
+        // Nor those for sessions of AI: the MCP server, the schema, checking a file (#941).
+        if self.words.as_slice() == ["mcp"] {
+            return crate::mcp::serve();
+        }
         if let Some(said) = crate::ia::run(&self.words, self.json, out) {
             return said;
         }
