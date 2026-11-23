@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use serde_json::Value;
 
-use crate::{AttachmentInfo, CiError, CiSnapshot, Permission};
+use crate::{Attachment, AttachmentInfo, CiError, CiSnapshot, Permission};
 
 /// What the core offers a plugin that is switched on, given to [`CiPlugin::start`](crate::CiPlugin::start).
 ///
@@ -98,5 +98,27 @@ pub trait Host: Send + Sync {
     /// does.
     fn snapshot(&self) -> Result<CiSnapshot, CiError> {
         Err(CiError::unavailable("este núcleo não dá o retrato do servidor aos plugins"))
+    }
+
+    /// The summary of the build `number` of `job`, as `GET /api/ci/build/summary` gives it: the
+    /// step that failed with its last lines, the tests that failed, the diagnostics (#941).
+    ///
+    /// **Its role.** What a plugin that reads why a build failed starts from, with no log to go
+    /// through: the explanation of a failure (#942). Asks no permission: the log in it is already
+    /// hidden, and the route that calls it is behind the sign-in. A host that keeps no builds
+    /// answers [`CiError::Unavailable`], as this default does.
+    fn build_summary(&self, job: &str, number: u64) -> Result<Value, CiError> {
+        let _ = (job, number);
+        Err(CiError::unavailable("este núcleo não dá o resumo dos builds aos plugins"))
+    }
+
+    /// Keeps `attachment` with the build `number` of `job`, as a publisher's are kept; its id.
+    ///
+    /// **Its role.** For what a plugin makes of a build after it ended, on a request and not in
+    /// its life: an explanation of a failure, kept so it is made once (#942). A host that keeps no
+    /// builds answers [`CiError::Unavailable`], as this default does.
+    fn attach(&self, job: &str, number: u64, attachment: &Attachment) -> Result<i64, CiError> {
+        let _ = (job, number, attachment);
+        Err(CiError::unavailable("este núcleo não guarda anexos dos plugins"))
     }
 }

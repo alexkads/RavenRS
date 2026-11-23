@@ -5,7 +5,7 @@ use std::fmt;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock, Weak};
 
-use raven_ci_plugin_api::{AttachmentInfo, CiError, CiSnapshot, Host, Migration, Permission};
+use raven_ci_plugin_api::{Attachment, AttachmentInfo, CiError, CiSnapshot, Host, Migration, Permission};
 use rusqlite::{Connection, params};
 use serde_json::Value;
 
@@ -21,6 +21,10 @@ pub(crate) trait Attachments: Send + Sync {
     fn one(&self, id: i64) -> Result<(AttachmentInfo, Vec<u8>), CiError>;
     /// The server at this moment (#913).
     fn snapshot(&self) -> Result<CiSnapshot, CiError>;
+    /// The summary of a build, as JSON.
+    fn summary(&self, job: &str, number: u64) -> Result<Value, CiError>;
+    /// Keeps an attachment with a build; its id.
+    fn attach(&self, job: &str, number: u64, attachment: &Attachment) -> Result<i64, CiError>;
 }
 
 /// The core, lent to the hosts once it is shared; weak, since the core holds the hosts.
@@ -268,5 +272,15 @@ impl Host for PluginHost {
 
     fn snapshot(&self) -> Result<CiSnapshot, CiError> {
         self.lent()?.snapshot()
+    }
+
+    fn build_summary(&self, job: &str, number: u64) -> Result<Value, CiError> {
+        self.lent()?.summary(job, number)
+    }
+
+    fn attach(&self, job: &str, number: u64, attachment: &Attachment) -> Result<i64, CiError> {
+        let id = self.lent()?.attach(job, number, attachment)?;
+        self.log.write(&format!("[{}] guardou {} no build {job} #{number}", self.plugin, attachment.name));
+        Ok(id)
     }
 }

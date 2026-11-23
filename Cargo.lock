@@ -6004,7 +6004,7 @@ dependencies = [
 
 [[package]]
 name = "raven-ci"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "raven-ci-core",
  "raven-ci-plugin-agent-local",
@@ -6018,6 +6018,7 @@ dependencies = [
  "raven-ci-plugin-cron",
  "raven-ci-plugin-docker",
  "raven-ci-plugin-email",
+ "raven-ci-plugin-explain",
  "raven-ci-plugin-format-jenkinsfile",
  "raven-ci-plugin-format-toml",
  "raven-ci-plugin-git",
@@ -6102,6 +6103,14 @@ dependencies = [
  "raven-ci-plugin-api",
  "ravenrs-app",
  "ravenrs-flows",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-explicador"
+version = "0.1.0"
+dependencies = [
+ "ravenrs-ai",
  "serde_json",
 ]
 
@@ -6271,6 +6280,20 @@ dependencies = [
  "raven-ci-plugin-shell",
  "ravenrs-app",
  "ravenrs-mail",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-explain"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-app-server",
+ "ravenrs-process",
  "serde_json",
 ]
 

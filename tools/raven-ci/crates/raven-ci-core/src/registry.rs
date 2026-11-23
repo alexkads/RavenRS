@@ -216,8 +216,11 @@ impl Registry {
     /// What changed, in words.
     pub fn apply(&self) -> Result<Vec<String>, CiError> {
         let mut inner = self.lock();
-        let rows: Vec<PluginRow> =
-            inner.entries.iter().map(|entry| self.store.plugin(entry.name())).collect::<Result<_, _>>()?;
+        let rows: Vec<PluginRow> = inner
+            .entries
+            .iter()
+            .map(|entry| self.store.plugin_or(entry.name(), entry.plugin.on_from_the_start()))
+            .collect::<Result<_, _>>()?;
         let enabled: Vec<usize> = (0..inner.entries.len()).filter(|&i| rows[i].enabled).collect();
         let entries: Vec<ModuleEntry> = enabled
             .iter()
@@ -325,10 +328,15 @@ impl Registry {
     }
 
     fn set(&self, name: &str, change: impl FnOnce(&mut PluginRow)) -> Result<(), CiError> {
-        if !self.lock().entries.iter().any(|entry| entry.name() == name) {
-            return Err(CiError::unavailable(format!("não há plugin com o nome {name}")));
-        }
-        let mut row = self.store.plugin(name)?;
+        let on_from_the_start = {
+            let inner = self.lock();
+            let Some(entry) = inner.entries.iter().find(|entry| entry.name() == name) else {
+                return Err(CiError::unavailable(format!("não há plugin com o nome {name}")));
+            };
+            entry.plugin.on_from_the_start()
+        };
+        // A plugin off from the start that is only configured stays off.
+        let mut row = self.store.plugin_or(name, on_from_the_start)?;
         change(&mut row);
         self.store.set_plugin(name, &row)
     }
@@ -429,6 +437,18 @@ impl Registry {
             .collect()
     }
 
+    /// The plugins that are not on: switched off, refused or never started. What says which plugin
+    /// to switch on when something asks for what only it brings.
+    pub fn not_on(&self) -> Vec<Arc<dyn CiPlugin>> {
+        let inner = self.lock();
+        inner
+            .entries
+            .iter()
+            .filter(|entry| !inner.started.iter().any(|name| name == entry.name()))
+            .map(|entry| entry.plugin.clone())
+            .collect()
+    }
+
     /// The kinds of step there are: the built-in nodes of `ravenrs-flows` and those of the
     /// plugins on.
     pub fn catalog(&self) -> Catalog {
@@ -481,7 +501,7 @@ impl Registry {
         state: PluginState,
     ) -> Result<PluginView, CiError> {
         let manifest = plugin.manifest();
-        let row = self.store.plugin(plugin.name())?;
+        let row = self.store.plugin_or(plugin.name(), plugin.on_from_the_start())?;
         let declared = Permission::declared(&manifest);
         let granted = declared.iter().copied().filter(|p| !row.revoked.contains(p)).collect();
         let points = match (&state, &external) {

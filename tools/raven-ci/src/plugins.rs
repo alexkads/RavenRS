@@ -14,6 +14,7 @@ use raven_ci_plugin_credentials::CredentialsPlugin;
 use raven_ci_plugin_cron::CronPlugin;
 use raven_ci_plugin_docker::DockerPlugin;
 use raven_ci_plugin_email::EmailPlugin;
+use raven_ci_plugin_explain::ExplainPlugin;
 use raven_ci_plugin_format_jenkinsfile::JenkinsfilePlugin;
 use raven_ci_plugin_format_toml::TomlFormatPlugin;
 use raven_ci_plugin_git::GitPlugin;
@@ -50,6 +51,7 @@ pub fn builtin() -> Vec<Arc<dyn CiPlugin>> {
         Arc::new(EmailPlugin::new()),
         Arc::new(WebhookOutPlugin::new()),
         Arc::new(MetricsPlugin::new()),
+        Arc::new(ExplainPlugin::new()),
         Arc::new(AgentLocalPlugin::new()),
         Arc::new(AgentRemotePlugin::new()),
     ]

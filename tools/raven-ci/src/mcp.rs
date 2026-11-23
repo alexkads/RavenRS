@@ -40,7 +40,7 @@ use crate::cliente::Server;
 use crate::saida::Refused;
 
 /// The tools that act on builds: off for a key of a reader.
-pub const ACTING: [&str; 3] = ["rodar", "cancelar", "repetir"];
+pub const ACTING: [&str; 4] = ["rodar", "cancelar", "repetir", "explicar"];
 /// The most lines `log` gives in one answer.
 const MOST_LINES: usize = 400;
 /// How long `rodar` with `esperar` waits unless told: half an hour.
@@ -276,6 +276,23 @@ impl RavenCiServer {
     }
 
     #[tool(
+        description = "Por que um build falhou, em duas ou três frases escritas por uma IA local (o plugin explain do servidor, que precisa estar ligado), guardadas com o build: a segunda vez não roda o modelo de novo.",
+        annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false)
+    )]
+    async fn explicar(&self, Parameters(input): Parameters<BuildOf>) -> CallToolResult {
+        blocking(move |server| {
+            let number = match input.numero {
+                Some(number) => number,
+                None => last(server, &input.job)?,
+            };
+            let path =
+                format!("/api/ci/build/explain?job={}&number={number}", crate::cliente::encode(&input.job));
+            server.post(&path, &json!({}))
+        })
+        .await
+    }
+
+    #[tool(
         description = "Cancela um build na fila ou rodando.",
         annotations(read_only_hint = false, destructive_hint = true, open_world_hint = false)
     )]
@@ -403,7 +420,7 @@ mod tests {
         for tool in ACTING {
             assert!(all.iter().any(|name| name == tool), "{tool} in {all:?}");
         }
-        assert_eq!(all.len(), 12, "{all:?}");
+        assert_eq!(all.len(), 13, "{all:?}");
         let read = names(&RavenCiServer::new(true));
         assert_eq!(read.len(), 9, "{read:?}");
         assert!(!read.iter().any(|name| ACTING.contains(&name.as_str())), "{read:?}");

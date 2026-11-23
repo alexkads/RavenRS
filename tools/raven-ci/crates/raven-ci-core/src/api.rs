@@ -292,12 +292,33 @@ fn plugin_route(
     who: &mut dyn FnMut() -> Option<Caller>,
 ) -> Option<ApiResponse> {
     let joined = format!("/{}", path.join("/"));
-    let route = ci
+    let Some(route) = ci
         .registry()
         .on()
         .iter()
         .flat_map(|plugin| plugin.routes())
-        .find(|route| route.matches(&request.method, &joined))?;
+        .find(|route| route.matches(&request.method, &joined))
+    else {
+        // A route of a plugin that is not on says which plugin to switch on (#942), to someone
+        // signed in.
+        let off = ci
+            .registry()
+            .not_on()
+            .into_iter()
+            .find(|plugin| plugin.routes().iter().any(|route| route.matches(&request.method, &joined)))?;
+        if who().is_none() {
+            return Some(unauthorized());
+        }
+        let name = off.name().to_owned();
+        return Some(json(
+            503,
+            &json!({
+                "error": "plugin_off",
+                "plugin": name,
+                "message": format!("o plugin {name} está desligado: ligue-o em Plugins, ou com raven-ci plugins ligar {name}"),
+            }),
+        ));
+    };
     let caller = if route.public {
         if !joined.starts_with(OPEN_PREFIX) {
             return Some(json(

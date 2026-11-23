@@ -1,5 +1,24 @@
 [
   {
+    "versao": "0.1.7",
+    "data": "2026-11-23",
+    "titulo": "O Raven CI explica por que um build falhou, com IA local.",
+    "importante": false,
+    "novidades": [
+      "raven-ci explicar JOB dá, em duas ou três frases, por que o build falhou e o que mudar, escritas por um modelo de IA que roda na própria máquina; a ferramenta explicar do MCP faz o mesmo.",
+      "O modelo nunca roda no processo do servidor: o subpacote raven-ci-explicador traz um socket do systemd que abre, para cada pedido, uma instância com memória própria e sem rede.",
+      "A explicação fica guardada com o build: pedir de novo não roda o modelo outra vez.",
+      "O plugin explain vem desligado; um plugin desligado agora diz, na rota, como ligá-lo, em vez de responder que a rota não existe."
+    ],
+    "por_que_atualizar": "Para entender a falha de um build sem ler o log e sem mandar nada para fora da máquina.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      942
+    ]
+  },
+  {
     "versao": "0.1.6",
     "data": "2026-11-23",
     "titulo": "O Raven CI fica pronto para sessões de IA.",

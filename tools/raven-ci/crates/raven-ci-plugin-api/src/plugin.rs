@@ -49,6 +49,13 @@ pub trait CiPlugin: Module + Send + Sync {
         String::new()
     }
 
+    /// Whether it is on the first time the server sees it, before an administrator says. True by
+    /// default; a plugin that needs something the machine may not have (a model of AI, a program
+    /// installed apart) says false, and an administrator switches it on (#942).
+    fn on_from_the_start(&self) -> bool {
+        true
+    }
+
     /// What its configuration holds, as an entity of `ravenrs-app`: the same description a form
     /// edits (`DetailView`, `ParameterForm`) and [`check_settings`](crate::check_settings) checks.
     /// `None` when it has no configuration.

@@ -28,7 +28,7 @@ mkdir -p "$(dirname "$TRAVA")"
   flock 9
   cd "$RAIZ"
   compilar=(env CARGO_TARGET_DIR="$ALVO" CARGO_BUILD_JOBS=2 CARGO_INCREMENTAL=0
-    nice -n 10 cargo build --release -q -p raven-ci -p raven-ci-agent)
+    nice -n 10 cargo build --release -q -p raven-ci -p raven-ci-agent -p raven-ci-explicador)
   # Inside a unit of systemd (INVOCATION_ID), the unit already has its limit of memory.
   if [ -n "${INVOCATION_ID:-}" ]; then
     "${compilar[@]}" 9>&-
@@ -40,9 +40,10 @@ mkdir -p "$(dirname "$TRAVA")"
 TOPO=$(mktemp -d)
 trap 'rm -rf "$TOPO"' EXIT
 mkdir -p "$TOPO/SOURCES"
-cp "$ALVO/release/raven-ci" "$ALVO/release/raven-ci-agent" \
+cp "$ALVO/release/raven-ci" "$ALVO/release/raven-ci-agent" "$ALVO/release/raven-ci-explicador" \
    "$FERRAMENTA/pacote/raven-ci.service" "$FERRAMENTA/pacote/raven-ci.sysusers" \
-   "$FERRAMENTA/pacote/agentes-de-outro-usuario.conf" "$FERRAMENTA/README.md" "$TOPO/SOURCES/"
+   "$FERRAMENTA/pacote/agentes-de-outro-usuario.conf" "$FERRAMENTA/README.md" \
+   "$FERRAMENTA/pacote/raven-ci-explicador.socket" "$FERRAMENTA/pacote/raven-ci-explicador@.service" "$TOPO/SOURCES/"
 cp "$PAINEL" "$TOPO/SOURCES/painel.tar"
 
 echo "empacotando…"
@@ -53,5 +54,5 @@ rpmbuild -bb --quiet \
   "$FERRAMENTA/pacote/raven-ci.spec"
 
 mkdir -p "$FERRAMENTA/pacote/rpm"
-cp "$TOPO"/RPMS/x86_64/raven-ci-"$VERSAO"-*.rpm "$FERRAMENTA/pacote/rpm/"
-ls -1 "$FERRAMENTA"/pacote/rpm/raven-ci-"$VERSAO"-*.rpm
+cp "$TOPO"/RPMS/x86_64/raven-ci-*"$VERSAO"-*.rpm "$FERRAMENTA/pacote/rpm/"
+ls -1 "$FERRAMENTA"/pacote/rpm/raven-ci-*"$VERSAO"-*.rpm

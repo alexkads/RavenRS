@@ -14,6 +14,9 @@ Source3:        raven-ci.sysusers
 Source4:        painel.tar
 Source5:        README.md
 Source6:        agentes-de-outro-usuario.conf
+Source7:        raven-ci-explicador
+Source8:        raven-ci-explicador.socket
+Source9:        raven-ci-explicador@.service
 ExclusiveArch:  x86_64
 
 BuildRequires:  systemd-rpm-macros
@@ -33,6 +36,20 @@ The service raven-ci runs as the user raven-ci, with its data in /var/lib/raven-
 127.0.0.1:8090, with MemoryMax=256M. The first person made with
 `raven-ci --dados /var/lib/raven-ci usuario criar NOME` is an administrator.
 
+%package explicador
+Summary:        Explains why a build of Raven CI failed, with a model of AI that runs on the machine
+Requires:       %{name} = %{version}-%{release}
+
+%description explicador
+raven-ci-explicador and its socket of systemd: the plugin explain of Raven CI asks it why a build
+failed, and a model of ravenrs-ai (qwen3-1.7b-q4 unless said) answers in two or three sentences.
+Each request runs in an instance of its own, with MemoryMax=6G and no network, out of the
+server's process. Download the model once, with network:
+
+  sudo -u raven-ci raven-ci-explicador baixar --pasta /var/lib/raven-ci-explicador/modelos
+
+then switch the plugin on: raven-ci plugins ligar explain.
+
 %prep
 # Nothing to prepare: the binaries and the panel come built.
 
@@ -49,6 +66,10 @@ tar -xf %{SOURCE4} -C %{buildroot}%{_datadir}/raven-ci/painel
 install -dm 0750 %{buildroot}%{_sharedstatedir}/raven-ci
 install -Dpm 0644 %{SOURCE5} %{buildroot}%{_docdir}/%{name}/README.md
 install -Dpm 0644 %{SOURCE6} %{buildroot}%{_datadir}/raven-ci/agentes-de-outro-usuario.conf
+install -Dpm 0755 %{SOURCE7} %{buildroot}%{_bindir}/raven-ci-explicador
+install -Dpm 0644 %{SOURCE8} %{buildroot}%{_unitdir}/raven-ci-explicador.socket
+install -Dpm 0644 %{SOURCE9} %{buildroot}%{_unitdir}/raven-ci-explicador@.service
+install -dm 0750 %{buildroot}%{_sharedstatedir}/raven-ci-explicador
 
 %pre
 %sysusers_create_compat %{SOURCE3}
@@ -76,7 +97,28 @@ fi
 %attr(0750,raven-ci,raven-ci) %dir %{_sharedstatedir}/raven-ci
 %doc %{_docdir}/%{name}/README.md
 
+%post explicador
+%systemd_post raven-ci-explicador.socket
+if [ $1 -eq 1 ]; then
+    systemctl enable --now raven-ci-explicador.socket >/dev/null 2>&1 || :
+fi
+
+%preun explicador
+%systemd_preun raven-ci-explicador.socket
+
+%postun explicador
+%systemd_postun_with_restart raven-ci-explicador.socket
+
+%files explicador
+%{_bindir}/raven-ci-explicador
+%{_unitdir}/raven-ci-explicador.socket
+%{_unitdir}/raven-ci-explicador@.service
+%attr(0750,raven-ci,raven-ci) %dir %{_sharedstatedir}/raven-ci-explicador
+
 %changelog
+* Mon Nov 23 2026 Alex <alexkads@users.noreply.github.com> - 0.1.7-1
+- The subpackage raven-ci-explicador, with its socket of systemd, for the plugin explain
+
 * Mon Nov 23 2026 Alex <alexkads@users.noreply.github.com> - 0.1.6-1
 - raven-ci mcp, the summary of a build and the schema of the pipeline, for sessions of AI
 

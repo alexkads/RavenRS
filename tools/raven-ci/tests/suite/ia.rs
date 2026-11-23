@@ -117,6 +117,7 @@ fn a_session_of_ai_runs_waits_and_reads_why_a_build_failed_through_mcp() {
         "rodar",
         "cancelar",
         "repetir",
+        "explicar",
         "validar_pipeline",
         "converter_jenkinsfile",
         "esquema_pipeline",
@@ -165,6 +166,11 @@ fn a_session_of_ai_runs_waits_and_reads_why_a_build_failed_through_mcp() {
     let summary = std::fs::read_to_string(folder.join("resumo.md")).expect("the resumo.md");
     assert!(summary.starts_with("# quebra #1: falhou"), "{summary}");
 
+    // The plugin explain is off from the start: the tool says how to switch it on (#942).
+    let (error, off) = session.call("explicar", json!({ "job": "quebra" }));
+    assert!(error, "{off}");
+    assert!(off["mensagem"].as_str().unwrap_or_default().contains("plugins ligar explain"), "{off}");
+
     let (error, missing) = session.call("build", json!({ "job": "nao/existe", "numero": 1 }));
     assert!(error, "{missing}");
     assert_eq!(missing["codigo"], "recusado", "{missing}");
@@ -177,7 +183,7 @@ fn a_key_of_a_reader_sees_no_tool_that_acts_and_cannot_run_one() {
     let key = token(&running, "caio");
     let mut session = Session::start(&running, &key);
     let tools = session.tools();
-    for acting in ["rodar", "cancelar", "repetir"] {
+    for acting in ["rodar", "cancelar", "repetir", "explicar"] {
         assert!(!tools.iter().any(|t| t == acting), "{acting} in {tools:?}");
     }
     assert!(tools.iter().any(|t| t == "build"), "{tools:?}");
