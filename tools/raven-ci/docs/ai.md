@@ -79,6 +79,14 @@ that broke, its `panicked at src/lib.rs:305:32`, the message and the `left`/`rig
 with the build (a workspace of hundreds of crates writes hundreds of kilobytes); the summary
 stays under 8 KB, about 2,000 tokens at most.
 
+The same build, asked of Claude Code (2.1.330) in a session with only the MCP server `raven-ci`
+(`claude -p … --strict-mcp-config`, the tools `rodar`, `build` and `log` allowed): "rode o job
+medida, espere e diga por que falhou". It ran the build with `rodar` and `esperar`, read the
+summary and answered right in 6 turns: the test `testes::soma_errada`, at `src/lib.rs:305`,
+expects 5 where `soma(2, 2)` gives 4, and the unused `sobra` makes the 2 warnings. Most of the
+tokens of such a session are its own context (the instructions and skills it loads), which the
+cache serves; what the build adds to it is the summary.
+
 ## Exit codes
 
 | Code | Name in JSON | Means |
