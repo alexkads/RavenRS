@@ -225,6 +225,28 @@ fn the_schema_the_check_and_the_installation_need_no_server() {
     let missing = raven(&dir).args(["validar", "/nao/existe.toml"]).output().expect("runs");
     assert_eq!(missing.status.code(), Some(6));
 
+    // A file of jobs of `aplicar` is checked job by job, not as one pipeline (#946).
+    let jobs = dir.join("oficina.toml");
+    std::fs::write(
+        &jobs,
+        "[[jobs]]\nname = \"certo\"\npipeline = \"\"\"\n[[stages]]\nname = \"a\"\nsteps = [\"true\"]\n\"\"\"\n\n\
+         [[jobs]]\nname = \"ruim\"\npipeline = \"\"\"\n[[stages]]\nname = \"a\"\nstep = [\"x\"]\n\"\"\"\n",
+    )
+    .expect("written");
+    let checked = raven(&dir)
+        .args(["validar", &jobs.display().to_string(), "--format", "json"])
+        .output()
+        .expect("runs");
+    let said: Value = serde_json::from_slice(&checked.stdout).expect("json");
+    assert_eq!(checked.status.code(), Some(1), "{said}");
+    assert_eq!(said["formato"], "jobs", "{said}");
+    let errors = said["erros"].as_array().expect("errors");
+    assert!(errors.iter().all(|e| e["job"] == "ruim"), "only the job that is wrong: {said}");
+    assert!(
+        errors.iter().any(|e| e["mensagem"].as_str().unwrap_or_default().contains("job ruim: linha")),
+        "{said}"
+    );
+
     let install = raven(&dir)
         .args(["ia", "instalar", "--servidor", "http://ci:8090", "--so-mostrar"])
         .env_remove("RAVEN_CI_TOKEN")

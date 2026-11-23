@@ -97,6 +97,38 @@ pub fn check(name: &str, text: &str) -> Result<(String, Vec<Value>), CiError> {
     Ok((id, errors))
 }
 
+/// Whether `text` is a file of jobs of `raven-ci aplicar` (`[[jobs]]`), not a pipeline (#946).
+fn is_jobs_file(text: &str) -> bool {
+    text.lines().any(|line| line.trim() == "[[jobs]]")
+}
+
+/// The errors of a file of jobs: the file itself (a field it does not know, a job twice), then the
+/// pipeline of each job that has one, each error naming its job. A job that reads its pipeline from
+/// the repository has none here to check.
+fn check_jobs(file: &Path) -> Result<(String, Vec<Value>), CiError> {
+    let config = match raven_ci_core::config::ServerConfig::read(file) {
+        Ok(config) => config,
+        Err(e) => return Ok(("jobs".to_owned(), vec![json!({ "linha": null, "mensagem": e.to_string() })])),
+    };
+    let mut errors = Vec::new();
+    for job in &config.jobs {
+        let Some(pipeline) = job.pipeline.as_deref().filter(|p| !p.trim().is_empty()) else { continue };
+        let name =
+            if job.format.as_deref() == Some("jenkinsfile") { "Jenkinsfile" } else { ".raven-ci.toml" };
+        let (_, found) = check(name, pipeline)?;
+        for mut error in found {
+            let said = error["mensagem"].as_str().unwrap_or_default().to_owned();
+            let at =
+                error["linha"].as_u64().map(|line| format!("linha {line} do pipeline: ")).unwrap_or_default();
+            error["job"] = json!(job.name);
+            error["mensagem"] = json!(format!("job {}: {at}{said}", job.name));
+            error["linha"] = Value::Null;
+            errors.push(error);
+        }
+    }
+    Ok(("jobs".to_owned(), errors))
+}
+
 fn validar(file: &Path, json: bool, out: &mut dyn Write) -> Result<i32, CiError> {
     let text = match std::fs::read_to_string(file) {
         Ok(text) => text,
@@ -115,7 +147,8 @@ fn validar(file: &Path, json: bool, out: &mut dyn Write) -> Result<i32, CiError>
             return Ok(Exit::Local.code());
         }
     };
-    let (format, errors) = check(&file.display().to_string(), &text)?;
+    let (format, errors) =
+        if is_jobs_file(&text) { check_jobs(file)? } else { check(&file.display().to_string(), &text)? };
     if json {
         let said = json!({ "arquivo": file.display().to_string(), "formato": format, "valido": errors.is_empty(), "erros": errors });
         writeln!(out, "{said}").map_err(failed)?;
