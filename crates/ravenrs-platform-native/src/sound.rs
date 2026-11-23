@@ -34,7 +34,7 @@ impl SystemSound {
             let (sender, receiver) = mpsc::channel();
             let worker = std::thread::Builder::new().name("ravenrs-sound".to_owned()).spawn(move || {
                 let mut output = Output::default();
-                let mut voice = super::Voice::default();
+                let mut voice = Voice::default();
                 loop {
                     let order = if output.is_open() {
                         match receiver.recv_timeout(QUIET_BEFORE_CLOSING) {
@@ -354,7 +354,7 @@ mod tests {
     #[test]
     #[ignore = "it speaks out loud; run it with --ignored"]
     fn the_voice_starts_and_stops_when_told() {
-        let mut voice = Voice::default();
+        let mut voice = super::Voice::default();
         voice.speak("Clique em Salvar lançamento para guardar a despesa.", "pt-BR");
         std::thread::sleep(std::time::Duration::from_millis(400));
         let child = voice.speaking.as_mut().map(|child| child.try_wait().map(|status| status.is_none()));
