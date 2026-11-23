@@ -66,7 +66,12 @@ impl Session {
 
     fn tools(&mut self) -> Vec<String> {
         let listed = self.ask("tools/list", json!({}));
-        listed["tools"].as_array().expect("tools").iter().map(|t| t["name"].as_str().unwrap_or_default().to_owned()).collect()
+        listed["tools"]
+            .as_array()
+            .expect("tools")
+            .iter()
+            .map(|t| t["name"].as_str().unwrap_or_default().to_owned())
+            .collect()
     }
 
     fn call(&mut self, tool: &str, arguments: Value) -> (bool, Value) {
@@ -87,8 +92,11 @@ impl Drop for Session {
 fn jobs(dir: &std::path::Path) {
     let ci = Ci::open(dir).expect("a core");
     let settings = json!({ "triggers": [{ "id": "api" }] });
-    ci.save_job(JobSpec::new("passa", "toml", "[[stages]]\nname = \"Ok\"\nsteps = [\"echo tudo-certo\"]\n").settings(settings.clone()))
-        .expect("passa");
+    ci.save_job(
+        JobSpec::new("passa", "toml", "[[stages]]\nname = \"Ok\"\nsteps = [\"echo tudo-certo\"]\n")
+            .settings(settings.clone()),
+    )
+    .expect("passa");
     ci.save_job(
         JobSpec::new("quebra", "toml", "[[stages]]\nname = \"Testa\"\nsteps = [\"echo antes\", \"echo o-erro-que-importa >&2; exit 4\"]\n")
             .settings(settings),
@@ -102,7 +110,20 @@ fn a_session_of_ai_runs_waits_and_reads_why_a_build_failed_through_mcp() {
     let key = token(&running, "ana");
     let mut session = Session::start(&running, &key);
     let tools = session.tools();
-    for tool in ["resumo_geral", "build", "log", "rodar", "cancelar", "repetir", "validar_pipeline", "converter_jenkinsfile", "esquema_pipeline", "evidencia", "fila_e_agentes", "historico"] {
+    for tool in [
+        "resumo_geral",
+        "build",
+        "log",
+        "rodar",
+        "cancelar",
+        "repetir",
+        "validar_pipeline",
+        "converter_jenkinsfile",
+        "esquema_pipeline",
+        "evidencia",
+        "fila_e_agentes",
+        "historico",
+    ] {
         assert!(tools.iter().any(|t| t == tool), "{tool} in {tools:?}");
     }
 
@@ -125,7 +146,8 @@ fn a_session_of_ai_runs_waits_and_reads_why_a_build_failed_through_mcp() {
     let (_, overview) = session.call("resumo_geral", json!({}));
     assert_eq!(overview["jobs"].as_array().map(Vec::len), Some(2), "{overview}");
 
-    let (_, checked) = session.call("validar_pipeline", json!({ "texto": "[[stages]]\nname = \"a\"\nstep = [\"x\"]\n" }));
+    let (_, checked) =
+        session.call("validar_pipeline", json!({ "texto": "[[stages]]\nname = \"a\"\nstep = [\"x\"]\n" }));
     assert_eq!(checked["valido"], false, "{checked}");
     assert!(checked["erros"].to_string().contains("step"), "{checked}");
     let (_, schema) = session.call("esquema_pipeline", json!({}));
@@ -137,7 +159,8 @@ fn a_session_of_ai_runs_waits_and_reads_why_a_build_failed_through_mcp() {
     assert_eq!(converted["completo"], true, "{converted}");
 
     let folder = running.dir.join("evidencia-mcp");
-    let (error, evidence) = session.call("evidencia", json!({ "job": "quebra", "numero": 1, "pasta": folder.display().to_string() }));
+    let (error, evidence) = session
+        .call("evidencia", json!({ "job": "quebra", "numero": 1, "pasta": folder.display().to_string() }));
     assert!(!error, "{evidence}");
     let summary = std::fs::read_to_string(folder.join("resumo.md")).expect("the resumo.md");
     assert!(summary.starts_with("# quebra #1: falhou"), "{summary}");
@@ -174,12 +197,21 @@ fn the_schema_the_check_and_the_installation_need_no_server() {
     assert_eq!(schema["title"], ".raven-ci.toml");
 
     let good = dir.join(".raven-ci.toml");
-    std::fs::write(&good, "[[stages]]\nname = \"a\"\nsteps = [\"echo x\", { cargo = \"test\" }]\n").expect("written");
-    let checked = raven(&dir).args(["validar", &good.display().to_string(), "--format", "json"]).output().expect("runs");
+    std::fs::write(&good, "[[stages]]\nname = \"a\"\nsteps = [\"echo x\", { cargo = \"test\" }]\n")
+        .expect("written");
+    let checked = raven(&dir)
+        .args(["validar", &good.display().to_string(), "--format", "json"])
+        .output()
+        .expect("runs");
     assert_eq!(checked.status.code(), Some(0), "{}", String::from_utf8_lossy(&checked.stdout));
     let bad = dir.join("ruim.raven-ci.toml");
-    std::fs::write(&bad, "[[stages]]\nname = \"a\"\nsteps = [{ uses = \"nada/passo\" }]\ntimeout = \"logo\"\n").expect("written");
-    let checked = raven(&dir).args(["validar", &bad.display().to_string(), "--format", "json"]).output().expect("runs");
+    std::fs::write(
+        &bad,
+        "[[stages]]\nname = \"a\"\nsteps = [{ uses = \"nada/passo\" }]\ntimeout = \"logo\"\n",
+    )
+    .expect("written");
+    let checked =
+        raven(&dir).args(["validar", &bad.display().to_string(), "--format", "json"]).output().expect("runs");
     assert_eq!(checked.status.code(), Some(1));
     let said: Value = serde_json::from_slice(&checked.stdout).expect("json");
     assert_eq!(said["valido"], false);
@@ -194,7 +226,10 @@ fn the_schema_the_check_and_the_installation_need_no_server() {
         .expect("runs");
     let text = String::from_utf8_lossy(&install.stdout);
     assert_eq!(install.status.code(), Some(0), "{text}");
-    assert!(text.contains("claude mcp add raven-ci --scope user -e RAVEN_CI_SERVIDOR=http://ci:8090 --"), "{text}");
+    assert!(
+        text.contains("claude mcp add raven-ci --scope user -e RAVEN_CI_SERVIDOR=http://ci:8090 --"),
+        "{text}"
+    );
     assert!(text.contains("\"RAVEN_CI_SERVIDOR\": \"http://ci:8090\""), "{text}");
     let guide = raven(&dir).arg("ia").output().expect("runs");
     assert!(String::from_utf8_lossy(&guide.stdout).contains("3 sem_servidor"));

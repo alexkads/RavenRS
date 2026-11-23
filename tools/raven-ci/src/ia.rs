@@ -114,8 +114,12 @@ fn validar(file: &Path, json: bool, out: &mut dyn Write) -> Result<i32, CiError>
         Err(e) => {
             let said = format!("{}: {e}", file.display());
             if json {
-                writeln!(out, "{}", json!({ "codigo": Exit::Local.name(), "saida": Exit::Local.code(), "mensagem": said }))
-                    .map_err(failed)?;
+                writeln!(
+                    out,
+                    "{}",
+                    json!({ "codigo": Exit::Local.name(), "saida": Exit::Local.code(), "mensagem": said })
+                )
+                .map_err(failed)?;
             } else {
                 writeln!(out, "{said}").map_err(failed)?;
             }
@@ -183,8 +187,11 @@ fn instalar(words: &[&str], out: &mut dyn Write) -> Result<i32, CiError> {
     writeln!(out, "Claude Code: claude {}", add.join(" ")).map_err(failed)?;
     writeln!(out, "outro cliente de MCP:\n{}", serde_json::to_string_pretty(&config).map_err(failed)?)
         .map_err(failed)?;
-    writeln!(out, "a skill: claude plugin marketplace add alexkads/RavenRS && claude plugin install raven-ci@ravenrs")
-        .map_err(failed)?;
+    writeln!(
+        out,
+        "a skill: claude plugin marketplace add alexkads/RavenRS && claude plugin install raven-ci@ravenrs"
+    )
+    .map_err(failed)?;
     if saved_key().is_none() && std::env::var("RAVEN_CI_TOKEN").is_err() {
         writeln!(
             out,
@@ -205,7 +212,8 @@ fn instalar(words: &[&str], out: &mut dyn Write) -> Result<i32, CiError> {
             Ok(Exit::Local.code())
         }
         Err(_) => {
-            writeln!(out, "não achei o claude no PATH: registre com o comando ou o JSON acima").map_err(failed)?;
+            writeln!(out, "não achei o claude no PATH: registre com o comando ou o JSON acima")
+                .map_err(failed)?;
             Ok(Exit::Local.code())
         }
     }

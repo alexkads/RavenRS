@@ -174,7 +174,8 @@ fn without_colors(text: &str) -> String {
         let start = if chars[n] == '\u{1b}' && chars.get(n + 1) == Some(&'[') { n + 1 } else { n };
         if chars[start] == '[' {
             let mut end = start + 1;
-            while end < chars.len() && end - start <= 12 && (chars[end].is_ascii_digit() || chars[end] == ';') {
+            while end < chars.len() && end - start <= 12 && (chars[end].is_ascii_digit() || chars[end] == ';')
+            {
                 end += 1;
             }
             if end < chars.len() && chars[end] == 'm' && (end > start + 1 || start > n) {
@@ -231,7 +232,9 @@ fn text_of(value: &Value, field: &str) -> Option<String> {
 fn tests_of(value: &Value) -> Tests {
     let mut tests = Tests { tests: 0, failures: 0, errors: 0, skipped: 0, failed: Vec::new() };
     let suites = value.get("suites").and_then(Value::as_array).cloned().unwrap_or_default();
-    for case in suites.iter().flat_map(|suite| suite.get("cases").and_then(Value::as_array).cloned().unwrap_or_default())
+    for case in suites
+        .iter()
+        .flat_map(|suite| suite.get("cases").and_then(Value::as_array).cloned().unwrap_or_default())
     {
         tests.tests += 1;
         let name = format!(
@@ -258,7 +261,10 @@ fn tests_of(value: &Value) -> Tests {
         if let Some(problem) = problem {
             let message = text_of(problem, "message")
                 .filter(|m| !m.trim().is_empty())
-                .or_else(|| text_of(problem, "text").and_then(|t| t.lines().find(|l| !l.trim().is_empty()).map(str::to_owned)))
+                .or_else(|| {
+                    text_of(problem, "text")
+                        .and_then(|t| t.lines().find(|l| !l.trim().is_empty()).map(str::to_owned))
+                })
                 .unwrap_or_default();
             tests.failed.push(FailedTest { name: cut(&name), message: cut(&message) });
         }
@@ -277,7 +283,13 @@ fn diagnostics_of(value: &Value) -> Diagnostics {
     // `cargo test` builds the library and its tests: the same diagnostic comes twice.
     let mut seen = std::collections::BTreeSet::new();
     sorted.retain(|d| {
-        seen.insert((level(d), text_of(d, "code"), text_of(d, "file"), d.get("line").and_then(Value::as_u64), text_of(d, "message")))
+        seen.insert((
+            level(d),
+            text_of(d, "code"),
+            text_of(d, "file"),
+            d.get("line").and_then(Value::as_u64),
+            text_of(d, "message"),
+        ))
     });
     let first = sorted
         .into_iter()
@@ -292,7 +304,12 @@ fn diagnostics_of(value: &Value) -> Diagnostics {
                 }
                 place
             });
-            Diagnostic { level: level(d), code: text_of(d, "code"), place, message: cut(&text_of(d, "message").unwrap_or_default()) }
+            Diagnostic {
+                level: level(d),
+                code: text_of(d, "code"),
+                place,
+                message: cut(&text_of(d, "message").unwrap_or_default()),
+            }
         })
         .collect();
     Diagnostics { errors, warnings, first }
@@ -353,10 +370,15 @@ impl Ci {
         let started = log.first().map(|line| line.at_ms);
         let duration_ms = started.map(|at| build.ended_ms.unwrap_or_else(|| self.store.now_ms()) - at);
         let failed = stages.iter().find_map(|stage| {
-            stage.steps.iter().find(|step| step.status == "failed").map(|step| (stage.name.clone(), step.clone()))
+            stage
+                .steps
+                .iter()
+                .find(|step| step.status == "failed")
+                .map(|step| (stage.name.clone(), step.clone()))
         });
         let tail_of = |step: &str| -> (Vec<String>, usize) {
-            let all: Vec<&str> = log.iter().filter(|line| line.step == step).map(|line| line.text.as_str()).collect();
+            let all: Vec<&str> =
+                log.iter().filter(|line| line.step == step).map(|line| line.text.as_str()).collect();
             let lines: Vec<&str> = all.iter().copied().filter(|line| !noise(line)).collect();
             let tail = lines[lines.len().saturating_sub(TAIL_LINES)..].iter().map(|line| cut(line)).collect();
             (tail, all.len() - lines.len())
@@ -397,7 +419,10 @@ impl Ci {
             commit: build.commit.clone(),
             duration_ms,
             reason: build.reason.as_deref().map(cut),
-            stages: stages.iter().map(|s| StageLine { name: s.name.clone(), status: s.status.clone() }).collect(),
+            stages: stages
+                .iter()
+                .map(|s| StageLine { name: s.name.clone(), status: s.status.clone() })
+                .collect(),
             failed,
             tests: None,
             diagnostics: None,
@@ -455,13 +480,20 @@ pub fn to_markdown(summary: &BuildSummary) -> String {
         out.push_str(&format!("- {mark} {} ({})\n", stage.name, stage.status));
     }
     if let Some(failed) = &summary.failed {
-        let at = if failed.stage.is_empty() { failed.title.clone() } else { format!("{} › {}", failed.stage, failed.title) };
+        let at = if failed.stage.is_empty() {
+            failed.title.clone()
+        } else {
+            format!("{} › {}", failed.stage, failed.title)
+        };
         out.push_str(&format!("\n## O que falhou: {at}\n\n"));
         if let Some(error) = &failed.error {
             out.push_str(&format!("{error}\n\n"));
         }
         if failed.noise_left_out > 0 {
-            out.push_str(&format!("_As últimas linhas, sem {} de progresso e testes que passaram:_\n\n", failed.noise_left_out));
+            out.push_str(&format!(
+                "_As últimas linhas, sem {} de progresso e testes que passaram:_\n\n",
+                failed.noise_left_out
+            ));
         }
         if !failed.tail.is_empty() {
             out.push_str("```text\n");
@@ -501,7 +533,10 @@ pub fn to_markdown(summary: &BuildSummary) -> String {
     if !summary.attachments.is_empty() {
         out.push_str("\n## O que o build guardou\n\n");
         for attachment in &summary.attachments {
-            out.push_str(&format!("- {} ({}, {} bytes, id {})\n", attachment.name, attachment.kind, attachment.size, attachment.id));
+            out.push_str(&format!(
+                "- {} ({}, {} bytes, id {})\n",
+                attachment.name, attachment.kind, attachment.size, attachment.id
+            ));
         }
     }
     if summary.truncated {
@@ -526,7 +561,10 @@ mod tests {
         ]}]});
         let tests = tests_of(&report);
         assert_eq!((tests.tests, tests.failures, tests.errors, tests.skipped), (4, 1, 1, 1));
-        assert_eq!(tests.failed[0], FailedTest { name: "pedidos::paga".into(), message: "esperava 2, veio 3".into() });
+        assert_eq!(
+            tests.failed[0],
+            FailedTest { name: "pedidos::paga".into(), message: "esperava 2, veio 3".into() }
+        );
         assert_eq!(tests.failed[1].message, "panicked at x");
     }
 
@@ -551,10 +589,19 @@ mod tests {
 
     #[test]
     fn progress_and_tests_that_passed_are_noise_and_failures_are_not() {
-        for line in ["   Compiling serde v1.0.228", "test testes::soma_1 ... ok", "", "\u{1b}[1m\u{1b}[32m   Compiling\u{1b}[0m x"] {
+        for line in [
+            "   Compiling serde v1.0.228",
+            "test testes::soma_1 ... ok",
+            "",
+            "\u{1b}[1m\u{1b}[32m   Compiling\u{1b}[0m x",
+        ] {
             assert!(noise(line), "{line:?}");
         }
-        for line in ["test testes::soma_errada ... FAILED", "thread 'x' panicked at src/lib.rs:6:32:", "error[E0308]: tipos"] {
+        for line in [
+            "test testes::soma_errada ... FAILED",
+            "thread 'x' panicked at src/lib.rs:6:32:",
+            "error[E0308]: tipos",
+        ] {
             assert!(!noise(line), "{line:?}");
         }
     }

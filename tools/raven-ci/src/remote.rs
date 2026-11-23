@@ -141,7 +141,11 @@ fn run_command(command: &str, words: &[String], json: bool, out: &mut dyn Write)
         }
         _ => {
             if args.json {
-                return refuse(out, &Refused::usage(format!("{command}: palavras que ele não aceita; veja raven-ci ajuda")), true);
+                return refuse(
+                    out,
+                    &Refused::usage(format!("{command}: palavras que ele não aceita; veja raven-ci ajuda")),
+                    true,
+                );
             }
             writeln!(out, "{}", crate::cli::USAGE).map_err(failed)?;
             return Ok(Exit::Usage.code());
@@ -187,8 +191,15 @@ pub enum Exit {
 
 impl Exit {
     /// Every one, in the order of their codes.
-    pub const ALL: [Self; 7] =
-        [Self::Done, Self::BuildFailed, Self::Usage, Self::Unreachable, Self::Denied, Self::Refused, Self::Local];
+    pub const ALL: [Self; 7] = [
+        Self::Done,
+        Self::BuildFailed,
+        Self::Usage,
+        Self::Unreachable,
+        Self::Denied,
+        Self::Refused,
+        Self::Local,
+    ];
 
     /// The exit code.
     pub fn code(self) -> i32 {
@@ -296,8 +307,10 @@ impl Server {
             .trim_end_matches('/')
             .to_owned();
         // The key: RAVEN_CI_TOKEN, else the one `ia instalar` saved (#941).
-        let token =
-            std::env::var("RAVEN_CI_TOKEN").ok().filter(|t| !t.trim().is_empty()).or_else(crate::ia::saved_key);
+        let token = std::env::var("RAVEN_CI_TOKEN")
+            .ok()
+            .filter(|t| !t.trim().is_empty())
+            .or_else(crate::ia::saved_key);
         let agent = ureq::Agent::config_builder()
             .http_status_as_error(false)
             .timeout_global(Some(Duration::from_secs(60)))
@@ -307,7 +320,11 @@ impl Server {
     }
 
     /// `GET` of `path` with `query`: the status, the type and the bytes of the answer.
-    pub(crate) fn fetch(&self, path: &str, query: &[(&str, String)]) -> Result<(u16, String, Vec<u8>), Refused> {
+    pub(crate) fn fetch(
+        &self,
+        path: &str,
+        query: &[(&str, String)],
+    ) -> Result<(u16, String, Vec<u8>), Refused> {
         let mut url = format!("{}{path}", self.base);
         for (i, (name, value)) in query.iter().enumerate() {
             url.push(if i == 0 { '?' } else { '&' });
@@ -322,10 +339,13 @@ impl Server {
     }
 
     fn unreachable(&self, e: &ureq::Error) -> Refused {
-        Refused::with(Exit::Unreachable, format!(
-            "o servidor em {} não respondeu ({e}); ele está de pé? (raven-ci servir, ou --servidor URL)",
-            self.base
-        ))
+        Refused::with(
+            Exit::Unreachable,
+            format!(
+                "o servidor em {} não respondeu ({e}); ele está de pé? (raven-ci servir, ou --servidor URL)",
+                self.base
+            ),
+        )
     }
 
     fn read(&self, mut answer: ureq::http::Response<ureq::Body>) -> Result<(u16, String, Vec<u8>), Refused> {
@@ -363,7 +383,8 @@ impl Server {
 
     pub(crate) fn get(&self, path: &str, query: &[(&str, String)]) -> Result<Value, Refused> {
         let (_, _, bytes) = self.fetch(path, query)?;
-        serde_json::from_slice(&bytes).map_err(|e| Refused::new(format!("a resposta de {path} não é JSON: {e}")))
+        serde_json::from_slice(&bytes)
+            .map_err(|e| Refused::new(format!("a resposta de {path} não é JSON: {e}")))
     }
 
     pub(crate) fn post(&self, path: &str, body: &Value) -> Result<Value, Refused> {
@@ -374,7 +395,8 @@ impl Server {
         }
         let answer = request.send(body.to_string()).map_err(|e| self.unreachable(&e))?;
         let (_, _, bytes) = self.read(answer)?;
-        serde_json::from_slice(&bytes).map_err(|e| Refused::new(format!("a resposta de {path} não é JSON: {e}")))
+        serde_json::from_slice(&bytes)
+            .map_err(|e| Refused::new(format!("a resposta de {path} não é JSON: {e}")))
     }
 
     fn delete(&self, path: &str, query: &[(&str, String)]) -> Result<Value, Refused> {
@@ -389,7 +411,8 @@ impl Server {
         }
         let answer = request.call().map_err(|e| self.unreachable(&e))?;
         let (_, _, bytes) = self.read(answer)?;
-        serde_json::from_slice(&bytes).map_err(|e| Refused::new(format!("a resposta de {path} não é JSON: {e}")))
+        serde_json::from_slice(&bytes)
+            .map_err(|e| Refused::new(format!("a resposta de {path} não é JSON: {e}")))
     }
 
     /// The build `number` of `job`, with its stages and attachments.
@@ -574,7 +597,13 @@ fn log(server: &Server, job: &str, number: &str, args: &Args, out: &mut dyn Writ
 /// `resumo`.
 /// `resumo JOB [NUMERO]`: the summary of a build for programs and sessions of AI (#941), in
 /// Markdown, or in JSON with `--format json`. It ends with 1 when the build failed.
-fn resumo_do_build(server: &Server, job: &str, number: Option<&str>, args: &Args, out: &mut dyn Write) -> Said {
+fn resumo_do_build(
+    server: &Server,
+    job: &str,
+    number: Option<&str>,
+    args: &Args,
+    out: &mut dyn Write,
+) -> Said {
     let mut query = vec![("job", job.to_owned())];
     if let Some(number) = number {
         query.push(("number", number_of(number)?.to_string()));
@@ -592,7 +621,12 @@ fn resumo_do_build(server: &Server, job: &str, number: Option<&str>, args: &Args
 }
 
 /// What `evidencia` downloads, as JSON: for the MCP's `evidencia`.
-pub(crate) fn evidencia_json(server: &Server, job: &str, number: u64, folder: &Path) -> Result<Value, Refused> {
+pub(crate) fn evidencia_json(
+    server: &Server,
+    job: &str,
+    number: u64,
+    folder: &Path,
+) -> Result<Value, Refused> {
     let args = Args { json: true, ..Args::default() };
     let mut said = Vec::new();
     evidencia(server, job, &number.to_string(), folder, &args, &mut said)?;
@@ -695,7 +729,9 @@ fn aplicar(server: &Server, file: &str, args: &Args, out: &mut dyn Write) -> Sai
 /// standard input): never in the words of the command, which anyone on the machine reads in `ps`.
 fn credencial_criar(server: &Server, name: &str, text: &str, args: &Args, out: &mut dyn Write) -> Said {
     let Some(kind) = &args.kind else {
-        return Err(Refused::usage("diga o tipo: --tipo token, user-password, ssh-key ou arquivo".to_owned()));
+        return Err(Refused::usage(
+            "diga o tipo: --tipo token, user-password, ssh-key ou arquivo".to_owned(),
+        ));
     };
     let fields: Value = serde_json::from_str(text).map_err(|_| {
         Refused::usage(

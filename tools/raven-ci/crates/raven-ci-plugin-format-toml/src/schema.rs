@@ -14,7 +14,9 @@
 
 use serde_json::{Map, Value, json};
 
-use crate::read::{AGENT, BRANCH, CONTAINER, CREDENTIAL_FILE, PARAMETER, PIPELINE, POST, STAGE, STEP, TOP, WHEN};
+use crate::read::{
+    AGENT, BRANCH, CONTAINER, CREDENTIAL_FILE, PARAMETER, PIPELINE, POST, STAGE, STEP, TOP, WHEN,
+};
 
 /// A period as the house writes it.
 fn duration(what: &str) -> Value {
@@ -39,7 +41,8 @@ fn boolean(description: &str) -> Value {
 
 /// A table with exactly `fields`, each described by `describe`; `required` are needed.
 fn table(fields: &[&str], required: &[&str], description: &str, describe: impl Fn(&str) -> Value) -> Value {
-    let properties: Map<String, Value> = fields.iter().map(|field| ((*field).to_owned(), describe(field))).collect();
+    let properties: Map<String, Value> =
+        fields.iter().map(|field| ((*field).to_owned(), describe(field))).collect();
     let mut table = json!({
         "type": "object",
         "description": description,
@@ -96,27 +99,34 @@ fn stage() -> Value {
         "name" => text("O nome, um por estágio"),
         "steps" => steps(),
         "parallel" => json!({ "type": "array", "description": "Ramos no lugar de steps", "items":
-            table(BRANCH, &["name", "steps"], "Um ramo", |field| match field {
-                "name" => text("O nome do ramo"),
-                "steps" => steps(),
-                _ => json!({}),
-            })}),
-        "when" => table(WHEN, &[], "Quando o estágio roda: toda condição dada tem de valer", |field| match field {
-            "branch" => texts("A branch, ou a lista; um padrão que acaba em * pega o começo"),
-            "pull_request" => boolean("Só num pull request (true) ou só numa branch (false)"),
-            "parameter" => text("Um parâmetro bool que tem de ser verdadeiro"),
+        table(BRANCH, &["name", "steps"], "Um ramo", |field| match field {
+            "name" => text("O nome do ramo"),
+            "steps" => steps(),
             _ => json!({}),
-        }),
+        })}),
+        "when" => {
+            table(WHEN, &[], "Quando o estágio roda: toda condição dada tem de valer", |field| match field
+            {
+                "branch" => texts("A branch, ou a lista; um padrão que acaba em * pega o começo"),
+                "pull_request" => boolean("Só num pull request (true) ou só numa branch (false)"),
+                "parameter" => text("Um parâmetro bool que tem de ser verdadeiro"),
+                _ => json!({}),
+            })
+        }
         "timeout" => duration("O limite de cada passo do estágio"),
         "retry" => integer("Quantas vezes mais cada passo é tentado"),
         "lock" => text("Uma trava: um build por vez a segura (plugin lock)"),
         "nice" => integer("Cada sh roda com nice -n N"),
-        "container" => table(CONTAINER, &["image"], "Cada sh roda na imagem (plugin docker)", |field| match field {
-            "image" => text("A imagem"),
-            "args" => texts("Mais palavras do docker run"),
-            "env" => json!({ "type": "object", "additionalProperties": { "type": "string" }, "description": "Variáveis do contêiner" }),
-            _ => json!({}),
-        }),
+        "container" => {
+            table(CONTAINER, &["image"], "Cada sh roda na imagem (plugin docker)", |field| match field {
+                "image" => text("A imagem"),
+                "args" => texts("Mais palavras do docker run"),
+                "env" => {
+                    json!({ "type": "object", "additionalProperties": { "type": "string" }, "description": "Variáveis do contêiner" })
+                }
+                _ => json!({}),
+            })
+        }
         "credentials" => credentials(),
         _ => json!({}),
     })
@@ -124,41 +134,51 @@ fn stage() -> Value {
 
 /// The JSON Schema of `.raven-ci.toml`.
 pub fn schema() -> Value {
-    let mut root = table(TOP, &["stages"], "O pipeline de um job do Raven CI: .raven-ci.toml", |field| match field {
-        "pipeline" => table(PIPELINE, &[], "O build inteiro", |field| match field {
-            "timeout" => duration("O limite do build inteiro"),
-            "keep" => integer("Quantos builds o job guarda"),
-            "agent" => json!({ "description": "Onde o build roda", "oneOf": [
-                { "const": "any" },
-                table(AGENT, &[], "Um, e só um, de label, docker ou kubernetes", |field| match field {
-                    "label" => text("Um agente com este rótulo"),
-                    "docker" => json!({ "type": "object", "description": "Um agente num contêiner: image, network, args, tentativas…" }),
-                    "kubernetes" => json!({ "type": "object", "description": "Um agente num pod" }),
-                    _ => json!({}),
-                }),
-            ]}),
-            _ => json!({}),
-        }),
-        "environment" => json!({ "type": "object", "additionalProperties": { "type": "string" }, "description": "Variáveis de todo passo" }),
-        "parameters" => json!({ "type": "array", "description": "O que quem pede o build informa", "items":
-            table(PARAMETER, &["name"], "Um parâmetro", |field| match field {
-                "name" => text("O nome, que vira variável do build"),
-                "type" => json!({ "enum": ["bool", "text", "choice"], "description": "text quando não dito" }),
-                "default" => json!({ "description": "O valor quando não informado" }),
-                "description" => text("O que o painel mostra"),
-                "choices" => json!({ "type": "array", "items": { "type": "string" }, "description": "As opções de um choice" }),
+    let mut root = table(TOP, &["stages"], "O pipeline de um job do Raven CI: .raven-ci.toml", |field| {
+        match field {
+            "pipeline" => table(PIPELINE, &[], "O build inteiro", |field| match field {
+                "timeout" => duration("O limite do build inteiro"),
+                "keep" => integer("Quantos builds o job guarda"),
+                "agent" => json!({ "description": "Onde o build roda", "oneOf": [
+                    { "const": "any" },
+                    table(AGENT, &[], "Um, e só um, de label, docker ou kubernetes", |field| match field {
+                        "label" => text("Um agente com este rótulo"),
+                        "docker" => json!({ "type": "object", "description": "Um agente num contêiner: image, network, args, tentativas…" }),
+                        "kubernetes" => json!({ "type": "object", "description": "Um agente num pod" }),
+                        _ => json!({}),
+                    }),
+                ]}),
                 _ => json!({}),
-            })}),
-        "stages" => json!({ "type": "array", "minItems": 1, "items": stage(), "description": "Os estágios, em ordem" }),
-        "post" => table(POST, &[], "O que roda no fim, na mesma pasta e no mesmo log", |field| match field {
-            "always" => steps(),
-            "success" => steps(),
-            "failure" => steps(),
+            }),
+            "environment" => {
+                json!({ "type": "object", "additionalProperties": { "type": "string" }, "description": "Variáveis de todo passo" })
+            }
+            "parameters" => {
+                json!({ "type": "array", "description": "O que quem pede o build informa", "items":
+                table(PARAMETER, &["name"], "Um parâmetro", |field| match field {
+                    "name" => text("O nome, que vira variável do build"),
+                    "type" => json!({ "enum": ["bool", "text", "choice"], "description": "text quando não dito" }),
+                    "default" => json!({ "description": "O valor quando não informado" }),
+                    "description" => text("O que o painel mostra"),
+                    "choices" => json!({ "type": "array", "items": { "type": "string" }, "description": "As opções de um choice" }),
+                    _ => json!({}),
+                })})
+            }
+            "stages" => {
+                json!({ "type": "array", "minItems": 1, "items": stage(), "description": "Os estágios, em ordem" })
+            }
+            "post" => {
+                table(POST, &[], "O que roda no fim, na mesma pasta e no mesmo log", |field| match field {
+                    "always" => steps(),
+                    "success" => steps(),
+                    "failure" => steps(),
+                    _ => json!({}),
+                })
+            }
+            "artifacts" => texts("O que o build guarda, por padrão de caminho (plugin artifacts)"),
+            "junit" => texts("Os relatórios de teste JUnit (plugin junit)"),
             _ => json!({}),
-        }),
-        "artifacts" => texts("O que o build guarda, por padrão de caminho (plugin artifacts)"),
-        "junit" => texts("Os relatórios de teste JUnit (plugin junit)"),
-        _ => json!({}),
+        }
     });
     root["$schema"] = json!("https://json-schema.org/draft/2020-12/schema");
     root["$id"] = json!("https://github.com/alexkads/RavenRS/tree/master/tools/raven-ci/docs/pipeline.md");
@@ -188,7 +208,8 @@ mod tests {
             ("post", &root["properties"]["post"], POST),
         ];
         for (name, table, fields) in tables {
-            let properties = table["properties"].as_object().unwrap_or_else(|| panic!("{name} has no properties"));
+            let properties =
+                table["properties"].as_object().unwrap_or_else(|| panic!("{name} has no properties"));
             let mut have: Vec<&str> = properties.keys().map(String::as_str).collect();
             let mut want = fields.to_vec();
             have.sort_unstable();

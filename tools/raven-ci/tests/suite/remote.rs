@@ -153,8 +153,10 @@ fn the_summary_of_a_failed_build_says_what_failed_in_few_bytes() {
         let pipeline = format!(
             "junit = [\"relatorio.xml\"]\n\n[[stages]]\nname = \"Testes\"\nsteps = [\n  '{noise}',\n  'printf \"%s\" \"{report}\" > relatorio.xml; echo teste pedidos::paga falhou >&2; exit 3',\n]\n"
         );
-        ci.save_job(JobSpec::new("loja", "toml", pipeline).settings(json!({ "triggers": [{ "id": "api" }] })))
-            .expect("loja");
+        ci.save_job(
+            JobSpec::new("loja", "toml", pipeline).settings(json!({ "triggers": [{ "id": "api" }] })),
+        )
+        .expect("loja");
     });
     let key = token(&running, "ana");
     let ran = remote(&running, Some(&key), &["rodar", "loja", "--esperar"]);
@@ -164,7 +166,11 @@ fn the_summary_of_a_failed_build_says_what_failed_in_few_bytes() {
     let summary = remote(&running, Some(&key), &["resumo", "loja", "--format", "json"]);
     assert_eq!(summary.status.code(), Some(1), "a failed build: {}", said(&summary));
     assert!(summary.stdout.len() < 8 * 1024, "{} bytes", summary.stdout.len());
-    assert!(summary.stdout.len() * 4 < whole_log, "the summary ({}) is far smaller than the log ({whole_log})", summary.stdout.len());
+    assert!(
+        summary.stdout.len() * 4 < whole_log,
+        "the summary ({}) is far smaller than the log ({whole_log})",
+        summary.stdout.len()
+    );
     let value: Value = serde_json::from_slice(&summary.stdout).expect("json");
     assert_eq!(value["status"], "failed");
     assert_eq!(value["failed"]["stage"], "Testes");
@@ -178,7 +184,10 @@ fn the_summary_of_a_failed_build_says_what_failed_in_few_bytes() {
     let markdown = remote(&running, Some(&key), &["resumo", "loja", "1"]);
     let text = said(&markdown);
     assert!(text.starts_with("# loja #1: falhou"), "{text}");
-    assert!(text.contains("## O que falhou: Testes") && text.contains("`pedidos::paga`: esperava 2, veio 3"), "{text}");
+    assert!(
+        text.contains("## O que falhou: Testes") && text.contains("`pedidos::paga`: esperava 2, veio 3"),
+        "{text}"
+    );
     let passed = remote(&running, Some(&key), &["rodar", "apps/demo", "--esperar"]);
     assert_eq!(passed.status.code(), Some(0), "{}", said(&passed));
     assert_eq!(remote(&running, Some(&key), &["resumo", "apps/demo"]).status.code(), Some(0));

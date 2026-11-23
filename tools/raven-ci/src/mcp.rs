@@ -150,7 +150,8 @@ async fn blocking(work: impl FnOnce(&Server) -> Result<Value, Refused> + Send + 
 /// The last build of `job`.
 fn last(server: &Server, job: &str) -> Result<u64, Refused> {
     let builds = server.get("/api/ci/builds", &[("job", job.to_owned())])?;
-    let newest = builds.as_array().and_then(|list| list.iter().filter_map(|b| b.get("number")?.as_u64()).max());
+    let newest =
+        builds.as_array().and_then(|list| list.iter().filter_map(|b| b.get("number")?.as_u64()).max());
     newest.ok_or_else(|| Refused::local(format!("o job {job} ainda não tem build")))
 }
 
@@ -277,7 +278,10 @@ impl RavenCiServer {
         annotations(read_only_hint = false, destructive_hint = true, open_world_hint = false)
     )]
     async fn cancelar(&self, Parameters(input): Parameters<ActOn>) -> CallToolResult {
-        blocking(move |server| server.post("/api/ci/cancel", &json!({ "job": input.job, "number": input.numero }))).await
+        blocking(move |server| {
+            server.post("/api/ci/cancel", &json!({ "job": input.job, "number": input.numero }))
+        })
+        .await
     }
 
     #[tool(
@@ -285,7 +289,10 @@ impl RavenCiServer {
         annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false)
     )]
     async fn repetir(&self, Parameters(input): Parameters<ActOn>) -> CallToolResult {
-        blocking(move |server| server.post("/api/ci/rebuild", &json!({ "job": input.job, "number": input.numero }))).await
+        blocking(move |server| {
+            server.post("/api/ci/rebuild", &json!({ "job": input.job, "number": input.numero }))
+        })
+        .await
     }
 
     #[tool(
@@ -312,7 +319,9 @@ impl RavenCiServer {
             .iter()
             .map(|note| json!({ "linha": note.line, "o_que": note.what, "por_que": note.why, "nota": note.to_string() }))
             .collect();
-        CallToolResult::structured(json!({ "toml": conversion.toml, "completo": conversion.complete(), "notas": notes }))
+        CallToolResult::structured(
+            json!({ "toml": conversion.toml, "completo": conversion.complete(), "notas": notes }),
+        )
     }
 
     #[tool(
@@ -328,8 +337,10 @@ impl RavenCiServer {
         annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false)
     )]
     async fn evidencia(&self, Parameters(input): Parameters<EvidenceOf>) -> CallToolResult {
-        blocking(move |server| crate::remote::evidencia_json(server, &input.job, input.numero, &PathBuf::from(&input.pasta)))
-            .await
+        blocking(move |server| {
+            crate::remote::evidencia_json(server, &input.job, input.numero, &PathBuf::from(&input.pasta))
+        })
+        .await
     }
 }
 

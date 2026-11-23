@@ -49,7 +49,9 @@ fn fits(schema: &Value, value: &Value) -> Result<(), String> {
                 Some(described) => fits(described, field).map_err(|e| format!("{key}: {e}"))?,
                 None => match schema.get("additionalProperties") {
                     Some(Value::Bool(false)) => return Err(format!("{key} is not a field")),
-                    Some(other @ Value::Object(_)) => fits(other, field).map_err(|e| format!("{key}: {e}"))?,
+                    Some(other @ Value::Object(_)) => {
+                        fits(other, field).map_err(|e| format!("{key}: {e}"))?
+                    }
                     _ => {}
                 },
             }
@@ -113,7 +115,11 @@ fn every_pipeline_of_the_guides_is_taken_by_the_reader_and_by_the_schema() {
     assert!(examples.len() >= 3, "found {} examples", examples.len());
     for example in &examples {
         let (read, fit) = agree(example);
-        assert!(read, "the reader refused an example of the guides:\n{example}\n{:?}", TomlFormat.read("x", example).err());
+        assert!(
+            read,
+            "the reader refused an example of the guides:\n{example}\n{:?}",
+            TomlFormat.read("x", example).err()
+        );
         assert!(fit.is_ok(), "the schema refused an example the reader takes: {fit:?}\n{example}");
     }
 }

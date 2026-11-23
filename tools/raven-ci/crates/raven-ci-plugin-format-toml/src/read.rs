@@ -13,7 +13,8 @@ use toml::de::{DeTable, DeValue};
 type Node<'i> = Spanned<DeValue<'i>>;
 
 /// The keys at the top of the file.
-pub(crate) const TOP: &[&str] = &["pipeline", "environment", "parameters", "stages", "post", "artifacts", "junit"];
+pub(crate) const TOP: &[&str] =
+    &["pipeline", "environment", "parameters", "stages", "post", "artifacts", "junit"];
 pub(crate) const PIPELINE: &[&str] = &["timeout", "keep", "agent"];
 pub(crate) const STAGE: &[&str] =
     &["name", "steps", "parallel", "when", "timeout", "retry", "lock", "nice", "container", "credentials"];
