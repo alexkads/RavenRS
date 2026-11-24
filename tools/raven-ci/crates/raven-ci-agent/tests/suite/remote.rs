@@ -50,7 +50,8 @@ fn a_template_of_agent_remote_brings_an_agent_up_through_ssh_and_the_build_runs_
 /// folder with a space and a quote in its name reaches the agent whole.
 #[test]
 fn a_template_for_windows_quotes_for_cmd_and_the_agent_gets_its_words_whole() {
-    let server = Server::with("remoto-win", 0, Duration::from_secs(60), vec![Arc::new(AgentRemotePlugin::new())]);
+    let server =
+        Server::with("remoto-win", 0, Duration::from_secs(60), vec![Arc::new(AgentRemotePlugin::new())]);
     let there = Folder::new("remoto-win-la");
     let folder = there.0.join("pasta do \"agente\"");
     let template = AgentTemplate {

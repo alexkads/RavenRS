@@ -471,7 +471,8 @@ fn explanation(s: &Rc<S>, job: &str, number: u64) -> AnyView {
         ),
         Some("pronta") => {
             let model = asked["modelo"].as_str().unwrap_or("modelo local");
-            let seconds = asked["ms"].as_u64().map_or_else(String::new, |ms| format!(" · {} s", ms.div_ceil(1000)));
+            let seconds =
+                asked["ms"].as_u64().map_or_else(String::new, |ms| format!(" · {} s", ms.div_ceil(1000)));
             Box::new(
                 VStack::new((
                     Text::new(asked["texto"].as_str().unwrap_or_default().trim().to_owned()),
@@ -484,9 +485,12 @@ fn explanation(s: &Rc<S>, job: &str, number: u64) -> AnyView {
             )
         }
         _ => Box::new(
-            Alert::new("Não deu para explicar", asked["message"].as_str().unwrap_or("o servidor não respondeu"))
-                .tone(Tone::Danger)
-                .compact(),
+            Alert::new(
+                "Não deu para explicar",
+                asked["message"].as_str().unwrap_or("o servidor não respondeu"),
+            )
+            .tone(Tone::Danger)
+            .compact(),
         ),
     };
     Box::new(Card::new(

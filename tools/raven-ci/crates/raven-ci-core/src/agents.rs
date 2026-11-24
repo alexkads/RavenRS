@@ -1412,7 +1412,7 @@ impl Ci {
                     let since = *launched.idle_since_ms.get_or_insert(now);
                     if now - since > i64::try_from(template.idle_ms).unwrap_or(i64::MAX) {
                         gone(&mut left, launched);
-                    going.push((launched.name.clone(), "ficou ocioso".to_owned()));
+                        going.push((launched.name.clone(), "ficou ocioso".to_owned()));
                         launched.agent.stop();
                         return false;
                     }

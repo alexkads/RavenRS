@@ -407,7 +407,11 @@ fn remove_leftover(own: &std::path::Path, other: &str) -> Option<String> {
 fn touched_lately(dir: &std::path::Path) -> bool {
     let Ok(entries) = std::fs::read_dir(dir) else { return false };
     let recent = |path: &std::path::Path| {
-        std::fs::metadata(path).and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).is_some_and(|age| age < LEFT_FOR)
+        std::fs::metadata(path)
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|t| t.elapsed().ok())
+            .is_some_and(|age| age < LEFT_FOR)
     };
     recent(dir)
         || entries.filter_map(Result::ok).any(|entry| {
@@ -419,9 +423,9 @@ fn touched_lately(dir: &std::path::Path) -> bool {
 /// Whether a process has its directory under `dir` (Linux, through `/proc`).
 fn in_use(dir: &std::path::Path) -> bool {
     let Ok(processes) = std::fs::read_dir("/proc") else { return false };
-    processes.filter_map(Result::ok).any(|p| {
-        std::fs::read_link(p.path().join("cwd")).is_ok_and(|cwd| cwd.starts_with(dir))
-    })
+    processes
+        .filter_map(Result::ok)
+        .any(|p| std::fs::read_link(p.path().join("cwd")).is_ok_and(|cwd| cwd.starts_with(dir)))
 }
 
 fn size_of(dir: &std::path::Path) -> u64 {
@@ -434,41 +438,6 @@ fn size_of(dir: &std::path::Path) -> u64 {
             _ => 0,
         })
         .sum()
-}
-
-#[cfg(test)]
-mod leftovers {
-    use super::remove_leftover;
-
-    #[test]
-    fn a_folder_left_long_ago_goes_and_one_touched_lately_or_named_wrong_stays() {
-        let base = std::env::temp_dir().join(format!("raven-ci-sobras-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&base);
-        let own = base.join("modelo-b");
-        let old = base.join("modelo-a");
-        let fresh = base.join("modelo-c");
-        for dir in [&own, &old, &fresh] {
-            std::fs::create_dir_all(dir.join("espacos")).expect("a folder");
-            std::fs::write(dir.join("chave"), "x").expect("a key");
-        }
-        let long_ago = std::time::SystemTime::now() - std::time::Duration::from_secs(600);
-        for path in [old.join("espacos"), old.join("chave"), old.clone()] {
-            std::fs::File::options()
-                .write(true)
-                .open(&path)
-                .or_else(|_| std::fs::File::open(&path))
-                .and_then(|f| f.set_modified(long_ago))
-                .expect("aged");
-        }
-        assert!(remove_leftover(&own, "modelo-c").is_none(), "touched in the last two minutes: it stays");
-        assert!(fresh.is_dir());
-        assert!(remove_leftover(&own, "../fora").is_none(), "only a name beside its own");
-        assert!(remove_leftover(&own, "modelo-b").is_none(), "never its own");
-        let said = remove_leftover(&own, "modelo-a").expect("removed");
-        assert!(said.contains("modelo-a") && said.contains("MB liberados"), "{said}");
-        assert!(!old.exists());
-        let _ = std::fs::remove_dir_all(&base);
-    }
 }
 
 /// Runs the agent of `config` until `stopping` is set.
@@ -600,5 +569,40 @@ fn listen(agent: &Arc<Agent>) {
                 break;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod leftovers {
+    use super::remove_leftover;
+
+    #[test]
+    fn a_folder_left_long_ago_goes_and_one_touched_lately_or_named_wrong_stays() {
+        let base = std::env::temp_dir().join(format!("raven-ci-sobras-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let own = base.join("modelo-b");
+        let old = base.join("modelo-a");
+        let fresh = base.join("modelo-c");
+        for dir in [&own, &old, &fresh] {
+            std::fs::create_dir_all(dir.join("espacos")).expect("a folder");
+            std::fs::write(dir.join("chave"), "x").expect("a key");
+        }
+        let long_ago = std::time::SystemTime::now() - std::time::Duration::from_secs(600);
+        for path in [old.join("espacos"), old.join("chave"), old.clone()] {
+            std::fs::File::options()
+                .write(true)
+                .open(&path)
+                .or_else(|_| std::fs::File::open(&path))
+                .and_then(|f| f.set_modified(long_ago))
+                .expect("aged");
+        }
+        assert!(remove_leftover(&own, "modelo-c").is_none(), "touched in the last two minutes: it stays");
+        assert!(fresh.is_dir());
+        assert!(remove_leftover(&own, "../fora").is_none(), "only a name beside its own");
+        assert!(remove_leftover(&own, "modelo-b").is_none(), "never its own");
+        let said = remove_leftover(&own, "modelo-a").expect("removed");
+        assert!(said.contains("modelo-a") && said.contains("MB liberados"), "{said}");
+        assert!(!old.exists());
+        let _ = std::fs::remove_dir_all(&base);
     }
 }

@@ -128,7 +128,9 @@ impl System {
         match launch_text(request, "sistema") {
             None | Some("posix") => Ok(Self::Posix),
             Some("windows") => Ok(Self::Windows),
-            Some(other) => Err(CiError::settings("sistema", format!("{other} não existe; use posix ou windows"))),
+            Some(other) => {
+                Err(CiError::settings("sistema", format!("{other} não existe; use posix ou windows")))
+            }
         }
     }
 
@@ -316,10 +318,17 @@ mod tests {
                  \"--token\" \"-\""
             )
         );
-        let spaced = request(json!({ "name": "w", "host": "h", "sistema": "windows", "programa": "C:\\Program Files\\Raven \"CI\"\\a.exe" }));
+        let spaced = request(
+            json!({ "name": "w", "host": "h", "sistema": "windows", "programa": "C:\\Program Files\\Raven \"CI\"\\a.exe" }),
+        );
         let line = ssh_arguments(&spaced, None).expect("arguments");
-        assert!(line.last().expect("the line").starts_with("\"C:\\Program Files\\Raven \"\"CI\"\"\\a.exe\""), "{line:?}");
-        assert!(ssh_arguments(&request(json!({ "name": "x", "host": "h", "sistema": "dos" })), None).is_err());
+        assert!(
+            line.last().expect("the line").starts_with("\"C:\\Program Files\\Raven \"\"CI\"\"\\a.exe\""),
+            "{line:?}"
+        );
+        assert!(
+            ssh_arguments(&request(json!({ "name": "x", "host": "h", "sistema": "dos" })), None).is_err()
+        );
     }
 
     #[test]
