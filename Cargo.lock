@@ -6004,7 +6004,7 @@ dependencies = [
 
 [[package]]
 name = "raven-ci"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "raven-ci-core",
  "raven-ci-plugin-agent-local",

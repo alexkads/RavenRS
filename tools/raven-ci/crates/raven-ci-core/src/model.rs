@@ -640,10 +640,26 @@ pub(crate) fn status_of(
                 BuildStatus::Failed,
                 Some(format!("o passo {node} falhou: {}", part.error.clone().unwrap_or_default())),
             ),
-            None => (BuildStatus::Succeeded, None),
+            None => match unstable_of(parts) {
+                Some(reason) => (BuildStatus::Unstable, Some(reason)),
+                None => (BuildStatus::Succeeded, None),
+            },
         },
         _ => (BuildStatus::Failed, None),
     }
+}
+
+/// The output a step gives when its end is a warning (#947): its items say `reason`.
+pub const UNSTABLE_PORT: &str = "unstable";
+
+/// Why a build whose steps all ended is unstable: the first step that gave [`UNSTABLE_PORT`].
+fn unstable_of(parts: &BTreeMap<String, NodeRun>) -> Option<String> {
+    parts.iter().find_map(|(node, part)| {
+        let items = part.outputs.get(UNSTABLE_PORT)?;
+        let first = items.first()?;
+        let why = first.json.get("reason").and_then(Value::as_str).unwrap_or("instável");
+        Some(format!("o passo {node}: {why}"))
+    })
 }
 
 /// The stages of a build, in the order they first come in its flow, with what each step did.

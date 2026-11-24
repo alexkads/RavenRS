@@ -31,15 +31,29 @@ fn render(args: &Args) -> AnyView {
                     ParamField::new("url", "Address", ParamKind::Text).required(),
                     ParamField::new("retries", "Retries", ParamKind::Number).default(3),
                     ParamField::new("when", "Only when", ParamKind::Text).expressions(),
+                ]
+                .into_iter()
+                .chain(args.bool("several").then(|| {
                     ParamField::new(
-                        "headers",
-                        "Headers",
-                        ParamKind::List(vec![
-                            ParamField::new("name", "Name", ParamKind::Text),
-                            ParamField::new("value", "Value", ParamKind::Text),
+                        "suites",
+                        "Suites",
+                        ParamKind::MultiChoice(vec![
+                            ("orders".into(), "Orders".into()),
+                            ("payments".into(), "Payments".into()),
+                            ("delivery".into(), "Delivery".into()),
                         ]),
-                    ),
-                ],
+                    )
+                    .default(serde_json::json!(["orders"]))
+                }))
+                .chain([ParamField::new(
+                    "headers",
+                    "Headers",
+                    ParamKind::List(vec![
+                        ParamField::new("name", "Name", ParamKind::Text),
+                        ParamField::new("value", "Value", ParamKind::Text),
+                    ]),
+                )])
+                .collect(),
                 values.binding(),
             );
             if args.bool("live") {
@@ -55,7 +69,9 @@ impl ComponentBook for ParameterForm {
         Meta::new("Actions and inputs/ParameterForm", render)
             .summary("A form made from a schema of parameters: groups, lists of rows, options that depend on another field, and a value or an expression in each field.")
             .arg(ArgType::bool("live", false).description("Each change goes back at once, with no Apply or Discard: for a form inside a dialog."))
+            .arg(ArgType::bool("several", false).description("A field of several choices, kept as a list: the suites of a test run."))
             .story("Example", Args::new())
             .story("Live, inside a dialog", Args::new().with("live", true))
+            .story("Several choices", Args::new().with("several", true))
     }
 }

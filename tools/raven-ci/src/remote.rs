@@ -168,6 +168,7 @@ fn words(status: &str) -> &str {
         "running" => "rodando",
         "succeeded" => "passou",
         "failed" => "falhou",
+        "unstable" => "instável",
         "cancelled" => "cancelado",
         "timed_out" => "passou do prazo",
         // The agent of the build went away (#803, phase 3): it ended, neither failed nor cancelled.
@@ -216,7 +217,7 @@ fn rodar(server: &Server, job: &str, args: &Args, out: &mut dyn Write) -> Said {
     } else {
         writeln!(out, "{job} #{number}: {}", words(&status))?;
     }
-    Ok(if status == "succeeded" { 0 } else { 1 })
+    Ok(exit_of(&status))
 }
 
 /// Writes the lines of the log of the build as they come, until it ends; its status.
@@ -348,7 +349,17 @@ fn resumo_do_build(
         out.write_all(&bytes)?;
     }
     let status = summary.get("status").and_then(Value::as_str).unwrap_or_default();
-    Ok(if ended(status) && status != "succeeded" { Exit::BuildFailed.code() } else { Exit::Done.code() })
+    Ok(exit_of(status))
+}
+
+/// How a command about a build ends by its status: 0 passed or not ended, 7 unstable (#947), 1
+/// any other end.
+fn exit_of(status: &str) -> i32 {
+    match status {
+        "unstable" => Exit::Unstable.code(),
+        _ if ended(status) && status != "succeeded" => Exit::BuildFailed.code(),
+        _ => Exit::Done.code(),
+    }
 }
 
 /// What `evidencia` downloads, as JSON: for the MCP's `evidencia`.

@@ -33,17 +33,31 @@ pub fn builtin() -> Vec<Arc<dyn CiPlugin>> {
 pub struct Plugins {
     ci: Arc<Ci>,
     users: Mutex<HashMap<String, usize>>,
+    /// The settings that are this agent's own, by plugin (#930).
+    own: serde_json::Map<String, Value>,
+}
+
+/// The settings a plugin gets on an agent: the server's, with the agent's own over them, key by key
+/// (#930). A path only the agent reaches is said on its template, and the server never checks it.
+pub fn settings_for(server: &Value, own: Option<&Value>) -> Value {
+    let mut merged = server.as_object().cloned().unwrap_or_default();
+    if let Some(Value::Object(own)) = own {
+        for (key, value) in own {
+            merged.insert(key.clone(), value.clone());
+        }
+    }
+    Value::Object(merged)
 }
 
 impl Plugins {
     /// Over `ci`, with every plugin it knows switched off.
-    pub fn new(ci: Arc<Ci>) -> Result<Self, CiError> {
+    pub fn new(ci: Arc<Ci>, own: serde_json::Map<String, Value>) -> Result<Self, CiError> {
         for view in ci.registry().list()? {
             if view.enabled {
                 ci.disable_plugin(&view.name)?;
             }
         }
-        Ok(Self { ci, users: Mutex::default() })
+        Ok(Self { ci, users: Mutex::default(), own })
     }
 
     /// Switches on what a build needs; refused, saying which, when the agent does not have one or
@@ -82,8 +96,9 @@ impl Plugins {
                 registry.revoke(&plugin.name, *permission, revoked)?;
             }
         }
-        if matches!(&plugin.settings, Value::Object(map) if !map.is_empty()) {
-            self.ci.configure_plugin(&plugin.name, plugin.settings.clone())?;
+        let settings = settings_for(&plugin.settings, self.own.get(&plugin.name));
+        if matches!(&settings, Value::Object(map) if !map.is_empty()) {
+            self.ci.configure_plugin(&plugin.name, settings)?;
         }
         self.ci.enable_plugin(&plugin.name)?;
         let state = registry.info(&plugin.name)?.state;
@@ -116,5 +131,24 @@ impl Plugins {
     /// The plugins on now, by name.
     pub fn on(&self) -> Vec<String> {
         self.ci.registry().on().iter().map(|plugin| plugin.name().to_owned()).collect()
+    }
+}
+
+#[cfg(test)]
+mod own_settings {
+    use serde_json::json;
+
+    use super::settings_for;
+
+    #[test]
+    fn the_agents_own_settings_go_over_the_servers_key_by_key() {
+        let server = json!({ "dir": "/var/lib/raven-ci/travas", "espera": 5 });
+        let own = json!({ "dir": "/home/ci/oficina/travas" });
+        assert_eq!(
+            settings_for(&server, Some(&own)),
+            json!({ "dir": "/home/ci/oficina/travas", "espera": 5 })
+        );
+        assert_eq!(settings_for(&server, None), server);
+        assert_eq!(settings_for(&json!(null), Some(&own)), own, "only the agent's");
     }
 }

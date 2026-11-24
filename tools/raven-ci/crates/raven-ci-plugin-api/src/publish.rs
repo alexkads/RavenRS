@@ -21,6 +21,9 @@ pub enum BuildStatus {
     Succeeded,
     /// A step failed.
     Failed,
+    /// Every step ended, and one said its end was a warning: it ran, but something it checks is
+    /// not right, as Jenkins's `unstable()` (#947). A step `sh` with `unstable = [3]` makes it.
+    Unstable,
     /// Someone cancelled it.
     Cancelled,
     /// It took longer than its limit.
@@ -43,6 +46,7 @@ impl BuildStatus {
             Self::Running => "rodando",
             Self::Succeeded => "passou",
             Self::Failed => "falhou",
+            Self::Unstable => "instável",
             Self::Cancelled => "cancelado",
             Self::TimedOut => "passou do prazo",
             Self::Interrupted => "interrompido",
@@ -298,6 +302,9 @@ mod interrupted {
     #[test]
     fn an_interrupted_build_ended_and_says_so() {
         assert!(BuildStatus::Interrupted.ended());
+        assert!(BuildStatus::Unstable.ended());
+        assert_eq!(BuildStatus::Unstable.words(), "instável");
+        assert_eq!(serde_json::to_value(BuildStatus::Unstable).expect("JSON"), "unstable");
         assert_eq!(BuildStatus::Interrupted.words(), "interrompido");
         assert_eq!(serde_json::to_value(BuildStatus::Interrupted).expect("JSON"), "interrupted");
     }

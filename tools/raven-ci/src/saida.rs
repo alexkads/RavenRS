@@ -43,11 +43,13 @@ pub enum Exit {
     Refused,
     /// 6: something on this machine: a file, the input.
     Local,
+    /// 7: the build ended unstable: it ran, with a warning (#947).
+    Unstable,
 }
 
 impl Exit {
     /// Every one, in the order of their codes.
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 8] = [
         Self::Done,
         Self::BuildFailed,
         Self::Usage,
@@ -55,6 +57,7 @@ impl Exit {
         Self::Denied,
         Self::Refused,
         Self::Local,
+        Self::Unstable,
     ];
 
     /// The exit code.
@@ -67,6 +70,7 @@ impl Exit {
             Self::Denied => 4,
             Self::Refused => 5,
             Self::Local => 6,
+            Self::Unstable => 7,
         }
     }
 
@@ -80,6 +84,7 @@ impl Exit {
             Self::Denied => "sem_permissao",
             Self::Refused => "recusado",
             Self::Local => "local",
+            Self::Unstable => "instavel",
         }
     }
 }

@@ -58,6 +58,14 @@ fn read_text(text: &str, kind: &FieldKind) -> Option<Value> {
             _ => None,
         },
         FieldKind::Integer => text.parse::<i64>().ok().map(Value::from),
+        // `--param SUITES=pedidos,pagamentos`: the list, one value per comma (#932).
+        FieldKind::Tags(_) => Some(Value::Array(
+            text.split(',')
+                .map(str::trim)
+                .filter(|t| !t.is_empty())
+                .map(|t| Value::String(t.to_owned()))
+                .collect(),
+        )),
         FieldKind::Decimal(_) | FieldKind::Money => {
             text.parse::<f64>().ok().and_then(serde_json::Number::from_f64).map(Value::Number)
         }

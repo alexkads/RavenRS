@@ -22,7 +22,8 @@ use crate::context::{BuildCx, NodeId};
 use crate::editors::{NumberField, TextArea};
 use crate::{
     Alert, AnyView, Button, ButtonSize, ButtonStyle, FieldDrag, FormField, HStack, IconButton, IconName,
-    SegmentedControl, Select, Spacer, Spinner, Text, TextField, Toggle, Tone, VStack, View,
+    LookupItem, SegmentedControl, Select, Spacer, Spinner, TagBox, Text, TextField, Toggle, Tone, VStack,
+    View,
 };
 
 /// The key of the object a field holds when it holds an expression instead of a value.
@@ -43,6 +44,9 @@ pub enum ParamKind {
     Boolean,
     /// One of these options, each its value and the words shown.
     Choice(Vec<(String, String)>),
+    /// Several of these options, each its value and the words shown, kept as a list of the values
+    /// chosen, in a [`TagBox`](crate::TagBox): the suites of a test run, the platforms of a build.
+    MultiChoice(Vec<(String, String)>),
     /// One of the options the app loads with [`ParameterForm::on_load`] and gives with
     /// [`ParameterForm::options`].
     Loaded,
@@ -548,6 +552,7 @@ impl Parts {
                     .label(field.label.clone()),
             ),
             ParamKind::Choice(options) => self.choice(field, value, options),
+            ParamKind::MultiChoice(options) => self.choices(field, value, options),
             ParamKind::Loaded => match self.options.get(&field.name) {
                 Some(ParamOptions::Ready(options)) => self.choice(field, value, options),
                 Some(ParamOptions::Failed(why)) => {
@@ -613,6 +618,23 @@ impl Parts {
         );
         // As wide as the form, as the text fields beside it are.
         Box::new(Select::new(selected, words).label(field.label.clone()).fill())
+    }
+
+    /// Several of `options`, as tags. Only values of the list are kept: one typed or pasted that is
+    /// not there never reaches the values.
+    fn choices(&self, field: &ParamField, value: Binding<Value>, options: &[(String, String)]) -> AnyView {
+        let allowed: Vec<String> = options.iter().map(|(v, _)| v.clone()).collect();
+        let selected = value.map(
+            |v| v.as_array().into_iter().flatten().filter_map(Value::as_str).map(str::to_owned).collect(),
+            move |v, tags: Vec<String>| {
+                *v = Value::Array(
+                    tags.into_iter().filter(|t| allowed.contains(t)).map(Value::String).collect(),
+                );
+            },
+        );
+        let items = options.iter().map(|(v, w)| LookupItem::new(v.clone(), w.clone())).collect();
+        // As wide as the form, as the text fields beside it are.
+        Box::new(TagBox::new(selected, items).label(field.label.clone()).fill())
     }
 
     fn list(
