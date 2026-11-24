@@ -6,12 +6,14 @@ use super::{ArgType, Args, ComponentBook, Meta};
 use crate::{AnyView, Checkbox, SegmentedControl, Slider, Toggle};
 
 fn checkbox(args: &Args) -> AnyView {
-    let on = State::new(args.bool("checked"));
-    Box::new(
-        Checkbox::new(args.text("label"), on.binding())
-            .disabled(args.bool("disabled"))
-            .read_only(args.bool("read_only")),
-    )
+    let checkbox = if args.bool("optional") {
+        let answer = State::new(None::<bool>);
+        Checkbox::optional(args.text("label"), answer.binding())
+    } else {
+        let on = State::new(args.bool("checked"));
+        Checkbox::new(args.text("label"), on.binding()).mixed(args.bool("mixed"))
+    };
+    Box::new(checkbox.disabled(args.bool("disabled")).read_only(args.bool("read_only")))
 }
 
 fn toggle(args: &Args) -> AnyView {
@@ -56,10 +58,20 @@ impl ComponentBook for Checkbox {
             .arg(ArgType::bool("checked", true))
             .arg(ArgType::bool("disabled", false))
             .arg(ArgType::bool("read_only", false))
+            .arg(
+                ArgType::bool("mixed", false)
+                    .description("A select all whose children are partly checked; a click checks it."),
+            )
+            .arg(
+                ArgType::bool("optional", false)
+                    .description("An answer that may be unknown, shown mixed; clicks go unknown, on, off."),
+            )
             .story("Checked", Args::new())
             .story("Unchecked", Args::new().with("checked", false).with("label", "Send me product news"))
             .story("Disabled", Args::new().with("disabled", true))
             .story("Read only", Args::new().with("read_only", true))
+            .story("Mixed", Args::new().with("mixed", true).with("label", "Select all"))
+            .story("Unknown answer", Args::new().with("optional", true).with("label", "Has a car"))
     }
 }
 
@@ -85,6 +97,8 @@ impl ComponentBook for Toggle {
             )
             .story("Disabled", Args::new().with("disabled", true))
             .story("Read only", Args::new().with("read_only", true))
+            .story("Mixed", Args::new().with("mixed", true).with("label", "Select all"))
+            .story("Unknown answer", Args::new().with("optional", true).with("label", "Has a car"))
     }
 }
 

@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use ravenrs_core::{
     AccessAction, Border, Color, CursorIcon, Effect, Insets, Key, LinearGradient, Point, Quad, Rect, Role,
-    Scene, Shadow,
+    Scene, Shadow, Toggled,
 };
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::Binding;
@@ -182,20 +182,55 @@ impl View for Toggle {
 }
 
 /// A check box with a label.
+///
+/// It has three looks: off, on and mixed (a dash), which screen readers hear as "partly
+/// checked". Mixed comes two ways, never to be confused:
+///
+/// - **Computed** ([`Checkbox::mixed`]): a "select all" over children some of which are
+///   checked. The value stays a `bool`; clicking or pressing Space on a mixed box checks it,
+///   and the app checks every child. Off and on then alternate as usual.
+/// - **Editable** ([`Checkbox::optional`]): a field whose answer may be unknown, as a yes, no or
+///   "not said" of a model. Each click or Space goes from unknown to on, to off, and back to
+///   unknown.
+///
+/// Disabled ignores every input and leaves the tab order; read only keeps the focus and the
+/// value read aloud, and changes nothing.
 #[derive(Debug)]
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Checkbox {
-    value: Binding<bool>,
+    value: CheckValue,
+    mixed: bool,
     label: String,
     leading: Option<f32>,
     state: util::EditorState,
+}
+
+/// What a [`Checkbox`] edits.
+#[derive(Debug)]
+enum CheckValue {
+    Plain(Binding<bool>),
+    Optional(Binding<Option<bool>>),
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Checkbox {
     /// A check box bound to `value`, with this label.
     pub fn new(label: impl Into<String>, value: Binding<bool>) -> Self {
-        Self { value, label: label.into(), leading: None, state: util::EditorState::default() }
+        plain_checkbox(label.into(), CheckValue::Plain(value))
+    }
+
+    /// A check box for an answer that may be unknown: `None` shows mixed. Clicking or pressing
+    /// Space goes from `None` to `Some(true)`, to `Some(false)`, and back to `None`.
+    pub fn optional(label: impl Into<String>, value: Binding<Option<bool>>) -> Self {
+        plain_checkbox(label.into(), CheckValue::Optional(value))
+    }
+
+    /// Shows the box mixed, as a "select all" whose children are partly checked, whatever its
+    /// value. The app computes it from the children; clicking or pressing Space then checks
+    /// the box, for the app to check every child.
+    pub fn mixed(mut self, mixed: bool) -> Self {
+        self.mixed = mixed;
+        self
     }
 
     /// Reserves this width for the box, so labels line up in a column. A list
@@ -216,6 +251,45 @@ impl Checkbox {
         self.state.read_only = read_only;
         self
     }
+}
+
+/// Off, on or mixed, as a [`Checkbox`] draws it and screen readers hear it.
+fn check_toggled(check: &Checkbox) -> Toggled {
+    match &check.value {
+        CheckValue::Plain(_) if check.mixed => Toggled::Mixed,
+        CheckValue::Plain(value) => value.get().into(),
+        CheckValue::Optional(value) => match value.get() {
+            None => Toggled::Mixed,
+            Some(on) => on.into(),
+        },
+    }
+}
+
+/// What a click or Space does to a [`Checkbox`].
+fn check_advance(check: &Checkbox) -> Rc<dyn Fn()> {
+    match &check.value {
+        CheckValue::Plain(value) => {
+            let (value, mixed) = (value.clone(), check.mixed);
+            Rc::new(move || value.update(|v| *v = mixed || !*v))
+        }
+        CheckValue::Optional(value) => {
+            let value = value.clone();
+            Rc::new(move || {
+                value.update(|v| {
+                    *v = match *v {
+                        None => Some(true),
+                        Some(true) => Some(false),
+                        Some(false) => None,
+                    }
+                });
+            })
+        }
+    }
+}
+
+/// A [`Checkbox`] over `value`, with nothing else set.
+fn plain_checkbox(label: String, value: CheckValue) -> Checkbox {
+    Checkbox { value, mixed: false, label, leading: None, state: util::EditorState::default() }
 }
 
 #[doc(hidden)]
@@ -271,9 +345,11 @@ fn pop_mark(cx: &mut BuildCx<'_>, mark: NodeId) {
 impl View for Checkbox {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let checked = self.value.get();
+        let toggled = check_toggled(self);
+        let checked = toggled != Toggled::False;
         let state = self.state;
-        let mark = checked.then(|| util::icon(cx, IconName::Check, 14.0, theme.color(Semantic::OnAccent)));
+        let icon = if toggled == Toggled::Mixed { IconName::Minus } else { IconName::Check };
+        let mark = checked.then(|| util::icon(cx, icon, 14.0, theme.color(Semantic::OnAccent)));
         let hovered = cx.is_hovered() && state.accepts_input();
         let mut b = check_box_around(cx, &theme, checked, hovered, state, mark.as_slice());
         motion::control(cx, b);
@@ -290,10 +366,9 @@ impl View for Checkbox {
         let label =
             util::label(cx, &self.label, TextStyle::Body, None, state.ink(theme.color(Semantic::Ink)));
         let node = row(cx, &[b, label]);
-        cx.semantics(node, state.semantics(Semantics::new(Role::CheckBox).toggled(checked)));
+        cx.semantics(node, state.semantics(Semantics::new(Role::CheckBox).toggled(toggled)));
         if state.accepts_input() {
-            let value = self.value.clone();
-            make_interactive(cx, node, 6.0, Rc::new(move || value.update(|v| *v = !*v)));
+            make_interactive(cx, node, 6.0, check_advance(self));
         } else if !state.disabled {
             cx.focusable(node, 6.0);
         }

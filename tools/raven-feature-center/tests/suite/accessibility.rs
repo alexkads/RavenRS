@@ -148,6 +148,7 @@ demonstrations! {
     indicadores => "Indicadores",
     progresso => "Progresso",
     codigo_de_verificacao => "Código de verificação",
+    caixas_de_selecao => "Caixas de seleção",
     lista => "Lista",
     agenda_por_recurso => "Agenda por recurso",
 }

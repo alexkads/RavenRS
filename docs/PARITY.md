@@ -87,7 +87,7 @@ virtualization, editing, keyboard interaction and export.
 | Label | ✓ | ✓ | ✓ | ✅ `Label` |
 | Form, field validation | ✓ | ✓ | ✓ | ✅ `FormField` + validators |
 | Form layout (groups, columns, tabs, error list) | | ✓ | ✓ | ✅ `FormLayout`, `FormGroup` |
-| Checkbox | ✓ | ✓ | ✓ | ✅ |
+| Checkbox | ✓ | ✓ | ✓ | ✅ off, on and mixed: computed for a select all, or an answer not given (`optional`) |
 | Radio group | ✓ | ✓ | ✓ | ✅ |
 | Switch | ✓ | ✓ | ✓ | ✅ `Toggle`, with a small size |
 | Slider | ✓ | ✓ | ✓ | ✅ `Slider`: marks, colored track, fill from a neutral value that a double click returns to, value at the right |
