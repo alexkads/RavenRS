@@ -23,6 +23,8 @@
 //! | `POST /api/ci/job` | Administradores | saving a job (`name`, `format`, `pipeline`, `settings`), checked first |
 //! | `GET /api/ci/plugins`, `POST /api/ci/plugins/enable`, `/disable`, `/settings` | Administradores | the plugins, and the settings of one (`name`, `settings`) |
 //! | `POST /api/ci/agents/token` | Administradores | a token used once for a new agent: `name`, `labels`, `executors` |
+//! | `DELETE /api/ci/agents?name=` | Administradores | the agent can no longer come in: its key stops working (#929) |
+//! | `GET /api/ci/agents/templates`, `POST`, `DELETE ?name=` | Administradores | the templates that bring agents up, saved whole (#929) |
 //! | `GET /api/ci/users`, `POST /api/ci/users` | Administradores | people and their roles |
 //! | `GET /api/ci/audit?plugin=&limit=` | Administradores | what plugins and people did, the newest first |
 //! | `GET /painel/...` | anyone | the files of the panel for the browser, from [`PanelOptions::files`] |
@@ -127,6 +129,15 @@ fn text<'j>(value: &'j Json, name: &str) -> Result<&'j str, CiError> {
     value.get(name).and_then(Json::as_str).ok_or_else(|| CiError::settings(name, "falta no corpo"))
 }
 
+/// The `name` of the query of a `DELETE`.
+fn asked_name(query: &BTreeMap<String, String>) -> Result<&str, CiError> {
+    query
+        .get("name")
+        .map(String::as_str)
+        .filter(|n| !n.is_empty())
+        .ok_or_else(|| CiError::settings("name", "falta na consulta"))
+}
+
 fn whole(value: &Json, name: &str) -> Result<u64, CiError> {
     value
         .get(name)
@@ -163,6 +174,10 @@ pub fn answer(
         }
         ("POST", ["api", "ci", "users"]) => (Need::Admin, "new-user"),
         ("POST", ["api", "ci", "agents", "token"]) => (Need::Admin, "agent-token"),
+        ("DELETE", ["api", "ci", "agents"]) => (Need::Admin, "agent-remove"),
+        ("GET", ["api", "ci", "agents", "templates"]) => (Need::Admin, "templates"),
+        ("POST", ["api", "ci", "agents", "templates"]) => (Need::Admin, "template-save"),
+        ("DELETE", ["api", "ci", "agents", "templates"]) => (Need::Admin, "template-delete"),
         _ => return None,
     };
     let Some(caller) = who() else {
@@ -214,6 +229,26 @@ fn act(
             let token = ci.agent_token(name, &labels, executors)?;
             record(ci, &caller.name, &format!("fez o token do agente {name}"));
             json!({ "name": name, "token": token })
+        }
+        "agent-remove" => {
+            let name = asked_name(query)?;
+            ci.remove_agent(name)?;
+            record(ci, &caller.name, &format!("removeu o agente {name}"));
+            json!({ "name": name, "removed": true })
+        }
+        "templates" => to_json(&ci.agent_templates()?),
+        "template-save" => {
+            let template: crate::agents::AgentTemplate = serde_json::from_value(asked)
+                .map_err(|e| CiError::settings("corpo", format!("o modelo não se lê: {e}")))?;
+            ci.save_agent_template(&template)?;
+            record(ci, &caller.name, &format!("guardou o modelo de agente {}", template.name));
+            json!({ "name": template.name, "saved": true })
+        }
+        "template-delete" => {
+            let name = asked_name(query)?;
+            ci.delete_agent_template(name)?;
+            record(ci, &caller.name, &format!("apagou o modelo de agente {name}"));
+            json!({ "name": name, "deleted": true })
         }
         "attachment" => {
             let id = query
