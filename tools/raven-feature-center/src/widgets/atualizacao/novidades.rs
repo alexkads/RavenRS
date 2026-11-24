@@ -86,7 +86,8 @@ impl View for NewsPage {
                         .style(ButtonStyle::Secondary)
                         .on_click(move || details.show_details()),
                 ))
-                .spacing(8.0),
+                .spacing(8.0)
+                .wrap(),
                 Text::new(state).test_id("estado"),
                 Text::new(if file.is_empty() {
                     "Abrir o registro: nenhum arquivo pedido".to_owned()

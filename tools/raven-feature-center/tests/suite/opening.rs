@@ -43,6 +43,20 @@ impl Window {
         self.0.access_tree().nodes.iter().any(|n| n.role == Role::Button && n.name.as_deref() == Some(name))
     }
 
+    /// The nodes that reach past `width` on the right, by role and name.
+    fn past(&mut self, width: f32) -> Vec<String> {
+        let _ = self.texts();
+        self.0
+            .access_tree()
+            .nodes
+            .iter()
+            .filter(|n| n.bounds.width() > 0.0 && n.bounds.max_x() > width + 0.5)
+            .map(|n| {
+                format!("{:?} {:?} até {:.0}", n.role, n.name.as_deref().unwrap_or(""), n.bounds.max_x())
+            })
+            .collect()
+    }
+
     fn press(&mut self, name: &str) {
         let _ = self.texts();
         let tree = self.0.access_tree();
@@ -174,4 +188,34 @@ fn another_language_and_another_theme() {
     let light = Opening { look: Some(Look::Light), ..opening(Mode::Components) };
     assert_eq!(raven_feature_center::window_theme(&light), Theme::raven_light());
     assert_eq!(raven_feature_center::window_theme(&Opening::default()), Theme::raven_dark());
+}
+
+#[test]
+fn the_news_of_the_version_fit_a_phone_with_the_dialog_open() {
+    let news = Opening { page: Some("NewsDemo".into()), embedded: true, ..opening(Mode::Components) };
+    let mut phone = Window::sized(raven_feature_center::view(&news), 375.0);
+    assert!(phone.has_button("Detalhes de uma falha"), "{:?}", phone.texts());
+    let past = phone.past(375.0);
+    assert!(past.is_empty(), "past 375 pt: {past:?}");
+    phone.press("Versão em uso");
+    assert!(phone.has_button("Fechar"), "the news are open: {:?}", phone.texts());
+    let past = phone.past(375.0);
+    assert!(past.is_empty(), "past 375 pt with the news open: {past:?}");
+    phone.press("Fechar");
+    phone.press("Detalhes de uma falha");
+    assert!(phone.has_button("Ver como atualizar à mão"), "the details are open: {:?}", phone.texts());
+    let past = phone.past(375.0);
+    assert!(past.is_empty(), "past 375 pt with the details open: {past:?}");
+    // On a desktop the three buttons stay on one line.
+    let mut desktop = Window::of(raven_feature_center::view(&news));
+    let _ = desktop.texts();
+    let tree = desktop.0.access_tree();
+    let tops: Vec<f32> = ["Versão em uso", "Mais recente", "Detalhes de uma falha"]
+        .iter()
+        .map(|name| {
+            let found = tree.nodes.iter().find(|n| n.role == Role::Button && n.name.as_deref() == Some(name));
+            found.unwrap_or_else(|| panic!("{name}")).bounds.y()
+        })
+        .collect();
+    assert!(tops.windows(2).all(|w| (w[0] - w[1]).abs() < 0.5), "one line on a desktop: {tops:?}");
 }
