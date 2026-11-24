@@ -57,6 +57,17 @@ CREATE TABLE IF NOT EXISTS ci_attachments (
     summary TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ci_attachments_by_build ON ci_attachments (job, number);
+CREATE TABLE IF NOT EXISTS ci_build_totals (
+    job TEXT NOT NULL,
+    status TEXT NOT NULL,
+    builds INTEGER NOT NULL,
+    seconds REAL NOT NULL,
+    PRIMARY KEY (job, status)
+);
+CREATE TABLE IF NOT EXISTS ci_build_totals_since (
+    one INTEGER PRIMARY KEY CHECK (one = 1),
+    since_ms INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS ci_log (
     job TEXT NOT NULL,
     number INTEGER NOT NULL,
@@ -94,7 +105,78 @@ pub(crate) fn prepare(conn: &Connection) -> Result<(), CiError> {
     if !has_commit {
         conn.execute_batch("ALTER TABLE ci_builds ADD COLUMN commit_sha TEXT").map_err(db)?;
     }
+    // And one made before #970 did not count the builds that ended apart from the builds kept.
+    let has_counted: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM pragma_table_info('ci_builds') WHERE name = 'counted'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(db)?;
+    if !has_counted {
+        conn.execute_batch("ALTER TABLE ci_builds ADD COLUMN counted INTEGER NOT NULL DEFAULT 0")
+            .map_err(db)?;
+    }
     Ok(())
+}
+
+/// Marks when the core began counting the totals, the first time it opens the file (#970).
+pub(crate) fn begin_totals(conn: &Connection, now_ms: i64) -> Result<(), CiError> {
+    conn.execute(
+        "INSERT OR IGNORE INTO ci_build_totals_since (one, since_ms) VALUES (1, ?1)",
+        params![now_ms],
+    )
+    .map_err(db)?;
+    Ok(())
+}
+
+/// Adds the build `number` of `job`, which ended `status` after `seconds`, to the totals, once:
+/// a build already counted is not counted again. Whether it was counted now.
+pub(crate) fn count_end(
+    conn: &Connection,
+    job: &str,
+    number: u64,
+    status: &str,
+    seconds: f64,
+) -> Result<bool, CiError> {
+    let marked = conn
+        .execute(
+            "UPDATE ci_builds SET counted = 1 WHERE job = ?1 AND number = ?2 AND counted = 0",
+            params![job, number as i64],
+        )
+        .map_err(db)?;
+    if marked == 0 {
+        return Ok(false);
+    }
+    conn.execute(
+        "INSERT INTO ci_build_totals (job, status, builds, seconds) VALUES (?1, ?2, 1, ?3)
+         ON CONFLICT (job, status) DO UPDATE SET builds = builds + 1, seconds = seconds + excluded.seconds",
+        params![job, status, seconds],
+    )
+    .map_err(db)?;
+    Ok(true)
+}
+
+/// One row of the totals: `(job, status, builds, seconds)`.
+pub(crate) type TotalRow = (String, String, u64, f64);
+
+/// Every total and when the counting began.
+pub(crate) fn totals(conn: &Connection) -> Result<(Vec<TotalRow>, Option<i64>), CiError> {
+    let mut stmt = conn
+        .prepare("SELECT job, status, builds, seconds FROM ci_build_totals ORDER BY job, status")
+        .map_err(db)?;
+    let rows = stmt
+        .query_map([], |row| {
+            let builds: i64 = row.get(2)?;
+            Ok((row.get(0)?, row.get(1)?, u64::try_from(builds).unwrap_or(0), row.get(3)?))
+        })
+        .map_err(db)?;
+    let totals = rows.collect::<Result<_, _>>().map_err(db)?;
+    let since = conn
+        .query_row("SELECT since_ms FROM ci_build_totals_since WHERE one = 1", [], |row| row.get(0))
+        .optional()
+        .map_err(db)?;
+    Ok((totals, since))
 }
 
 /// Keeps the commit a build fetched.

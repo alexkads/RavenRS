@@ -93,6 +93,7 @@ impl Store {
         let _ = conn.query_row("PRAGMA journal_mode = WAL", [], |_| Ok(()));
         conn.execute_batch(SCHEMA).map_err(db)?;
         crate::model::prepare(&conn)?;
+        crate::model::begin_totals(&conn, clock.now_ms())?;
         Ok(Self { conn: Mutex::new(conn), clock })
     }
 

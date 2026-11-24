@@ -11,13 +11,20 @@
 //!
 //! - **Each read** asks the core for a picture of the server ([`Host::snapshot`]) and writes it
 //!   with `ravenrs-metrics` in the Prometheus text format (0.0.4). Nothing is kept between reads.
-//! - **The metrics**, all gauges, since the core keeps builds for a time and then lets them go:
+//! - **The metrics.** Most are gauges, read at the moment. The counts of builds come two ways:
+//!   `raven_ci_builds` counts the builds the core still keeps, so it goes down when the retention
+//!   lets some go; `raven_ci_builds_total` and `raven_ci_build_seconds_total` count every build
+//!   that ended since `raven_ci_totals_since_seconds`, never go down, and are the ones for
+//!   `rate()` and `increase()` (#970). A job deleted keeps its totals under the name it had.
 //!
 //! | Metric | Labels | What it is |
 //! |---|---|---|
 //! | `raven_ci_queue_builds` | | builds waiting |
 //! | `raven_ci_running_builds` | | builds running |
 //! | `raven_ci_builds` | `status` | builds kept, by how they ended |
+//! | `raven_ci_builds_total` | `job`, `status` | counter: builds that ended, since the counting began |
+//! | `raven_ci_build_seconds_total` | `job`, `status` | counter: the seconds those builds took |
+//! | `raven_ci_totals_since_seconds` | | when the counting began, in seconds since 1970 |
 //! | `raven_ci_last_build_duration_seconds` | `job` | how long the last build of each job took |
 //! | `raven_ci_last_build_status` | `job`, `status` | 1 for how the last build of each job is |
 //! | `raven_ci_agents` | `state` | agents `connected` and `disconnected` |
@@ -170,6 +177,33 @@ pub fn render(snapshot: &CiSnapshot) -> Result<String, MetricError> {
         let label =
             serde_json::to_value(status).ok().and_then(|v| v.as_str().map(str::to_owned)).unwrap_or_default();
         builds.with(&[&label])?.set(count(*n));
+    }
+    let totals = registry.counter(
+        "raven_ci_builds_total",
+        "Builds that ended, by job and by how, since the counting began.",
+        &["job", "status"],
+    )?;
+    let seconds = registry.counter(
+        "raven_ci_build_seconds_total",
+        "The seconds the builds that ended took, by job and by how.",
+        &["job", "status"],
+    )?;
+    for total in &snapshot.totals {
+        let label = serde_json::to_value(total.status)
+            .ok()
+            .and_then(|v| v.as_str().map(str::to_owned))
+            .unwrap_or_default();
+        totals.with(&[&total.job, &label])?.add(count(total.builds));
+        seconds.with(&[&total.job, &label])?.add(total.seconds.max(0.0));
+    }
+    let since = registry.gauge(
+        "raven_ci_totals_since_seconds",
+        "When the counting of the totals began, in seconds since 1970.",
+        &[],
+    )?;
+    if let Some(ms) = snapshot.totals_since_ms {
+        #[allow(clippy::cast_precision_loss, reason = "milliseconds since 1970, far below 2^53")]
+        since.with(&[])?.set(ms as f64 / 1000.0);
     }
     let duration = registry.gauge(
         "raven_ci_last_build_duration_seconds",

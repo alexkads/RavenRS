@@ -460,6 +460,15 @@ impl Ci {
             let end = build.ended_ms.unwrap_or_else(|| self.store().now_ms());
             u64::try_from(end.saturating_sub(build.created_ms).max(0)).unwrap_or(0)
         });
+        // The totals the retention never takes down (#970); a build announced twice counts once.
+        #[allow(clippy::cast_precision_loss, reason = "milliseconds of a build, far below 2^53")]
+        let seconds = duration_ms.unwrap_or(0) as f64 / 1000.0;
+        let label = serde_json::to_value(status).ok().and_then(|v| v.as_str().map(str::to_owned));
+        if let Some(label) = label
+            && let Err(e) = crate::model::count_end(&self.db(), &order.job, order.number, &label, seconds)
+        {
+            log.line("", &format!("o build não entrou nos totais das métricas: {e}"));
+        }
         let info = BuildInfo {
             job: order.job.clone(),
             number: order.number,

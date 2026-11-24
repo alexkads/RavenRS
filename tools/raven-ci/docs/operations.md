@@ -198,6 +198,11 @@ drop-in `/usr/share/raven-ci/agentes-de-outro-usuario.conf` (`NoNewPrivileges=fa
 - **Metrics**: the plugin `metrics` gives the queue, the builds by result, the last build of each
   job, the agents, the plugins and the memory, in the Prometheus format, at `/api/ci/metrics`, or
   at `/hooks/metrics` with `open = true` for a Prometheus with no token.
+  `raven_ci_builds` counts the builds still kept, so it goes down when the retention lets some
+  go; for how many builds ran in a day use the counters, which never go down, not even after a
+  restart: `increase(raven_ci_builds_total{status="failed"}[1d])`, or the mean time of a job's
+  builds with `rate(raven_ci_build_seconds_total[1h]) / rate(raven_ci_builds_total[1h])`. They
+  count from `raven_ci_totals_since_seconds`, the first start of a server with them (#970).
 - **Notices**: the plugins `email` and `webhook-out` tell of a build that failed, of one that passed
   again, or of every build, by what each job says in `notify`.
 - **The panel**: Jobs says what waits and why, Fila e agentes shows the last two hours of each

@@ -8,7 +8,9 @@
 
 use std::collections::BTreeMap;
 
-use raven_ci_plugin_api::{AgentSnapshot, BuildStatus, CiError, CiSnapshot, JobSnapshot, PluginSnapshot};
+use raven_ci_plugin_api::{
+    AgentSnapshot, BuildStatus, BuildTotal, CiError, CiSnapshot, JobSnapshot, PluginSnapshot,
+};
 
 use crate::{Ci, Memory, Origin, PluginState};
 
@@ -71,6 +73,14 @@ impl Ci {
                 },
             })
             .collect();
+        let (kept, totals_since_ms) = crate::model::totals(&self.db())?;
+        let totals = kept
+            .into_iter()
+            .filter_map(|(job, status, builds, seconds)| {
+                let status: BuildStatus = serde_json::from_value(serde_json::Value::String(status)).ok()?;
+                Some(BuildTotal { job, status, builds, seconds })
+            })
+            .collect();
         Ok(CiSnapshot {
             queued: u64::try_from(self.queue()?.len()).unwrap_or(0),
             running,
@@ -79,6 +89,8 @@ impl Ci {
             agents,
             plugins,
             server_memory_bytes: ravenrs_metrics::rss_bytes_of(std::process::id()),
+            totals,
+            totals_since_ms,
         })
     }
 }
