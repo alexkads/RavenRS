@@ -188,6 +188,15 @@ fn what_the_server_refuses_comes_back_in_words_for_people() {
         SpaceError::Denied(_)
     ));
     assert!(matches!(refused(401, r#"{"code":"PGRST301","message":"JWT expired"}"#), SpaceError::Denied(_)));
+    // A firewall in front of the API (Cloudflare, before Supabase) answers HTML: the request never
+    // reached the database, so it is not the person's permission (#388).
+    let firewall = refused(
+        403,
+        "<!DOCTYPE html><html><head><title>Attention Required! | Cloudflare</title></head><body>Sorry, you have been blocked</body></html>",
+    );
+    let SpaceError::Unavailable(said) = firewall else { panic!("{firewall:?}") };
+    assert!(said.contains("before the database") && said.contains("HTTP 403"), "{said}");
+    assert!(matches!(refused(401, ""), SpaceError::Unavailable(_)), "no body is no PostgREST either");
     assert!(matches!(
         refused(404, r#"{"code":"PGRST202","message":"no function"}"#),
         SpaceError::Unavailable(_)
