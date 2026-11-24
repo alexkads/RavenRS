@@ -155,5 +155,5 @@ pub use scm::{
 #[cfg(feature = "serve")]
 pub use serve::{manifest, serve, serve_with};
 pub use settings::check_settings;
-pub use snapshot::{AgentSnapshot, CiSnapshot, JobSnapshot, PluginSnapshot};
+pub use snapshot::{AgentSnapshot, BuildTotal, CiSnapshot, JobSnapshot, PluginSnapshot};
 pub use trigger::{BuildRequest, Builds, Trigger};
