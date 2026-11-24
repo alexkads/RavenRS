@@ -112,16 +112,21 @@ needs it reads it by name. Every log hides each secret read.
 | Field | Value |
 |---|---|
 | `name` | the name, which is also the variable the steps read |
-| `type` | `bool`, `text` (the default) or `choice` |
-| `default` | the value when none is given |
-| `choices` | for `choice`, the values a person picks from |
+| `type` | `bool`, `text` (the default), `choice` (one of a list) or `choices` (several of a list) |
+| `default` | the value when none is given; for `choices`, a list: `["pedidos"]` |
+| `choices` | for `choice` and `choices`, the values a person picks from |
 | `description` | what the panel says beside it |
 
 A build asked through the API, the panel or `raven-ci rodar JOB --param NOME=VALOR` gets the
 values; a value of the wrong kind is refused before the build starts. A parameter the request
 does not say gets its `default`, as in Jenkins, and the build keeps it. A value that comes as
 text (the command line, a form) is read as its parameter's kind: `true`, `false`, `1`, `0`, `sim`
-and `não` for a `bool`, a number for a number.
+and `não` for a `bool`, a number for a number, and values split by commas for `choices`
+(`--param SUITES=pedidos,pagamentos`).
+
+`choices` is several of a list (#932): the panel's Disparar shows the values as tags to pick, the
+build keeps the list, and a step reads it as one variable with the values joined by commas,
+`SUITES=pedidos,pagamentos`. A value not in `choices` is refused before the build.
 
 A parameter can also name what the job fetches: `scm = { …, reference = { branch = "${BRANCH}" } }`
 in the job's settings fetches the branch the person asked for.

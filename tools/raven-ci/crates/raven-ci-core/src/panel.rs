@@ -573,6 +573,7 @@ fn parameters(ci: &Ci, job: &JobSpec) -> Json {
                 let (kind, choices) = match &field.kind {
                     FieldKind::Boolean => ("bool", Vec::new()),
                     FieldKind::Enum(options) => ("choice", options.iter().map(|o| o.code.clone()).collect()),
+                    FieldKind::Tags(options) => ("choices", options.iter().map(|o| o.code.clone()).collect()),
                     _ => ("text", Vec::new()),
                 };
                 json!({
@@ -580,7 +581,15 @@ fn parameters(ci: &Ci, job: &JobSpec) -> Json {
                     "caption": field.caption,
                     "kind": kind,
                     "choices": choices,
-                    "default": ravenrs_app::value_to_json(&field.default_value),
+                    "default": match (&field.kind, &field.default_value) {
+                        // Several choices: the list, from the text they are kept as (#932).
+                        (FieldKind::Tags(_), ravenrs_app::Value::Text(text)) => json!(text
+                            .split(',')
+                            .map(str::trim)
+                            .filter(|t| !t.is_empty())
+                            .collect::<Vec<_>>()),
+                        (_, value) => ravenrs_app::value_to_json(value),
+                    },
                 })
             })
             .collect(),

@@ -356,6 +356,41 @@ steps = ["exit 3"]
 }
 
 #[test]
+fn a_parameter_of_several_choices_reaches_the_steps_as_a_list_and_refuses_one_not_listed() {
+    // The suites of a run: several of a list, from the panel or `--param SUITES=a,b` (#932).
+    let ci = ci();
+    let text = format!(
+        r#"
+[[parameters]]
+name = "SUITES"
+type = "choices"
+choices = ["pedidos", "pagamentos", "entrega"]
+default = ["pedidos"]
+
+[[stages]]
+name = "T"
+steps = ["{say}"]
+"#,
+        say = os("echo suites=$SUITES", "echo suites=%SUITES%"),
+    );
+    let (status, log) = run(&ci, "padrao", &text, json!({}));
+    assert_eq!(status, BuildStatus::Succeeded, "{log:#?}");
+    assert!(log.contains(&"suites=pedidos".to_owned()), "the default: {log:#?}");
+    let (status, log) = run(&ci, "duas", &text, json!({ "SUITES": "pedidos, entrega" }));
+    assert_eq!(status, BuildStatus::Succeeded, "{log:#?}");
+    assert!(log.contains(&"suites=pedidos,entrega".to_owned()), "{log:#?}");
+    assert_eq!(ci.build("duas", 1).expect("the build").parameters["SUITES"], json!(["pedidos", "entrega"]));
+
+    ci.save_job(JobSpec::new("errada", "toml", &text).every_request()).expect("saved");
+    let refused =
+        ci.request_build(BuildRequest::new("errada", "teste").parameter("SUITES", json!("pedidos,frete")));
+    assert!(refused.is_err(), "a value not listed is refused before the build: {refused:?}");
+
+    let field = &TomlFormat.read("p", &text).expect("reads").parameters[0];
+    assert!(matches!(field.kind, FieldKind::Tags(ref options) if options.len() == 3), "{:?}", field.kind);
+}
+
+#[test]
 fn parallel_branches_all_run_and_meet_before_the_next_stage() {
     let ci = ci();
     let text = r#"

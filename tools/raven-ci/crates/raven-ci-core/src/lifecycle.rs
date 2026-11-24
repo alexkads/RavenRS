@@ -205,6 +205,10 @@ fn as_variable(value: &Value) -> String {
     match value {
         Value::String(text) => text.clone(),
         Value::Null => String::new(),
+        // Several choices reach a step as `pedidos,pagamentos` (#932).
+        Value::Array(items) if items.iter().all(Value::is_string) => {
+            items.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(",")
+        }
         other => other.to_string(),
     }
 }

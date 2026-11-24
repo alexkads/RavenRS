@@ -621,7 +621,7 @@ impl Ci {
         }
         let user = format!("{USER_PREFIX}{name}");
         if directory.identity_of(&user).map_err(|e| CiError::failed(e.to_string()))?.is_none() {
-            crate::people::create_user(file, &user, &random(), ROLE_AGENT)?;
+            crate::people::create_keyed_user(file, &user, ROLE_AGENT)?;
         }
         ravenrs_app_server::issue_key(
             &maker,

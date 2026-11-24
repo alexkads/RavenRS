@@ -175,7 +175,7 @@ pub fn schema() -> Value {
                 json!({ "type": "array", "description": "O que quem pede o build informa", "items":
                 table(PARAMETER, &["name"], "Um parâmetro", |field| match field {
                     "name" => text("O nome, que vira variável do build"),
-                    "type" => json!({ "enum": ["bool", "text", "choice"], "description": "text quando não dito" }),
+                    "type" => json!({ "enum": ["bool", "text", "choice", "choices"], "description": "text quando não dito; choices guarda várias das choices, como lista" }),
                     "default" => json!({ "description": "O valor quando não informado" }),
                     "description" => text("O que o painel mostra"),
                     "choices" => json!({ "type": "array", "items": { "type": "string" }, "description": "As opções de um choice" }),

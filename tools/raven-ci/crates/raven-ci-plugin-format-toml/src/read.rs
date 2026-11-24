@@ -663,15 +663,33 @@ impl Read<'_> {
                 }
                 FieldKind::Enum(choices.iter().map(|c| EnumOption::new(c.clone(), c.clone())).collect())
             }
+            // Several of the list, kept as a list (#932): the suites of a run.
+            "choices" => {
+                let choices =
+                    fields.get("choices").map(|c| self.reader.texts(c, "choices")).unwrap_or_default();
+                if choices.is_empty() {
+                    self.reader
+                        .error(&node.span(), format!("o parâmetro {name} é choices e precisa de choices"));
+                }
+                FieldKind::Tags(choices.iter().map(|c| EnumOption::new(c.clone(), c.clone())).collect())
+            }
             other => {
                 let at = fields.get("type").map_or_else(|| node.span(), |t| t.span());
-                self.reader.error(&at, format!("o tipo {other} não existe; use bool, text ou choice"));
+                self.reader
+                    .error(&at, format!("o tipo {other} não existe; use bool, text, choice ou choices"));
                 FieldKind::Text
             }
         };
         let mut field = FieldInfo::new(&name, kind);
         if let Some(default) = fields.get("default") {
-            field.default_value = ravenrs_app::Value::from_json(&json_of(default));
+            field.default_value = match (&field.kind, json_of(default)) {
+                // A value of the app is not a list: the default of several choices is kept as
+                // their text joined by commas, the way `--param` gives them (#932).
+                (FieldKind::Tags(_), Value::Array(items)) => ravenrs_app::Value::Text(
+                    items.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(","),
+                ),
+                (_, other) => ravenrs_app::Value::from_json(&other),
+            };
         }
         if let Some(description) = fields.get("description").and_then(|d| self.reader.text(d, "description"))
         {
