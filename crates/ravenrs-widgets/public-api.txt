@@ -716,6 +716,10 @@ field Labels::previous_month
 field Labels::previous_page
 field Labels::previous_year
 field Labels::printed_every_build
+field Labels::progress_above
+field Labels::progress_at
+field Labels::progress_below
+field Labels::progress_mark
 field Labels::protractor
 field Labels::rating
 field Labels::rating_value
@@ -4048,6 +4052,8 @@ method ProgressBar::detail
 method ProgressBar::detail_inline
 method ProgressBar::height
 method ProgressBar::label
+method ProgressBar::marker
+method ProgressBar::marker_label
 method ProgressBar::new
 method ProgressBar::percent
 method ProgressBar::tone

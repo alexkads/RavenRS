@@ -63,6 +63,13 @@ fn progress(args: &Args) -> AnyView {
         bar = bar.detail(args.text("detail"));
     }
     bar = bar.detail_inline(args.bool("detail_inline"));
+    let marker = args.number("marker") as f32;
+    if marker > 0.0 {
+        bar = bar.marker(marker);
+        if !args.text("marker_label").is_empty() {
+            bar = bar.marker_label(args.text("marker_label"));
+        }
+    }
     Box::new(bar)
 }
 
@@ -162,6 +169,11 @@ impl ComponentBook for ProgressBar {
                 ArgType::bool("detail_inline", false)
                     .description("The detail on the line of the label, before the percent."),
             )
+            .arg(
+                ArgType::number("marker", 0.0, 0.0, 1.0, 0.01)
+                    .description("A value of reference on the track, such as a limit; 0 for none."),
+            )
+            .arg(ArgType::text("marker_label", "").description("The marker's name, read after the value."))
             .story("Plain", Args::new().with("value", 0.25))
             .story("Success", Args::new().with("value", 0.9).with("tone", ArgValue::choice("Success")))
             .story(
@@ -176,6 +188,15 @@ impl ComponentBook for ProgressBar {
                     .with("percent", true)
                     .with("detail", "812 of 1,360 tests")
                     .with("detail_inline", true),
+            )
+            .story(
+                "With a marker",
+                Args::new()
+                    .with("value", 0.89)
+                    .with("label", "Confidence")
+                    .with("percent", true)
+                    .with("marker", 0.85)
+                    .with("marker_label", "limit 0.85"),
             )
             .story_with("All tones", Args::new(), all_progress_tones)
     }

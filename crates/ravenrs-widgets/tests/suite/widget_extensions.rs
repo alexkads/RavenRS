@@ -212,6 +212,45 @@ fn a_progress_bar_can_say_what_it_is_and_how_far_along() {
 }
 
 #[test]
+fn a_progress_bar_marks_a_reference_and_says_which_side_of_it_the_value_is() {
+    let bar = |value: f32| ProgressBar::new(value).label("Palpite").marker(0.85).marker_label("limite 0,85");
+    let read = |value: f32| {
+        let mut ui = ui(Localized::new(Labels::pt_br(), VStack::new((bar(value),)).align(Align::Stretch)));
+        named(&ui.access_tree(), Role::ProgressIndicator, "Palpite").value.clone()
+    };
+    assert_eq!(read(0.89).as_deref(), Some("89%, acima do limite 0,85"));
+    assert_eq!(read(0.6).as_deref(), Some("60%, abaixo do limite 0,85"));
+    assert_eq!(read(0.85).as_deref(), Some("85%, no limite 0,85"));
+
+    // The stroke crosses the track at 85% of its width, in the warning color, past its edges.
+    let mut marked = ui(VStack::new((ProgressBar::new(0.89).marker(0.85),)).align(Align::Stretch));
+    let warning = Theme::raven_dark().color(Semantic::Warning);
+    let all = quads(&marked);
+    let track = all.iter().find(|q| q.rect.height() == 6.0).expect("the track").rect;
+    let stroke = all.iter().find(|q| q.fill == warning.into()).expect("the marker").rect;
+    let center = stroke.x() + stroke.width() / 2.0;
+    assert!((center - (track.x() + track.width() * 0.85)).abs() < 0.5, "{stroke:?} on {track:?}");
+    assert!(stroke.height() > track.height() && stroke.width() == 2.0, "{stroke:?}");
+    // Unnamed, in English, it is read by where it is; several add up.
+    let tree = marked.access_tree();
+    let value = tree.nodes.iter().find(|n| n.role == Role::ProgressIndicator).and_then(|n| n.value.clone());
+    assert_eq!(value.as_deref(), Some("89%, above the 85% mark"));
+    let mut two = ui(VStack::new((ProgressBar::new(0.5).marker(0.2).marker(0.9),)).align(Align::Stretch));
+    let tree = two.access_tree();
+    let value = tree.nodes.iter().find(|n| n.role == Role::ProgressIndicator).and_then(|n| n.value.clone());
+    assert_eq!(value.as_deref(), Some("50%, above the 20% mark, below the 90% mark"));
+
+    // Out of range, a marker stays on the track, without a panic.
+    for (given, kept) in [(1.4, "100%"), (-1.0, "0%")] {
+        let mut ui = ui(VStack::new((ProgressBar::new(0.5).marker(given),)).align(Align::Stretch));
+        let tree = ui.access_tree();
+        let value =
+            tree.nodes.iter().find(|n| n.role == Role::ProgressIndicator).and_then(|n| n.value.clone());
+        assert!(value.is_some_and(|v| v.ends_with(&format!("the {kept} mark"))), "{given}");
+    }
+}
+
+#[test]
 fn an_avatar_can_show_a_picture_and_a_ring() {
     let picture = ImageData::from_fn(8, 4, |_, _| Color::WHITE).expect("not empty");
     let mut with =

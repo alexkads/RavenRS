@@ -1450,6 +1450,19 @@ fn the_progress_bar_says_its_stage_and_puts_the_detail_beside_the_label_or_under
     assert!(inline + 10.0 < under, "inline {inline}, under {under}");
     // tone, color, height, label, percent and detail of the others.
     assert!(c.says("Disco") && c.says("Cor própria, 10 pt") && c.says("12 de 30 fotos"), "{:?}", c.texts());
+    // marker and marker_label: the value is read against the limit, above and below it.
+    let spoken = |c: &mut Center, name: &str| {
+        c.settle();
+        let tree = c.ui.access_tree();
+        tree.find(Role::ProgressIndicator, name).and_then(|n| n.value.clone()).unwrap_or_default()
+    };
+    assert_eq!(spoken(&mut c, "Confiança do palpite"), "89%, acima do limite 0,85");
+    assert!(c.says("Com 89%, o bot responde."), "{:?}", c.texts());
+    c.press("Palpite de 60%");
+    assert_eq!(spoken(&mut c, "Confiança do palpite"), "60%, abaixo do limite 0,85");
+    assert!(c.says("Com 60%, o bot diz \"não entendi\"."), "{:?}", c.texts());
+    // Two unnamed markers, read by where they are.
+    assert_eq!(spoken(&mut c, "Meta e piso do mês"), "55%, acima do ponto de 30%, abaixo do ponto de 80%");
 }
 
 #[test]
