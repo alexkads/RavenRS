@@ -7,7 +7,7 @@ use std::collections::HashSet;
 
 use ravenrs_core::{AccessNode, AccessTree, Role};
 
-use crate::aria::{aria_attributes, aria_role};
+use crate::aria::aria_attributes;
 use wasm_bindgen::JsCast;
 use web_sys::{Document, Element, HtmlCanvasElement, HtmlElement, HtmlTextAreaElement};
 
