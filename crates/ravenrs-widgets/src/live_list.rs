@@ -90,6 +90,10 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     ravenrs_core::FileStorage::__live_expose_fields(registry);
     #[cfg(not(target_arch = "wasm32"))]
     ravenrs_core::FileStorage::__live_expose(registry);
+    ravenrs_core::TrayEntry::__live_expose_variants(registry);
+    ravenrs_core::TrayEntry::__live_expose(registry);
+    ravenrs_core::TrayMenu::__live_expose_fields(registry);
+    ravenrs_core::TrayMenu::__live_expose(registry);
     ravenrs_style::Semantic::__live_expose_variants(registry);
     ravenrs_style::Palette::__live_expose_fields(registry);
     ravenrs_style::Palette::__live_expose(registry);
@@ -301,6 +305,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::QuadPaint::__live_expose_fields(registry);
     crate::QuadPaint::__live_expose(registry);
     crate::Paint::__live_expose_variants(registry);
+    crate::BusySignal::__live_expose_fields(registry);
+    crate::BusySignal::__live_expose(registry);
     crate::DragPhase::__live_expose_variants(registry);
     crate::Drag::__live_expose_fields(registry);
     crate::Drag::__live_expose(registry);
@@ -333,6 +339,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::DockSide::__live_expose_variants(registry);
     crate::DockSide::__live_expose(registry);
     crate::Labels::__live_expose(registry);
+    crate::Driving::__live_expose_variants(registry);
     crate::Spinner::__live_expose_fields(registry);
     crate::Spinner::__live_expose(registry);
     crate::Carousel::__live_expose_fields(registry);
@@ -514,9 +521,10 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Turn::__live_expose_variants(registry);
     crate::QuarterTurn::<crate::AnyView>::__live_expose(registry);
     crate::Ui::__live_expose(registry);
+    crate::Ui::__live_expose_part1(registry);
     crate::UiStats::__live_expose_fields(registry);
     crate::Ui::__live_expose_fields(registry);
-    crate::Ui::__live_expose_part1(registry);
+    crate::Ui::__live_expose_part2(registry);
     crate::Keyed::<crate::AnyView>::__live_expose(registry);
     crate::ZoomView::__live_expose_fields(registry);
     crate::ZoomView::__live_expose(registry);
@@ -961,14 +969,14 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::FilmstripCell::__live_expose_fields(registry);
     crate::Filmstrip::__live_expose_fields(registry);
     crate::Filmstrip::__live_expose(registry);
-    crate::PagedDocumentView::__live_expose_fields(registry);
-    crate::PagedDocumentView::__live_expose(registry);
-    crate::SortableList::__live_expose_fields(registry);
-    crate::SortableList::__live_expose(registry);
     crate::LogBuffer::__live_expose_fields(registry);
     crate::LogBuffer::__live_expose(registry);
     crate::LogView::__live_expose_fields(registry);
     crate::LogView::__live_expose(registry);
+    crate::PagedDocumentView::__live_expose_fields(registry);
+    crate::PagedDocumentView::__live_expose(registry);
+    crate::SortableList::__live_expose_fields(registry);
+    crate::SortableList::__live_expose(registry);
     crate::VirtualList::__live_expose_fields(registry);
     crate::VirtualList::__live_expose(registry);
     crate::DayMark::__live_expose_fields(registry);
@@ -1018,6 +1026,9 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::GridCurrent::__live_expose(registry);
     crate::DataGrid::__live_expose(registry);
     crate::DataGrid::__live_expose_part1(registry);
+    crate::book::__live_expose(registry);
+    #[cfg(feature = "testing")]
+    crate::testing::__live_expose(registry);
     #[cfg(feature = "charts")]
     registry.alias("ChartCurve", "Curve");
     #[cfg(feature = "charts")]
@@ -1149,6 +1160,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::List<Vec<crate::AnyView>>>(registry);
     crate::live::view::<crate::ListItem>(registry);
     crate::live::view::<crate::Localized<crate::AnyView>>(registry);
+    crate::live::view::<crate::LogView>(registry);
     crate::live::view::<crate::LookupField>(registry);
     #[cfg(feature = "lottie")]
     crate::live::view::<crate::Lottie>(registry);
@@ -1229,6 +1241,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::Table>(registry);
     crate::live::view::<crate::Tabs>(registry);
     crate::live::view::<crate::TagBox>(registry);
+    crate::live::view::<crate::TestId<crate::AnyView>>(registry);
     crate::live::view::<crate::Text>(registry);
     crate::live::view::<crate::TextArea>(registry);
     crate::live::view::<crate::TextField>(registry);
@@ -1250,7 +1263,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::TransformHandles>(registry);
     crate::live::view::<crate::TreeView>(registry);
     crate::live::view::<crate::ValueSlider>(registry);
-    crate::live::view::<crate::LogView>(registry);
     crate::live::view::<crate::VirtualList>(registry);
     crate::live::view::<crate::Wizard>(registry);
     crate::live::view::<crate::YearView>(registry);
