@@ -109,7 +109,7 @@ impl CiPlugin for Plugin {
     }
 
     fn agent_launchers(&self) -> Vec<Arc<dyn AgentLauncher>> {
-        vec![Arc::new(Dying)]
+        vec![Arc::new(Dying), Arc::new(Living)]
     }
 }
 
@@ -143,6 +143,62 @@ impl AgentLauncher for Dying {
         let name = request.settings["name"].as_str().unwrap_or("morto").to_owned();
         Ok(Box::new(Dead(name)))
     }
+}
+
+/// The launcher `vivo`: its agents live until the test says they died (#962).
+struct Living;
+
+/// Each agent `vivo` brought up: its name, its token and whether it lives.
+type BroughtUp = Mutex<Vec<(String, String, Arc<std::sync::atomic::AtomicBool>)>>;
+
+fn living() -> &'static BroughtUp {
+    static LIVING: OnceLock<BroughtUp> = OnceLock::new();
+    LIVING.get_or_init(|| Mutex::new(Vec::new()))
+}
+
+struct Alive(String, Arc<std::sync::atomic::AtomicBool>);
+
+impl LaunchedAgent for Alive {
+    fn name(&self) -> String {
+        self.0.clone()
+    }
+    fn alive(&self) -> bool {
+        self.1.load(std::sync::atomic::Ordering::SeqCst)
+    }
+    fn stop(&self) {
+        self.1.store(false, std::sync::atomic::Ordering::SeqCst);
+    }
+    fn last_words(&self) -> Option<String> {
+        None
+    }
+}
+
+impl AgentLauncher for Living {
+    fn id(&self) -> &str {
+        "vivo"
+    }
+    fn launch(
+        &self,
+        request: &LaunchRequest,
+    ) -> Result<Box<dyn LaunchedAgent>, raven_ci_plugin_api::CiError> {
+        let name = request.settings["name"].as_str().unwrap_or("vivo").to_owned();
+        let flag = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        living().lock().expect("the list").push((name.clone(), request.token.clone(), flag.clone()));
+        Ok(Box::new(Alive(name, flag)))
+    }
+}
+
+/// The core on `disk` again, as after a restart: its file, a state of its own.
+fn reopen(disk: &OnDisk, clock: &ManualClock) -> Ci {
+    let options = CiOptions {
+        data_dir: Some(disk.dir.clone()),
+        clock: Arc::new(clock.clone()),
+        ..CiOptions::default()
+    };
+    let ci = Ci::new(options).expect("a core");
+    ci.add_plugin(Arc::new(Plugin));
+    ci.apply_plugins().expect("on");
+    ci
 }
 
 /// A core on disk with the plugin of this test, an administrator and a reader.
@@ -435,4 +491,88 @@ fn a_build_whose_agents_die_before_coming_in_fails_after_three_tries_saying_why(
         clock.advance(31_000);
     }
     assert_eq!(ci.build("apps/paciente", more).expect("the build").status, BuildStatus::Queued);
+}
+
+fn leftover_template(name: &str) -> raven_ci_core::agents::AgentTemplate {
+    raven_ci_core::agents::AgentTemplate {
+        name: name.into(),
+        labels: vec![name.into()],
+        launcher: "vivo".into(),
+        settings: json!({}),
+        executors: 1,
+        max_agents: 1,
+        idle_ms: 600_000,
+    }
+}
+
+/// A build asks for the label of `template`; its agent comes up and comes in. Its name.
+fn bring_up(ci: &Ci, template: &str, n: &mut u32) -> String {
+    *n += 1;
+    job(ci, &format!("apps/{template}-{n}"), json!({ "agent": template, "steps": [{}] }));
+    ci.tick_agents();
+    let (name, token, _) = living()
+        .lock()
+        .expect("the list")
+        .iter()
+        .rev()
+        .find(|(name, ..)| name.starts_with(&format!("{template}-")))
+        .cloned()
+        .expect("brought up");
+    ci.agent_join(&Join { name: name.clone(), token, hello: hello("s1", &[template]) }).expect("in");
+    name
+}
+
+fn told(ci: &Ci, name: &str, template: &str, removed: &[&str]) -> Vec<String> {
+    let hello =
+        Hello { removed: removed.iter().map(|r| (*r).to_owned()).collect(), ..hello("s1", &[template]) };
+    ci.agent_hello(name, &hello).expect("hello").leftovers
+}
+
+/// The folder of an agent a template took down is told to the next agent of the template even
+/// after a restart, again and again until that agent says it is gone; an agent the restart took
+/// down joins them; another template never hears of them; after 30 days they are forgotten (#962).
+#[test]
+fn the_leftovers_of_agents_taken_down_outlive_a_restart_until_an_agent_says_they_are_gone() {
+    let disk = OnDisk::new("agentes-sobras");
+    let clock = ManualClock::at(1_000_000);
+    let mut n = 0;
+    let first = {
+        let ci = core(&disk, Some(&clock));
+        ci.save_agent_template(&leftover_template("sobra")).expect("saved");
+        ci.save_agent_template(&leftover_template("outro")).expect("saved");
+        let first = bring_up(&ci, "sobra", &mut n);
+        let dead = living().lock().expect("the list").iter().find(|(name, ..)| *name == first).cloned();
+        dead.expect("it").2.store(false, std::sync::atomic::Ordering::SeqCst);
+        ci.tick_agents();
+        first
+    };
+
+    // A restart: the next agent of the template is told, and told again until it says.
+    let ci = reopen(&disk, &clock);
+    let second = bring_up(&ci, "sobra", &mut n);
+    assert_eq!(told(&ci, &second, "sobra", &[]), vec![first.clone()]);
+    assert_eq!(told(&ci, &second, "sobra", &[]), vec![first.clone()], "in use: told again");
+    let other = bring_up(&ci, "outro", &mut n);
+    assert!(told(&ci, &other, "outro", &[]).is_empty(), "another template never hears of it");
+    assert!(told(&ci, &second, "sobra", &[&first]).is_empty(), "gone: forgotten");
+    assert!(told(&ci, &second, "sobra", &[]).is_empty());
+    drop(ci);
+
+    // A restart takes `second` down with the server: its folder joins the leftovers.
+    let ci = reopen(&disk, &clock);
+    let third = bring_up(&ci, "sobra", &mut n);
+    assert_eq!(told(&ci, &third, "sobra", &[]), vec![second.clone()]);
+    // `second` came back after all, on another machine: alive, it leaves the list.
+    assert!(told(&ci, &second, "sobra", &[]).is_empty());
+    assert!(told(&ci, &third, "sobra", &[]).is_empty(), "an agent that says hello is no leftover");
+
+    // Thirty days with no agent of the template removing it: forgotten.
+    let dead = living().lock().expect("the list").iter().find(|(name, ..)| *name == third).cloned();
+    dead.expect("it").2.store(false, std::sync::atomic::Ordering::SeqCst);
+    ci.tick_agents();
+    clock.advance(raven_ci_core::agents::LEFTOVER_MS + 1);
+    ci.tick_agents();
+    let fifth = bring_up(&ci, "sobra", &mut n);
+    let left = told(&ci, &fifth, "sobra", &[]);
+    assert!(!left.contains(&third), "past 30 days: forgotten {left:?}");
 }
