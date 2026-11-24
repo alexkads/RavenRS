@@ -71,6 +71,15 @@ fn credentials() -> Value {
     })
 }
 
+/// `unstable = [3]`: the exit codes that leave the build unstable (#947).
+fn codes() -> Value {
+    json!({
+        "type": "array",
+        "items": { "type": "integer", "minimum": 1, "maximum": 255 },
+        "description": "Códigos de saída que deixam o build instável (amarelo) e seguem, como o unstable() do Jenkins",
+    })
+}
+
 fn step() -> Value {
     json!({ "oneOf": [
         { "type": "string", "description": "Um comando, rodado por sh -e -c" },
@@ -85,6 +94,7 @@ fn step() -> Value {
             "nice" => integer("A prioridade: nice -n N (Linux e macOS)"),
             "credentials" => credentials(),
             "keep_daemons" => boolean("Deixa vivo o que o comando deixou rodando"),
+            "unstable" => codes(),
             _ => json!({}),
         }),
     ]})
@@ -128,6 +138,7 @@ fn stage() -> Value {
             })
         }
         "credentials" => credentials(),
+        "unstable" => codes(),
         _ => json!({}),
     })
 }

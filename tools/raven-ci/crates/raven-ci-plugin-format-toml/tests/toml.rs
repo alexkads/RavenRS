@@ -315,6 +315,47 @@ steps = ["{say}"]
 }
 
 #[test]
+fn a_step_that_ends_with_a_code_said_unstable_goes_on_and_leaves_the_build_unstable() {
+    // The job faxina of the oficina calls unstable() when its script ends with 3: Jenkins goes
+    // yellow, and Raven CI went red (#947).
+    let ci = ci();
+    let pipeline = |code: u8| {
+        format!(
+            r#"
+[[stages]]
+name = "Faxina"
+steps = [{{ sh = "exit {code}", unstable = [3] }}, "echo depois"]
+"#
+        )
+    };
+    let (status, log) = run(&ci, "amarelo", &pipeline(3), json!({}));
+    assert_eq!(status, BuildStatus::Unstable, "{log:#?}");
+    assert!(log.iter().any(|l| l == "depois"), "the next step runs: {log:#?}");
+    assert!(log.iter().any(|l| l.contains("o build fica instável")), "{log:#?}");
+    let reason = ci.build("amarelo", 1).expect("the build").reason.unwrap_or_default();
+    assert!(reason.contains("o comando terminou com o código 3"), "{reason}");
+
+    let (status, log) = run(&ci, "vermelho", &pipeline(4), json!({}));
+    assert_eq!(status, BuildStatus::Failed, "another code fails: {log:#?}");
+    assert!(!log.iter().any(|l| l == "depois"), "{log:#?}");
+
+    // On the stage, for every sh of it.
+    let text = r#"
+[[stages]]
+name = "Faxina"
+unstable = [3]
+steps = ["exit 3"]
+"#;
+    let (status, log) = run(&ci, "estagio", text, json!({}));
+    assert_eq!(status, BuildStatus::Unstable, "{log:#?}");
+
+    // A code that is not one is refused with its line.
+    let wrong = "[[stages]]\nname = \"F\"\nsteps = [{ sh = \"x\", unstable = [0] }]\n";
+    let errors = TomlFormat.read("errado", wrong).expect_err("refused");
+    assert!(format!("{errors:?}").contains("não é um código de saída"), "{errors:?}");
+}
+
+#[test]
 fn parallel_branches_all_run_and_meet_before_the_next_stage() {
     let ci = ci();
     let text = r#"

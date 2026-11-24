@@ -320,6 +320,7 @@ pub(super) fn page(s: &Rc<S>, job: &str, number: u64) -> AnyView {
     let mut progress = ProgressBar::new(share).label(label).percent().tone(match status.as_str() {
         "failed" | "timed_out" => Tone::Danger,
         "succeeded" => Tone::Success,
+        "unstable" => Tone::Warning,
         "interrupted" | "cancelled" => Tone::Neutral,
         _ => Tone::Accent,
     });

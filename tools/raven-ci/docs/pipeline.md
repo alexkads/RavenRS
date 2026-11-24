@@ -140,6 +140,7 @@ in the job's settings fetches the branch the person asked for.
 | `nice` | a number | each `sh` runs under `nice -n N` (Linux and macOS) |
 | `container` | `{ image, args, env }` | each `sh` of the stage runs in the image, with the build's folder mounted (plugin `docker`) |
 | `credentials` | `{ VARIAVEL = "nome", … }` | each `sh` of the stage gets credentials of the vault as variables ([Credentials in a step](#credentials-in-a-step)) |
+| `unstable` | a list of exit codes, `[3]` | each `sh` of the stage that ends with one of them leaves the build unstable and the next steps run ([Unstable](#unstable)) |
 
 ### `when`
 
@@ -160,12 +161,26 @@ in the job's settings fetches the branch the person asked for.
 | `{ sh = "./e2e.sh", name = "Ponta a ponta", timeout = "5m", retry = 2, nice = 10 }` | the same, with a name, a limit, tries again and a priority | `shell` |
 | `{ sh = "./publica.sh", credentials = { NPM_TOKEN = "npm" } }` | the same, with credentials of the vault as variables, added to the stage's | `shell` |
 | `{ sh = "./servico.sh &", keep_daemons = true }` | what the command leaves running stays after the step; without it, it is stopped when the command ends and the log names it | `shell` |
+| `{ sh = "./faxina.sh", unstable = [3] }` | ending with 3 leaves the build **unstable** (yellow) and the next steps run; another code that is not 0 fails it | `shell` |
 | `{ cargo = "clippy -p site -- -D warnings" }` | `cargo` with each diagnostic in the log and in an attachment | `cargo` |
 | `{ uses = "plugin/passo", with = { … } }` | a step of any plugin, by its name and kind | the plugin named |
 
 A command runs in the build's folder, with the build's variables and the few basic ones of the
 machine (`PATH`, `HOME`), nothing else of the server's environment. Each line it writes goes to
 the log as it comes. It ends well with code 0.
+
+### Unstable
+
+What Jenkins's `unstable()` does: a step that ran, but says something it checks is not right. A
+`sh` with `unstable = [3]` (on the step, or on its stage for every `sh` of it) that ends with 3:
+
+- writes in the log `o comando terminou com o código 3: o build fica instável e segue`;
+- lets the next steps run, as if it had passed;
+- leaves the build **instável** at its end, with the reason, unless a later step fails it.
+
+An unstable build is yellow in the panel, sends `failure` with the description `instável: …` to
+GitHub and Azure DevOps (as Jenkins sends `UNSTABLE`), says `instável` in notices, and makes
+`raven-ci rodar JOB --esperar` end with 7. The codes go from 1 to 255.
 
 The steps of the plugins that come with Raven CI:
 

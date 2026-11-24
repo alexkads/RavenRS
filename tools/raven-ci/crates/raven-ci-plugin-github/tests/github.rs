@@ -298,3 +298,65 @@ fn forks_come_only_when_asked_and_a_refusal_says_what_github_said() {
     let wrong = source.discover(&json!({ "repository": "sem-barra", "api": api })).expect_err("a name");
     assert!(wrong.to_string().contains("dono/nome"), "{wrong}");
 }
+
+/// An unstable build goes to GitHub as a failure that says why, as Jenkins sends UNSTABLE (#947).
+#[test]
+fn an_unstable_build_reaches_github_as_a_failure_that_says_instavel() {
+    if !has_git() {
+        return;
+    }
+    let repo = folder("repo-instavel");
+    let (main, _pr) = repository(&repo.0);
+    let hub: Shared = Arc::default();
+    {
+        let mut hub = hub.lock().expect("lock");
+        hub.branches = json!([{ "name": "main", "commit": { "sha": main } }]);
+        hub.pulls = json!([]);
+        hub.files.insert(
+            main.clone(),
+            "[[stages]]\nname = \"Avisa\"\nsteps = [{ sh = \"exit 3\", unstable = [3] }]\n".to_owned(),
+        );
+    }
+    let api = github(hub.clone());
+    let data = folder("dados-instavel");
+    let ci = Ci::open(&data.0).expect("a core");
+    for plugin in [
+        Arc::new(GithubPlugin::new()) as Arc<dyn CiPlugin>,
+        Arc::new(GitPlugin::new()),
+        Arc::new(ShellPlugin::new()),
+        Arc::new(TomlFormatPlugin),
+        Arc::new(CredentialsPlugin),
+    ] {
+        ci.add_plugin(plugin);
+    }
+    ci.apply_plugins().expect("on");
+    ci.save_credential("github", "token", &json!({ "token": TOKEN }), None, None).expect("the token");
+    let settings = json!({
+        "branches": { "id": "github", "repository": "dono/repo", "credential": "github", "api": api },
+        "scm": { "id": "git", "url": repo.0.display().to_string() },
+        "status": [{ "id": "github", "repository": "dono/repo", "credential": "github", "context": "raven-ci", "api": api }],
+    });
+    ci.save_job(
+        JobSpec::new("repo", "toml", "[[stages]]\nname = \"M\"\nsteps = [\"true\"]\n").settings(settings),
+    )
+    .expect("the model");
+    ci.scan("repo").expect("scanned");
+    ci.work_until_idle("e1").expect("runs");
+    assert_eq!(
+        ci.builds("repo/main").expect("builds")[0].status,
+        BuildStatus::Unstable,
+        "{}",
+        texts(&ci, "repo/main")
+    );
+    let last = hub
+        .lock()
+        .expect("lock")
+        .asked
+        .iter()
+        .filter(|(method, ..)| method == "POST")
+        .map(|(.., body)| serde_json::from_str::<Value>(body).expect("json"))
+        .next_back()
+        .expect("a status");
+    assert_eq!(last["state"], "failure", "{last}");
+    assert!(last["description"].as_str().is_some_and(|d| d.starts_with("instável: ")), "{last}");
+}

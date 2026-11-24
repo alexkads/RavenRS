@@ -16,11 +16,33 @@ type Node<'i> = Spanned<DeValue<'i>>;
 pub(crate) const TOP: &[&str] =
     &["pipeline", "environment", "parameters", "stages", "post", "artifacts", "junit"];
 pub(crate) const PIPELINE: &[&str] = &["timeout", "keep", "agent"];
-pub(crate) const STAGE: &[&str] =
-    &["name", "steps", "parallel", "when", "timeout", "retry", "lock", "nice", "container", "credentials"];
+pub(crate) const STAGE: &[&str] = &[
+    "name",
+    "steps",
+    "parallel",
+    "when",
+    "timeout",
+    "retry",
+    "lock",
+    "nice",
+    "container",
+    "credentials",
+    "unstable",
+];
 pub(crate) const WHEN: &[&str] = &["branch", "pull_request", "parameter"];
-pub(crate) const STEP: &[&str] =
-    &["sh", "cargo", "uses", "with", "name", "timeout", "retry", "nice", "credentials", "keep_daemons"];
+pub(crate) const STEP: &[&str] = &[
+    "sh",
+    "cargo",
+    "uses",
+    "with",
+    "name",
+    "timeout",
+    "retry",
+    "nice",
+    "credentials",
+    "keep_daemons",
+    "unstable",
+];
 pub(crate) const CREDENTIAL_FILE: &[&str] = &["file", "name"];
 pub(crate) const PARAMETER: &[&str] = &["name", "type", "default", "description", "choices"];
 pub(crate) const BRANCH: &[&str] = &["name", "steps"];
@@ -38,6 +60,8 @@ struct StageOptions {
     container: Option<Value>,
     /// The credentials of every `sh` of the stage, by variable (#922).
     credentials: Map<String, Value>,
+    /// The exit codes that leave the build unstable, for every `sh` of the stage (#947).
+    unstable: Vec<i64>,
     disabled: bool,
 }
 
@@ -124,6 +148,21 @@ impl Reader<'_> {
                 None
             }
         }
+    }
+
+    /// `unstable = [3]`: the exit codes, from 1 to 255, that leave the build unstable (#947).
+    fn codes(&mut self, node: &Node<'_>) -> Vec<i64> {
+        let mut codes = Vec::new();
+        for item in self.array(node, "unstable").unwrap_or_default() {
+            match self.integer(item, "unstable") {
+                Some(code) if (1..=255).contains(&code) => codes.push(code),
+                Some(code) => {
+                    self.error(&item.span(), format!("unstable: {code} não é um código de saída (1 a 255)"));
+                }
+                None => {}
+            }
+        }
+        codes
     }
 
     /// `credentials = { TOKEN = "nome", USUARIO = "nome:user", ARQUIVO = { file = "nome", name =
@@ -349,6 +388,14 @@ impl Read<'_> {
                             .error(&fields["keep_daemons"].span(), "keep_daemons só vale num passo sh");
                     }
                 }
+                if let Some(codes) = fields.get("unstable") {
+                    let codes = self.reader.codes(codes);
+                    if def.kind == "sh" {
+                        def = def.parameter("unstable", json!(codes));
+                    } else {
+                        self.reader.error(&fields["unstable"].span(), "unstable só vale num passo sh");
+                    }
+                }
                 if let Some(credentials) = fields.get("credentials") {
                     let own = self.reader.credentials(credentials);
                     if def.kind == "sh" {
@@ -401,6 +448,9 @@ impl Read<'_> {
         if !options.credentials.is_empty() && options.container.is_none() {
             def = def.parameter("credentials", Value::Object(options.credentials.clone()));
         }
+        if !options.unstable.is_empty() && options.container.is_none() {
+            def = def.parameter("unstable", json!(options.unstable));
+        }
         def
     }
 
@@ -434,6 +484,9 @@ impl Read<'_> {
             .and_then(|r| self.reader.integer(r, "retry"))
             .map(|n| u32::try_from(n.max(0)).unwrap_or(0));
         options.nice = fields.get("nice").and_then(|n| self.reader.integer(n, "nice"));
+        if let Some(codes) = fields.get("unstable") {
+            options.unstable = self.reader.codes(codes);
+        }
         if let Some(credentials) = fields.get("credentials") {
             options.credentials = self.reader.credentials(credentials);
             if fields.contains_key("container") {

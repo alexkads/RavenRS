@@ -123,3 +123,22 @@ steps = ['test "$TOKEN" = npm_do_agente_123456 && echo token $TOKEN']
     let audit = server.ci.store().audit_of("agente:teste-c").expect("the audit");
     assert!(audit.iter().any(|entry| entry.what == "ler o segredo feed" && entry.granted), "{audit:#?}");
 }
+
+/// A step on the agent that ends with a code said unstable leaves the build unstable on the server,
+/// and the next step runs (#947).
+#[test]
+fn a_step_on_the_agent_that_ends_unstable_leaves_the_build_unstable() {
+    let server = Server::start("instavel", 1, Duration::from_secs(60));
+    server.job(
+        "faxina",
+        "[pipeline]\nagent = { label = \"teste\" }\n\n[[stages]]\nname = \"F\"\nsteps = [{ sh = \"exit 3\", unstable = [3] }, \"echo depois-no-agente\"]\n",
+    );
+    let number = server.request("faxina");
+    let token = server.ci.agent_token("teste-2", &["teste".to_owned()], 1).expect("a token");
+    let dir = Folder::new("instavel-agente");
+    let _agent = Agent::start(&server, "teste-2", &dir.0, "teste", Some(&token), &[]);
+    let status = server.wait_end("faxina", number, Duration::from_secs(60));
+    let log = server.log("faxina", number);
+    assert_eq!(status, BuildStatus::Unstable, "{log:#?}");
+    assert!(log.iter().any(|line| line == "depois-no-agente"), "{log:#?}");
+}

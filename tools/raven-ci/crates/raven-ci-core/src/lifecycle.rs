@@ -440,14 +440,18 @@ impl Ci {
         log: &dyn BuildLog,
     ) {
         let reported = Self::reported(&order.settings, commit);
+        let kept = self.build(&order.job, order.number).ok();
+        let said = match (status, kept.as_ref().and_then(|build| build.reason.as_deref())) {
+            (BuildStatus::Unstable, Some(reason)) => format!("instável: {reason}"),
+            _ => status.words().to_owned(),
+        };
         let state = match status {
             BuildStatus::Succeeded => CommitState::Success,
             // Nothing in the commit failed: the build could not be finished.
             BuildStatus::Interrupted => CommitState::Error,
             _ => CommitState::Failure,
         };
-        self.report(&order.settings, &order.job, reported.as_deref(), state, status.words(), log);
-        let kept = self.build(&order.job, order.number).ok();
+        self.report(&order.settings, &order.job, reported.as_deref(), state, &said, log);
         let duration_ms = kept.as_ref().map(|build| {
             let end = build.ended_ms.unwrap_or_else(|| self.store().now_ms());
             u64::try_from(end.saturating_sub(build.created_ms).max(0)).unwrap_or(0)

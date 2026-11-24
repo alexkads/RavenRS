@@ -18,7 +18,9 @@ fn jobs(dir: &Path) {
     let demo = "artifacts = [\"*.txt\"]\n\n[[parameters]]\nname = \"ALVO\"\ntype = \"text\"\ndefault = \"\"\n\n[[stages]]\nname = \"Gera\"\nsteps = [\"echo relatorio> relatorio.txt\", \"echo feito\"]\n";
     ci.save_job(JobSpec::new("apps/demo", "toml", demo).settings(settings.clone())).expect("demo");
     let quebra = "[[stages]]\nname = \"Quebra\"\nsteps = [\"exit 1\"]\n";
-    ci.save_job(JobSpec::new("quebra", "toml", quebra).settings(settings)).expect("quebra");
+    ci.save_job(JobSpec::new("quebra", "toml", quebra).settings(settings.clone())).expect("quebra");
+    let amarelo = "[[stages]]\nname = \"Avisa\"\nsteps = [{ sh = \"exit 3\", unstable = [3] }]\n";
+    ci.save_job(JobSpec::new("amarelo", "toml", amarelo).settings(settings)).expect("amarelo");
 }
 
 fn remote(running: &Running, token: Option<&str>, args: &[&str]) -> Output {
@@ -236,6 +238,16 @@ fn agents_templates_and_people_are_administered_on_the_server_that_is_running() 
     let missing = remote(&running, Some(&key), &["rodar", "nao-existe"]);
     assert_eq!(missing.status.code(), Some(5), "{}", said(&missing));
     assert!(said(&missing).contains("o job nao-existe não existe"), "{}", said(&missing));
+}
+
+/// A build that ends unstable makes `rodar --esperar` end with 7, and says so (#947).
+#[test]
+fn a_build_that_ends_unstable_ends_the_command_with_seven() {
+    let running = start_with("remoto-instavel", jobs);
+    let key = token(&running, "ana");
+    let waited = remote(&running, Some(&key), &["rodar", "amarelo", "--esperar"]);
+    assert_eq!(waited.status.code(), Some(7), "{}", said(&waited));
+    assert!(said(&waited).contains("instável"), "{}", said(&waited));
 }
 
 /// The summary of a build for programs and sessions of AI (#941): a build that fails with a test
