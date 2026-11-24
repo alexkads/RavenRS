@@ -1514,6 +1514,37 @@ fn toggles_switch_with_a_label_compact_or_only_an_accessible_name() {
 }
 
 #[test]
+fn the_code_completes_once_and_locks_while_it_is_verified() {
+    let mut c = Center::memory("ana");
+    c.press("Código de verificação");
+    let field = |c: &mut Center| {
+        c.settle();
+        let tree = c.ui.access_tree();
+        let found = tree
+            .nodes
+            .iter()
+            .find(|n| n.role == Role::TextInput && n.name.as_deref() == Some("Código de verificação"));
+        found.cloned().expect("the code")
+    };
+    // new: digits only, one per box.
+    c.type_into("Código de verificação", "48a29");
+    assert!(c.says("Digitado: 4829"), "{:?}", c.texts());
+    // on_complete: the sixth digit sends it, once.
+    c.type_into("Código de verificação", "13");
+    assert!(c.says("Verificando 482913…") && c.says("Conclusões: 1"), "{:?}", c.texts());
+    // disabled: unavailable to screen readers, and typing changes nothing nor completes again.
+    assert!(field(&mut c).disabled);
+    c.type_into("Código de verificação", "7");
+    assert_eq!(field(&mut c).value.as_deref(), Some("482913"));
+    assert!(c.says("Conclusões: 1"), "{:?}", c.texts());
+    // Back on, what was typed is kept.
+    c.press("Resposta do servidor");
+    let back = field(&mut c);
+    assert!(!back.disabled && back.value.as_deref() == Some("482913"), "{back:?}");
+    assert!(c.says("Digitado: 482913"), "{:?}", c.texts());
+}
+
+#[test]
 fn buttons_show_every_variant_and_activate_with_the_mouse_enter_and_space() {
     let mut c = Center::memory("ana");
     c.press("Botões");

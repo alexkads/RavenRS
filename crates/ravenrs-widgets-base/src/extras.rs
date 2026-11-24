@@ -995,6 +995,7 @@ pub struct InputOtp {
     value: Binding<String>,
     length: usize,
     on_complete: Option<Rc<dyn Fn(String)>>,
+    state: util::EditorState,
 }
 
 impl fmt::Debug for InputOtp {
@@ -1007,7 +1008,7 @@ impl fmt::Debug for InputOtp {
 impl InputOtp {
     /// `length` boxes (clamped to 1–12) editing `value`.
     pub fn new(value: Binding<String>, length: usize) -> Self {
-        Self { value, length: length.clamp(1, 12), on_complete: None }
+        Self { value, length: length.clamp(1, 12), on_complete: None, state: util::EditorState::default() }
     }
 
     /// Called once all boxes are filled.
@@ -1015,24 +1016,33 @@ impl InputOtp {
         self.on_complete = Some(Rc::new(handler));
         self
     }
+
+    /// Locks the boxes, as while the code is being verified: they fade, leave the tab order,
+    /// take no typing and never complete again. What was typed stays, and turning it back on
+    /// keeps it. Screen readers hear it as unavailable.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.state.disabled = disabled;
+        self
+    }
 }
 
 impl View for InputOtp {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let focused = cx.is_focused();
+        let state = self.state;
+        let focused = cx.is_focused() && state.accepts_input();
         let text: Vec<char> = self.value.get().chars().take(self.length).collect();
         let mut boxes = Vec::new();
         let mut attrs = util::attrs(&theme, TextStyle::Title, Some(Weight::SEMIBOLD));
         attrs.size = 20.0;
         for i in 0..self.length {
             let ch = text.get(i).map(|c| c.to_string()).unwrap_or_default();
-            let label = cx.text(&ch, &attrs, theme.color(Semantic::Ink), LayoutStyle::leaf());
+            let label = cx.text(&ch, &attrs, state.ink(theme.color(Semantic::Ink)), LayoutStyle::leaf());
             let active = focused && i == text.len().min(self.length - 1);
             let border = if active {
                 Border { width: 1.5, color: theme.color(Semantic::Accent) }
             } else {
-                Border { width: 1.0, color: theme.color(Semantic::ControlBorder) }
+                Border { width: 1.0, color: state.ink(theme.color(Semantic::ControlBorder)) }
             };
             boxes.push(cx.container(
                 LayoutStyle {
@@ -1046,7 +1056,7 @@ impl View for InputOtp {
                 Paint::Quad(QuadPaint {
                     corner_radius: theme.radii.md,
                     border: Some(border),
-                    ..QuadPaint::new(theme.color(Semantic::Control))
+                    ..QuadPaint::new(state.fill(theme.color(Semantic::Control)))
                 }),
             ));
         }
@@ -1068,7 +1078,11 @@ impl View for InputOtp {
             .value(typed)
             .description(format!("{} digits", self.length));
         semantics.fallback_name = true;
-        cx.semantics(node, semantics);
+        cx.semantics(node, state.semantics(semantics));
+        if !state.accepts_input() {
+            // Locked: nothing types, sets or completes it, and Tab passes it by.
+            return node;
+        }
         // Takes the whole code at once, digits only, as a test asks.
         let (code, len, finished) = (self.value.clone(), self.length, self.on_complete.clone());
         cx.on_access(node, &[AccessAction::SetValue], move |_, text| {
