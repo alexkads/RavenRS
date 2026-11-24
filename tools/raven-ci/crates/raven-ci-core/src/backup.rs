@@ -138,6 +138,10 @@ fn relative(root: &Path, path: &Path) -> String {
         .join("/")
 }
 
+/// The name of the folder of data a command makes in its user's home when it is not told where:
+/// a folder of that name inside the folder of data is another one, and stays out (#952).
+const NESTED_DATA: &str = ".raven-ci";
+
 /// Whether the file or folder at `name` (relative, with `/`) stays out of a backup.
 fn left_out(name: &str, with_key: bool) -> bool {
     let first = name.split('/').next().unwrap_or_default();
@@ -146,7 +150,11 @@ fn left_out(name: &str, with_key: bool) -> bool {
         || first.starts_with(BEFORE_RESTORE)
         || name.split('/').any(|part| part == WORKSPACES_DIR)
         || name == LOCK_FILE
-        || (name == KEY_FILE && !with_key)
+        // The key of the vault: the one at the root only with `--com-chave`, and one deeper never,
+        // since it opens a folder of data that is not this one (#952).
+        || (last == KEY_FILE && (name != KEY_FILE || !with_key))
+        // A folder of data made inside this one by a command run with no `--dados` (#952).
+        || name.split('/').any(|part| part == NESTED_DATA)
         || [".sqlite-wal", ".sqlite-shm", ".sqlite-journal"].iter().any(|end| last.ends_with(end))
         || LEFT_OUT.iter().any(|out| name == *out || name.starts_with(&format!("{out}/")))
 }
@@ -353,5 +361,21 @@ mod tests {
             assert!(!left_out(name, false), "{name}");
         }
         assert!(!left_out("cofre.chave", true));
+    }
+
+    #[test]
+    fn a_key_deeper_than_the_root_and_a_folder_of_data_inside_never_go_even_with_the_key() {
+        for with_key in [false, true] {
+            for name in [
+                "sub/cofre.chave",
+                ".raven-ci",
+                ".raven-ci/raven-ci.sqlite",
+                ".raven-ci/cofre.chave",
+                "dados-dos-plugins/x/.raven-ci/raven-ci.sqlite",
+            ] {
+                assert!(left_out(name, with_key), "{name}, com a chave: {with_key}");
+            }
+        }
+        assert!(!left_out("cofre.chave", true), "the key of the root, when asked");
     }
 }

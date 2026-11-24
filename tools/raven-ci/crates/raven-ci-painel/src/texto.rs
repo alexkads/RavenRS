@@ -9,6 +9,7 @@ pub fn status_words(status: &str) -> &'static str {
         "running" => "Rodando",
         "succeeded" => "Passou",
         "failed" => "Falhou",
+        "unstable" => "Instável",
         "cancelled" => "Cancelado",
         "timed_out" => "Passou do prazo",
         "interrupted" => "Interrompido",
@@ -31,7 +32,7 @@ pub fn status_tone(status: &str) -> Tone {
         "running" => Tone::Accent,
         "succeeded" => Tone::Success,
         "failed" | "timed_out" => Tone::Danger,
-        "queued" => Tone::Warning,
+        "queued" | "unstable" => Tone::Warning,
         _ => Tone::Neutral,
     }
 }
@@ -43,6 +44,7 @@ pub fn status_icon(status: &str) -> IconName {
         "succeeded" => IconName::Check,
         "failed" | "timed_out" => IconName::X,
         "queued" => IconName::Clock,
+        "unstable" => IconName::TriangleAlert,
         "interrupted" => IconName::Zap,
         _ => IconName::Minus,
     }

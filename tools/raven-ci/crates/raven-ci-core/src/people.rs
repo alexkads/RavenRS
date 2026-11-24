@@ -50,9 +50,26 @@ pub fn users(file: &Path) -> Result<SpaceMaker, CiError> {
 /// administrator whatever `role` says; after that, `role` has to be one of the CI's, and a name
 /// already there is refused.
 pub fn create_user(file: &Path, name: &str, password: &str, role: &str) -> Result<String, CiError> {
+    create(file, name, Some(password), role)
+}
+
+/// What a user with no password keeps where the hash goes: no hash reads it, so no password
+/// ever matches, and it signs in only with a key.
+const NO_PASSWORD: &str = "!sem-senha";
+
+/// Makes the user of an agent (#916): it comes in with its key only, so it has no password, and
+/// the server spends no hash on one. Argon2 asks about 19 MiB for each hash, and the allocator kept
+/// that much in each thread of HTTP that let an agent in: 20 MiB more for the second agent and the
+/// third, for good.
+pub(crate) fn create_keyed_user(file: &Path, name: &str, role: &str) -> Result<String, CiError> {
+    create(file, name, None, role)
+}
+
+fn create(file: &Path, name: &str, password: Option<&str>, role: &str) -> Result<String, CiError> {
     let maker = users(file)?;
     let directory = UserDirectory::new(maker.clone(), roles()).map_err(failed)?;
     if directory.is_empty().map_err(failed)? {
+        let password = password.ok_or_else(|| failed("o primeiro usuário, o administrador, tem senha"))?;
         directory.create_first_administrator(name, password).map_err(failed)?;
         return Ok(ROLE_ADMIN.to_owned());
     }
@@ -78,7 +95,11 @@ pub fn create_user(file: &Path, name: &str, password: &str, role: &str) -> Resul
         .ok_or_else(|| failed(format!("o papel {role} não está no arquivo")))?;
     let mut user = space.new_object(SECURITY_USER).map_err(failed)?;
     user.set("name", name);
-    user.set("password_hash", hash_password(password).map_err(failed)?);
+    let hash = match password {
+        Some(password) => hash_password(password).map_err(failed)?,
+        None => NO_PASSWORD.to_owned(),
+    };
+    user.set("password_hash", hash);
     user.set("must_change_password", false);
     let key = user.get("id");
     space.save(user).map_err(failed)?;
@@ -88,4 +109,31 @@ pub fn create_user(file: &Path, name: &str, password: &str, role: &str) -> Resul
     space.save(link).map_err(failed)?;
     space.commit().map_err(failed)?;
     Ok(role.to_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use ravenrs_app::{Authenticator, Credentials};
+
+    use super::*;
+
+    #[test]
+    fn the_user_of_an_agent_has_no_password_and_no_password_lets_it_in() {
+        let dir = std::env::temp_dir().join(format!("raven-ci-pessoas-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("a folder");
+        let file = dir.join(USERS_FILE);
+        create_user(&file, "ana", "senha-da-ana-123", ROLE_ADMIN).expect("the administrator");
+        // The first user must have a password: it is the administrator.
+        let empty = dir.join("vazio.sqlite");
+        assert!(create_keyed_user(&empty, "agente:x", ROLE_AGENT).is_err());
+
+        create_keyed_user(&file, "agente:linux-1", ROLE_AGENT).expect("the agent's user");
+        let directory = UserDirectory::new(users(&file).expect("users"), roles()).expect("a directory");
+        for password in ["", "!sem-senha", "qualquer"] {
+            let tried = Credentials::new("agente:linux-1", password);
+            assert!(directory.authenticate(&tried).is_err(), "{password:?} let it in");
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

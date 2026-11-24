@@ -29,6 +29,7 @@ a `Jenkinsfile`, what has no counterpart, and how to switch without a day with n
 | `post { always / success / failure / cleanup }` | `[post]` with `always`, `success`, `failure`; `cleanup` joins `always`, after its steps |
 | `lock(…)` (Lockable Resources) | `lock = "nome"` on a stage |
 | `timeout`, `retry`, `when { branch }` | the same names on a stage |
+| `unstable('…')` after a command that ended with a known code | `unstable = [N]` on the `sh` or its stage: the build ends yellow and goes on ([Unstable](pipeline.md#unstable)); the converter leaves the Groovy that calls it as not converted |
 | `buildDiscarder(logRotator(numToKeepStr, daysToKeepStr))` | `keep = N` in the pipeline; the days go on the job, `keep_days = N` (the converter says the line) |
 | `cleanWs()` | nothing to write: the build's folder is removed at its end |
 | e-mail notices, a notice to another service | the notifiers `email` and `webhook-out`; `webhook-out` posts the JSON of Raven CI, signed, so a chat that expects its own format needs a small receiver in between |

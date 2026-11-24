@@ -315,6 +315,82 @@ steps = ["{say}"]
 }
 
 #[test]
+fn a_step_that_ends_with_a_code_said_unstable_goes_on_and_leaves_the_build_unstable() {
+    // The job faxina of the oficina calls unstable() when its script ends with 3: Jenkins goes
+    // yellow, and Raven CI went red (#947).
+    let ci = ci();
+    let pipeline = |code: u8| {
+        format!(
+            r#"
+[[stages]]
+name = "Faxina"
+steps = [{{ sh = "exit {code}", unstable = [3] }}, "echo depois"]
+"#
+        )
+    };
+    let (status, log) = run(&ci, "amarelo", &pipeline(3), json!({}));
+    assert_eq!(status, BuildStatus::Unstable, "{log:#?}");
+    assert!(log.iter().any(|l| l == "depois"), "the next step runs: {log:#?}");
+    assert!(log.iter().any(|l| l.contains("o build fica instável")), "{log:#?}");
+    let reason = ci.build("amarelo", 1).expect("the build").reason.unwrap_or_default();
+    assert!(reason.contains("o comando terminou com o código 3"), "{reason}");
+
+    let (status, log) = run(&ci, "vermelho", &pipeline(4), json!({}));
+    assert_eq!(status, BuildStatus::Failed, "another code fails: {log:#?}");
+    assert!(!log.iter().any(|l| l == "depois"), "{log:#?}");
+
+    // On the stage, for every sh of it.
+    let text = r#"
+[[stages]]
+name = "Faxina"
+unstable = [3]
+steps = ["exit 3"]
+"#;
+    let (status, log) = run(&ci, "estagio", text, json!({}));
+    assert_eq!(status, BuildStatus::Unstable, "{log:#?}");
+
+    // A code that is not one is refused with its line.
+    let wrong = "[[stages]]\nname = \"F\"\nsteps = [{ sh = \"x\", unstable = [0] }]\n";
+    let errors = TomlFormat.read("errado", wrong).expect_err("refused");
+    assert!(format!("{errors:?}").contains("não é um código de saída"), "{errors:?}");
+}
+
+#[test]
+fn a_parameter_of_several_choices_reaches_the_steps_as_a_list_and_refuses_one_not_listed() {
+    // The suites of a run: several of a list, from the panel or `--param SUITES=a,b` (#932).
+    let ci = ci();
+    let text = format!(
+        r#"
+[[parameters]]
+name = "SUITES"
+type = "choices"
+choices = ["pedidos", "pagamentos", "entrega"]
+default = ["pedidos"]
+
+[[stages]]
+name = "T"
+steps = ["{say}"]
+"#,
+        say = os("echo suites=$SUITES", "echo suites=%SUITES%"),
+    );
+    let (status, log) = run(&ci, "padrao", &text, json!({}));
+    assert_eq!(status, BuildStatus::Succeeded, "{log:#?}");
+    assert!(log.contains(&"suites=pedidos".to_owned()), "the default: {log:#?}");
+    let (status, log) = run(&ci, "duas", &text, json!({ "SUITES": "pedidos, entrega" }));
+    assert_eq!(status, BuildStatus::Succeeded, "{log:#?}");
+    assert!(log.contains(&"suites=pedidos,entrega".to_owned()), "{log:#?}");
+    assert_eq!(ci.build("duas", 1).expect("the build").parameters["SUITES"], json!(["pedidos", "entrega"]));
+
+    ci.save_job(JobSpec::new("errada", "toml", &text).every_request()).expect("saved");
+    let refused =
+        ci.request_build(BuildRequest::new("errada", "teste").parameter("SUITES", json!("pedidos,frete")));
+    assert!(refused.is_err(), "a value not listed is refused before the build: {refused:?}");
+
+    let field = &TomlFormat.read("p", &text).expect("reads").parameters[0];
+    assert!(matches!(field.kind, FieldKind::Tags(ref options) if options.len() == 3), "{:?}", field.kind);
+}
+
+#[test]
 fn parallel_branches_all_run_and_meet_before_the_next_stage() {
     let ci = ci();
     let text = r#"

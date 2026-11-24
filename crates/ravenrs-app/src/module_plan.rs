@@ -31,6 +31,7 @@ use crate::module_api::Module;
 
 /// What [`plan_modules`] needs to know about a module.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ModuleEntry {
     /// What it is known by.
     pub name: String,
@@ -40,6 +41,7 @@ pub struct ModuleEntry {
     pub manifest: ModuleManifest,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ModuleEntry {
     /// A module by this name that says this about itself, with no dependencies besides the
     /// modules its manifest requires.
@@ -70,6 +72,7 @@ impl ModuleEntry {
 
 /// What the host says about where the modules run. What it leaves empty it does not check.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ModuleHost {
     /// Where the application runs.
     pub target: Option<Target>,
@@ -82,6 +85,7 @@ pub struct ModuleHost {
 /// Why a module was left out.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ModuleRefusal {
     /// Another module of the same name came first.
     AddedTwice {
@@ -154,6 +158,7 @@ pub enum ModuleRefusal {
     },
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ModuleRefusal {
     /// The module refused.
     pub fn module(&self) -> &str {
@@ -209,6 +214,7 @@ impl std::error::Error for ModuleRefusal {}
 
 /// The modules that go together and the ones left out.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ModulePlan {
     /// The accepted modules, as indexes into the entries given, each after what it depends on,
     /// keeping the order they were given in as far as possible.
@@ -219,6 +225,7 @@ pub struct ModulePlan {
     pub refused: Vec<(usize, ModuleRefusal)>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ModulePlan {
     /// Whether every module was accepted.
     pub fn accepted_all(&self) -> bool {

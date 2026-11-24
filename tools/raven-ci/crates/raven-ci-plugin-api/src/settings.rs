@@ -59,6 +59,12 @@ pub fn check_settings(entity: &EntityInfo, value: &Value) -> Result<(), Vec<CiEr
             FieldKind::Enum(options) => {
                 given.as_str().is_some_and(|code| options.iter().any(|o| o.code == code))
             }
+            // Several of the list (#932): a list of its codes, each one of them.
+            FieldKind::Tags(options) => given.as_array().is_some_and(|items| {
+                items
+                    .iter()
+                    .all(|item| item.as_str().is_some_and(|code| options.iter().any(|o| o.code == code)))
+            }),
             FieldKind::Text
             | FieldKind::LongText
             | FieldKind::Color
@@ -111,6 +117,10 @@ fn expected(kind: &FieldKind) -> String {
         FieldKind::Enum(options) => {
             let codes: Vec<&str> = options.iter().map(|o| o.code.as_str()).collect();
             format!("tem que ser um destes: {}", codes.join(", "))
+        }
+        FieldKind::Tags(options) => {
+            let codes: Vec<&str> = options.iter().map(|o| o.code.as_str()).collect();
+            format!("tem que ser uma lista com alguns destes: {}", codes.join(", "))
         }
         FieldKind::Text
         | FieldKind::LongText

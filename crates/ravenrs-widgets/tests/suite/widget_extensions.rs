@@ -334,6 +334,47 @@ fn input_of(tree: &AccessTree) -> &AccessNode {
 }
 
 #[test]
+fn a_disabled_code_takes_no_typing_completes_nothing_and_keeps_what_was_typed() {
+    let code = State::new(String::new());
+    let locked = State::new(false);
+    let completed = Rc::new(Cell::new(0));
+    let (c, l, done) = (code.clone(), locked.clone(), completed.clone());
+    let mut ui = ui(view_fn(move || {
+        let done = done.clone();
+        InputOtp::new(c.binding(), 4).disabled(l.get()).on_complete(move |_| done.set(done.get() + 1))
+    }));
+    let field = |ui: &mut Ui| {
+        ui.update();
+        ui.access_tree().nodes.iter().find(|n| n.role == Role::TextInput).cloned().expect("the code")
+    };
+    key(&mut ui, Key::Tab);
+    key(&mut ui, Key::Character("12".into()));
+    assert_eq!(code.get(), "12");
+    assert!(!field(&mut ui).disabled);
+
+    // While the code is verified: unavailable to screen readers, out of the tab order, deaf.
+    locked.set(true);
+    let node = field(&mut ui);
+    assert!(node.disabled, "screen readers hear it as unavailable");
+    key(&mut ui, Key::Character("34".into()));
+    assert!(!ui.set_access_value(node.id, "9999"), "a test cannot set it either");
+    ui.update();
+    assert_eq!((code.get().as_str(), completed.get()), ("12", 0), "nothing typed, nothing completed");
+    key(&mut ui, Key::Tab);
+    assert_ne!(ui.access_tree().focused().map(|n| n.id), Some(node.id), "Tab passes it by");
+
+    // Back on, what was typed is still there, and finishing completes once.
+    locked.set(false);
+    ui.update();
+    assert_eq!(field(&mut ui).value.as_deref(), Some("12"));
+    if ui.access_tree().focused().map(|n| n.role) != Some(Role::TextInput) {
+        key(&mut ui, Key::Tab);
+    }
+    key(&mut ui, Key::Character("34".into()));
+    assert_eq!((code.get().as_str(), completed.get()), ("1234", 1));
+}
+
+#[test]
 fn a_clearable_field_empties_itself_and_keeps_the_keyboard() {
     let value = State::new(String::new());
     let mut ui = ui(TextField::new(value.binding()).clearable());

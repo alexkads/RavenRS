@@ -52,7 +52,7 @@ Para investigar um check lento, leia a tabela antes de mexer em qualquer coisa: 
 Quem escolhe é o `scripts/changed-packages.py`. Os passos, em ordem:
 
 1. **rustfmt** no workspace inteiro.
-2. **Conferências baratas do workspace inteiro**, sempre: ciclos de módulos (`ravenrs-lint --only module_cycle`), camadas dos crates de widgets (`check-widget-layers.py`) e arquivos de teste declarados em `tests/suite/main.rs` (`check-test-suites.py`).
+2. **Conferências baratas do workspace inteiro**, sempre: ciclos de módulos (`ravenrs-lint --only module_cycle`), camadas dos crates de widgets (`check-widget-layers.py`) arquivos de teste declarados em `tests/suite/main.rs` (`check-test-suites.py`) e as listas do playground em dia (`gen-live.py --check`, #828).
 3. **O teste do seletor** (`scripts/changed_packages_test.py`). O que o seletor deixa de fora não é conferido, por isso ele tem testes próprios.
 4. **ravenrs-lint** nos exemplos, só quando muda o crate do lint, o `family-finance`, o `component-gallery` ou a configuração no `Cargo.toml`.
 5. **API pública do `ravenrs-widgets`** (`public-api.py --check`, rustdoc no nightly), só quando a mudança alcança a fachada `ravenrs-widgets`.

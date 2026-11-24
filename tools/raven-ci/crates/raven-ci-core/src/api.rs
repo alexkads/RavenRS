@@ -113,6 +113,22 @@ fn answer(ci: &Ci, request: &ApiRequest, who: &mut dyn FnMut() -> Option<Caller>
     if let Some(answered) = crate::agents::answer(ci, request, &path, who) {
         return Some(answered);
     }
+    // A build asked for a job that is not there says so, before the trigger of the API says the
+    // job lacks it (#929): someone who integrates reads "falta o gatilho" as a setting to fix.
+    if request.method == "POST" && path.as_slice() == ["api", "ci", "run"] {
+        let asked = serde_json::from_slice::<Json>(&request.body).ok();
+        if let Some(job) = asked.as_ref().and_then(|body| body.get("job")).and_then(Json::as_str)
+            && ci.job(job).is_err()
+        {
+            if who().is_none() {
+                return Some(unauthorized());
+            }
+            return Some(json(
+                404,
+                &json!({ "error": "not_found", "message": format!("o job {job} não existe") }),
+            ));
+        }
+    }
     if path.as_slice() == ["api", "ci", "credentials"] {
         return Some(credentials(ci, request, who));
     }

@@ -147,6 +147,7 @@ demonstrations! {
     barra_de_titulo => "Barra de título",
     indicadores => "Indicadores",
     progresso => "Progresso",
+    codigo_de_verificacao => "Código de verificação",
     lista => "Lista",
     agenda_por_recurso => "Agenda por recurso",
 }
