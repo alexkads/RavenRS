@@ -20,12 +20,16 @@ ravenrs-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
-ureq = { version = "3.5", default-features = false, features = ["rustls"] }
 # The news and the notice drawn the same way in every app (feature `ui`).
 ravenrs-layout = { workspace = true, optional = true }
 ravenrs-reactive = { workspace = true, optional = true }
 ravenrs-style = { workspace = true, optional = true }
 ravenrs-widgets = { workspace = true, optional = true }
+
+# Downloading the news and the installer is for the desktop: in the browser the app is the page,
+# with nothing to install, and `ureq` pulls `ring`, which does not build for wasm32 (#813).
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ureq = { version = "3.5", default-features = false, features = ["rustls"] }
 
 [features]
 # The news dialog, the version button and the notice in the status bar, with RavenRS widgets.

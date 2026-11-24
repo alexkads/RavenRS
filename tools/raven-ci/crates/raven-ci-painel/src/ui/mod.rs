@@ -73,6 +73,9 @@ pub(crate) struct S {
     users: State<Json>,
     audit: State<Json>,
     build: State<Json>,
+    /// The explanation of a failure asked on the page of a build (#942): `{job, number, state,
+    /// texto, modelo, ms, message}`, `state` being `gerando`, `pronta` or `erro`.
+    explanation: State<Json>,
     plugin_data: State<BTreeMap<String, Json>>,
     history: State<Json>,
     // How wide the window is, read at each build: the pages lay out by it (I7).
@@ -177,6 +180,7 @@ impl Painel {
             users: State::new(json!([])),
             audit: State::new(json!([])),
             build: State::new(Json::Null),
+            explanation: State::new(Json::Null),
             plugin_data: State::new(BTreeMap::new()),
             history: State::new(Json::Null),
             width: Cell::new(1440.0),

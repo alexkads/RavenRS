@@ -56,9 +56,9 @@ use std::time::Duration;
 
 use raven_ci_plugin_api::{BuildScope, CiError, CiPlugin, Host, Permission};
 use ravenrs_app::{Module, ModuleManifest};
-use ravenrs_flows::{Catalog, NodeContext, NodeError, NodeKind, NodeSpec, Ports, Reconciled};
+use ravenrs_flows::{Catalog, Item, NodeContext, NodeError, NodeKind, NodeSpec, Ports, Reconciled};
 use ravenrs_process::{End, Event, Spec};
-use serde_json::Value;
+use serde_json::{Value, json};
 
 /// The kind of the step.
 pub const SH: &str = "sh";
@@ -343,7 +343,7 @@ fn command(script: &str, nice: Option<i64>, log: &dyn Fn(&str)) -> Spec {
 
 impl NodeKind for Sh {
     fn spec(&self) -> NodeSpec {
-        NodeSpec::new(SH, 1).title("Comando").input("main").output("main").requires("script")
+        NodeSpec::new(SH, 1).title("Comando").input("main").output("main").output(UNSTABLE).requires("script")
     }
 
     /// A command whose worker died in the middle (an agent that fell) runs again: the build's
@@ -391,6 +391,30 @@ impl NodeKind for Sh {
         } else if keep {
             log("keep_daemons: o que o comando deixou rodando fica vivo depois do passo");
         }
+        if let End::Code(code) = watched.end
+            && code != 0
+            && unstable_codes(cx).contains(&i64::from(code))
+        {
+            let reason = format!("o comando terminou com o código {code}");
+            log(&format!("{reason}: o build fica instável e segue (unstable)"));
+            let mut ports = BuildScope::pass_on(cx);
+            ports.insert(UNSTABLE.to_owned(), vec![Item::new(json!({ "reason": reason }))]);
+            return Ok(ports);
+        }
         ended(watched.end, cx.node().retry.is_some()).map(|()| BuildScope::pass_on(cx))
     }
+}
+
+/// The output of a step whose end is a warning (#947): the core makes the build unstable.
+pub const UNSTABLE: &str = "unstable";
+
+/// The exit codes that leave the build unstable and go on: `unstable = [3]` on the step or its
+/// stage.
+fn unstable_codes(cx: &NodeContext<'_>) -> Vec<i64> {
+    cx.parameter("unstable")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_i64)
+        .collect()
 }

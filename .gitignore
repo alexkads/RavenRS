@@ -4,3 +4,6 @@
 /target-*/
 
 **/node_modules/
+
+# O cache do Python que os scripts do check deixam (entrou por engano no #959).
+__pycache__/

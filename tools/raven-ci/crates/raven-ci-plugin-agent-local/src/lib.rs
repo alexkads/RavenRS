@@ -18,7 +18,8 @@
 //!   `raven_ci_plugin_api::AgentArgs`), and the token used once on its input (`--token -`), so it
 //!   shows in no list of processes and in no log of `sudo`;
 //! - in a folder of its own, `<pasta>/<name>` under the template's `pasta`, or `agentes/<name>` in
-//!   the plugin's own folder;
+//!   the plugin's own folder, removed when the agent is taken down (#938) unless it runs as
+//!   another `usuario`;
 //! - as the user `usuario` of the template, when it says one (`ravenrs_process::Spec::user`: as
 //!   root the user is switched; otherwise `sudo -n`, which needs a rule for it and a server
 //!   without `NoNewPrivileges`, which is refused saying so). The agent makes its folder itself, so
@@ -110,6 +111,19 @@ impl CiPlugin for AgentLocalPlugin {
 /// The launcher `agent-local`. See the [crate](crate).
 struct Local {
     host: Arc<Mutex<Option<Arc<dyn Host>>>>,
+}
+
+/// How many bytes the files under `dir` hold.
+fn size_of(dir: &std::path::Path) -> u64 {
+    let Ok(entries) = std::fs::read_dir(dir) else { return 0 };
+    entries
+        .filter_map(Result::ok)
+        .map(|entry| match entry.file_type() {
+            Ok(kind) if kind.is_dir() => size_of(&entry.path()),
+            Ok(kind) if kind.is_file() => entry.metadata().map_or(0, |m| m.len()),
+            _ => 0,
+        })
+        .sum()
 }
 
 fn make(dir: PathBuf) -> Result<PathBuf, CiError> {
@@ -208,7 +222,23 @@ impl AgentLauncher for Local {
             spec = spec.user(user);
         }
         let log = host.clone();
-        let agent = ChildAgent::start(&name, spec, move |line| log.log(line))?;
+        let mut agent = ChildAgent::start(&name, spec, move |line| log.log(line))?;
+        // The folder of an agent this server's user runs goes with it when it is taken down (#938):
+        // an agent of a template is not coming back under that name. One of another `usuario` is
+        // not this user's to remove.
+        if user.is_none() {
+            let (gone, said, who) = (dir.clone(), host.clone(), name.clone());
+            agent = agent.at_stop(move || {
+                let bytes = size_of(&gone);
+                if std::fs::remove_dir_all(&gone).is_ok() {
+                    said.log(&format!(
+                        "agente {who}: a pasta {} saiu com ele ({} MB liberados)",
+                        gone.display(),
+                        bytes / (1024 * 1024)
+                    ));
+                }
+            });
+        }
         agent.send(&request.token);
         Ok(Box::new(agent))
     }

@@ -54,7 +54,7 @@ fn every_page_reads_what_it_shows() {
         assert_eq!(status, 200, "{path}: {body}");
     }
     let (_, overview) = get(&client, "/api/ci/overview");
-    assert_eq!(overview["jobs"].as_array().map(Vec::len), Some(4), "{overview}");
+    assert_eq!(overview["jobs"].as_array().map(Vec::len), Some(5), "{overview}");
     let _ = std::fs::remove_dir_all(&dir);
 }
 

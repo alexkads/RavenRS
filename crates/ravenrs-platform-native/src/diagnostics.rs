@@ -10,10 +10,10 @@ use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, EventLoop, OwnedDisplayHandle};
 use winit::window::{Window, WindowId};
 
-/// The variables that change which GPU is used or how it is reached.
-const OVERRIDES: [&str; 9] = [
+/// The variables that change which GPU is used or how it is reached. Only those RavenRS reads:
+/// `WGPU_ADAPTER_NAME` is not one, because `GpuContext::new` ranks adapters by power preference.
+const OVERRIDES: [&str; 8] = [
     "WGPU_BACKEND",
-    "WGPU_ADAPTER_NAME",
     "WGPU_POWER_PREF",
     "WGPU_ALLOW_UNDERLYING_NONCOMPLIANT_ADAPTER",
     "VK_ICD_FILENAMES",
@@ -186,6 +186,13 @@ mod tests {
             "VK_DRIVER_FILES=radeon.json,lvp.json"
         );
         assert_eq!(override_entry("WGPU_BACKEND", "gl"), "WGPU_BACKEND=gl");
+    }
+
+    #[test]
+    fn the_report_lists_only_variables_ravenrs_reads() {
+        // GpuContext::new ranks adapters by power preference and never reads this one (#386).
+        assert!(!OVERRIDES.contains(&"WGPU_ADAPTER_NAME"));
+        assert!(OVERRIDES.contains(&"WGPU_POWER_PREF") && OVERRIDES.contains(&"WGPU_BACKEND"));
     }
 
     #[test]

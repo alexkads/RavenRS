@@ -239,6 +239,11 @@ pub struct HelloAnswer {
     /// Builds that are no longer the agent's (they ended without it): it stops them and removes
     /// their folders.
     pub forget: Vec<String>,
+    /// Agents of its template the server took down (#938): their folders, beside its own, are
+    /// left there when no one else could remove them (another `usuario`, another machine). The
+    /// agent, the same user on the same machine, removes each one that is not in use.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub leftovers: Vec<String>,
 }
 
 /// A plugin a build needs, with what the server set for it.
@@ -399,6 +404,8 @@ struct State {
     /// The parts of attachments on their way, by run and name.
     parts: HashMap<(String, String), Vec<u8>>,
     launched: Vec<Launched>,
+    /// The agents taken down, by their template, until the next agent of it is told (#938).
+    leftovers: HashMap<String, Vec<String>>,
     /// Until when a template (or a build's launcher) is not tried again, after a launch that
     /// failed or an agent that died before it came in.
     backoff: HashMap<String, i64>,
@@ -621,7 +628,7 @@ impl Ci {
         }
         let user = format!("{USER_PREFIX}{name}");
         if directory.identity_of(&user).map_err(|e| CiError::failed(e.to_string()))?.is_none() {
-            crate::people::create_user(file, &user, &random(), ROLE_AGENT)?;
+            crate::people::create_keyed_user(file, &user, ROLE_AGENT)?;
         }
         ravenrs_app_server::issue_key(
             &maker,
@@ -743,6 +750,13 @@ impl Ci {
                         answer.forget.push(run.clone());
                     }
                 }
+            }
+        }
+        {
+            let mut state = self.agents.state();
+            let template = state.launched.iter().find(|l| l.name == name).and_then(|l| l.template.clone());
+            if let Some(names) = template.and_then(|t| state.leftovers.remove(&t)) {
+                answer.leftovers = names.into_iter().filter(|other| other != name).collect();
             }
         }
         for run in &hello.left {
@@ -1352,6 +1366,12 @@ impl Ci {
                     (name.clone(), (seen.assigned.is_empty(), now - seen.at_ms <= CONNECTED_MS))
                 })
                 .collect();
+            let mut left: Vec<(String, String)> = Vec::new();
+            let gone = |left: &mut Vec<(String, String)>, launched: &Launched| {
+                if let Some(template) = &launched.template {
+                    left.push((template.clone(), launched.name.clone()));
+                }
+            };
             state.launched.retain_mut(|launched| {
                 let (idle, connected) = seen.get(&launched.name).copied().unwrap_or((true, false));
                 if !launched.agent.alive() {
@@ -1360,6 +1380,7 @@ impl Ci {
                         Some(words) => format!("o processo dele acabou: {words}"),
                         None => "o processo dele acabou".to_owned(),
                     };
+                    gone(&mut left, launched);
                     going.push((launched.name.clone(), why));
                     if !seen.contains_key(&launched.name) {
                         let key =
@@ -1375,6 +1396,7 @@ impl Ci {
                     return false;
                 }
                 if !seen.contains_key(&launched.name) && now - launched.since_ms > TOKEN_MS {
+                    gone(&mut left, launched);
                     going.push((launched.name.clone(), "não conectou a tempo".to_owned()));
                     if let Some(run) = &launched.build {
                         let why = format!("não conectou em {} s", TOKEN_MS / 1000);
@@ -1389,6 +1411,7 @@ impl Ci {
                 if idle && connected {
                     let since = *launched.idle_since_ms.get_or_insert(now);
                     if now - since > i64::try_from(template.idle_ms).unwrap_or(i64::MAX) {
+                        gone(&mut left, launched);
                         going.push((launched.name.clone(), "ficou ocioso".to_owned()));
                         launched.agent.stop();
                         return false;
@@ -1398,6 +1421,9 @@ impl Ci {
                 }
                 true
             });
+            for (template, name) in left {
+                state.leftovers.entry(template).or_default().push(name);
+            }
             for key in failed {
                 state.backoff.insert(key, now + BACKOFF_MS);
             }
@@ -1510,6 +1536,14 @@ pub fn limit_arguments(request: &LaunchRequest) -> Vec<String> {
             args.push(flag.to_owned());
             args.push(value);
         }
+    }
+    // The settings of plugins that are the agent's own (#930): `plugins = { lock = { dir = … } }` in
+    // the template goes over what the server has, on that agent only.
+    if let Some(Value::Object(plugins)) = request.settings.get("plugins")
+        && !plugins.is_empty()
+    {
+        args.push("--plugins".to_owned());
+        args.push(Value::Object(plugins.clone()).to_string());
     }
     args
 }

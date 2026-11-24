@@ -69,6 +69,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- Four Lucide icons: `IconName::Brain`, `Route`, `Bot` and `Workflow`, for AI, the path of a decision, chatbots and automation; the 201 icons there were keep their glyphs. `scripts/gen-icons.py --add` refuses a name the Lucide font does not have before writing anything ([#748](https://github.com/alexkads/RavenRS/issues/748)).
 - `ravenrs-process`: `Spec::stop_leftovers` stops what a child left running in its process group the moment it ends on its own (a `sleep 600 &` that held its output open, a daemon a build started), and `Control::leftovers` names them; `stop_group(pid)` does the same for a group apart. Raven CI's step `sh` uses it, so nothing of a build outlives it ([#931](https://github.com/alexkads/RavenRS/issues/931)).
 
 - `raven-component-book --replay` ends with `N de M peças divergem (K pontos)`, a piece wrong in width and height counting as two points (`Replay::points_diverging`, `Replay::summary`). The guide of the design system says a screen is ready only when its replay finds no divergence, that a component with a card is never *Missing from the library*, and that each piece is drawn as its card draws it, with no frame, border, header style, color or inner space the card does not show. ([#921](https://github.com/alexkads/RavenRS/issues/921))
@@ -314,6 +315,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- The GPU diagnostics (panel and command line) no longer list `WGPU_ADAPTER_NAME` among the variables that change the GPU: RavenRS does not read it, as `GpuContext::new` and the `ravenrs-render` README already said ([#386](https://github.com/alexkads/RavenRS/issues/386)).
 - `ravenrs-app-postgrest`: a 401 or 403 that is not PostgREST's JSON, as the page of HTML Supabase's firewall answers to a filter that looks like SQL, fails with `SpaceError::Unavailable`, saying the service refused the request before the database, instead of `Denied`, which told the person they had no permission. PostgREST's own refusals (`42501`, `PGRST301`) are still `Denied` ([#388](https://github.com/alexkads/RavenRS/issues/388)).
 - `raven-component-book` measures what a story shows: rectangles and images are cut by their clips, as text already was, and the parts of the accessibility tree reach as far as their `visible`. A `DataGrid` in a narrow box measures the box, not the sum of its columns, and the height it declares, not the rows past it; 41 stories of 21 components and one pattern that scroll or clip (`DataGrid`, `VirtualList`, `CardView`, `ScrollView`, `EventCalendar`, `DocumentTabs`, `Ticker`, the `FilteredGrid` pattern…) now publish the size they show. What overflows a narrow parent with nothing clipping it still counts. ([#921](https://github.com/alexkads/RavenRS/issues/921))
 

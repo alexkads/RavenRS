@@ -13,6 +13,9 @@
 //!   folder (`dados-dos-plugins/lock/travas`). It is locked with [`std::fs::File::lock`], which is
 //!   `flock` on Linux and macOS and `LockFileEx` on Windows, so `flock /that/file cmd` in a script
 //!   shares it.
+//! - **A file of its own**: `lock = { name = "oficina", path = "~/oficina/.trava-compilacao" }`
+//!   takes that file instead (#930), so a build shares the lock a machine's scripts already use;
+//!   `~/` is the home of the user that runs the step, the agent's on an agent.
 //! - **The step `lock`** (parameter `name`) waits for the lock, looking at its token, so cancelling
 //!   the build ends the wait. It says once in the log who holds it (the holder writes itself in
 //!   the file), and then that it took it.
@@ -139,6 +142,15 @@ impl CiPlugin for LockPlugin {
 }
 
 /// The name of the lock of the node of `cx`, checked: letters, numbers, `-`, `_` and `.`.
+/// `path` with a leading `~/` made the home of the user running the step: on an agent, the
+/// agent's (#930).
+fn home_of(path: &str) -> PathBuf {
+    match (path.strip_prefix("~/"), std::env::var_os("HOME")) {
+        (Some(rest), Some(home)) => PathBuf::from(home).join(rest),
+        _ => PathBuf::from(path),
+    }
+}
+
 fn name_of(cx: &NodeContext<'_>) -> Result<String, NodeError> {
     let name = cx.parameter("name").and_then(Value::as_str).unwrap_or_default();
     let fine = !name.is_empty()
@@ -180,7 +192,10 @@ impl NodeKind for Lock {
         let build = BuildScope::of(cx)?;
         let step = cx.node().id.clone();
         let name = name_of(cx)?;
-        let path = self.0.dir()?.join(format!("{name}.lock"));
+        let path = match cx.parameter("path").and_then(Value::as_str).filter(|p| !p.is_empty()) {
+            Some(path) => home_of(path),
+            None => self.0.dir()?.join(format!("{name}.lock")),
+        };
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)

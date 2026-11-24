@@ -16,12 +16,35 @@ type Node<'i> = Spanned<DeValue<'i>>;
 pub(crate) const TOP: &[&str] =
     &["pipeline", "environment", "parameters", "stages", "post", "artifacts", "junit"];
 pub(crate) const PIPELINE: &[&str] = &["timeout", "keep", "agent"];
-pub(crate) const STAGE: &[&str] =
-    &["name", "steps", "parallel", "when", "timeout", "retry", "lock", "nice", "container", "credentials"];
+pub(crate) const STAGE: &[&str] = &[
+    "name",
+    "steps",
+    "parallel",
+    "when",
+    "timeout",
+    "retry",
+    "lock",
+    "nice",
+    "container",
+    "credentials",
+    "unstable",
+];
 pub(crate) const WHEN: &[&str] = &["branch", "pull_request", "parameter"];
-pub(crate) const STEP: &[&str] =
-    &["sh", "cargo", "uses", "with", "name", "timeout", "retry", "nice", "credentials", "keep_daemons"];
+pub(crate) const STEP: &[&str] = &[
+    "sh",
+    "cargo",
+    "uses",
+    "with",
+    "name",
+    "timeout",
+    "retry",
+    "nice",
+    "credentials",
+    "keep_daemons",
+    "unstable",
+];
 pub(crate) const CREDENTIAL_FILE: &[&str] = &["file", "name"];
+pub(crate) const LOCK: &[&str] = &["name", "path"];
 pub(crate) const PARAMETER: &[&str] = &["name", "type", "default", "description", "choices"];
 pub(crate) const BRANCH: &[&str] = &["name", "steps"];
 pub(crate) const CONTAINER: &[&str] = &["image", "args", "env"];
@@ -38,6 +61,8 @@ struct StageOptions {
     container: Option<Value>,
     /// The credentials of every `sh` of the stage, by variable (#922).
     credentials: Map<String, Value>,
+    /// The exit codes that leave the build unstable, for every `sh` of the stage (#947).
+    unstable: Vec<i64>,
     disabled: bool,
 }
 
@@ -124,6 +149,21 @@ impl Reader<'_> {
                 None
             }
         }
+    }
+
+    /// `unstable = [3]`: the exit codes, from 1 to 255, that leave the build unstable (#947).
+    fn codes(&mut self, node: &Node<'_>) -> Vec<i64> {
+        let mut codes = Vec::new();
+        for item in self.array(node, "unstable").unwrap_or_default() {
+            match self.integer(item, "unstable") {
+                Some(code) if (1..=255).contains(&code) => codes.push(code),
+                Some(code) => {
+                    self.error(&item.span(), format!("unstable: {code} não é um código de saída (1 a 255)"));
+                }
+                None => {}
+            }
+        }
+        codes
     }
 
     /// `credentials = { TOKEN = "nome", USUARIO = "nome:user", ARQUIVO = { file = "nome", name =
@@ -349,6 +389,14 @@ impl Read<'_> {
                             .error(&fields["keep_daemons"].span(), "keep_daemons só vale num passo sh");
                     }
                 }
+                if let Some(codes) = fields.get("unstable") {
+                    let codes = self.reader.codes(codes);
+                    if def.kind == "sh" {
+                        def = def.parameter("unstable", json!(codes));
+                    } else {
+                        self.reader.error(&fields["unstable"].span(), "unstable só vale num passo sh");
+                    }
+                }
                 if let Some(credentials) = fields.get("credentials") {
                     let own = self.reader.credentials(credentials);
                     if def.kind == "sh" {
@@ -401,7 +449,31 @@ impl Read<'_> {
         if !options.credentials.is_empty() && options.container.is_none() {
             def = def.parameter("credentials", Value::Object(options.credentials.clone()));
         }
+        if !options.unstable.is_empty() && options.container.is_none() {
+            def = def.parameter("unstable", json!(options.unstable));
+        }
         def
+    }
+
+    /// `lock = "nome"`, or `lock = { name = "nome", path = "~/oficina/.trava-compilacao" }`: a lock
+    /// in a file of its own, shared with scripts outside Raven CI that `flock` it (#930).
+    fn lock(&mut self, node: &Node<'_>) -> Option<(String, Option<String>)> {
+        match node.get_ref() {
+            DeValue::String(_) => self.reader.text(node, "lock").map(|name| (name, None)),
+            DeValue::Table(table) => {
+                let fields = self.reader.fields(table, LOCK, "lock");
+                let Some(name) = fields.get("name").and_then(|n| self.reader.text(n, "lock.name")) else {
+                    self.reader.error(&node.span(), "lock: diga name, o nome da trava");
+                    return None;
+                };
+                let path = fields.get("path").and_then(|p| self.reader.text(p, "lock.path"));
+                Some((name, path))
+            }
+            _ => {
+                self.reader.error(&node.span(), "lock é um nome, ou { name = \"…\", path = \"…\" }");
+                None
+            }
+        }
     }
 
     /// The steps of `list`, chained in `builder`, ids starting with `prefix`.
@@ -434,6 +506,9 @@ impl Read<'_> {
             .and_then(|r| self.reader.integer(r, "retry"))
             .map(|n| u32::try_from(n.max(0)).unwrap_or(0));
         options.nice = fields.get("nice").and_then(|n| self.reader.integer(n, "nice"));
+        if let Some(codes) = fields.get("unstable") {
+            options.unstable = self.reader.codes(codes);
+        }
         if let Some(credentials) = fields.get("credentials") {
             options.credentials = self.reader.credentials(credentials);
             if fields.contains_key("container") {
@@ -487,13 +562,17 @@ impl Read<'_> {
             skip = Some((id, "false".to_owned()));
         }
 
-        if let Some(lock) = fields.get("lock").and_then(|l| self.reader.text(l, "lock")) {
+        let lock = fields.get("lock").and_then(|l| self.lock(l));
+        if let Some((lock, path)) = &lock {
             let id = format!("trava-{}", index + 1);
             let mut def = NodeDef::new(&id, "lock")
                 .title(format!("Trava {lock}"))
                 .parameter("name", json!(lock))
                 .parameter(STAGE_KEY, json!(name))
                 .parameter(PLUGIN_KEY, json!("lock"));
+            if let Some(path) = path {
+                def = def.parameter("path", json!(path));
+            }
             def.disabled = options.disabled;
             builder.push(def);
         }
@@ -545,11 +624,11 @@ impl Read<'_> {
             }
         }
 
-        if fields.contains_key("lock") {
+        if let Some((lock, _)) = &lock {
             let id = format!("solta-{}", index + 1);
             let mut def = NodeDef::new(&id, "unlock")
                 .title("Solta a trava")
-                .parameter("name", fields.get("lock").map(|l| json_of(l)).unwrap_or(Value::Null))
+                .parameter("name", json!(lock))
                 .parameter(STAGE_KEY, json!(name))
                 .parameter(PLUGIN_KEY, json!("lock"));
             def.disabled = options.disabled;
@@ -584,15 +663,33 @@ impl Read<'_> {
                 }
                 FieldKind::Enum(choices.iter().map(|c| EnumOption::new(c.clone(), c.clone())).collect())
             }
+            // Several of the list, kept as a list (#932): the suites of a run.
+            "choices" => {
+                let choices =
+                    fields.get("choices").map(|c| self.reader.texts(c, "choices")).unwrap_or_default();
+                if choices.is_empty() {
+                    self.reader
+                        .error(&node.span(), format!("o parâmetro {name} é choices e precisa de choices"));
+                }
+                FieldKind::Tags(choices.iter().map(|c| EnumOption::new(c.clone(), c.clone())).collect())
+            }
             other => {
                 let at = fields.get("type").map_or_else(|| node.span(), |t| t.span());
-                self.reader.error(&at, format!("o tipo {other} não existe; use bool, text ou choice"));
+                self.reader
+                    .error(&at, format!("o tipo {other} não existe; use bool, text, choice ou choices"));
                 FieldKind::Text
             }
         };
         let mut field = FieldInfo::new(&name, kind);
         if let Some(default) = fields.get("default") {
-            field.default_value = ravenrs_app::Value::from_json(&json_of(default));
+            field.default_value = match (&field.kind, json_of(default)) {
+                // A value of the app is not a list: the default of several choices is kept as
+                // their text joined by commas, the way `--param` gives them (#932).
+                (FieldKind::Tags(_), Value::Array(items)) => ravenrs_app::Value::Text(
+                    items.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(","),
+                ),
+                (_, other) => ravenrs_app::Value::from_json(&other),
+            };
         }
         if let Some(description) = fields.get("description").and_then(|d| self.reader.text(d, "description"))
         {

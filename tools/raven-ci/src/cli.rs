@@ -3,10 +3,21 @@
 use std::io::Write;
 use std::path::PathBuf;
 
-use raven_ci_core::{Ci, Memory, Origin, PLUGINS_DIR, PluginState, PluginView};
+use raven_ci_core::{Ci, DATABASE_FILE, Memory, Origin, PLUGINS_DIR, PluginState, PluginView};
 use raven_ci_plugin_api::{CiError, Permission};
 
 use crate::versao;
+
+/// The folder of data when neither `--dados` nor `RAVEN_CI_HOME` says one (#952): the user's home
+/// when it is itself a folder of data, as `/var/lib/raven-ci` is for the user `raven-ci` of the
+/// RPM (so `sudo -u raven-ci raven-ci plugins listar` reads the service's folder, though `sudo`
+/// clears the environment); otherwise `~/.raven-ci`.
+fn default_data() -> PathBuf {
+    std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .filter(|home| home.join(DATABASE_FILE).is_file())
+        .unwrap_or_else(|| versao::APP.home())
+}
 
 /// What `raven-ci` says when it is asked wrong.
 pub const USAGE: &str = "uso: raven-ci [--dados PASTA] [--plugins PASTA]… [--format json] <comando>
@@ -110,7 +121,7 @@ impl Invocation {
         if words.is_empty() {
             return Err("falta o comando".to_owned());
         }
-        Ok(Self { data: data.unwrap_or_else(|| versao::APP.home()), plugin_dirs, json, words })
+        Ok(Self { data: data.unwrap_or_else(default_data), plugin_dirs, json, words })
     }
 
     /// Runs it, writing to `out`; the exit code.
@@ -123,8 +134,8 @@ impl Invocation {
         if self.words.as_slice() == ["mcp"] {
             return crate::mcp::serve();
         }
-        // Nor the plugins of a server that is running (#946).
-        if let Some(said) = crate::plugins_no_servidor::run(&self.words, self.json, out) {
+        // Nor what is administered on a server that is running: agents, plugins, people (#929).
+        if let Some(said) = crate::no_servidor::run(&self.words, self.json, out) {
             return said;
         }
         if let Some(said) = crate::ia::run(&self.words, self.json, out) {
@@ -142,6 +153,11 @@ impl Invocation {
         {
             let rest: Vec<&str> = rest.iter().map(String::as_str).collect();
             return crate::service::run(&self.data, &rest, self.json, out);
+        }
+        // A folder of data that was not there is made now: say where, so a command run with no
+        // `--dados` against the wrong folder shows at once (#952).
+        if !self.data.join(DATABASE_FILE).exists() {
+            let _ = writeln!(std::io::stderr(), "pasta de dados nova em {}", self.data.display());
         }
         let ci = Ci::open(&self.data)?;
         for plugin in crate::plugins::builtin() {
