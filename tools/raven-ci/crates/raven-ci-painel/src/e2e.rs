@@ -28,7 +28,7 @@ pub const PASSWORD: &str = "senha-do-teste-e2e";
 
 /// The scenarios the panel brings, one per file of `tests/e2e/`: the tool gets them when it opens
 /// the panel, and `tests/scenarios.rs` plays them.
-pub const SCENARIOS: [&str; 8] = [
+pub const SCENARIOS: [&str; 9] = [
     include_str!("../tests/e2e/entrar.raventest"),
     include_str!("../tests/e2e/build.raventest"),
     include_str!("../tests/e2e/disparar.raventest"),
@@ -37,6 +37,7 @@ pub const SCENARIOS: [&str; 8] = [
     include_str!("../tests/e2e/plugins.raventest"),
     include_str!("../tests/e2e/plugin-recusado.raventest"),
     include_str!("../tests/e2e/credenciais.raventest"),
+    include_str!("../tests/e2e/instavel.raventest"),
 ];
 
 /// A plugin of the tests that puts a page in the menu (Travas, under Servidor) and a tab on the
@@ -201,7 +202,7 @@ pub fn folder(name: &str) -> PathBuf {
 
 /// The jobs of the demonstration, in `.raven-ci.toml`. The steps only `echo` and `exit`, which
 /// `sh` and `cmd` both run: the same builds on every system.
-const JOBS: [(&str, &str); 4] = [
+const JOBS: [(&str, &str); 5] = [
     (
         "apps/site",
         r#"[[stages]]
@@ -277,6 +278,13 @@ name = "Imagem"
 steps = ["echo docker build -t imagens/base ."]
 "#,
     ),
+    (
+        "oficina/faxina",
+        r#"[[stages]]
+name = "Faxina"
+steps = [{ sh = "echo o disco continua abaixo do minimo; exit 3", unstable = [3] }]
+"#,
+    ),
 ];
 
 /// The core of the tests in `folder`, with its plugins, people and jobs, and a client that talks
@@ -326,6 +334,10 @@ pub fn server_with(folder: &Path, extra: Vec<Arc<dyn CiPlugin>>) -> Result<(Arc<
         let spec = JobSpec::new(name, "toml", pipeline).settings(json!({ "triggers": [{ "id": "api" }] }));
         ci.save_job(spec).map_err(|e| failed(&e))?;
     }
+    // A build that ran with a warning: yellow in the grid (#947), the oldest, so the
+    // timeline of the queue keeps the site's builds where its scenario looks.
+    ci.request_build(BuildRequest::new("oficina/faxina", "Agenda · 05:50")).map_err(|e| failed(&e))?;
+    ci.work_until_idle("executor-1").map_err(|e| failed(&e))?;
     for job in ["apps/site", "apps/loja-web", "api-pedidos", "apps/site"] {
         ci.request_build(BuildRequest::new(job, "Webhook do GitHub")).map_err(|e| failed(&e))?;
         ci.work_until_idle("executor-1").map_err(|e| failed(&e))?;

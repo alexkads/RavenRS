@@ -188,3 +188,37 @@ fn a_lock_with_a_name_that_is_not_a_plain_word_is_refused() {
     assert!(build.reason.unwrap_or_default().contains("não serve de nome de trava"));
     assert!(!locks.0.parent().expect("above").join("fora.lock").exists());
 }
+
+/// A lock in a file said by the stage (#930): the one a machine's scripts already `flock`, as the
+/// trava of the oficina, outside the plugin's folder.
+#[test]
+fn a_lock_in_a_file_said_by_the_stage_waits_for_a_script_holding_that_file() {
+    let locks = locks();
+    let outside_dir = locks.0.join("de-fora");
+    std::fs::create_dir_all(&outside_dir).expect("a folder");
+    let trava = outside_dir.join(".trava-compilacao");
+    let ci = Arc::new(ci(&locks.0));
+    let text = format!(
+        "[[stages]]\nname = \"Pesado\"\nlock = {{ name = \"oficina\", path = '{}' }}\nsteps = ['echo dentro']\n",
+        trava.display()
+    );
+    ci.save_job(JobSpec::new("site", "toml", &text)).expect("saved");
+    let held = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(&trava)
+        .expect("the file");
+    held.lock().expect("held");
+    let n = ci.request_build(BuildRequest::new("site", "teste")).expect("asked").number;
+    let executors = Executors::start(ci.clone(), 1, Duration::from_millis(10));
+    std::thread::sleep(Duration::from_millis(500));
+    let waiting = texts(&ci, "site", n);
+    assert!(waiting.iter().any(|(_, t)| t.starts_with("esperando a trava oficina")), "{waiting:?}");
+    assert!(!locks.0.join("oficina.lock").exists(), "not the plugin's own folder");
+    drop(held);
+    assert_eq!(ended(&ci, "site", n, Duration::from_secs(10)), BuildStatus::Succeeded);
+    executors.stop();
+    assert!(texts(&ci, "site", n).iter().any(|(_, t)| t == "dentro"));
+}

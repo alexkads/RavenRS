@@ -406,6 +406,14 @@ pub enum IconName {
     FlagTriangleRight,
     /// The Lucide `square-function` icon.
     SquareFunction,
+    /// The Lucide `brain` icon.
+    Brain,
+    /// The Lucide `route` icon.
+    Route,
+    /// The Lucide `bot` icon.
+    Bot,
+    /// The Lucide `workflow` icon.
+    Workflow,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -613,6 +621,10 @@ impl IconName {
         IconName::Crosshair,
         IconName::FlagTriangleRight,
         IconName::SquareFunction,
+        IconName::Brain,
+        IconName::Route,
+        IconName::Bot,
+        IconName::Workflow,
     ];
 
     /// The Lucide name, e.g. `"chevron-down"`.
@@ -819,6 +831,10 @@ impl IconName {
             IconName::Crosshair => "crosshair",
             IconName::FlagTriangleRight => "flag-triangle-right",
             IconName::SquareFunction => "square-function",
+            IconName::Brain => "brain",
+            IconName::Route => "route",
+            IconName::Bot => "bot",
+            IconName::Workflow => "workflow",
         }
     }
 
@@ -1026,6 +1042,10 @@ impl IconName {
             IconName::Crosshair => '\u{e0ac}',
             IconName::FlagTriangleRight => '\u{e238}',
             IconName::SquareFunction => '\u{e22d}',
+            IconName::Brain => '\u{e3c6}',
+            IconName::Route => '\u{e53e}',
+            IconName::Bot => '\u{e1bb}',
+            IconName::Workflow => '\u{e425}',
         }
     }
 }

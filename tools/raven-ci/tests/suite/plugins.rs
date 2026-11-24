@@ -104,3 +104,25 @@ fn a_plugin_refused_shows_why() {
     assert!(listed.contains("exige-outro"), "{listed}");
     assert!(listed.contains("  precisa de plugin-que-nao-existe, que não está instalado"), "{listed}");
 }
+
+#[test]
+fn a_new_folder_of_data_is_said_and_a_home_that_is_one_is_used_with_no_dados() {
+    let data = Data::new("pasta-nova");
+    let first = data.run(&["plugins", "listar"]);
+    assert!(first.status.success(), "{}", String::from_utf8_lossy(&first.stderr));
+    let said = String::from_utf8_lossy(&first.stderr).into_owned();
+    assert!(said.contains(&format!("pasta de dados nova em {}", data.0.display())), "{said}");
+    let again = data.run(&["plugins", "listar"]);
+    assert!(!String::from_utf8_lossy(&again.stderr).contains("pasta de dados nova"), "only the first time");
+
+    // The user of the RPM: its home is the folder of the service, and no `--dados` reads it (#952).
+    let home = Command::new(env!("CARGO_BIN_EXE_raven-ci"))
+        .env("HOME", &data.0)
+        .env_remove("RAVEN_CI_HOME")
+        .args(["plugins", "listar"])
+        .output()
+        .expect("the binary runs");
+    assert!(home.status.success(), "{}", String::from_utf8_lossy(&home.stderr));
+    assert!(!String::from_utf8_lossy(&home.stderr).contains("pasta de dados nova"), "the home is the folder");
+    assert!(!data.0.join(".raven-ci").exists(), "no folder of data inside the folder of data");
+}

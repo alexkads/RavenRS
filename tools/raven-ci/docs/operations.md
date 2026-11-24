@@ -19,7 +19,11 @@ it from other machines, put it behind what already publishes services there (a r
 
 ## The folder of data
 
-Everything of a server is in one folder (`--dados`, `RAVEN_CI_HOME` or `~/.raven-ci`):
+Everything of a server is in one folder: `--dados`, else `RAVEN_CI_HOME`, else the user's home when
+it is itself a folder of data (it has a `raven-ci.sqlite`, as `/var/lib/raven-ci` for the user
+`raven-ci` of the RPM), else `~/.raven-ci`. A command that makes a folder of data that was not there
+says so on its error output, `pasta de dados nova em …`, so a command pointed at the wrong folder
+shows at once (#952):
 
 | Path | What it holds | Kept? |
 |---|---|---|
@@ -52,8 +56,9 @@ sudo systemctl start raven-ci
 - **Restoring** checks the backup first, is refused while a server uses the folder, moves what is
   there to `antes-da-restauracao-<quando>/`, and only then puts the backup in place. A backup with
   no key leaves the key that is there.
-- **`--dados`** matters: without it, the command line uses `~/.raven-ci`, which for the user
-  `raven-ci` of the RPM is `/var/lib/raven-ci/.raven-ci`, not the folder of the service.
+- **What stays out** however it is asked: a `cofre.chave` deeper than the root (it opens another
+  folder of data), and a folder `.raven-ci` inside the folder of data, which a command run with no
+  `--dados` once made (#952). The key of the root goes only with `--com-chave`.
 
 ## Who may do what
 
@@ -121,6 +126,25 @@ The key that opens the vault is, in this order:
 
 Keep the key apart from a copy of the data: whoever has both has every secret. On another machine,
 the vault opens only with the same key.
+
+## From the terminal, on a server that runs
+
+With `--servidor URL` (or `RAVEN_CI_SERVIDOR`) and an administrator's key in `RAVEN_CI_TOKEN`,
+what is administered goes to the server running, through its API, and nothing opens a folder of
+data on this machine (#929):
+
+| Command | What it does there |
+|---|---|
+| `raven-ci agentes listar` | the agents, with the state of each connection the server knows |
+| `raven-ci agentes token NOME [--rotulos a,b] [--executores N]` | a token used once for a new agent |
+| `raven-ci agentes remover NOME` | the agent's key stops working |
+| `raven-ci agentes modelos`, `modelo NOME --lancador ID …`, `modelo-apagar NOME` | the templates that bring agents up |
+| `raven-ci plugins listar`, `ligar NOME`, `desligar NOME` | switched at once, with no restart |
+| `echo SENHA \| raven-ci usuario criar NOME [--papel P]` | a person, the password from the input |
+| `raven-ci credencial criar\|listar\|apagar` | the vault ([Secrets](#secrets)) |
+
+Without a server named, `agentes` reads the folder of data, and says that only the server running
+knows whether an agent is connected.
 
 ## Configuration as code
 
@@ -194,6 +218,10 @@ drop-in `/usr/share/raven-ci/agentes-de-outro-usuario.conf` (`NoNewPrivileges=fa
   the service again.
 - **Container**: build the image again with the new RPM and `docker compose up -d --build`; the
   volume keeps the data.
+
+An agent started by hand (a service of a user, as `raven-ci-agente-oficina`) keeps the old
+binary loaded after the package is replaced: restart it too (`systemctl --user restart
+raven-ci-agente-oficina`), or what runs on it (fetching artifacts, the steps) stays as it was.
 
 The database moves to a new version by itself when the server opens it. Going back to an older
 version after that is not guaranteed: `raven-ci backup criar` before updating.

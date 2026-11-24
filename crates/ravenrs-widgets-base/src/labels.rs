@@ -70,6 +70,15 @@ pub struct Labels {
     pub log_only: String,
     /// The button of a `LogView` that shows every section again.
     pub log_show_all: String,
+    /// What a `ProgressBar` reads after its value when it went past a marker; `{marker}` is the
+    /// marker's name, as "above the limit 0.85".
+    pub progress_above: String,
+    /// What a `ProgressBar` reads when its value has not reached a marker; `{marker}` is its name.
+    pub progress_below: String,
+    /// What a `ProgressBar` reads when its value sits on a marker; `{marker}` is its name.
+    pub progress_at: String,
+    /// The name of a `ProgressBar`'s marker given none; `{value}` is where it is, as "85%".
+    pub progress_mark: String,
     /// How many lines of a `LogView` hold what is searched; `{0}` is the count.
     pub log_matches: String,
     /// What a folded section of a `LogView` hides; `{0}` is how many lines.
@@ -1284,6 +1293,10 @@ impl Labels {
             log_download: texts.get("widgets.log_download"),
             log_only: texts.get("widgets.log_only"),
             log_show_all: texts.get("widgets.log_show_all"),
+            progress_above: texts.get("widgets.progress_above"),
+            progress_below: texts.get("widgets.progress_below"),
+            progress_at: texts.get("widgets.progress_at"),
+            progress_mark: texts.get("widgets.progress_mark"),
             log_matches: texts.get("widgets.log_matches"),
             log_folded: texts.get("widgets.log_folded"),
             log_point_line: texts.get("widgets.log_point_line"),

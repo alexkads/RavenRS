@@ -1,4 +1,5 @@
-//! `ParameterForm`, every feature: a schema with text, a number, yes or no, a choice, a field
+//! `ParameterForm`, every feature: a schema with text, a number, yes or no, a choice, several
+//! choices kept as a list (#932), a field
 //! shown only in one mode, a field that takes an expression, a named group, a list of rows,
 //! options loaded by the app that depend on another field (loading, failed, ready), and
 //! Aplicar and Descartar, each written on a line the tour reads.
@@ -25,6 +26,16 @@ fn schema() -> Vec<ParamField> {
         )
         .default("GET"),
         ParamField::new("body", "Corpo", ParamKind::LongText).shown_when("method", "POST"),
+        ParamField::new(
+            "accept",
+            "Aceita",
+            ParamKind::MultiChoice(vec![
+                ("json".into(), "JSON".into()),
+                ("xml".into(), "XML".into()),
+                ("text".into(), "Texto".into()),
+            ]),
+        )
+        .default(json!(["json"])),
         ParamField::new("only_when", "Só quando", ParamKind::Text).expressions(),
         ParamField::new("timeout", "Tempo limite (s)", ParamKind::Number).default(30),
         ParamField::new("follow", "Seguir redirecionamentos", ParamKind::Boolean).default(true),

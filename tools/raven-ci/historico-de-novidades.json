@@ -1,5 +1,42 @@
 [
   {
+    "versao": "0.1.9",
+    "data": "2026-11-23",
+    "titulo": "O build instável, várias escolhas num parâmetro, agentes no Windows, explicar a falha e o servidor administrado de outra máquina.",
+    "importante": false,
+    "novidades": [
+      "Um passo sh com unstable = [3] que sai com 3 deixa o build instável (amarelo) e segue, como o unstable() do Jenkins; o GitHub e o Azure recebem failure com \"instável: motivo\", e raven-ci rodar --esperar sai com 7.",
+      "Um parâmetro type = \"choices\" guarda várias escolhas de uma lista: o Disparar mostra etiquetas, --param SUITES=pedidos,pagamentos funciona, e o passo lê SUITES=pedidos,pagamentos.",
+      "raven-ci agentes, plugins e usuario criar com --servidor vão à API do servidor no ar, com o estado real de cada agente; não precisam mais de SSH na máquina.",
+      "Sem --dados, a linha de comando usa a pasta do serviço quando roda como o usuário do RPM, e avisa quando cria uma pasta de dados nova; o backup nunca leva uma chave de cofre que não seja a da raiz.",
+      "lock = { name = \"oficina\", path = \"~/oficina/.trava-compilacao\" } divide a trava que os scripts da máquina já usam.",
+      "A pasta de um agente que um modelo subiu sai com ele quando o servidor o derruba, dizendo quanto liberou.",
+      "Um PR mais antigo que o arquivo do pipeline roda o pipeline do branch de destino, como o Jenkins faz com a mescla.",
+      "O servidor fica em uns 20 MiB com oito agentes conectados: antes, cada agente que entrava custava 20 MiB que ele não devolvia.",
+      "Pedir um build de um job que não existe responde 404 dizendo isso.",
+      "Um agente em outra máquina com Windows: sistema = \"windows\" no modelo do agent-remote cita a linha para o cmd.exe e usa raven-ci-agent.exe e %USERPROFILE%.",
+      "plugins = { lock = { dir = … } } no modelo de agente vale só naquele agente, por cima da configuração do servidor, que não confere caminhos que não alcança.",
+      "A pasta de um agente de outro usuário que o servidor derrubou sai quando o próximo agente do mesmo modelo entra, se ninguém a usa há dois minutos.",
+      "O botão Explicar a falha na página de um build que falhou: a IA local lê o resumo do build e escreve por que falhou, num card acima das abas."
+    ],
+    "por_que_atualizar": "Para os jobs que vêm do Jenkins terminarem amarelos quando devem, para escolher várias suítes de uma vez e para operar o servidor de outra máquina.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      906,
+      916,
+      929,
+      930,
+      932,
+      938,
+      942,
+      944,
+      947,
+      952
+    ]
+  },
+  {
     "versao": "0.1.8",
     "data": "2026-11-23",
     "titulo": "Backup com o servidor no ar, e o que faltava para rodar os jobs do Jenkins lado a lado.",

@@ -180,7 +180,7 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Question that opens a film at the right moment | | | | ✅ `MovieAssistant`, `MovieLibrary`: words the films hold, no model |
 | Film editor with timeline | | | | ✅ `MovieEditor`; its preview has no sound |
 | Bug report with a film | | | | ✅ `FlightRecorder`, `BugReporter` |
-| Progress bar | ✓ | ✓ | ✓ | ✅ `ProgressBar`: label, percentage, detail, height, color |
+| Progress bar | ✓ | ✓ | ✓ | ✅ `ProgressBar`: label, percentage, detail, height, color, markers of reference (limit, goal) read by screen readers |
 | Loader / Spinner | | ✓ | ✓ | ✅ `Spinner` |
 | Lottie animation | | ✓ | ✓ | ✅ `Lottie`; no expressions, text layers, 3D, blend modes or effects other than Fill yet, and `.lottie` archives need unpacking first |
 | Skeleton | ✓ | ✓ | ✓ | ✅ |
@@ -192,7 +192,7 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Component | S | D | T | RavenRS |
 |---|---|---|---|---|
 | Avatar | ✓ | ✓ | ✓ | ✅ `Avatar`: initials or picture, with a ring |
-| Icon set | ✓ | ✓ | ✓ | ✅ 200 Lucide icons |
+| Icon set | ✓ | ✓ | ✓ | ✅ 205 Lucide icons |
 | Image | | ✓ | ✓ | ✅ `Image`: dissolves into the next one if asked, and asks for frames only meanwhile |
 | Carousel / Scroll view | ✓ | ✓ | ✓ | ✅ `Carousel` |
 | Kbd | ✓ | | | ✅ takes the color of what it is in, on request |

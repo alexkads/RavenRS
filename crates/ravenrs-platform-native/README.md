@@ -141,7 +141,7 @@ With `AppIdentity::new_issue_url`, the panel starts a bug report on that page, f
 - the GPU;
 - the system and, on Linux, the session type, the desktop and the Vulkan drivers installed;
 - the build;
-- the variables that change which GPU is used (`WGPU_BACKEND`, `WGPU_ADAPTER_NAME`, `WGPU_POWER_PREF`, `VK_ICD_FILENAMES`, `LIBGL_ALWAYS_SOFTWARE` and others). Paths in those variables are cut to their file names, because the report is made to be shared.
+- the variables that change which GPU is used (`WGPU_BACKEND`, `WGPU_POWER_PREF`, `VK_ICD_FILENAMES`, `LIBGL_ALWAYS_SOFTWARE` and others; `WGPU_ADAPTER_NAME` is left out, because RavenRS does not read it). Paths in those variables are cut to their file names, because the report is made to be shared.
 
 ```rust,no_run
 if std::env::args().any(|a| a == "--diagnostics") {

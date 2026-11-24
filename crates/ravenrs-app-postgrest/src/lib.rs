@@ -311,6 +311,8 @@ struct Refusal {
     code: String,
     message: String,
     details: String,
+    /// PostgREST always answers in JSON. Anything else came from something in front of it.
+    from_postgrest: bool,
 }
 
 fn refusal(response: &HttpResponse) -> Refusal {
@@ -321,6 +323,7 @@ fn refusal(response: &HttpResponse) -> Refusal {
         code: text("code"),
         message: text("message"),
         details: text("details"),
+        from_postgrest: body.is_object(),
     }
 }
 
@@ -382,6 +385,15 @@ impl PostgrestObjectSpace {
         } else {
             refusal.message.clone()
         };
+        // A 401 or 403 that is not PostgREST's JSON came from a firewall or a proxy in front of the
+        // API (Supabase's answers a page of HTML to a filter that looks like SQL): the request never
+        // reached the database, so saying the person may not do it would be false (#388).
+        if matches!(refusal.status, 401 | 403) && !refusal.from_postgrest {
+            return SpaceError::Unavailable(words.failed.replace("{0}", &format!(
+                "the service refused the request before the database (HTTP {}, a firewall or proxy in front of the API)",
+                refusal.status
+            )));
+        }
         match code {
             "23505" => {
                 // "Key (name)=(x) already exists." The value stays out of it.

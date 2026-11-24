@@ -54,6 +54,13 @@ fn a_template_brings_an_agent_up_here_for_a_build_and_takes_it_down_when_idle() 
         server.ci.log().lines()
     );
     assert!(server.ci.log().lines().iter().any(|line| line.contains("ficou ocioso")));
+    // Its folder went with it (#938): a later agent of the template has another name.
+    let lines = server.ci.log().lines();
+    let said =
+        lines.iter().find(|line| line.contains("saiu com ele")).unwrap_or_else(|| panic!("{lines:#?}"));
+    let folder =
+        said.split("a pasta ").nth(1).and_then(|rest| rest.split(" saiu").next()).expect("the folder");
+    assert!(!std::path::Path::new(folder).exists(), "{said}");
 }
 
 #[test]

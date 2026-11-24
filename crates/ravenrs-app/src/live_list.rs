@@ -115,6 +115,13 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::DashboardItem::__live_expose_fields(registry);
     crate::DashboardInfo::__live_expose_fields(registry);
     crate::DashboardInfo::__live_expose(registry);
+    crate::ModuleEntry::__live_expose_fields(registry);
+    crate::ModuleEntry::__live_expose(registry);
+    crate::ModuleHost::__live_expose_fields(registry);
+    crate::ModuleRefusal::__live_expose_variants(registry);
+    crate::ModuleRefusal::__live_expose(registry);
+    crate::ModulePlan::__live_expose_fields(registry);
+    crate::ModulePlan::__live_expose(registry);
     crate::OutboxModule::__live_expose_fields(registry);
     crate::Event::__live_expose_fields(registry);
     crate::Event::__live_expose(registry);

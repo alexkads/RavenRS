@@ -115,6 +115,16 @@ fn write_memory(file: &Path, memory: &Memory) {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn download(_url: &str) -> Result<String, String> {
+    Err(IN_THE_BROWSER.into())
+}
+
+/// Why the browser looks for no version: the page is the app, with nothing to install.
+pub(crate) const IN_THE_BROWSER: &str =
+    "no navegador não há o que instalar: a página já é a versão publicada";
+
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn download(url: &str) -> Result<String, String> {
     let config = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(20))).build();
     let agent: ureq::Agent = config.into();

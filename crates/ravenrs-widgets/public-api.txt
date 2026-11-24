@@ -716,6 +716,10 @@ field Labels::previous_month
 field Labels::previous_page
 field Labels::previous_year
 field Labels::printed_every_build
+field Labels::progress_above
+field Labels::progress_at
+field Labels::progress_below
+field Labels::progress_mark
 field Labels::protractor
 field Labels::rating
 field Labels::rating_value
@@ -3779,6 +3783,7 @@ method InlineRename::on_rename
 method InlineRename::placeholder
 method InlineRename::size
 method InlineRename::width
+method InputOtp::disabled
 method InputOtp::new
 method InputOtp::on_complete
 method Jack::at
@@ -4049,6 +4054,8 @@ method ProgressBar::detail
 method ProgressBar::detail_inline
 method ProgressBar::height
 method ProgressBar::label
+method ProgressBar::marker
+method ProgressBar::marker_label
 method ProgressBar::new
 method ProgressBar::percent
 method ProgressBar::tone
@@ -5620,6 +5627,8 @@ variant IconName::Bluetooth
 variant IconName::Bold
 variant IconName::BookOpen
 variant IconName::Bookmark
+variant IconName::Bot
+variant IconName::Brain
 variant IconName::Calculator
 variant IconName::Calendar
 variant IconName::CalendarDays
@@ -5741,6 +5750,7 @@ variant IconName::RefreshCcw
 variant IconName::RefreshCw
 variant IconName::Rocket
 variant IconName::RotateCcw
+variant IconName::Route
 variant IconName::Rows3
 variant IconName::Ruler
 variant IconName::Save
@@ -5795,6 +5805,7 @@ variant IconName::VolumeX
 variant IconName::Wallet
 variant IconName::Wifi
 variant IconName::WifiOff
+variant IconName::Workflow
 variant IconName::X
 variant IconName::Zap
 variant IconName::ZoomIn
@@ -5816,6 +5827,7 @@ variant ParamKind::Group
 variant ParamKind::List
 variant ParamKind::Loaded
 variant ParamKind::LongText
+variant ParamKind::MultiChoice
 variant ParamKind::Number
 variant ParamKind::Text
 variant ParamOptions::Failed

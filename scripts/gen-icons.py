@@ -13,7 +13,8 @@ icon_set.rs. Regenerating everything takes the version of Lucide each glyph came
 font does not record; the versions are written next to ICONS.
 
 The font came from a Lucide release that was not written down (199 of its 200 outlines are
-the same in lucide-static 1.73.0). square-function came from lucide-static 1.73.0.
+the same in lucide-static 1.73.0). square-function, brain, route, bot and workflow came from
+lucide-static 1.73.0.
 """
 import re
 import sys
@@ -44,7 +45,7 @@ eye-closed lock-keyhole user-plus user-check bell-ring calendar-days clock-3 tim
 map compass navigation phone video camera mic headphones music volume-2 volume-x
 cloud-upload cloud-download hard-drive cpu wifi-off bluetooth plug power refresh-ccw
 thumbs-up thumbs-down smile star-off pin pin-off gift trophy target crosshair flag-triangle-right
-square-function
+square-function brain route bot workflow
 """.split()
 
 
@@ -69,6 +70,10 @@ def add(ttf: Path, css: Path, names: list) -> None:
     assert ours["head"].unitsPerEm == theirs["head"].unitsPerEm, "different units per em"
     source = theirs.getBestCmap()
     text = icon_set.read_text()
+    # Every name is checked before anything is written, so a wrong one leaves the font whole.
+    unknown = [name for name in names if name not in codepoints or codepoints[name] not in source]
+    if unknown:
+        sys.exit(f"not in this Lucide font, nothing written: {', '.join(unknown)}")
     for name in names:
         if f'=> "{name}",' in text:
             print(f"{name}: already there")

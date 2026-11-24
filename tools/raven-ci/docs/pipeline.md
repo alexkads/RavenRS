@@ -112,16 +112,21 @@ needs it reads it by name. Every log hides each secret read.
 | Field | Value |
 |---|---|
 | `name` | the name, which is also the variable the steps read |
-| `type` | `bool`, `text` (the default) or `choice` |
-| `default` | the value when none is given |
-| `choices` | for `choice`, the values a person picks from |
+| `type` | `bool`, `text` (the default), `choice` (one of a list) or `choices` (several of a list) |
+| `default` | the value when none is given; for `choices`, a list: `["pedidos"]` |
+| `choices` | for `choice` and `choices`, the values a person picks from |
 | `description` | what the panel says beside it |
 
 A build asked through the API, the panel or `raven-ci rodar JOB --param NOME=VALOR` gets the
 values; a value of the wrong kind is refused before the build starts. A parameter the request
 does not say gets its `default`, as in Jenkins, and the build keeps it. A value that comes as
 text (the command line, a form) is read as its parameter's kind: `true`, `false`, `1`, `0`, `sim`
-and `não` for a `bool`, a number for a number.
+and `não` for a `bool`, a number for a number, and values split by commas for `choices`
+(`--param SUITES=pedidos,pagamentos`).
+
+`choices` is several of a list (#932): the panel's Disparar shows the values as tags to pick, the
+build keeps the list, and a step reads it as one variable with the values joined by commas,
+`SUITES=pedidos,pagamentos`. A value not in `choices` is refused before the build.
 
 A parameter can also name what the job fetches: `scm = { …, reference = { branch = "${BRANCH}" } }`
 in the job's settings fetches the branch the person asked for.
@@ -136,10 +141,11 @@ in the job's settings fetches the branch the person asked for.
 | `when` | `{ branch = …, pull_request = …, parameter = … }` | when it runs; every condition given must hold |
 | `timeout` | a period | the limit of **each** step of the stage |
 | `retry` | a number | how many more times each step is tried when it fails |
-| `lock` | a name | one build at a time holds it, across jobs and with scripts outside Raven CI (plugin `lock`) |
+| `lock` | a name, or `{ name, path }` | one build at a time holds it, across jobs and with scripts outside Raven CI (plugin `lock`); with `path`, the lock is that file, so a build waits for the lock a machine's scripts already `flock` (`lock = { name = "oficina", path = "~/oficina/.trava-compilacao" }`; `~/` is the home of whoever runs the step, the agent's user on an agent) |
 | `nice` | a number | each `sh` runs under `nice -n N` (Linux and macOS) |
 | `container` | `{ image, args, env }` | each `sh` of the stage runs in the image, with the build's folder mounted (plugin `docker`) |
 | `credentials` | `{ VARIAVEL = "nome", … }` | each `sh` of the stage gets credentials of the vault as variables ([Credentials in a step](#credentials-in-a-step)) |
+| `unstable` | a list of exit codes, `[3]` | each `sh` of the stage that ends with one of them leaves the build unstable and the next steps run ([Unstable](#unstable)) |
 
 ### `when`
 
@@ -160,12 +166,26 @@ in the job's settings fetches the branch the person asked for.
 | `{ sh = "./e2e.sh", name = "Ponta a ponta", timeout = "5m", retry = 2, nice = 10 }` | the same, with a name, a limit, tries again and a priority | `shell` |
 | `{ sh = "./publica.sh", credentials = { NPM_TOKEN = "npm" } }` | the same, with credentials of the vault as variables, added to the stage's | `shell` |
 | `{ sh = "./servico.sh &", keep_daemons = true }` | what the command leaves running stays after the step; without it, it is stopped when the command ends and the log names it | `shell` |
+| `{ sh = "./faxina.sh", unstable = [3] }` | ending with 3 leaves the build **unstable** (yellow) and the next steps run; another code that is not 0 fails it | `shell` |
 | `{ cargo = "clippy -p site -- -D warnings" }` | `cargo` with each diagnostic in the log and in an attachment | `cargo` |
 | `{ uses = "plugin/passo", with = { … } }` | a step of any plugin, by its name and kind | the plugin named |
 
 A command runs in the build's folder, with the build's variables and the few basic ones of the
 machine (`PATH`, `HOME`), nothing else of the server's environment. Each line it writes goes to
 the log as it comes. It ends well with code 0.
+
+### Unstable
+
+What Jenkins's `unstable()` does: a step that ran, but says something it checks is not right. A
+`sh` with `unstable = [3]` (on the step, or on its stage for every `sh` of it) that ends with 3:
+
+- writes in the log `o comando terminou com o código 3: o build fica instável e segue`;
+- lets the next steps run, as if it had passed;
+- leaves the build **instável** at its end, with the reason, unless a later step fails it.
+
+An unstable build is yellow in the panel, sends `failure` with the description `instável: …` to
+GitHub and Azure DevOps (as Jenkins sends `UNSTABLE`), says `instável` in notices, and makes
+`raven-ci rodar JOB --esperar` end with 7. The codes go from 1 to 255.
 
 The steps of the plugins that come with Raven CI:
 
@@ -293,6 +313,11 @@ settings = { branches = { id = "git", branches = ["main", "release/*"] }, scm = 
   jobs `PR-N`. A ref does not say which branch the pull request goes into, so its target is
   `target`, or the first branch named without `*`. The source `github` knows the target of each
   one and leaves out forks: prefer it for a repository on GitHub with pull requests.
+- **A pull request with no file of its own runs its target's**, on any source, as the merge it is
+  built from would, and as Jenkins reads the `Jenkinsfile` of the merge: a pull request opened
+  before the repository had a `.raven-ci.toml` runs the pipeline of the branch it goes into
+  (#958). One with a file keeps its own. With `scm = { merge_onto_target = false }` the pull
+  request is built alone, so only its own file counts, and with none it runs the model's pipeline.
 - The plugin `git` keeps one bare repository per address in its folder (`fontes/`), and fetches
   into it only the commit of each branch (`--depth 1`). The credential travels in `git`'s
   environment, never in an argument nor in that folder.

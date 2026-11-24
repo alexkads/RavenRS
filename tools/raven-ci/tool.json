@@ -5,7 +5,7 @@
     "raven-ci"
   ],
   "package": "raven-ci",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "summary": "A small CI/CD server whose core holds only the queue, the model of jobs and builds and the register of plugins; every function of a CI (pipeline formats, steps, git, providers, triggers, publishers, agents) is a plugin, compiled in or a program of any language over JSON-RPC.",
   "when_to_use": [
     "To see which plugins Raven CI has, whether each is on, and why one was refused.",
@@ -49,12 +49,16 @@
       "does": "Sobe o servidor: HTTP com login (GET /health aberto, /api/ci/jobs, /api/ci/build, /api/ci/log?after= e as rotas dos plugins), os executores e os gatilhos dos jobs. Diz o endereço na primeira linha e para com Ctrl+C ou SIGTERM."
     },
     {
-      "command": "echo SENHA | raven-ci usuario criar NOME [--papel Executores|Leitores|Administradores]",
-      "does": "Cria quem pode entrar no servidor; o primeiro é administrador. A senha vem na primeira linha da entrada."
+      "command": "echo SENHA | raven-ci usuario criar NOME [--papel Executores|Leitores|Administradores] [--servidor URL]",
+      "does": "Cria quem pode entrar no servidor; o primeiro é administrador. A senha vem na primeira linha da entrada; com --servidor, no servidor no ar."
+    },
+    {
+      "command": "raven-ci agentes listar|token|remover|modelos|modelo|modelo-apagar [--servidor URL] [--format json]",
+      "does": "Os agentes e os modelos que os sobem; com --servidor (ou RAVEN_CI_SERVIDOR), pela API do servidor no ar, com o estado real de cada conexão."
     },
     {
       "command": "raven-ci rodar JOB [--param NOME=VALOR]... [--prioridade N] [--esperar] [--servidor URL] [--format json]",
-      "does": "Pede um build ao servidor (POST /api/ci/run, com a chave em RAVEN_CI_TOKEN); com --esperar segue o log e sai com 0 só se passou."
+      "does": "Pede um build ao servidor (POST /api/ci/run, com a chave em RAVEN_CI_TOKEN); com --esperar segue o log e sai com 0 se passou, 7 se ficou instável e 1 se falhou."
     },
     {
       "command": "raven-ci status JOB [NUMERO] [--format json]",

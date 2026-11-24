@@ -15,7 +15,7 @@
 use serde_json::{Map, Value, json};
 
 use crate::read::{
-    AGENT, BRANCH, CONTAINER, CREDENTIAL_FILE, PARAMETER, PIPELINE, POST, STAGE, STEP, TOP, WHEN,
+    AGENT, BRANCH, CONTAINER, CREDENTIAL_FILE, LOCK, PARAMETER, PIPELINE, POST, STAGE, STEP, TOP, WHEN,
 };
 
 /// A period as the house writes it.
@@ -71,6 +71,15 @@ fn credentials() -> Value {
     })
 }
 
+/// `unstable = [3]`: the exit codes that leave the build unstable (#947).
+fn codes() -> Value {
+    json!({
+        "type": "array",
+        "items": { "type": "integer", "minimum": 1, "maximum": 255 },
+        "description": "Códigos de saída que deixam o build instável (amarelo) e seguem, como o unstable() do Jenkins",
+    })
+}
+
 fn step() -> Value {
     json!({ "oneOf": [
         { "type": "string", "description": "Um comando, rodado por sh -e -c" },
@@ -85,6 +94,7 @@ fn step() -> Value {
             "nice" => integer("A prioridade: nice -n N (Linux e macOS)"),
             "credentials" => credentials(),
             "keep_daemons" => boolean("Deixa vivo o que o comando deixou rodando"),
+            "unstable" => codes(),
             _ => json!({}),
         }),
     ]})
@@ -115,7 +125,14 @@ fn stage() -> Value {
         }
         "timeout" => duration("O limite de cada passo do estágio"),
         "retry" => integer("Quantas vezes mais cada passo é tentado"),
-        "lock" => text("Uma trava: um build por vez a segura (plugin lock)"),
+        "lock" => json!({ "oneOf": [
+            text("Uma trava: um build por vez a segura (plugin lock)"),
+            table(LOCK, &["name"], "Uma trava num arquivo dito, que scripts de fora também seguram com flock", |field| match field {
+                "name" => text("O nome da trava"),
+                "path" => text("O arquivo da trava; ~/ é a pasta do usuário de quem roda o passo"),
+                _ => json!({}),
+            }),
+        ]}),
         "nice" => integer("Cada sh roda com nice -n N"),
         "container" => {
             table(CONTAINER, &["image"], "Cada sh roda na imagem (plugin docker)", |field| match field {
@@ -128,6 +145,7 @@ fn stage() -> Value {
             })
         }
         "credentials" => credentials(),
+        "unstable" => codes(),
         _ => json!({}),
     })
 }
@@ -157,7 +175,7 @@ pub fn schema() -> Value {
                 json!({ "type": "array", "description": "O que quem pede o build informa", "items":
                 table(PARAMETER, &["name"], "Um parâmetro", |field| match field {
                     "name" => text("O nome, que vira variável do build"),
-                    "type" => json!({ "enum": ["bool", "text", "choice"], "description": "text quando não dito" }),
+                    "type" => json!({ "enum": ["bool", "text", "choice", "choices"], "description": "text quando não dito; choices guarda várias das choices, como lista" }),
                     "default" => json!({ "description": "O valor quando não informado" }),
                     "description" => text("O que o painel mostra"),
                     "choices" => json!({ "type": "array", "items": { "type": "string" }, "description": "As opções de um choice" }),

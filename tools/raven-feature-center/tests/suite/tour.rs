@@ -1450,6 +1450,19 @@ fn the_progress_bar_says_its_stage_and_puts_the_detail_beside_the_label_or_under
     assert!(inline + 10.0 < under, "inline {inline}, under {under}");
     // tone, color, height, label, percent and detail of the others.
     assert!(c.says("Disco") && c.says("Cor própria, 10 pt") && c.says("12 de 30 fotos"), "{:?}", c.texts());
+    // marker and marker_label: the value is read against the limit, above and below it.
+    let spoken = |c: &mut Center, name: &str| {
+        c.settle();
+        let tree = c.ui.access_tree();
+        tree.find(Role::ProgressIndicator, name).and_then(|n| n.value.clone()).unwrap_or_default()
+    };
+    assert_eq!(spoken(&mut c, "Confiança do palpite"), "89%, acima do limite 0,85");
+    assert!(c.says("Com 89%, o bot responde."), "{:?}", c.texts());
+    c.press("Palpite de 60%");
+    assert_eq!(spoken(&mut c, "Confiança do palpite"), "60%, abaixo do limite 0,85");
+    assert!(c.says("Com 60%, o bot diz \"não entendi\"."), "{:?}", c.texts());
+    // Two unnamed markers, read by where they are.
+    assert_eq!(spoken(&mut c, "Meta e piso do mês"), "55%, acima do ponto de 30%, abaixo do ponto de 80%");
 }
 
 #[test]
@@ -1511,6 +1524,37 @@ fn toggles_switch_with_a_label_compact_or_only_an_accessible_name() {
     assert!(tree.find(Role::Switch, "Indisponível").expect("disabled").disabled);
     c.activate("Só leitura");
     assert!(c.ui.access_tree().find(Role::Switch, "Só leitura").expect("read only").read_only);
+}
+
+#[test]
+fn the_code_completes_once_and_locks_while_it_is_verified() {
+    let mut c = Center::memory("ana");
+    c.press("Código de verificação");
+    let field = |c: &mut Center| {
+        c.settle();
+        let tree = c.ui.access_tree();
+        let found = tree
+            .nodes
+            .iter()
+            .find(|n| n.role == Role::TextInput && n.name.as_deref() == Some("Código de verificação"));
+        found.cloned().expect("the code")
+    };
+    // new: digits only, one per box.
+    c.type_into("Código de verificação", "48a29");
+    assert!(c.says("Digitado: 4829"), "{:?}", c.texts());
+    // on_complete: the sixth digit sends it, once.
+    c.type_into("Código de verificação", "13");
+    assert!(c.says("Verificando 482913…") && c.says("Conclusões: 1"), "{:?}", c.texts());
+    // disabled: unavailable to screen readers, and typing changes nothing nor completes again.
+    assert!(field(&mut c).disabled);
+    c.type_into("Código de verificação", "7");
+    assert_eq!(field(&mut c).value.as_deref(), Some("482913"));
+    assert!(c.says("Conclusões: 1"), "{:?}", c.texts());
+    // Back on, what was typed is kept.
+    c.press("Resposta do servidor");
+    let back = field(&mut c);
+    assert!(!back.disabled && back.value.as_deref() == Some("482913"), "{back:?}");
+    assert!(c.says("Digitado: 482913"), "{:?}", c.texts());
 }
 
 #[test]
