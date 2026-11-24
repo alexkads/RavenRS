@@ -398,8 +398,24 @@ same script runs on Linux; those numbers come with the week beside Jenkins (V-03
 | Size of the program | 13.6 MiB | 7.7 MiB |
 
 The Jenkins it replaces, at home with two jobs, held 596 MB in its controller and 250 MB in its
-agent, idle. The server is under its goal of 60 MB; the agent is 1.3 MiB above its goal of 15 MB,
-and why the server grows by 21 MiB when the first agent connects is being looked at.
+agent, idle.
+
+On Linux, on 23/11/2026, binaries built in release on a Fedora 45 (x86_64), the resident memory as
+`/proc/<pid>/status` says it:
+
+| | Server | Agent |
+|---|---|---|
+| Idle, no agent connected | 17.8 MiB (10 MiB of it the program's own pages) | — |
+| Idle, one agent connected | 19.1 MiB | 12.5 MiB |
+| Three agents connected | 19.5 MiB | — |
+| Eight agents connected | 19.6 MiB | — |
+
+Both are under their goals, 60 MB and 15 MB. Until #916 the server grew by 20 MiB with the second
+agent that came in and 20 MiB more with the third, and kept it: each agent got a user whose random
+password went through Argon2, which asks about 19 MiB for a hash, and the allocator kept that much
+in each thread of HTTP that let an agent in (found with `heaptrack`). The user of an agent has no
+password now, since it signs in with its key only, and the server holds the same with eight agents
+as with one.
 
 ## Install it
 

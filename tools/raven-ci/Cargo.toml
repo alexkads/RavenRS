@@ -1,7 +1,7 @@
 [package]
 name = "raven-ci"
 description = "Raven CI: a small CI/CD server whose every function is a plugin, with the queue, the model of builds and the register of plugins in its core."
-version = "0.1.8"
+version = "0.1.9"
 edition.workspace = true
 # ravenrs-flows-runtime (rusqlite 0.41) needs 1.89, one above the workspace.
 rust-version = "1.89"

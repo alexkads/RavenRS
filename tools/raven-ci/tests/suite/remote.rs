@@ -18,7 +18,9 @@ fn jobs(dir: &Path) {
     let demo = "artifacts = [\"*.txt\"]\n\n[[parameters]]\nname = \"ALVO\"\ntype = \"text\"\ndefault = \"\"\n\n[[stages]]\nname = \"Gera\"\nsteps = [\"echo relatorio> relatorio.txt\", \"echo feito\"]\n";
     ci.save_job(JobSpec::new("apps/demo", "toml", demo).settings(settings.clone())).expect("demo");
     let quebra = "[[stages]]\nname = \"Quebra\"\nsteps = [\"exit 1\"]\n";
-    ci.save_job(JobSpec::new("quebra", "toml", quebra).settings(settings)).expect("quebra");
+    ci.save_job(JobSpec::new("quebra", "toml", quebra).settings(settings.clone())).expect("quebra");
+    let amarelo = "[[stages]]\nname = \"Avisa\"\nsteps = [{ sh = \"exit 3\", unstable = [3] }]\n";
+    ci.save_job(JobSpec::new("amarelo", "toml", amarelo).settings(settings)).expect("amarelo");
 }
 
 fn remote(running: &Running, token: Option<&str>, args: &[&str]) -> Output {
@@ -163,6 +165,89 @@ fn a_plugin_is_switched_on_the_server_that_is_running() {
     let reader = token(&running, "caio");
     let refused = remote(&running, Some(&reader), &["plugins", "desligar", "explain", "--format", "json"]);
     assert_eq!(refused.status.code(), Some(4), "{}", said(&refused));
+}
+
+/// What is administered goes to the server that runs (#929): agents, their templates and people,
+/// with the roles the API asks; and a build of a job that is not there says so.
+#[test]
+fn agents_templates_and_people_are_administered_on_the_server_that_is_running() {
+    let running = start_with("remoto-agentes", jobs);
+    let key = token(&running, "ana");
+
+    let listed = remote(&running, Some(&key), &["agentes", "listar"]);
+    assert_eq!(listed.status.code(), Some(0), "{}", said(&listed));
+    assert!(said(&listed).contains("nenhum agente"), "{}", said(&listed));
+
+    let made = remote(
+        &running,
+        Some(&key),
+        &["agentes", "token", "linux-1", "--rotulos", "linux", "--format", "json"],
+    );
+    assert_eq!(made.status.code(), Some(0), "{}", said(&made));
+    let made: Value = serde_json::from_str(&said(&made)).expect("json");
+    assert!(made["token"].as_str().is_some_and(|t| !t.is_empty()), "{made}");
+
+    let saved = remote(
+        &running,
+        Some(&key),
+        &["agentes", "modelo", "nuvem", "--lancador", "agent-local", "--rotulos", "linux", "--maximo", "2"],
+    );
+    assert_eq!(saved.status.code(), Some(0), "{}", said(&saved));
+    let templates: Value = serde_json::from_str(&said(&remote(
+        &running,
+        Some(&key),
+        &["agentes", "modelos", "--format", "json"],
+    )))
+    .expect("json");
+    let nuvem = templates.as_array().into_iter().flatten().find(|t| t["name"] == "nuvem").expect("saved");
+    assert_eq!(nuvem["max_agents"], 2, "{nuvem}");
+
+    create_user(&running.dir, "caio", "Leitores");
+    let reader = token(&running, "caio");
+    let refused =
+        remote(&running, Some(&reader), &["agentes", "modelo", "outro", "--lancador", "agent-local"]);
+    assert_eq!(refused.status.code(), Some(4), "{}", said(&refused));
+    let read = remote(&running, Some(&reader), &["agentes", "listar"]);
+    assert_eq!(read.status.code(), Some(0), "a reader lists the agents: {}", said(&read));
+
+    let gone = remote(&running, Some(&key), &["agentes", "modelo-apagar", "nuvem"]);
+    assert_eq!(gone.status.code(), Some(0), "{}", said(&gone));
+
+    // A person, the password from the input.
+    let mut command = raven(&running.dir);
+    command
+        .args([
+            "usuario",
+            "criar",
+            "bia",
+            "--papel",
+            "Leitores",
+            "--servidor",
+            &format!("http://{}", running.address),
+        ])
+        .env_remove("RAVEN_CI_SERVIDOR")
+        .env("RAVEN_CI_TOKEN", &key)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped());
+    let mut child = command.spawn().expect("runs");
+    std::io::Write::write_all(child.stdin.as_mut().expect("stdin"), b"senha-da-bia\n").expect("written");
+    let person = child.wait_with_output().expect("ends");
+    assert_eq!(person.status.code(), Some(0), "{}", said(&person));
+    assert!(said(&person).contains("bia: criado, com o papel Leitores"), "{}", said(&person));
+
+    let missing = remote(&running, Some(&key), &["rodar", "nao-existe"]);
+    assert_eq!(missing.status.code(), Some(5), "{}", said(&missing));
+    assert!(said(&missing).contains("o job nao-existe não existe"), "{}", said(&missing));
+}
+
+/// A build that ends unstable makes `rodar --esperar` end with 7, and says so (#947).
+#[test]
+fn a_build_that_ends_unstable_ends_the_command_with_seven() {
+    let running = start_with("remoto-instavel", jobs);
+    let key = token(&running, "ana");
+    let waited = remote(&running, Some(&key), &["rodar", "amarelo", "--esperar"]);
+    assert_eq!(waited.status.code(), Some(7), "{}", said(&waited));
+    assert!(said(&waited).contains("instável"), "{}", said(&waited));
 }
 
 /// The summary of a build for programs and sessions of AI (#941): a build that fails with a test

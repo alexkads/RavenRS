@@ -12,7 +12,7 @@ use serde_json::{Value as Json, json};
 use super::{Pagina, S, jobs, nada};
 use crate::texto;
 
-/// The stretch of time shown: the last two hours, ending a quarter after now.
+/// The stretch of time shown: two hours, ending a quarter after now or the newest build.
 const HOURS: u32 = 2;
 
 /// A row of the line of time: an executor of the server, an agent or a template.
@@ -102,6 +102,7 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
                 match status {
                     "running" => " · rodando",
                     "failed" => " · falhou",
+                    "unstable" => " · instável",
                     _ => "",
                 }
             );
@@ -132,13 +133,16 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
             return super::build::page(s, job, *number);
         }
     }
+    // The window ends a quarter after the newest thing on it, now or the end of the newest build,
+    // so the piece of a build that just ended never falls on the right edge (#944).
+    let newest = events.iter().map(|e| e.end.minutes()).max().unwrap_or(now).max(now);
     // The two hours fill the card: the window, less the menu, the margins and the names.
     let menu = if s.narrow() { 72.0 } else { 248.0 };
     let quarters = 4.0 * HOURS as f32;
     let tick_width = ((s.width.get() - menu - 64.0 - 200.0) / quarters).max(48.0);
     let axis = State::new(TimeAxis {
         tick_width,
-        ..TimeAxis::quarter_hours(TimePoint::from_minutes(now + 15 - 60 * i64::from(HOURS)), HOURS)
+        ..TimeAxis::quarter_hours(TimePoint::from_minutes(newest + 15 - 60 * i64::from(HOURS)), HOURS)
     });
     let open = {
         let s = s.clone();

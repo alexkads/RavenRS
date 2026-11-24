@@ -183,6 +183,10 @@ step "the widgets' crates keep their layers: no family depends on another"
 step "every test file runs: tests/suite/ modules are declared"
 ./scripts/check-test-suites.py
 
+step "the playground's live lists are current, and name nothing another feature leaves out (#828)"
+./scripts/gen-live.py --self-test
+./scripts/gen-live.py --check
+
 step "every tool in tools/ is a product: version, news, installer, icons, tests (tools/README.md)"
 ./scripts/check-tools.py
 

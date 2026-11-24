@@ -61,6 +61,9 @@ pub fn command(ci: &Ci, args: &[&str], json: bool, out: &mut dyn Write) -> Resul
             let mut text = String::new();
             if agents.is_empty() {
                 text.push_str("nenhum agente; crie um com: raven-ci agentes token NOME --rotulos linux\n");
+            } else {
+                // The state of a connection lives in the memory of the server running (#929).
+                text.push_str("(lido da pasta de dados: conectado ou não, só o servidor no ar sabe; use --servidor URL)\n");
             }
             for agent in agents {
                 let state = if agent.connected { "conectado" } else { "desconectado" };

@@ -5619,6 +5619,8 @@ variant IconName::Bluetooth
 variant IconName::Bold
 variant IconName::BookOpen
 variant IconName::Bookmark
+variant IconName::Bot
+variant IconName::Brain
 variant IconName::Calculator
 variant IconName::Calendar
 variant IconName::CalendarDays
@@ -5740,6 +5742,7 @@ variant IconName::RefreshCcw
 variant IconName::RefreshCw
 variant IconName::Rocket
 variant IconName::RotateCcw
+variant IconName::Route
 variant IconName::Rows3
 variant IconName::Ruler
 variant IconName::Save
@@ -5794,6 +5797,7 @@ variant IconName::VolumeX
 variant IconName::Wallet
 variant IconName::Wifi
 variant IconName::WifiOff
+variant IconName::Workflow
 variant IconName::X
 variant IconName::Zap
 variant IconName::ZoomIn
@@ -5815,6 +5819,7 @@ variant ParamKind::Group
 variant ParamKind::List
 variant ParamKind::Loaded
 variant ParamKind::LongText
+variant ParamKind::MultiChoice
 variant ParamKind::Number
 variant ParamKind::Text
 variant ParamOptions::Failed

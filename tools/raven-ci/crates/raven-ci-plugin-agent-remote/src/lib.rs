@@ -27,6 +27,10 @@
 //!   readable only by its owner, and is removed when the agent stops. Without it, `ssh` uses the
 //!   keys of the server's user.
 //! - `ssh`: the program; `ssh`, which Linux, macOS and Windows 10+ have, unless said.
+//! - `sistema`: the other machine's shell, `posix` (the default) or `windows` (#906). The OpenSSH of
+//!   Windows hands the line to `cmd.exe`, which reads no single quotes: with `windows`, each word
+//!   goes in double quotes with a `"` inside doubled, the program is `raven-ci-agent.exe` and the
+//!   folder `%USERPROFILE%\raven-ci-agente\<name>` unless said.
 //!
 //! The server's address the agent connects to is the one `raven-ci servir --url-agentes URL` says:
 //! it has to be reachable from the other machine. Stopping the agent ends the SSH session, and with
@@ -103,6 +107,58 @@ pub fn quoted(text: &str) -> String {
     format!("'{}'", text.replace('\'', "'\\''"))
 }
 
+/// `text` as `cmd.exe` and the programs of Windows read it as one word: in double quotes, with a
+/// `"` inside doubled (#906). `%VARIAVEL%` is still expanded, as the default folder wants.
+pub fn quoted_cmd(text: &str) -> String {
+    format!("\"{}\"", text.replace('"', "\"\""))
+}
+
+/// The shell of the other machine, as the template's `sistema` says.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum System {
+    /// `sh`, `bash`, `zsh`: Linux and macOS. The default.
+    Posix,
+    /// `cmd.exe`, where the OpenSSH of Windows runs a command.
+    Windows,
+}
+
+impl System {
+    /// The system of `request`, refused when it names one there is not.
+    pub fn of(request: &LaunchRequest) -> Result<Self, CiError> {
+        match launch_text(request, "sistema") {
+            None | Some("posix") => Ok(Self::Posix),
+            Some("windows") => Ok(Self::Windows),
+            Some(other) => {
+                Err(CiError::settings("sistema", format!("{other} não existe; use posix ou windows")))
+            }
+        }
+    }
+
+    /// `word` quoted for this shell.
+    pub fn quote(self, word: &str) -> String {
+        match self {
+            Self::Posix => quoted(word),
+            Self::Windows => quoted_cmd(word),
+        }
+    }
+
+    /// The agent's program unless the template says it.
+    pub fn program(self) -> &'static str {
+        match self {
+            Self::Posix => "raven-ci-agent",
+            Self::Windows => "raven-ci-agent.exe",
+        }
+    }
+
+    /// The agent's folder unless the template says it.
+    pub fn folder(self, name: &str) -> String {
+        match self {
+            Self::Posix => format!("raven-ci-agente/{name}"),
+            Self::Windows => format!("%USERPROFILE%\\raven-ci-agente\\{name}"),
+        }
+    }
+}
+
 /// The arguments of `ssh` for `request`, with the key in `key` when there is one: its options, the
 /// destination and the agent's command line, every word quoted for the other machine's shell.
 pub fn ssh_arguments(request: &LaunchRequest, key: Option<&str>) -> Result<Vec<String>, CiError> {
@@ -126,14 +182,15 @@ pub fn ssh_arguments(request: &LaunchRequest, key: Option<&str>) -> Result<Vec<S
         None => host.to_owned(),
     });
     args.push("--".to_owned());
+    let system = System::of(request)?;
     let name = launch_name(request);
-    let dir = launch_text(request, "pasta").map_or_else(|| format!("raven-ci-agente/{name}"), str::to_owned);
-    let mut words = vec![launch_text(request, "programa").unwrap_or("raven-ci-agent").to_owned()];
+    let dir = launch_text(request, "pasta").map_or_else(|| system.folder(&name), str::to_owned);
+    let mut words = vec![launch_text(request, "programa").unwrap_or(system.program()).to_owned()];
     words.extend(launch_args(request, &dir).to_args());
     // The token on the input, which `ssh` carries and no variable of the other machine shows.
     words.extend(["--token".to_owned(), "-".to_owned()]);
     words.extend(limit_arguments(request));
-    args.push(words.iter().map(|w| quoted(w)).collect::<Vec<_>>().join(" "));
+    args.push(words.iter().map(|w| system.quote(w)).collect::<Vec<_>>().join(" "));
     Ok(args)
 }
 
@@ -247,6 +304,31 @@ mod tests {
              'mac,arm' '--executores' '2' '--pasta' 'raven-ci-agente/mac-1' '--token' '-' '--memoria' '8G'"
         );
         assert!(!args.iter().any(|a| a.contains("rva_segredo")), "the token goes on the input");
+    }
+
+    #[test]
+    fn on_windows_every_word_goes_in_double_quotes_with_the_exe_and_the_profile_folder() {
+        let asked = request(json!({ "name": "win-1", "host": "win11", "sistema": "windows" }));
+        let args = ssh_arguments(&asked, None).expect("arguments");
+        assert_eq!(
+            args.last().map(String::as_str),
+            Some(
+                "\"raven-ci-agent.exe\" \"--servidor\" \"https://ci.local\" \"--nome\" \"win-1\" \"--rotulos\" \
+                 \"mac,arm\" \"--executores\" \"1\" \"--pasta\" \"%USERPROFILE%\\raven-ci-agente\\win-1\" \
+                 \"--token\" \"-\""
+            )
+        );
+        let spaced = request(
+            json!({ "name": "w", "host": "h", "sistema": "windows", "programa": "C:\\Program Files\\Raven \"CI\"\\a.exe" }),
+        );
+        let line = ssh_arguments(&spaced, None).expect("arguments");
+        assert!(
+            line.last().expect("the line").starts_with("\"C:\\Program Files\\Raven \"\"CI\"\"\\a.exe\""),
+            "{line:?}"
+        );
+        assert!(
+            ssh_arguments(&request(json!({ "name": "x", "host": "h", "sistema": "dos" })), None).is_err()
+        );
     }
 
     #[test]

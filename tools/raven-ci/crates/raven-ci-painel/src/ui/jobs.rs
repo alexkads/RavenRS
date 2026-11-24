@@ -338,12 +338,22 @@ fn fields_of(s: &S, job: &str) -> Vec<ParamField> {
                         .map(|c| (c.to_owned(), c.to_owned()))
                         .collect(),
                 ),
+                Some("choices") => ParamKind::MultiChoice(
+                    p["choices"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter_map(Json::as_str)
+                        .map(|c| (c.to_owned(), c.to_owned()))
+                        .collect(),
+                ),
                 _ => ParamKind::Text,
             };
             let field = ParamField::new(name, label, kind);
             match &p["default"] {
                 Json::Bool(b) => field.default(*b),
                 Json::String(t) if !t.is_empty() => field.default(t.clone()),
+                list @ Json::Array(_) => field.default(list.clone()),
                 _ => field,
             }
         })

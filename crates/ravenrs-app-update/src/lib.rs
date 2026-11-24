@@ -175,7 +175,8 @@ impl Updater {
         if self.check_when_connected.take() {
             self.check();
         }
-        if self.watching.get() && !self.clock_started.replace(true) {
+        // The browser has no threads to sleep on, and nothing to look for (see `check`).
+        if cfg!(not(target_arch = "wasm32")) && self.watching.get() && !self.clock_started.replace(true) {
             let waker = waker_for_clock(&self.waker);
             // Sleeps between wakes, so an idle app stays idle. [`Self::poll`] does the looking.
             std::thread::spawn(move || {
@@ -259,9 +260,18 @@ impl Updater {
             self.check_when_connected.set(true);
             return;
         };
-        self.last_check.set(Some(Instant::now()));
         let (send, receive) = channel();
         *self.inbox.borrow_mut() = Some(receive);
+        // In the browser the page is the app, so there is no version to look for, and neither a
+        // thread nor a clock to look with: the answer comes at once, and says why (#813).
+        if cfg!(target_arch = "wasm32") {
+            self.watching.set(false);
+            let failure = Some(installer::IN_THE_BROWSER.to_owned());
+            let _ = send.send(Message::Checked { decision: Decision::Nothing, failure, history: Vec::new() });
+            waker.wake();
+            return;
+        }
+        self.last_check.set(Some(Instant::now()));
         let app = self.app;
         std::thread::spawn(move || {
             let _wake_when_done = WakeOnDrop(waker);
