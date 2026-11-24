@@ -1,22 +1,30 @@
 {
-  "versao": "0.1.8",
-  "titulo": "Backup com o servidor no ar, e o que faltava para rodar os jobs do Jenkins lado a lado.",
+  "versao": "0.1.9",
+  "titulo": "O build instável, várias escolhas num parâmetro, e o servidor administrado pela linha de comando sem entrar nele.",
   "importante": false,
   "novidades": [
-    "raven-ci backup criar guarda jobs, builds, logs, anexos, usuários, credenciais e os dados dos plugins com o servidor no ar; backup ver confere um backup, e backup restaurar o põe de volta com o servidor parado, deixando o que havia em antes-da-restauracao-<quando>/. A chave do cofre só entra com --com-chave.",
-    "Um segundo servidor na mesma pasta de dados é recusado, dizendo por quê.",
-    "Um parâmetro que o pedido não diz recebe o valor padrão do pipeline, e --param SIMULAR=false é lido como o tipo do parâmetro.",
-    "artifacts = [\"relatorio/**\"] guarda todos os arquivos abaixo da pasta, como o archiveArtifacts do Jenkins.",
-    "A branch que um job busca pode vir de um parâmetro: reference = { branch = \"${BRANCH}\" }.",
-    "raven-ci plugins ligar NOME --servidor URL liga o plugin no servidor no ar, sem reiniciar; sem --servidor, o comando avisa que só grava na pasta de dados.",
-    "raven-ci validar confere um arquivo de jobs do aplicar, job por job."
+    "Um passo sh com unstable = [3] que sai com 3 deixa o build instável (amarelo) e segue, como o unstable() do Jenkins; o GitHub e o Azure recebem failure com \"instável: motivo\", e raven-ci rodar --esperar sai com 7.",
+    "Um parâmetro type = \"choices\" guarda várias escolhas de uma lista: o Disparar mostra etiquetas, --param SUITES=pedidos,pagamentos funciona, e o passo lê SUITES=pedidos,pagamentos.",
+    "raven-ci agentes, plugins e usuario criar com --servidor vão à API do servidor no ar, com o estado real de cada agente; não precisam mais de SSH na máquina.",
+    "Sem --dados, a linha de comando usa a pasta do serviço quando roda como o usuário do RPM, e avisa quando cria uma pasta de dados nova; o backup nunca leva uma chave de cofre que não seja a da raiz.",
+    "lock = { name = \"oficina\", path = \"~/oficina/.trava-compilacao\" } divide a trava que os scripts da máquina já usam.",
+    "A pasta de um agente que um modelo subiu sai com ele quando o servidor o derruba, dizendo quanto liberou.",
+    "Um PR mais antigo que o arquivo do pipeline roda o pipeline do branch de destino, como o Jenkins faz com a mescla.",
+    "O servidor fica em uns 20 MiB com oito agentes conectados: antes, cada agente que entrava custava 20 MiB que ele não devolvia.",
+    "Pedir um build de um job que não existe responde 404 dizendo isso."
   ],
-  "por_que_atualizar": "Para ter backup do servidor e para os jobs que vêm do Jenkins rodarem com os parâmetros e os artefatos certos.",
+  "por_que_atualizar": "Para os jobs que vêm do Jenkins terminarem amarelos quando devem, para escolher várias suítes de uma vez e para operar o servidor de outra máquina.",
   "contribuidores": [
     "Alex S S Fonseca"
   ],
   "issues": [
-    917,
-    946
+    929,
+    930,
+    932,
+    938,
+    944,
+    947,
+    952,
+    916
   ]
 }

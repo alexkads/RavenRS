@@ -5814,6 +5814,7 @@ variant ParamKind::Group
 variant ParamKind::List
 variant ParamKind::Loaded
 variant ParamKind::LongText
+variant ParamKind::MultiChoice
 variant ParamKind::Number
 variant ParamKind::Text
 variant ParamOptions::Failed
