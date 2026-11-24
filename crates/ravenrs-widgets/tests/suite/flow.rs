@@ -1939,3 +1939,55 @@ fn every_node_is_found_by_its_key() {
         assert_eq!(node.name.as_deref(), Some(title));
     }
 }
+
+/// Five stages in a row, as the strip of a build shows them.
+fn stages() -> FlowGraph {
+    (0..5).fold(FlowGraph::new(), |graph, i| {
+        let x = 24.0 + f32::from(u8::try_from(i).unwrap_or(0)) * 200.0;
+        graph.node(FlowNode::new(format!("s{i}"), "action", format!("Stage {i}"), x, 24.0))
+    })
+}
+
+/// The width of a strip 198 points high named "Stages", in `holder`, in a window `width` wide.
+fn strip_in(width: f32, graph: FlowGraph, holder: impl FnOnce(FlowCanvas) -> AnyView) -> f32 {
+    let graph = State::new(graph);
+    let canvas = FlowCanvas::new(graph.binding()).label("Stages").height(198.0);
+    let mut ui = Ui::new(holder(canvas), Theme::raven_dark());
+    ui.set_viewport(Size::new(width, 600.0), 1.0);
+    settle(&mut ui);
+    named(&mut ui, "Stages").expect("the strip").bounds.width()
+}
+
+/// A column that fits what it holds, inside one that does not stretch it: where the strip had 0.
+fn fitting(canvas: FlowCanvas) -> AnyView {
+    Box::new(VStack::new((VStack::new((Text::new("Build 12"), canvas)),)).align(ravenrs_layout::Align::Start))
+}
+
+#[test]
+fn a_strip_of_stages_is_as_wide_as_its_diagram_where_nothing_stretches_it() {
+    let diagram = stages().bounds().expect("nodes").width();
+    let margin = 198.0_f32 / 6.0;
+    let wide = strip_in(1400.0, stages(), fitting);
+    assert!(
+        (wide - (diagram + margin * 2.0)).abs() < 1.0,
+        "the diagram and its margin: {wide} for {diagram}"
+    );
+    assert!(wide > 600.0, "{wide}");
+
+    // Never wider than its parent can give: what does not fit scrolls.
+    let narrow = strip_in(320.0, stages(), fitting);
+    assert!(narrow <= 320.0 && narrow > 200.0, "{narrow}");
+
+    // Beside a text in a row, it takes the room the row has left.
+    let row = strip_in(1400.0, stages(), |c| Box::new(HStack::new((Text::new("Build 12"), c)).spacing(8.0)));
+    assert!(row > 600.0, "{row}");
+
+    // A parent that stretches it still gives it its width.
+    let stretched =
+        strip_in(1400.0, stages(), |c| Box::new(VStack::new((c,)).align(ravenrs_layout::Align::Stretch)));
+    assert!(stretched > 1300.0, "{stretched}");
+
+    // With no node it keeps a width of its own, not 0.
+    let empty = strip_in(1400.0, FlowGraph::new(), fitting);
+    assert!((empty - 240.0).abs() < 1.0, "{empty}");
+}

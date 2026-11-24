@@ -248,11 +248,47 @@ impl ComponentBook for FlowCanvas {
             .story("Json", Args::new().with("json", true))
             .story("Cables", Args::new().with("cables", true))
             .story_with("Cards and a selection", Args::new(), cards_and_selection)
+            .story_with("Stage strip in a row", Args::new(), stage_strip_in_a_row)
     }
 }
 
 /// Nodes that draw their own card (`content`), as an app that shows its own state in each node,
 /// joined by cables, with one of them selected (#831).
+/// The strip of a build's stages beside a text, in a row that does not stretch it: it takes the
+/// width of its stages (#971).
+fn stage_strip_in_a_row(_: &Args) -> AnyView {
+    let stages = ["Checkout", "Build", "Test", "Package", "Publish"];
+    let graph = stages.iter().enumerate().fold(FlowGraph::new(), |graph, (i, title)| {
+        let x = 24.0 + 200.0 * f32::from(u8::try_from(i).unwrap_or(0));
+        let status = if i < 3 { FlowNodeStatus::Success } else { FlowNodeStatus::Normal };
+        graph.node(
+            FlowNode::new(title.to_lowercase(), "action", *title, x, 24.0)
+                .status(status)
+                .port(FlowPort::input("in").side(PortSide::Left))
+                .port(FlowPort::output("out").side(PortSide::Right)),
+        )
+    });
+    let graph = stages.windows(2).enumerate().fold(graph, |graph, (i, pair)| {
+        graph.edge(FlowEdge::new(
+            format!("e{i}"),
+            FlowEndpoint::new(pair[0].to_lowercase(), "out"),
+            FlowEndpoint::new(pair[1].to_lowercase(), "in"),
+        ))
+    });
+    let graph = State::new(graph);
+    let canvas = FlowCanvas::new(graph.binding())
+        .label("Stages of build 12")
+        .read_only(true)
+        .status_icons(true)
+        .minimap(false)
+        .height(198.0);
+    Box::new(
+        HStack::new((Text::new("Build 12").style(TextStyle::Headline), canvas))
+            .spacing(16.0)
+            .align(Align::Center),
+    )
+}
+
 fn cards_and_selection(_: &Args) -> AnyView {
     let graph = State::new(
         FlowGraph::new()

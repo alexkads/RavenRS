@@ -1015,7 +1015,10 @@ impl FlowCanvas {
         self
     }
 
-    /// A fixed height and the width its parent gives: a strip of stages across a page.
+    /// A fixed height and the width its parent gives: a strip of stages across a page. A parent
+    /// that stretches it gives it its width; one that does not (a column that fits what it holds,
+    /// a row beside a text) gives it the width of its diagram, never more than the parent has, and
+    /// what does not fit scrolls. With no node it keeps 240 points and its hint (#971).
     pub fn height(mut self, height: f32) -> Self {
         self.width = None;
         self.height = Some(height);
@@ -3315,6 +3318,30 @@ impl View for FlowCanvas {
                 surface.paint(frame, 0.0, scene);
             }))
         };
+        // A strip measures as wide as its diagram, so a parent that does not stretch it still
+        // gives it room; one that stretches it, or is narrower, still decides (#971).
+        if self.width.is_none()
+            && let Some(tall) = self.height
+        {
+            let wide = strip_width(&self.graph.get(), tall);
+            // A row of pieces that wraps: it asks for `wide` but gives way to a narrower parent, as one
+            // box of `wide` would not (its least width would be all of it).
+            let piece = wide / STRIP_PIECES;
+            let pieces: Vec<NodeId> = (0..STRIP_PIECES as usize)
+                .map(|_| {
+                    cx.container(
+                        LayoutStyle { width: Some(piece), height: Some(0.0), ..LayoutStyle::default() },
+                        &[],
+                        Paint::None,
+                    )
+                })
+                .collect();
+            children.push(cx.container(
+                LayoutStyle { wrap: true, ..LayoutStyle::stack(Axis::Horizontal) },
+                &pieces,
+                Paint::None,
+            ));
+        }
         let root = cx.container(
             LayoutStyle {
                 width: self.width,
@@ -3424,6 +3451,19 @@ fn refusal(cx: &mut BuildCx<'_>, reason: &str, at: Point, p: Palette) -> NodeId 
 }
 
 /// What to do next while a connection is made with the keys, beside the port it starts from.
+/// The width of a strip `tall` points high that shows `graph` at 100% at most, with the margin it
+/// keeps around it; 240 with no node (#971).
+/// How many pieces the width of a strip comes in: the least it asks is one of them (#971).
+const STRIP_PIECES: f32 = 16.0;
+
+fn strip_width(graph: &FlowGraph, tall: f32) -> f32 {
+    const EMPTY: f32 = 240.0;
+    let Some(bounds) = graph.bounds() else { return EMPTY };
+    let margin = FIT_MARGIN.min(tall / 6.0);
+    let zoom = ((tall - margin * 2.0).max(1.0) / bounds.height().max(1.0)).min(1.0);
+    (bounds.width() * zoom + margin * 2.0).max(EMPTY)
+}
+
 fn hint(cx: &mut BuildCx<'_>, text: &str, at: Point, p: Palette) -> NodeId {
     bubble(cx, IconName::Link, p.accent, text, at, p)
 }
