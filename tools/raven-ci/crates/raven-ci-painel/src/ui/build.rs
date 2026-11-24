@@ -360,8 +360,9 @@ pub(super) fn page(s: &Rc<S>, job: &str, number: u64) -> AnyView {
         Box::new(HStack::new((main, aside)).spacing(24.0).align(Align::Start))
     };
     let foot: AnyView = if s.phone() { actions(s, job, number, running, true) } else { nada() };
+    let explained = explanation(s, job, number);
     Box::new(
-        VStack::new((breadcrumb, header, progress, diagram, lower, foot))
+        VStack::new((breadcrumb, header, progress, diagram, explained, lower, foot))
             .spacing(20.0)
             .padding(if s.phone() { Insets::uniform(16.0) } else { super::PAGE_PADDING })
             .align(Align::Stretch),
@@ -416,8 +417,96 @@ fn stage_list(s: &Rc<S>, body: &Json, stages: &[Json]) -> AnyView {
     Box::new(List::new(rows).compact())
 }
 
+/// Whether the plugin `explain` is on in the server: the button that explains a failure needs it.
+fn explains(s: &Rc<S>) -> bool {
+    s.server.get()["plugins_on"].as_array().is_some_and(|on| on.iter().any(|p| p == "explain"))
+}
+
+/// Asks the server to explain the failure of `job #number` with the local AI (#942): the plugin
+/// `explain` runs the model outside the server and keeps the answer with the build, so a second
+/// ask gives the one kept at once.
+fn explain(s: &Rc<S>, job: &str, number: u64) {
+    s.explanation.set(json!({ "job": job, "number": number, "state": "gerando" }));
+    let path = format!("/api/ci/build/explain?job={}&number={number}", encode(job));
+    let (job, kept) = (job.to_owned(), s.explanation.clone());
+    s.send(&path, &json!({}), move |_, status, body| {
+        let state = if status == 200 { "pronta" } else { "erro" };
+        kept.set(json!({
+            "job": job, "number": number, "state": state,
+            "texto": body["texto"], "modelo": body["modelo"], "ms": body["ms"], "message": body["message"],
+        }));
+    });
+}
+
+/// `text` as the value of a query.
+fn encode(text: &str) -> String {
+    text.bytes()
+        .map(|b| {
+            if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'_' | b'~') {
+                char::from(b).to_string()
+            } else {
+                format!("%{b:02X}")
+            }
+        })
+        .collect()
+}
+
+/// The explanation of this build, above the tabs (T2 of D-01): a card with the text, the model and
+/// how long it took; while the model writes it, a line that says so; nothing for another build.
+fn explanation(s: &Rc<S>, job: &str, number: u64) -> AnyView {
+    let asked = s.explanation.get();
+    if asked["job"] != job || asked["number"] != number {
+        return nada();
+    }
+    let body: AnyView = match asked["state"].as_str() {
+        Some("gerando") => Box::new(
+            HStack::new((
+                Spinner::new(),
+                Text::new("A IA local está lendo o resumo do build. Isso pode levar alguns minutos.")
+                    .style(TextStyle::Callout)
+                    .foreground(Semantic::InkMuted),
+            ))
+            .spacing(8.0)
+            .align(Align::Center),
+        ),
+        Some("pronta") => {
+            let model = asked["modelo"].as_str().unwrap_or("modelo local");
+            let seconds = asked["ms"].as_u64().map_or_else(String::new, |ms| format!(" · {} s", ms.div_ceil(1000)));
+            Box::new(
+                VStack::new((
+                    Text::new(asked["texto"].as_str().unwrap_or_default().trim().to_owned()),
+                    Text::new(format!("{model}{seconds} · gerada na máquina, sem enviar nada para fora"))
+                        .style(TextStyle::Caption)
+                        .foreground(Semantic::InkMuted),
+                ))
+                .spacing(8.0)
+                .align(Align::Stretch),
+            )
+        }
+        _ => Box::new(
+            Alert::new("Não deu para explicar", asked["message"].as_str().unwrap_or("o servidor não respondeu"))
+                .tone(Tone::Danger)
+                .compact(),
+        ),
+    };
+    Box::new(Card::new(
+        VStack::new((
+            HStack::new((
+                Icon::new(IconName::Sparkles).size(16.0).color(Semantic::Accent),
+                Text::new("Por que falhou").style(TextStyle::Headline),
+            ))
+            .spacing(8.0)
+            .align(Align::Center),
+            body,
+        ))
+        .spacing(10.0)
+        .align(Align::Stretch),
+    ))
+}
+
 /// Repetir (R) and, while it runs, Cancelar (⌘ .), for those who may act on builds. On a phone
-/// they go under the page, as wide as it and 48 pt tall (T7).
+/// they go under the page, as wide as it and 48 pt tall (T7). A build that failed has also
+/// Explicar a falha, when the plugin `explain` is on (#942).
 fn actions(s: &Rc<S>, job: &str, number: u64, running: bool, phone: bool) -> AnyView {
     if !s.runs() {
         return nada();
@@ -483,6 +572,17 @@ fn actions(s: &Rc<S>, job: &str, number: u64, running: bool, phone: bool) -> Any
     }
     let repeat =
         Button::new("Repetir").icon(IconName::RotateCcw).style(ButtonStyle::Secondary).on_click(again);
+    let failed = s.build.get()["build"]["status"] == "failed";
+    if failed && explains(s) {
+        let (s, job) = (s.clone(), job.to_owned());
+        let generating = s.explanation.get()["state"] == "gerando";
+        let ask = Button::new("Explicar a falha")
+            .icon(IconName::Sparkles)
+            .style(ButtonStyle::Secondary)
+            .disabled(generating)
+            .on_click(move || explain(&s, &job, number));
+        return Box::new(HStack::new((ask, repeat)).spacing(8.0));
+    }
     if running {
         Box::new(
             HStack::new((

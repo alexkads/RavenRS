@@ -78,6 +78,9 @@ pub struct Config {
     pub executors: u32,
     /// Its limits.
     pub limits: Limits,
+    /// The settings of plugins that are its own, by plugin (`--plugins JSON`, from its template),
+    /// over what the server has for them (#930).
+    pub plugins: serde_json::Map<String, serde_json::Value>,
 }
 
 /// The words of the contract between a launcher and the agent ([`AgentArgs`]); every other word
@@ -95,8 +98,17 @@ impl Config {
     /// its folder is refused when it starts.
     pub fn from_args(args: &[String], env: impl Fn(&str) -> Option<String>) -> Result<Self, String> {
         let (mut contract, mut own) = (Vec::new(), Vec::new());
+        let mut plugins = serde_json::Map::new();
         let mut words = args.iter();
         while let Some(word) = words.next() {
+            if word == "--plugins" {
+                let text = words.next().ok_or("--plugins precisa de um JSON")?;
+                match serde_json::from_str(text) {
+                    Ok(serde_json::Value::Object(map)) => plugins = map,
+                    _ => return Err(format!("--plugins é um objeto JSON, por plugin: {text}")),
+                }
+                continue;
+            }
             let to = if CONTRACT.contains(&word.as_str()) { &mut contract } else { &mut own };
             to.push(word.clone());
             if let Some(value) = words.next() {
@@ -127,6 +139,7 @@ impl Config {
             labels: parsed.labels,
             executors,
             limits,
+            plugins,
         })
     }
 }
@@ -255,6 +268,11 @@ impl Agent {
                         site.cancel_steps(&cancel.reason);
                     }
                 }
+                for other in &answer.leftovers {
+                    if let Some(said) = remove_leftover(&self.config.dir, other) {
+                        say(&self.config.name, &said);
+                    }
+                }
                 for run in answer.forget {
                     if let Some(site) = running.get(&run) {
                         site.forget("o servidor terminou o build sem este agente");
@@ -361,6 +379,98 @@ impl Agent {
     }
 }
 
+/// How long a key not written makes its agent's folder free: an agent says hello every few
+/// seconds and rewrites nothing, so the key is not the clock; it is the time since the folder was
+/// last touched by anything (#938).
+const LEFT_FOR: std::time::Duration = std::time::Duration::from_secs(120);
+
+/// Removes `<folder of the templates>/<other>`, the folder of an agent of the same template the
+/// server took down (#938), when nothing uses it: nothing under it written in the last two minutes
+/// and, on Linux, no process with its directory there. What it says, when it removed it.
+fn remove_leftover(own: &std::path::Path, other: &str) -> Option<String> {
+    if other.is_empty() || other.contains(['/', '\\']) || other.starts_with('.') {
+        return None;
+    }
+    let folder = own.parent()?.join(other);
+    if folder == own || !folder.is_dir() || touched_lately(&folder) || in_use(&folder) {
+        return None;
+    }
+    let bytes = size_of(&folder);
+    std::fs::remove_dir_all(&folder).ok()?;
+    Some(format!(
+        "a pasta do agente {other} ({}) saiu: {} MB liberados",
+        folder.display(),
+        bytes / (1024 * 1024)
+    ))
+}
+
+fn touched_lately(dir: &std::path::Path) -> bool {
+    let Ok(entries) = std::fs::read_dir(dir) else { return false };
+    let recent = |path: &std::path::Path| {
+        std::fs::metadata(path).and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).is_some_and(|age| age < LEFT_FOR)
+    };
+    recent(dir)
+        || entries.filter_map(Result::ok).any(|entry| {
+            let path = entry.path();
+            recent(&path) || (path.is_dir() && touched_lately(&path))
+        })
+}
+
+/// Whether a process has its directory under `dir` (Linux, through `/proc`).
+fn in_use(dir: &std::path::Path) -> bool {
+    let Ok(processes) = std::fs::read_dir("/proc") else { return false };
+    processes.filter_map(Result::ok).any(|p| {
+        std::fs::read_link(p.path().join("cwd")).is_ok_and(|cwd| cwd.starts_with(dir))
+    })
+}
+
+fn size_of(dir: &std::path::Path) -> u64 {
+    let Ok(entries) = std::fs::read_dir(dir) else { return 0 };
+    entries
+        .filter_map(Result::ok)
+        .map(|entry| match entry.file_type() {
+            Ok(kind) if kind.is_dir() => size_of(&entry.path()),
+            Ok(kind) if kind.is_file() => entry.metadata().map_or(0, |m| m.len()),
+            _ => 0,
+        })
+        .sum()
+}
+
+#[cfg(test)]
+mod leftovers {
+    use super::remove_leftover;
+
+    #[test]
+    fn a_folder_left_long_ago_goes_and_one_touched_lately_or_named_wrong_stays() {
+        let base = std::env::temp_dir().join(format!("raven-ci-sobras-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let own = base.join("modelo-b");
+        let old = base.join("modelo-a");
+        let fresh = base.join("modelo-c");
+        for dir in [&own, &old, &fresh] {
+            std::fs::create_dir_all(dir.join("espacos")).expect("a folder");
+            std::fs::write(dir.join("chave"), "x").expect("a key");
+        }
+        let long_ago = std::time::SystemTime::now() - std::time::Duration::from_secs(600);
+        for path in [old.join("espacos"), old.join("chave"), old.clone()] {
+            std::fs::File::options()
+                .write(true)
+                .open(&path)
+                .or_else(|_| std::fs::File::open(&path))
+                .and_then(|f| f.set_modified(long_ago))
+                .expect("aged");
+        }
+        assert!(remove_leftover(&own, "modelo-c").is_none(), "touched in the last two minutes: it stays");
+        assert!(fresh.is_dir());
+        assert!(remove_leftover(&own, "../fora").is_none(), "only a name beside its own");
+        assert!(remove_leftover(&own, "modelo-b").is_none(), "never its own");
+        let said = remove_leftover(&own, "modelo-a").expect("removed");
+        assert!(said.contains("modelo-a") && said.contains("MB liberados"), "{said}");
+        assert!(!old.exists());
+        let _ = std::fs::remove_dir_all(&base);
+    }
+}
+
 /// Runs the agent of `config` until `stopping` is set.
 pub fn run(config: Config, stopping: Arc<AtomicBool>) -> Result<(), String> {
     std::fs::create_dir_all(&config.dir).map_err(|e| format!("{}: {e}", config.dir.display()))?;
@@ -384,7 +494,7 @@ pub fn run(config: Config, stopping: Arc<AtomicBool>) -> Result<(), String> {
         ci.discover_plugins(&external);
     }
     ci.apply_plugins().map_err(|e| e.to_string())?;
-    let plugins = Plugins::new(ci.clone()).map_err(|e| e.to_string())?;
+    let plugins = Plugins::new(ci.clone(), config.plugins.clone()).map_err(|e| e.to_string())?;
     let limits = config.limits.apply(&config.name);
     let ci_workspaces = config.dir.join("dados").join(raven_ci_core::WORKSPACES_DIR);
     let agent = Arc::new(Agent {

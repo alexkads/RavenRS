@@ -238,6 +238,39 @@ raven-ci agentes modelo mac --lancador agent-remote --rotulos mac \
 - `chave`: the name of a credential `ssh-key` of the vault; without it, the server's user's own
   keys. The key goes to a file readable only by its owner and is removed when the agent stops.
 - `ssh`: the program; `ssh` by default, which Linux, macOS and Windows 10+ have.
+- `sistema`: the shell of the other machine, `posix` (the default) or `windows` (#906).
+
+**A machine with Windows.** The OpenSSH server of Windows runs the command in `cmd.exe` (or in the
+shell its `DefaultShell` says), which reads no single quotes. With `sistema = "windows"`, each word
+goes in double quotes with a `"` inside it doubled, the program is `raven-ci-agent.exe` in the
+`PATH`, and the folder is `%USERPROFILE%\raven-ci-agente\<nome>`, unless the template says them:
+
+```text
+raven-ci agentes modelo win --lancador agent-remote --rotulos windows \
+    --config '{"host": "win11", "usuario": "ci", "sistema": "windows", "programa": "C:\\raven\\raven-ci-agent.exe"}'
+```
+
+Leave `DefaultShell` as `cmd.exe`: a machine whose `DefaultShell` is PowerShell reads the line with
+other rules. The tests run the line through a fake `ssh` that reads it as `cmd` does; a Windows of
+verdade is checked by hand before a release.
+
+### Settings of plugins that are the agent's own
+
+A plugin that runs on the agent may need a path only the agent reaches: the folder of the locks of
+`lock`, the `cargo` of its user. Said on the server, the server checks it against its own disk, and
+a path of another user is refused there (#930). Said on the template, it goes to the agent only:
+
+```text
+raven-ci agentes modelo oficina --lancador agent-local --rotulos oficina \
+    --config '{"usuario": "alexdasilva", "pasta": "/home/alexdasilva/oficina/agentes",
+               "plugins": {"lock": {"dir": "/home/alexdasilva/oficina/travas"},
+                           "cargo": {"program": "/home/alexdasilva/.cargo/bin/cargo"}}}'
+```
+
+The launcher gives it to the agent as `--plugins JSON`, and the agent puts it over the settings the
+server sends with each build, key by key. The server keeps and checks only its own. For one lock
+the scripts of the machine already use, `lock = { name, path }` on the stage says the file itself
+([The pipeline](pipeline.md)).
 
 ## What a build leaves behind
 
@@ -252,9 +285,12 @@ Nothing a build starts outlives it, on the server or on an agent:
 - **The containers and pods** of `docker` and `kubernetes`, by their label.
 - **The folder** of the build and the secret files of its steps (`<pasta>.segredos`), at its end.
 - **The folder of an agent a template brought up** (`<pasta>/<nome>`), when the server takes it
-  down: idle, not connected in time, or its process gone (#938). The log of the server says which
-  and how much it freed: `agente local-ab12: a pasta … saiu com ele (312 MB liberados)`. An agent
-  of `agent-local` that runs as another `usuario` keeps its folder, which is that user's to remove.
+  down: idle, not connected in time, or its process gone (#938). `agent-local` removes it at once,
+  and its log says how much it freed: `agente local-ab12: a pasta … saiu com ele (312 MB
+  liberados)`. One the server cannot remove (another `usuario`, another machine) goes on a list of
+  its template: the next agent of that template, the same user on the same machine, is told in the
+  answer to its hello and removes each folder beside its own that nothing touched in the last two
+  minutes and no process has as its directory, saying how much it freed.
 
 What runs where, on the server of the RPM:
 
