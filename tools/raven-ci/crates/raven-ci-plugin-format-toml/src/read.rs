@@ -44,6 +44,7 @@ pub(crate) const STEP: &[&str] = &[
     "unstable",
 ];
 pub(crate) const CREDENTIAL_FILE: &[&str] = &["file", "name"];
+pub(crate) const LOCK: &[&str] = &["name", "path"];
 pub(crate) const PARAMETER: &[&str] = &["name", "type", "default", "description", "choices"];
 pub(crate) const BRANCH: &[&str] = &["name", "steps"];
 pub(crate) const CONTAINER: &[&str] = &["image", "args", "env"];
@@ -454,6 +455,27 @@ impl Read<'_> {
         def
     }
 
+    /// `lock = "nome"`, or `lock = { name = "nome", path = "~/oficina/.trava-compilacao" }`: a lock
+    /// in a file of its own, shared with scripts outside Raven CI that `flock` it (#930).
+    fn lock(&mut self, node: &Node<'_>) -> Option<(String, Option<String>)> {
+        match node.get_ref() {
+            DeValue::String(_) => self.reader.text(node, "lock").map(|name| (name, None)),
+            DeValue::Table(table) => {
+                let fields = self.reader.fields(table, LOCK, "lock");
+                let Some(name) = fields.get("name").and_then(|n| self.reader.text(n, "lock.name")) else {
+                    self.reader.error(&node.span(), "lock: diga name, o nome da trava");
+                    return None;
+                };
+                let path = fields.get("path").and_then(|p| self.reader.text(p, "lock.path"));
+                Some((name, path))
+            }
+            _ => {
+                self.reader.error(&node.span(), "lock é um nome, ou { name = \"…\", path = \"…\" }");
+                None
+            }
+        }
+    }
+
     /// The steps of `list`, chained in `builder`, ids starting with `prefix`.
     fn steps(&mut self, builder: &mut Builder, list: &[Node<'_>], prefix: &str, options: &StageOptions) {
         for (n, step) in list.iter().enumerate() {
@@ -540,13 +562,17 @@ impl Read<'_> {
             skip = Some((id, "false".to_owned()));
         }
 
-        if let Some(lock) = fields.get("lock").and_then(|l| self.reader.text(l, "lock")) {
+        let lock = fields.get("lock").and_then(|l| self.lock(l));
+        if let Some((lock, path)) = &lock {
             let id = format!("trava-{}", index + 1);
             let mut def = NodeDef::new(&id, "lock")
                 .title(format!("Trava {lock}"))
                 .parameter("name", json!(lock))
                 .parameter(STAGE_KEY, json!(name))
                 .parameter(PLUGIN_KEY, json!("lock"));
+            if let Some(path) = path {
+                def = def.parameter("path", json!(path));
+            }
             def.disabled = options.disabled;
             builder.push(def);
         }
@@ -598,11 +624,11 @@ impl Read<'_> {
             }
         }
 
-        if fields.contains_key("lock") {
+        if let Some((lock, _)) = &lock {
             let id = format!("solta-{}", index + 1);
             let mut def = NodeDef::new(&id, "unlock")
                 .title("Solta a trava")
-                .parameter("name", fields.get("lock").map(|l| json_of(l)).unwrap_or(Value::Null))
+                .parameter("name", json!(lock))
                 .parameter(STAGE_KEY, json!(name))
                 .parameter(PLUGIN_KEY, json!("lock"));
             def.disabled = options.disabled;

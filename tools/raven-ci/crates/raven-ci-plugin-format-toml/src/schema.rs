@@ -15,7 +15,7 @@
 use serde_json::{Map, Value, json};
 
 use crate::read::{
-    AGENT, BRANCH, CONTAINER, CREDENTIAL_FILE, PARAMETER, PIPELINE, POST, STAGE, STEP, TOP, WHEN,
+    AGENT, BRANCH, CONTAINER, CREDENTIAL_FILE, LOCK, PARAMETER, PIPELINE, POST, STAGE, STEP, TOP, WHEN,
 };
 
 /// A period as the house writes it.
@@ -125,7 +125,14 @@ fn stage() -> Value {
         }
         "timeout" => duration("O limite de cada passo do estágio"),
         "retry" => integer("Quantas vezes mais cada passo é tentado"),
-        "lock" => text("Uma trava: um build por vez a segura (plugin lock)"),
+        "lock" => json!({ "oneOf": [
+            text("Uma trava: um build por vez a segura (plugin lock)"),
+            table(LOCK, &["name"], "Uma trava num arquivo dito, que scripts de fora também seguram com flock", |field| match field {
+                "name" => text("O nome da trava"),
+                "path" => text("O arquivo da trava; ~/ é a pasta do usuário de quem roda o passo"),
+                _ => json!({}),
+            }),
+        ]}),
         "nice" => integer("Cada sh roda com nice -n N"),
         "container" => {
             table(CONTAINER, &["image"], "Cada sh roda na imagem (plugin docker)", |field| match field {

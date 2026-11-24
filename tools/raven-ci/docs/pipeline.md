@@ -136,7 +136,7 @@ in the job's settings fetches the branch the person asked for.
 | `when` | `{ branch = …, pull_request = …, parameter = … }` | when it runs; every condition given must hold |
 | `timeout` | a period | the limit of **each** step of the stage |
 | `retry` | a number | how many more times each step is tried when it fails |
-| `lock` | a name | one build at a time holds it, across jobs and with scripts outside Raven CI (plugin `lock`) |
+| `lock` | a name, or `{ name, path }` | one build at a time holds it, across jobs and with scripts outside Raven CI (plugin `lock`); with `path`, the lock is that file, so a build waits for the lock a machine's scripts already `flock` (`lock = { name = "oficina", path = "~/oficina/.trava-compilacao" }`; `~/` is the home of whoever runs the step, the agent's user on an agent) |
 | `nice` | a number | each `sh` runs under `nice -n N` (Linux and macOS) |
 | `container` | `{ image, args, env }` | each `sh` of the stage runs in the image, with the build's folder mounted (plugin `docker`) |
 | `credentials` | `{ VARIAVEL = "nome", … }` | each `sh` of the stage gets credentials of the vault as variables ([Credentials in a step](#credentials-in-a-step)) |

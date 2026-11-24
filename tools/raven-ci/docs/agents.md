@@ -251,6 +251,10 @@ Nothing a build starts outlives it, on the server or on an agent:
   template with limits (A-04) holds the agent in a cgroup of its own.
 - **The containers and pods** of `docker` and `kubernetes`, by their label.
 - **The folder** of the build and the secret files of its steps (`<pasta>.segredos`), at its end.
+- **The folder of an agent a template brought up** (`<pasta>/<nome>`), when the server takes it
+  down: idle, not connected in time, or its process gone (#938). The log of the server says which
+  and how much it freed: `agente local-ab12: a pasta … saiu com ele (312 MB liberados)`. An agent
+  of `agent-local` that runs as another `usuario` keeps its folder, which is that user's to remove.
 
 What runs where, on the server of the RPM:
 
