@@ -314,6 +314,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- The GPU diagnostics (panel and command line) no longer list `WGPU_ADAPTER_NAME` among the variables that change the GPU: RavenRS does not read it, as `GpuContext::new` and the `ravenrs-render` README already said ([#386](https://github.com/alexkads/RavenRS/issues/386)).
 - `raven-component-book` measures what a story shows: rectangles and images are cut by their clips, as text already was, and the parts of the accessibility tree reach as far as their `visible`. A `DataGrid` in a narrow box measures the box, not the sum of its columns, and the height it declares, not the rows past it; 41 stories of 21 components and one pattern that scroll or clip (`DataGrid`, `VirtualList`, `CardView`, `ScrollView`, `EventCalendar`, `DocumentTabs`, `Ticker`, the `FilteredGrid` pattern…) now publish the size they show. What overflows a narrow parent with nothing clipping it still counts. ([#921](https://github.com/alexkads/RavenRS/issues/921))
 
 - `FlowCanvas`: fitting the diagram waits for its nodes, keeps above the zoom controls, keeps at most a sixth of a short strip as its margin, and fits again when the canvas changes size and the view was not moved; a canvas only read shows no undo bar in its story ([#921](https://github.com/alexkads/RavenRS/issues/921)).
