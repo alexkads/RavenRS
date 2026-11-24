@@ -1,6 +1,7 @@
 //! The plugin github (#877), against a GitHub of its own on this machine and a real repository:
 //! the scan of a job of many branches makes one job per branch chosen and per pull request (forks
-//! left out), reads the pipeline of each head, builds the pull request merged, sends the statuses
+//! left out), reads the pipeline of each head (a pull request with none takes its target's, #958),
+//! builds the pull request merged, sends the statuses
 //! to the commits, asks for nothing when nothing moved, and removes the job of a closed pull request.
 #![allow(
     clippy::expect_used,
@@ -226,7 +227,7 @@ fn a_job_of_many_branches_builds_main_and_the_pull_request_merged_and_tells_gith
         texts(&ci, "repo/main")
     );
     let of_pr = texts(&ci, "repo/PR-1");
-    assert!(of_pr.contains("do-modelo"), "a head with no file has the model's: {of_pr}");
+    assert!(of_pr.contains("do-repo"), "a pull request with no file runs its target's (#958): {of_pr}");
     assert!(of_pr.contains("mesclando o PR 1 em main"), "{of_pr}");
 
     let statuses: Vec<(String, String, String)> = hub
@@ -258,6 +259,72 @@ fn a_job_of_many_branches_builds_main_and_the_pull_request_merged_and_tells_gith
     let changes = ci.scan("repo").expect("scanned");
     assert!(changes.iter().any(|c| c.starts_with("repo/PR-1: removido")), "{changes:?}");
     assert!(ci.job("repo/PR-1").is_err());
+}
+
+/// A pipeline of one stage that echoes `word`.
+fn stage(word: &str) -> String {
+    format!("[[stages]]\nname = \"Um\"\nsteps = [\"echo {word}\"]\n")
+}
+
+/// A core with the plugins of a job of many branches on GitHub and the token in its vault.
+fn core_of(data: &Path) -> Ci {
+    let ci = Ci::open(data).expect("a core");
+    for plugin in [
+        Arc::new(GithubPlugin::new()) as Arc<dyn CiPlugin>,
+        Arc::new(GitPlugin::new()),
+        Arc::new(ShellPlugin::new()),
+        Arc::new(TomlFormatPlugin),
+        Arc::new(CredentialsPlugin),
+    ] {
+        ci.add_plugin(plugin);
+    }
+    ci.apply_plugins().expect("on");
+    ci.save_credential("github", "token", &json!({ "token": TOKEN }), None, None).expect("the token");
+    ci
+}
+
+/// The pipeline of the job `repo/PR-1` after a scan of a model whose `scm` is `scm`.
+fn pipeline_of_the_pull_request(hub: &Shared, repo: &Path, scm: Value, name: &str) -> String {
+    let api = github(hub.clone());
+    let data = folder(name);
+    let ci = core_of(&data.0);
+    let mut scm = scm;
+    scm["id"] = json!("git");
+    scm["url"] = json!(repo.display().to_string());
+    let settings = json!({
+        "branches": { "id": "github", "repository": "dono/repo", "credential": "github", "api": api },
+        "scm": scm,
+    });
+    let model = "[[stages]]\nname = \"Do modelo\"\nsteps = [\"echo do-modelo\"]\n";
+    ci.save_job(JobSpec::new("repo", "toml", model).settings(settings)).expect("the model");
+    ci.scan("repo").expect("scanned");
+    ci.job("repo/PR-1").expect("the pull request").pipeline
+}
+
+#[test]
+fn a_pull_request_keeps_its_own_pipeline_and_one_built_alone_never_takes_its_targets() {
+    if !has_git() {
+        return;
+    }
+    let repo = folder("repo-958");
+    let (main, pr) = repository(&repo.0);
+    let hub: Shared = Arc::default();
+    {
+        let mut hub = hub.lock().expect("lock");
+        hub.branches = json!([{ "name": "main", "commit": { "sha": main } }]);
+        hub.pulls = json!([pull(1, &pr, "dono/repo")]);
+        hub.files.insert(main.clone(), stage("do-destino"));
+    }
+    // Built alone, a pull request with no file never reads its target's: the model's.
+    let alone = pipeline_of_the_pull_request(&hub, &repo.0, json!({ "merge_onto_target": false }), "sozinho");
+    assert!(alone.contains("do-modelo"), "{alone}");
+    // Merged (the default), it reads its target's.
+    let merged = pipeline_of_the_pull_request(&hub, &repo.0, json!({}), "mesclado");
+    assert!(merged.contains("do-destino"), "{merged}");
+    // With a file of its own, it keeps it.
+    hub.lock().expect("lock").files.insert(pr.clone(), stage("do-pr"));
+    let own = pipeline_of_the_pull_request(&hub, &repo.0, json!({}), "proprio");
+    assert!(own.contains("do-pr"), "{own}");
 }
 
 #[test]
