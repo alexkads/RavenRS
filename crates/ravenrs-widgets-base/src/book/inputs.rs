@@ -97,8 +97,6 @@ impl ComponentBook for Toggle {
             )
             .story("Disabled", Args::new().with("disabled", true))
             .story("Read only", Args::new().with("read_only", true))
-            .story("Mixed", Args::new().with("mixed", true).with("label", "Select all"))
-            .story("Unknown answer", Args::new().with("optional", true).with("label", "Has a car"))
     }
 }
 
