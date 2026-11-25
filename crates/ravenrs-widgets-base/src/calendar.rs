@@ -433,7 +433,7 @@ impl View for CalendarPanel<'_> {
                 corner_radius: theme.radii.lg,
                 border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
                 shadow: Some(theme.elevation.raised),
-                ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
+                ..QuadPaint::new(theme.floating_surface())
             }),
         );
         cx.cursor(node, CursorIcon::Default);
@@ -716,7 +716,7 @@ impl View for RangePanel<'_> {
                 corner_radius: theme.radii.lg,
                 border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
                 shadow: Some(theme.elevation.raised),
-                ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
+                ..QuadPaint::new(theme.floating_surface())
             }),
         );
         cx.cursor(node, CursorIcon::Default);

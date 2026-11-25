@@ -428,6 +428,10 @@ const fn shadow(y: f32, blur: f32, color: Color) -> Shadow {
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
+/// The least opacity of what floats over the content (#978): the text of a dialog stays
+/// readable over any screen behind it.
+pub const FLOATING_OPACITY: f32 = 0.92;
+
 impl Theme {
     /// The default theme: deep neutrals with a single blue-violet accent.
     pub const fn raven_dark() -> Self {
@@ -553,6 +557,22 @@ impl Theme {
         self.charts.get(role).unwrap_or_else(|| self.palette.get(role))
     }
 
+    /// The surface of what floats over the content: dialogs, menus, popovers, sheets, toasts and
+    /// floating bars. It is the elevated surface, made nearly opaque when it is see-through (the
+    /// glass themes): the renderer does not blur what lies behind yet, and a light veil over a
+    /// full screen lets that screen cross the text (#978). Cards in the page keep
+    /// [`Semantic::SurfaceElevated`] as it is.
+    pub fn floating_surface(&self) -> Color {
+        let raised = self.color(Semantic::SurfaceElevated);
+        if raised.a >= FLOATING_OPACITY {
+            return raised;
+        }
+        // The veil over the theme's own canvas, as a blur would show it over a calm backdrop.
+        let under = self.color(Semantic::Canvas);
+        let mix = |top: f32, bottom: f32| top * raised.a + bottom * (1.0 - raised.a);
+        Color::rgba(mix(raised.r, under.r), mix(raised.g, under.g), mix(raised.b, under.b), FLOATING_OPACITY)
+    }
+
     /// Changes the color of a role: a series of a chart in [`Theme::charts`], any other in the
     /// palette. Roles that follow from others stay as they are.
     pub fn set_color(&mut self, role: Semantic, color: Color) {
@@ -577,6 +597,23 @@ impl Theme {
 impl Default for Theme {
     fn default() -> Self {
         Self::raven_dark()
+    }
+}
+
+#[cfg(test)]
+mod floating_tests {
+    use super::{FLOATING_OPACITY, Semantic, Theme};
+
+    #[test]
+    fn what_floats_is_nearly_opaque_in_glass_and_the_elevated_surface_elsewhere() {
+        let glass = Theme::raven_glass();
+        let floating = glass.floating_surface();
+        assert!(floating.a >= FLOATING_OPACITY, "{floating:?}");
+        // Cards in the page keep the see-through glass.
+        assert!(glass.color(Semantic::SurfaceElevated).a < 0.5, "the glass card stays a veil");
+        for theme in [Theme::raven_dark(), Theme::raven_light()] {
+            assert_eq!(theme.floating_surface(), theme.color(Semantic::SurfaceElevated), "{}", theme.name);
+        }
     }
 }
 
