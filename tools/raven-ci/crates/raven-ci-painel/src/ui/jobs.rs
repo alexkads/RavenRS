@@ -94,6 +94,12 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
             None => nada(),
         };
 
+    // The build an address asked for is not there (#969).
+    let gone: AnyView = match s.gone.get() {
+        Some(said) => Box::new(Alert::new("Build não encontrado", said).tone(Tone::Warning).compact()),
+        None => nada(),
+    };
+
     let rows: Vec<Vec<Cell>> = jobs.iter().map(|job| row_of(job, &waiting, now)).collect();
     let rows_shown = rows.len().clamp(1, 12);
     let list: AnyView = if s.phone() {
@@ -129,7 +135,7 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
         Box::new(grid)
     };
     Box::new(
-        VStack::new((header, numbers, notice, list))
+        VStack::new((gone, header, numbers, notice, list))
             .spacing(24.0)
             .padding(if s.phone() { Insets::uniform(16.0) } else { super::PAGE_PADDING })
             .align(Align::Stretch),

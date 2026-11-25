@@ -648,17 +648,26 @@ impl Ci {
         Ok(ran)
     }
 
+    /// How many builds the retention of `job` keeps, when it keeps a number (#969).
+    pub fn kept_builds(&self, job: &str) -> Option<u32> {
+        self.keep_builds_of(&self.job(job).ok()?)
+    }
+
+    /// The job's own number, from the configuration of the server, or else the pipeline's `keep`
+    /// (`.raven-ci.toml`, a `logRotator` converted): in 0.1.3 the pipeline's was read and never
+    /// used, and a job kept every build (#803, test of the real world).
+    fn keep_builds_of(&self, spec: &JobSpec) -> Option<u32> {
+        spec.keep_builds.or_else(|| {
+            let format = self.format(&spec.format).ok()?;
+            format.read(&spec.name, &spec.pipeline).ok()?.keep_builds
+        })
+    }
+
     /// Forgets the ended builds of `job` its retention no longer keeps, with what they left;
     /// how many.
     pub fn prune_job(&self, job: &str) -> Result<usize, CiError> {
         let Ok(spec) = self.job(job) else { return Ok(0) };
-        // The job's own number, from the configuration of the server, or else the pipeline's
-        // `keep` (`.raven-ci.toml`, a `logRotator` converted): in 0.1.3 the pipeline's was read
-        // and never used, and a job kept every build (#803, test of the real world).
-        let keep_builds = spec.keep_builds.or_else(|| {
-            let format = self.format(&spec.format).ok()?;
-            format.read(&spec.name, &spec.pipeline).ok()?.keep_builds
-        });
+        let keep_builds = self.keep_builds_of(&spec);
         if keep_builds.is_none() && spec.keep_days.is_none() {
             return Ok(0);
         }

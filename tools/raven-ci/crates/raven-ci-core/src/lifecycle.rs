@@ -350,7 +350,7 @@ impl Ci {
             job: order.job.clone(),
             number: order.number,
             status,
-            url: None,
+            url: self.build_url(&order.job, order.number),
             parameters: order.parameters.clone(),
             commit: commit.clone(),
             ..BuildInfo::default()
@@ -421,12 +421,12 @@ impl Ci {
             log.line("", &format!("guardar o commit {commit}: {e}"));
         }
         let reported = Self::reported(&order.settings, commit);
-        self.report(&order.settings, &order.job, reported.as_deref(), CommitState::Pending, "rodando", log);
+        self.report(order, reported.as_deref(), CommitState::Pending, "rodando", log);
         let info = BuildInfo {
             job: order.job.clone(),
             number: order.number,
             status: BuildStatus::Running,
-            url: self.panel_url(),
+            url: self.build_url(&order.job, order.number),
             parameters: order.parameters.clone(),
             commit: commit.map(str::to_owned),
             previous: self.previous_status(&order.job, order.number),
@@ -455,7 +455,7 @@ impl Ci {
             BuildStatus::Interrupted => CommitState::Error,
             _ => CommitState::Failure,
         };
-        self.report(&order.settings, &order.job, reported.as_deref(), state, &said, log);
+        self.report(order, reported.as_deref(), state, &said, log);
         let duration_ms = kept.as_ref().map(|build| {
             let end = build.ended_ms.unwrap_or_else(|| self.store().now_ms());
             u64::try_from(end.saturating_sub(build.created_ms).max(0)).unwrap_or(0)
@@ -473,7 +473,7 @@ impl Ci {
             job: order.job.clone(),
             number: order.number,
             status,
-            url: self.panel_url(),
+            url: self.build_url(&order.job, order.number),
             parameters: order.parameters.clone(),
             commit: commit.map(str::to_owned),
             duration_ms,
@@ -552,17 +552,17 @@ impl Ci {
         Ok(Some(checkout.commit))
     }
 
-    /// Sends `state` for `commit` to each `status` of the job's settings.
+    /// Sends `state` for `commit` to each `status` of the job's settings, linking to the build.
     fn report(
         &self,
-        settings: &Value,
-        job: &str,
+        order: &BuildOrder,
         commit: Option<&str>,
         state: CommitState,
         description: &str,
         log: &dyn BuildLog,
     ) {
         let Some(commit) = commit else { return };
+        let (settings, job) = (&order.settings, order.job.as_str());
         let on = self.registry.on();
         for entry in uses(settings, "status") {
             let id = entry.get("id").and_then(Value::as_str).unwrap_or_default();
@@ -579,7 +579,7 @@ impl Ci {
                     .map_or_else(|| format!("raven-ci/{job}"), str::to_owned),
                 state,
                 description: description.to_owned(),
-                url: None,
+                url: self.build_url(job, order.number),
             };
             if let Err(e) = reporter.report(&status, &entry) {
                 core(log, &format!("status {id}: {e}"));

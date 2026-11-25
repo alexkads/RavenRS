@@ -247,6 +247,23 @@ fn number(query: &BTreeMap<String, String>, name: &str) -> Result<u64, CiError> 
     wanted(query, name)?.parse().map_err(|_| CiError::settings(name, "tem que ser um número"))
 }
 
+/// Why the build `job` #`n` is not there (#969): the retention took it (a newer build of the job
+/// is kept), with how many it keeps, or it never was. A link in an old notice lands here.
+fn missing_build(ci: &Ci, job: &str, n: u64) -> Json {
+    let newest = ci.builds(job).ok().and_then(|builds| builds.first().map(|b| b.number));
+    let kept = ci.kept_builds(job);
+    let gone = newest.is_some_and(|newest| n < newest);
+    let message = match (gone, kept) {
+        (true, Some(1)) => format!("O build #{n} de {job} não existe mais (a retenção guarda só o último)."),
+        (true, Some(k)) => {
+            format!("O build #{n} de {job} não existe mais (a retenção guarda os últimos {k}).")
+        }
+        (true, None) => format!("O build #{n} de {job} não existe mais (a retenção o apagou)."),
+        (false, _) => format!("Não há o build #{n} de {job}."),
+    };
+    json!({ "error": "ci", "message": message, "gone": gone, "kept": kept })
+}
+
 /// The reading routes of the core.
 fn read(ci: &Ci, what: &str, query: &BTreeMap<String, String>) -> Result<ApiResponse, CiError> {
     let body = match what {
@@ -254,6 +271,9 @@ fn read(ci: &Ci, what: &str, query: &BTreeMap<String, String>) -> Result<ApiResp
         "builds" => to_json(&ci.builds(wanted(query, "job")?)?),
         "build" => {
             let (job, n) = (wanted(query, "job")?, number(query, "number")?);
+            if let Err(CiError::Unavailable(_)) = ci.build(job, n) {
+                return Ok(json(404, &missing_build(ci, job, n)));
+            }
             let times: Vec<Json> = ci
                 .stage_times(job, n)?
                 .into_iter()
