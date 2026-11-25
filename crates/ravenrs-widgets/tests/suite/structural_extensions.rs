@@ -162,6 +162,32 @@ fn a_selected_card_says_so_and_shows_it_beyond_color() {
 }
 
 #[test]
+fn a_toned_card_tints_its_fill_and_hairline_and_neutral_changes_nothing() {
+    let card = |ui: &Ui| *quads(ui).first().expect("the card is the first quad");
+    let theme = Theme::raven_dark();
+    let surface = theme.color(Semantic::SurfaceElevated);
+    let success = theme.color(Semantic::Success);
+
+    let plain = card(&ui(Card::new(Text::new("Pós-venda"))));
+    let neutral = card(&ui(Card::new(Text::new("Pós-venda")).tone(Tone::Neutral)));
+    assert_eq!(plain.fill, neutral.fill, "Neutral leaves the fill as it is");
+    assert_eq!(plain.border, neutral.border, "and the hairline");
+
+    let green = card(&ui(Card::new(Text::new("Pós-venda")).tone(Tone::Success)));
+    assert_eq!(green.fill, surface.lerp(success, 0.10).into(), "the surface takes the tone at 10%");
+    let hairline = green.border.expect("a toned card keeps its hairline");
+    assert_eq!((hairline.width, hairline.color), (1.0, success.with_alpha(0.30)));
+
+    let chosen = card(&ui(Card::new(Text::new("Pós-venda")).tone(Tone::Success).selected(true)));
+    let accent = theme.color(Semantic::Accent);
+    assert_eq!(
+        chosen.border.map(|b| (b.width, b.color)),
+        Some((2.0, accent)),
+        "being chosen wins over the tone"
+    );
+}
+
+#[test]
 fn a_breadcrumb_links_every_location_but_the_current_one() {
     let went = Rc::new(RefCell::new(Vec::new()));
     let log = went.clone();

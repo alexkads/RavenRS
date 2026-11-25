@@ -69,6 +69,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `Card::tone(Tone)`: a card says by color what it is about, as a total of money that came in; the surface takes the tone at 10% and the hairline the tone at 30%, the proportions of `Alert`. `Tone::Neutral`, the default, draws the card as before, and `selected` still wins. RavenComponentBook has the setting `tone` and a story for each tone ([#989](https://github.com/alexkads/RavenRS/issues/989)).
 - RavenComponentBook: `DataGrid` has the setting `rows` and the stories "Empty" and "Empty, bare", so the card measures the empty text a list shows before its first row ([#993](https://github.com/alexkads/RavenRS/issues/993)).
 - Two Lucide icons: `IconName::CalendarCheck` and `ChevronsUpDown`, for a "today" filter and a menu a click opens (the account at the foot of a sidebar); the 205 icons there were keep their glyphs, and both came from lucide-static 1.73.0 by `scripts/gen-icons.py --add` ([#988](https://github.com/alexkads/RavenRS/issues/988)).
 - RavenComponentBook has `BugReporter`, as "Application/BugReporter": eight stories of the report dialog (describing, each kind, a box marked, without the film, with errors, in English, and closed behind the status bar action that opens it) and its settings `language`, `kind`, `open`, `include_film`, `marked` and `errors`, so a design can place it with the measures RavenRS draws ([#984](https://github.com/alexkads/RavenRS/issues/984)).

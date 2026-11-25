@@ -70,7 +70,7 @@
 {"crate": "ravenrs-widgets-base", "tipo": "ButtonGroup", "pendente": true, "issue": 579, "conhecidos": ["label", "new"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Calendar", "pendente": true, "issue": 579, "conhecidos": ["new", "on_pick", "range", "today"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Canvas", "pendente": true, "issue": 579, "conhecidos": ["grow", "new", "size"]},
-{"crate": "ravenrs-widgets-base", "tipo": "Card", "pendente": true, "issue": 579, "conhecidos": ["border", "corner_radius", "fill", "new", "no_shadow", "on_click", "padding", "selected", "shadow"]},
+{"crate": "ravenrs-widgets-base", "tipo": "Card", "pagina": "Cartões", "recursos": ["border", "corner_radius", "fill", "new", "no_shadow", "on_click", "padding", "selected", "shadow", "tone"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Carousel", "pendente": true, "issue": 579, "conhecidos": ["autoplay", "height", "new"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Checkbox", "pagina": "Caixas de seleção", "recursos": ["disabled", "leading", "mixed", "new", "optional", "read_only"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Collapse", "pendente": true, "issue": 579, "conhecidos": ["boxed", "new"]},

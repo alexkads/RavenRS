@@ -6,7 +6,7 @@ use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_style::Semantic;
 
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
-use crate::{Fill, View};
+use crate::{Fill, Tone, View};
 
 /// A grouped surface lifted off the canvas: `bg-200` fill, `radius-xl` corners,
 /// `shadow-soft` and a hairline border, padded by `space-6`.
@@ -20,6 +20,7 @@ pub struct Card<V> {
     spacing: Option<f32>,
     on_click: Option<Rc<dyn Fn()>>,
     selected: Option<bool>,
+    tone: Tone,
 }
 
 impl<V: fmt::Debug> fmt::Debug for Card<V> {
@@ -42,6 +43,7 @@ impl<V: View> Card<V> {
             spacing: None,
             on_click: None,
             selected: None,
+            tone: Tone::Neutral,
         }
     }
 
@@ -96,11 +98,25 @@ impl<V: View> Card<V> {
         self
     }
 
+    /// Says by color what the card is about, as a total that is money in: the fill takes
+    /// the tone at 10% over the surface and the hairline the tone at 30%, the proportions
+    /// of [`Alert`](crate::Alert). `Tone::Neutral` (the default) leaves the card as it is,
+    /// and [`Self::selected`] still wins over the tone.
+    pub fn tone(mut self, tone: Tone) -> Self {
+        self.tone = tone;
+        self
+    }
+
     fn paint(&self, cx: &BuildCx<'_>, fill: Color) -> QuadPaint {
         let theme = cx.theme();
         let active = self.on_click.is_some() && (cx.is_hovered() || cx.is_focus_visible());
         let selected = self.selected == Some(true);
         let accent = theme.color(Semantic::Accent);
+        let tone = (self.tone != Tone::Neutral).then(|| self.tone.color(theme));
+        let fill = match tone {
+            Some(tone) if !selected => fill.lerp(tone, 0.10),
+            _ => fill,
+        };
         QuadPaint {
             fill: if selected { fill.lerp(accent, 0.12).into() } else { fill.into() },
             corner_radius: self.corner_radius.unwrap_or(theme.radii.xl),
@@ -110,7 +126,11 @@ impl<V: View> Card<V> {
             } else {
                 self.border.then(|| Border {
                     width: 1.0,
-                    color: theme.color(if active { Semantic::Accent } else { Semantic::Border }),
+                    color: match tone {
+                        _ if active => theme.color(Semantic::Accent),
+                        Some(tone) => tone.with_alpha(0.30),
+                        None => theme.color(Semantic::Border),
+                    },
                 })
             },
             shadow: self.shadow.unwrap_or(Some(theme.elevation.soft)),
