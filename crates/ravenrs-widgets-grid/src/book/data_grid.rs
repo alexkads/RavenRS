@@ -44,8 +44,9 @@ fn render(args: &Args) -> AnyView {
         let arg_striped = args.bool("striped");
         let arg_toolbar = args.bool("toolbar");
         let arg_vertical_lines = args.bool("vertical_lines");
+        let arg_rows = args.number("rows").max(0.0) as u32;
 
-        let rows = (0..1000)
+        let rows = (0..arg_rows)
             .map(|i| {
                 vec![
                     Value::Number(f64::from(i)),
@@ -104,6 +105,10 @@ impl ComponentBook for DataGrid {
             .arg(ArgType::bool("striped", false))
             .arg(ArgType::bool("toolbar", true))
             .arg(ArgType::bool("vertical_lines", false))
+            .arg(
+                ArgType::number("rows", 1000.0, 0.0, 1000.0, 1.0)
+                    .description("How many rows the example has; none shows the empty text."),
+            )
             .story("Example", Args::new())
             .story("Striped", Args::new().with("striped", true))
             .story("Compact", Args::new().with("row_height", 28.0).with("striped", true))
@@ -120,6 +125,17 @@ impl ComponentBook for DataGrid {
             .story(
                 "Selection mode: Multiple",
                 Args::new().with("selection_mode", ArgValue::choice("Multiple")),
+            )
+            .story("Empty", Args::new().with("rows", 0.0).with("empty_text", "No customers yet."))
+            .story(
+                "Empty, bare",
+                Args::new()
+                    .with("rows", 0.0)
+                    .with("empty_text", "No customers yet.")
+                    .with("toolbar", false)
+                    .with("search_panel", false)
+                    .with("filter_row", false)
+                    .with("footer", false),
             )
     }
 }
