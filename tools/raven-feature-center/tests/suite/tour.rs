@@ -1600,7 +1600,7 @@ fn cards_are_clicked_chosen_and_toned_and_take_every_shape() {
         let hairline = theme.color(tone).with_alpha(0.30);
         assert!(quads.iter().any(|q| q.border.is_some_and(|b| b.color == hairline)), "a {tone:?} card");
     }
-    assert!(quads.iter().any(|q| q.corner_radius == 10.0 && q.border.is_some()), "the compact card");
+    assert!(quads.iter().any(|q| q.corner_radii == [10.0; 4] && q.border.is_some()), "the compact card");
     assert!(
         quads.iter().any(|q| q.border.is_none() && q.fill == theme.color(Semantic::Surface).into()),
         "no hairline"
