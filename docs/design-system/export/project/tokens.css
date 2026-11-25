@@ -1,0 +1,199 @@
+/* RavenRS — generated from tokens.json */
+:root, [data-theme="dark"] {
+  --bg-000: #0b0d12;
+  --bg-100: #12151c;
+  --bg-200: #181c25;
+  --bg-300: #222734;
+  --border: #2a3040;
+  --control-border: #646e86;
+  --ink: #eef1f7;
+  --ink-muted: #9aa3b5;
+  --accent: #4c66ee;
+  --accent-hover: #5f78f5;
+  --accent-pressed: #3e55d6;
+  --on-accent: #ffffff;
+  --focus-ring: #9db0ff;
+  --success: #3fb984;
+  --warning: #e8a23a;
+  --danger: #ef5b5b;
+  --scrim: #00000080;
+  --chart-1: #4c66ee;
+  --chart-2: #2dd4bf;
+  --chart-3: #a78bfa;
+  --chart-4: #fbbf24;
+  --chart-5: #f472b6;
+  --chart-grid: #2a3040;
+  --guide: #f472b6;
+  --shadow-soft: 0px 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-raised: 0px 16px 40px rgba(0, 0, 0, 0.45);
+}
+[data-theme="light"] {
+  --bg-000: #f4f5f8;
+  --bg-100: #ffffff;
+  --bg-200: #ffffff;
+  --bg-300: #ebedf2;
+  --border: #dadde5;
+  --control-border: #7d8597;
+  --ink: #12151c;
+  --ink-muted: #5a6375;
+  --accent: #3f57db;
+  --accent-hover: #4a62e3;
+  --accent-pressed: #3348bf;
+  --on-accent: #ffffff;
+  --focus-ring: #3f57db;
+  --success: #1f8a5b;
+  --warning: #b26a00;
+  --danger: #c93434;
+  --scrim: #00000080;
+  --chart-1: #3f57db;
+  --chart-2: #0f9f8f;
+  --chart-3: #8b5cf6;
+  --chart-4: #e08a00;
+  --chart-5: #db2777;
+  --chart-grid: #dadde5;
+  --guide: #db2777;
+  --shadow-soft: 0px 6px 20px rgba(17, 24, 39, 0.08);
+  --shadow-raised: 0px 12px 32px rgba(17, 24, 39, 0.14);
+}
+[data-theme="glass"] {
+  --bg-000: #0a0e1a;
+  --bg-100: #ffffff0f;
+  --bg-200: #ffffff1a;
+  --bg-300: #ffffff24;
+  --border: #ffffff2e;
+  --control-border: #ffffff70;
+  --ink: #f5f7ff;
+  --ink-muted: #b4bdd3;
+  --accent: #4c66ee;
+  --accent-hover: #5f78f5;
+  --accent-pressed: #3e55d6;
+  --on-accent: #ffffff;
+  --focus-ring: #9db0ff;
+  --success: #3fb984;
+  --warning: #e8a23a;
+  --danger: #ef5b5b;
+  --scrim: #00000080;
+  --chart-1: #4c66ee;
+  --chart-2: #2dd4bf;
+  --chart-3: #a78bfa;
+  --chart-4: #fbbf24;
+  --chart-5: #f472b6;
+  --chart-grid: #ffffff2e;
+  --guide: #f472b6;
+  --shadow-soft: 0px 8px 32px rgba(0, 0, 0, 0.3);
+  --shadow-raised: 0px 16px 48px rgba(0, 0, 0, 0.4);
+}
+[data-theme="financas-claro"] {
+  --bg-000: #f4f9e6;
+  --bg-100: #ffffff;
+  --bg-200: #ffffff;
+  --bg-300: #e9f3d2;
+  --border: #d8e6ba;
+  --control-border: #7a8a5c;
+  --ink: #15230d;
+  --ink-muted: #4c5c3d;
+  --accent: #7ac70c;
+  --accent-hover: #8bd61e;
+  --accent-pressed: #6ab006;
+  --on-accent: #142204;
+  --focus-ring: #4d7c0f;
+  --success: #15803d;
+  --warning: #b45309;
+  --danger: #c81e3a;
+  --scrim: #00000080;
+  --chart-1: #7ac70c;
+  --chart-2: #0f9f8f;
+  --chart-3: #8b5cf6;
+  --chart-4: #e08a00;
+  --chart-5: #db2777;
+  --chart-grid: #d8e6ba;
+  --guide: #db2777;
+  --shadow-soft: 0px 6px 20px rgba(17, 24, 39, 0.08);
+  --shadow-raised: 0px 12px 32px rgba(17, 24, 39, 0.14);
+}
+[data-theme="financas-escuro"] {
+  --bg-000: #2c2f33;
+  --bg-100: #34373c;
+  --bg-200: #3c4046;
+  --bg-300: #4a4f55;
+  --border: #585e65;
+  --control-border: #8a929b;
+  --ink: #f6f8f2;
+  --ink-muted: #c9cfcc;
+  --accent: #b2ea3c;
+  --accent-hover: #c3f25c;
+  --accent-pressed: #9ad42a;
+  --on-accent: #1c2b06;
+  --focus-ring: #d4f57f;
+  --success: #5ee08f;
+  --warning: #ffc94d;
+  --danger: #ff9c92;
+  --scrim: #00000080;
+  --chart-1: #b2ea3c;
+  --chart-2: #2dd4bf;
+  --chart-3: #a78bfa;
+  --chart-4: #fbbf24;
+  --chart-5: #f472b6;
+  --chart-grid: #585e65;
+  --guide: #f472b6;
+  --shadow-soft: 0px 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-raised: 0px 16px 40px rgba(0, 0, 0, 0.45);
+}
+[data-theme="financas-vidro"] {
+  --bg-000: #2c2f33;
+  --bg-100: #ffffff0f;
+  --bg-200: #ffffff1a;
+  --bg-300: #ffffff24;
+  --border: #ffffff2e;
+  --control-border: #8a929b;
+  --ink: #f6f8f2;
+  --ink-muted: #c9cfcc;
+  --accent: #b2ea3c;
+  --accent-hover: #c3f25c;
+  --accent-pressed: #9ad42a;
+  --on-accent: #1c2b06;
+  --focus-ring: #d4f57f;
+  --success: #5ee08f;
+  --warning: #ffc94d;
+  --danger: #ff9c92;
+  --scrim: #00000080;
+  --chart-1: #b2ea3c;
+  --chart-2: #2dd4bf;
+  --chart-3: #a78bfa;
+  --chart-4: #fbbf24;
+  --chart-5: #f472b6;
+  --chart-grid: #ffffff2e;
+  --guide: #f472b6;
+  --shadow-soft: 0px 8px 32px rgba(0, 0, 0, 0.3);
+  --shadow-raised: 0px 16px 48px rgba(0, 0, 0, 0.4);
+}
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+  --duration-draw: 1000ms;
+  --font-sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+.metric { font-family: var(--font-sans); font-size: 42px; line-height: 48px; font-weight: 600; letter-spacing: -0.5px; }
+.display { font-family: var(--font-sans); font-size: 32px; line-height: 38px; font-weight: 600; letter-spacing: -0.3px; }
+.title { font-family: var(--font-sans); font-size: 22px; line-height: 28px; font-weight: 600; }
+.headline { font-family: var(--font-sans); font-size: 17px; line-height: 24px; font-weight: 600; }
+.body { font-family: var(--font-sans); font-size: 15px; line-height: 22px; font-weight: 400; }
+.callout { font-family: var(--font-sans); font-size: 13px; line-height: 18px; font-weight: 400; }
+.caption { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 600; letter-spacing: 0.4px; }
+@font-face { font-family: "Inter"; src: url("fonts/Inter-Regular.ttf"); font-weight: 400; font-display: block; }
+@font-face { font-family: "Inter"; src: url("fonts/Inter-SemiBold.ttf"); font-weight: 600; font-display: block; }
+@font-face { font-family: "RavenIcons"; src: url("fonts/RavenIcons.ttf"); font-weight: 400; font-display: block; }

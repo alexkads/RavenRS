@@ -9,7 +9,7 @@ The design system is written whole by RCB, from the code, and the design tool ta
 - a component changes through its stories (`ComponentBook`) or the component itself;
 - a color, a size, a corner, a font or a motion changes in `ravenrs-style`, where RCB reads every token.
 
-RCB keeps it honest: `scripts/rcb-coverage.py` refuses a component without `ComponentBook`, a test refuses `docs/design-system/tokens.json` when it disagrees with `ravenrs-style` or leaves a token without words, and `--verify` proves a published copy is exactly what RCB writes.
+RCB keeps it honest: `scripts/rcb-coverage.py` refuses a component without `ComponentBook`, a test refuses `docs/design-system/tokens.json` when it disagrees with `ravenrs-style` or leaves a token without words, and `--verify` proves a published copy is exactly what RCB writes. The copy everyone reads is in git, in `docs/design-system/export/`: `scripts/gen-design-system.py` rewrites it, `scripts/check.sh` refuses it out of date when a change reaches RCB (`--check`), and the Claude Design project is published from it, not from an export made on the spot (#1000).
 
 ## Why it exists
 
