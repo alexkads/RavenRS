@@ -1428,7 +1428,7 @@ fn a_rounded_avatar_is_a_square_with_md_corners_and_crops_its_picture_the_same()
     assert!(!corners(&rounded).contains(&18.0));
     let picture =
         ravenrs_core::ImageData::from_fn(8, 8, |_, _| ravenrs_core::Color::WHITE).expect("a picture");
-    let photo = ui(Avatar::new("Ana Lima").size(36.0).shape(AvatarShape::Rounded).image(Image::new(picture)));
+    let mut photo = ui(Avatar::new("Ana Lima").size(36.0).shape(AvatarShape::Rounded).image(Image::new(picture)));
     let cropped = photo.scene().primitives().iter().find_map(|p| match p {
         Primitive::Image(image) => Some(image.corner_radii),
         _ => None,
