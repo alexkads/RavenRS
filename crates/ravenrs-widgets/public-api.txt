@@ -4419,6 +4419,7 @@ method Stat::delta
 method Stat::delta_toned
 method Stat::large
 method Stat::new
+method Stat::value_tone
 method StatusBar::action
 method StatusBar::center
 method StatusBar::center_tone
