@@ -432,6 +432,7 @@ const fn shadow(y: f32, blur: f32, color: Color) -> Shadow {
 /// readable over any screen behind it.
 pub const FLOATING_OPACITY: f32 = 0.92;
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Theme {
     /// The default theme: deep neutrals with a single blue-violet accent.
     pub const fn raven_dark() -> Self {
