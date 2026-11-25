@@ -45,6 +45,13 @@ pub const PAGES: &[Page] = &[
         make: || Box::new(basicos::botoes::ButtonsPage),
     },
     Page {
+        id: basicos::avatares::ID,
+        caption: basicos::avatares::PAGE,
+        group: "Básicos",
+        icon: IconName::Users,
+        make: || Box::new(basicos::avatares::AvatarsPage),
+    },
+    Page {
         id: basicos::caixas::ID,
         caption: basicos::caixas::PAGE,
         group: "Básicos",

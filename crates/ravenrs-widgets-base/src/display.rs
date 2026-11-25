@@ -143,6 +143,18 @@ impl View for Badge {
     }
 }
 
+/// The outline of an [`Avatar`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
+pub enum AvatarShape {
+    /// A circle, for a person.
+    #[default]
+    Circle,
+    /// A square with the theme's `radius-md` corners, as a profile picture is often shown.
+    Rounded,
+}
+
 /// A round avatar showing a picture, or initials on a color picked from the name.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
@@ -151,13 +163,14 @@ pub struct Avatar {
     size: f32,
     image: Option<Image>,
     border: Option<(f32, Fill)>,
+    shape: AvatarShape,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Avatar {
     /// An avatar showing the initials of `name`, 36 logical pixels across.
     pub fn new(name: impl Into<String>) -> Self {
-        Self { name: name.into(), size: 36.0, image: None, border: None }
+        Self { name: name.into(), size: 36.0, image: None, border: None, shape: AvatarShape::Circle }
     }
 
     /// Sets the diameter in logical pixels.
@@ -180,6 +193,21 @@ impl Avatar {
         self
     }
 
+    /// A circle (the default) or a square with rounded corners; the picture is cropped to the
+    /// same outline.
+    pub fn shape(mut self, shape: AvatarShape) -> Self {
+        self.shape = shape;
+        self
+    }
+
+    /// The corner of a square `side` wide in this outline.
+    fn corner(&self, theme: &Theme, side: f32) -> f32 {
+        match self.shape {
+            AvatarShape::Rounded => theme.radii.md.min(side / 2.0),
+            _ => side / 2.0,
+        }
+    }
+
     /// The picture inside its ring, which would otherwise paint over the ring.
     fn draw_image(&self, cx: &mut BuildCx<'_>, image: &Image) -> NodeId {
         let theme = *cx.theme();
@@ -190,7 +218,7 @@ impl Avatar {
             &image
                 .clone()
                 .size(inner, inner)
-                .corner_radius(inner / 2.0)
+                .corner_radius(self.corner(&theme, inner))
                 .content_mode(crate::ContentMode::Cover),
         );
         cx.semantics(picture, Semantics::hidden());
@@ -202,7 +230,7 @@ impl Avatar {
         };
         let paint = QuadPaint {
             fill: Color::TRANSPARENT.into(),
-            corner_radius: self.size / 2.0,
+            corner_radius: self.corner(&theme, self.size),
             border: ring,
             shadow: None,
         };
@@ -254,7 +282,7 @@ impl View for Avatar {
         };
         let paint = QuadPaint {
             fill: base.with_alpha(0.28).into(),
-            corner_radius: self.size / 2.0,
+            corner_radius: self.corner(&theme, self.size),
             border: Some(match self.border {
                 Some((width, fill)) => Border { width, color: fill.resolve(&theme) },
                 None => Border { width: 1.0, color: base.with_alpha(0.5) },

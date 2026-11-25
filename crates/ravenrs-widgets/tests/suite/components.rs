@@ -1409,3 +1409,23 @@ fn labels_fill_their_templates_in_each_language() {
     assert_eq!(en.wizard_progress(2, 4), "Step 2 of 4");
     assert_eq!(pt.tag_add("azul"), "Adicionar \"azul\"");
 }
+
+#[test]
+fn a_rounded_avatar_is_a_square_with_md_corners_and_crops_its_picture_the_same() {
+    let corners = |ui: &Ui| quads(ui).iter().map(|q| q.corner_radius).collect::<Vec<_>>();
+    let md = Theme::raven_dark().radii.md;
+    let circle = ui(Avatar::new("Ana Lima").size(36.0));
+    assert!(corners(&circle).contains(&18.0), "a circle by default: {:?}", corners(&circle));
+    let rounded = ui(Avatar::new("Ana Lima").size(36.0).shape(AvatarShape::Rounded));
+    assert!(corners(&rounded).contains(&md), "radius-md: {:?}", corners(&rounded));
+    assert!(!corners(&rounded).contains(&18.0));
+    let picture =
+        ravenrs_core::ImageData::from_fn(8, 8, |_, _| ravenrs_core::Color::WHITE).expect("a picture");
+    let photo = ui(Avatar::new("Ana Lima").size(36.0).shape(AvatarShape::Rounded).image(Image::new(picture)));
+    let cropped = photo.scene().primitives().iter().find_map(|p| match p {
+        Primitive::Image(image) => Some(image.corner_radii),
+        _ => None,
+    });
+    assert_eq!(cropped, Some([md; 4]), "the picture takes the same corners");
+    assert!(photo.access_tree().find(ravenrs_core::Role::Image, "Ana Lima").is_some(), "and is still named");
+}

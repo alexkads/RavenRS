@@ -7,8 +7,8 @@ use std::rc::Rc;
 
 use ravenrs_app::{ActionInput, Object, ObjectSpace, Query, SpaceError, Value};
 use ravenrs_app_ui::Session;
-use ravenrs_core::{AccessAction, Role, Size, Toggled};
-use ravenrs_style::Theme;
+use ravenrs_core::{AccessAction, Primitive, Role, Size, Toggled};
+use ravenrs_style::{Semantic, Theme};
 use ravenrs_widgets::Ui;
 
 use raven_feature_center::seed::PASSWORD;
@@ -1560,6 +1560,40 @@ fn the_code_completes_once_and_locks_while_it_is_verified() {
     let back = field(&mut c);
     assert!(!back.disabled && back.value.as_deref() == Some("482913"), "{back:?}");
     assert!(c.says("Digitado: 482913"), "{:?}", c.texts());
+}
+
+#[test]
+fn avatars_take_a_size_a_picture_a_ring_and_a_circle_or_a_rounded_square() {
+    let mut c = Center::memory("ana");
+    c.press("Avatares");
+    // new, size, image and shape: every avatar is named by the person, picture or initials.
+    for name in ["Ana Lima", "Conta Redonda", "Conta Quadrada", "Foto Quadrada"] {
+        c.settle();
+        assert!(c.ui.access_tree().find(Role::Image, name).is_some(), "{name}: {:?}", c.texts());
+    }
+    let md = Theme::raven_dark().radii.md;
+    let primitives = c.ui.scene().primitives().to_vec();
+    assert!(
+        primitives.iter().any(|p| matches!(p, Primitive::Image(image) if image.corner_radii == [md; 4])),
+        "a picture cropped to the rounded square"
+    );
+    assert!(
+        primitives.iter().any(|p| matches!(p, Primitive::Quad(q) if q.corner_radius == md)),
+        "initials in it"
+    );
+    // border: the chosen one of the row wears the ring, and choosing another moves it.
+    assert!(c.says("Escolhida: Ana Lima"), "{:?}", c.texts());
+    c.press("Carla Dias");
+    assert!(c.says("Escolhida: Carla Dias"), "{:?}", c.texts());
+    let accent = Theme::raven_dark().color(Semantic::Accent);
+    let rings = c
+        .ui
+        .scene()
+        .primitives()
+        .iter()
+        .filter(|p| matches!(p, Primitive::Quad(q) if q.border.is_some_and(|b| b.width == 2.0 && b.color == accent)))
+        .count();
+    assert_eq!(rings, 1, "one ring, on the chosen one");
 }
 
 #[test]
