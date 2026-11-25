@@ -1567,3 +1567,19 @@ fn a_menu_header_sits_above_the_items_without_taking_the_focus() {
     assert_eq!(picked.get(), "Sair", "the focus opened on the first item, not on the header");
     assert!(!open.get(), "choosing it closed the menu");
 }
+
+#[test]
+fn a_monospaced_text_draws_every_character_at_the_same_width() {
+    let width = |text: &str, mono: bool| {
+        let line = if mono { Text::new(text).mono() } else { Text::new(text) };
+        let mut ui = ui(line);
+        ui.access_tree()
+            .nodes
+            .iter()
+            .find(|n| n.name.as_deref() == Some(text))
+            .map(|n| n.bounds.width())
+            .expect("the text")
+    };
+    assert_eq!(width("iiii", true), width("MMMM", true), "monospaced: the same count, the same width");
+    assert!(width("iiii", false) < width("MMMM", false), "and Inter stays proportional");
+}

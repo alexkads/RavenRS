@@ -48,7 +48,7 @@ impl View for CodeBlock {
         let padding = cx.theme().spacing.s2;
         cx.child(
             &HStack::new((
-                Text::new(self.code.clone()).style(TextStyle::Caption).grow(1.0),
+                Text::new(self.code.clone()).style(TextStyle::Caption).mono().grow(1.0),
                 Button::new(label).icon(icon).style(ButtonStyle::Ghost).size(ButtonSize::Mini).on_click(
                     move || {
                         clipboard.write(&code);
