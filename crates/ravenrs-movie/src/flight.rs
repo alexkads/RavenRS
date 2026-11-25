@@ -578,6 +578,7 @@ impl BugReporter {
 
 /// What RavenComponentBook needs to show a report half written (#984).
 #[cfg(feature = "book")]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl BugReporter {
     /// Opens it as a story shows it: with `film` in place of what the recorder kept,
     /// the kind at `kind`, the film in or out, and, when `marked` says so, a box
