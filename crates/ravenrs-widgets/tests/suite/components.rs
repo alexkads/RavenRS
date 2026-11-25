@@ -1419,7 +1419,7 @@ fn labels_fill_their_templates_in_each_language() {
 
 #[test]
 fn a_rounded_avatar_is_a_square_with_md_corners_and_crops_its_picture_the_same() {
-    let corners = |ui: &Ui| quads(ui).iter().map(|q| q.corner_radius).collect::<Vec<_>>();
+    let corners = |ui: &Ui| quads(ui).iter().map(|q| q.corner_radii[0]).collect::<Vec<_>>();
     let md = Theme::raven_dark().radii.md;
     let circle = ui(Avatar::new("Ana Lima").size(36.0));
     assert!(corners(&circle).contains(&18.0), "a circle by default: {:?}", corners(&circle));

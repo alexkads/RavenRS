@@ -1578,7 +1578,7 @@ fn avatars_take_a_size_a_picture_a_ring_and_a_circle_or_a_rounded_square() {
         "a picture cropped to the rounded square"
     );
     assert!(
-        primitives.iter().any(|p| matches!(p, Primitive::Quad(q) if q.corner_radius == md)),
+        primitives.iter().any(|p| matches!(p, Primitive::Quad(q) if q.corner_radii == [md; 4])),
         "initials in it"
     );
     // border: the chosen one of the row wears the ring, and choosing another moves it.
