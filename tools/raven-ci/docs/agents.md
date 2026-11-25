@@ -134,8 +134,16 @@ takes them.
   (`NodeKind::reconcile`) whether its call happened. A command (`sh`) says it did not, and runs
   again **from its start**, in the folder that kept what it wrote: a script has to bear running
   twice, as a stage that Jenkins resumes does. The note beside the folder (`<number>.estado`) says the code
-  was fetched, so it is not fetched again. Lines the dead process had not sent are lost, and the
-  log says the build was resumed.
+  was fetched, so it is not fetched again, and the log says the build was resumed.
+- **The lines the dead process had not sent** are not lost (#966). Each line is written to a
+  journal beside the folder (`<number>.saida`, one JSON per line, no `fsync`) before it waits, and
+  a mark each time the server takes some. The agent that takes the build up again sends what never
+  arrived, under the old session and at the old place, before anything else, and the log says
+  `N linhas que o agente não tinha mandado antes de cair chegaram agora`. The server keeps how
+  many lines it has of each session in its file (`ci_agent_log_marks`), so a line sent again after
+  the server restarted is not written twice either. A journal cut in the middle of a line is read
+  up to its last whole line, and the log says the last one was lost. The journal starts over small
+  each time every line arrived, and goes with the folder when the build ends or is forgotten.
 - **It did not come back.** Past the grace time the server ends the build as interrupted
   (`BuildStatus::Interrupted`, not cancelled: no one cancelled it, and no step failed), with the
   status `error` on its commit and the notices, and writes in the log which agent went quiet and how long

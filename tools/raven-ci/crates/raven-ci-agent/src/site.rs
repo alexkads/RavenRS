@@ -6,6 +6,10 @@
 //! again while the server does not answer, so a step never waits for the network and nothing is
 //! lost while the agent lives. The server drops a line it already has by the agent's session and
 //! the line's place, so sending again never repeats one.
+//!
+//! Each line is also written to the build's [`Journal`] on disk before it waits (#966): an agent
+//! killed with lines still waiting sends them when it takes the build up again, under the session
+//! and at the place they had, so the lines that say why it fell are not lost.
 
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -19,6 +23,7 @@ use ravenrs_flows::{CancelToken, Catalog, RunOutcome, SystemClock};
 use ravenrs_flows_runtime::{Held, Lease, StepRecord};
 use serde_json::{Value, json};
 
+use crate::journal::{Journal, Pending};
 use crate::link::Link;
 
 /// The most lines a build keeps waiting for the server; past it, new lines are counted and said
@@ -31,7 +36,8 @@ const BATCH: usize = 500;
 #[derive(Debug)]
 enum Msg {
     Step(StepRecord),
-    Line(AgentLine),
+    /// A line, with its index in the journal when it was written there.
+    Line(AgentLine, Option<u64>),
     Code(Option<String>),
 }
 
@@ -50,6 +56,8 @@ pub struct Outbox {
     changed: Condvar,
     /// How many lines of this build the server has, in this session: where the next batch starts.
     lines_sent: AtomicU64,
+    /// The lines on disk, for an agent that comes back after it died (#966).
+    journal: Option<Journal>,
 }
 
 impl std::fmt::Debug for Outbox {
@@ -59,8 +67,8 @@ impl std::fmt::Debug for Outbox {
 }
 
 impl Outbox {
-    fn new() -> Self {
-        Self { queue: Mutex::default(), changed: Condvar::new(), lines_sent: AtomicU64::new(0) }
+    fn new(journal: Option<Journal>) -> Self {
+        Self { queue: Mutex::default(), changed: Condvar::new(), lines_sent: AtomicU64::new(0), journal }
     }
 
     fn lock(&self) -> MutexGuard<'_, Queue> {
@@ -72,10 +80,18 @@ impl Outbox {
         if queue.closed {
             return;
         }
-        if matches!(msg, Msg::Line(_)) && queue.waiting.len() >= MOST_WAITING {
+        if matches!(msg, Msg::Line(..)) && queue.waiting.len() >= MOST_WAITING {
             queue.dropped += 1;
             return;
         }
+        // Written in the order it waits, under the same lock.
+        let msg = match (msg, &self.journal) {
+            (Msg::Line(line, None), Some(journal)) => {
+                let index = journal.line(&line);
+                Msg::Line(line, index)
+            }
+            (msg, _) => msg,
+        };
         queue.waiting.push_back(msg);
         self.changed.notify_all();
     }
@@ -105,19 +121,19 @@ impl Outbox {
             if let Some(first) = queue.waiting.pop_front() {
                 let mut batch = vec![first];
                 let same = |a: &Msg, b: &Msg| {
-                    matches!((a, b), (Msg::Step(_), Msg::Step(_)) | (Msg::Line(_), Msg::Line(_)))
+                    matches!((a, b), (Msg::Step(_), Msg::Step(_)) | (Msg::Line(..), Msg::Line(..)))
                 };
                 while batch.len() < BATCH && queue.waiting.front().is_some_and(|next| same(&batch[0], next)) {
                     if let Some(next) = queue.waiting.pop_front() {
                         batch.push(next);
                     }
                 }
-                if queue.dropped > 0 && matches!(batch[0], Msg::Line(_)) {
+                if queue.dropped > 0 && matches!(batch[0], Msg::Line(..)) {
                     let text = format!(
                         "{} linhas não chegaram ao servidor enquanto ele não respondia",
                         queue.dropped
                     );
-                    batch.push(Msg::Line(AgentLine { step: String::new(), text }));
+                    batch.push(Msg::Line(AgentLine { step: String::new(), text }, None));
                     queue.dropped = 0;
                 }
                 queue.sending = true;
@@ -152,7 +168,7 @@ impl BuildLog for RemoteLog {
         let text = self.ci.log().hide(text);
         let hidden = self.hidden.lock().unwrap_or_else(PoisonError::into_inner).clone();
         let text = hidden.iter().fold(text, |text, value| text.replace(value.as_str(), "****"));
-        self.outbox.push(Msg::Line(AgentLine { step: step.to_owned(), text }));
+        self.outbox.push(Msg::Line(AgentLine { step: step.to_owned(), text }, None));
     }
 
     fn hide(&self, value: &str) {
@@ -184,15 +200,18 @@ impl std::fmt::Debug for AgentSite {
 
 impl AgentSite {
     /// The site of the build of `lease`, sending through `link`, its steps cancelled through
-    /// `token`, giving its steps `environment` too.
+    /// `token`, giving its steps `environment` too, its log journaled at `journal` (#966): what a
+    /// life before left there is sent first.
     pub fn new(
         ci: Arc<Ci>,
         link: Arc<Link>,
         lease: Lease,
         token: CancelToken,
         environment: BTreeMap<String, String>,
+        journal: Option<&std::path::Path>,
     ) -> Self {
-        let outbox = Arc::new(Outbox::new());
+        let pending = journal.and_then(Journal::pending);
+        let outbox = Arc::new(Outbox::new(journal.map(|path| Journal::create(path, &link.session))));
         let lost = Arc::new(AtomicBool::new(false));
         let run = lease.id.clone();
         let sender = {
@@ -200,7 +219,15 @@ impl AgentSite {
                 (link.clone(), outbox.clone(), lost.clone(), token.clone(), run.clone());
             std::thread::Builder::new()
                 .name(format!("raven-ci-envio-{run}"))
-                .spawn(move || send_all(&link, &outbox, &lost, &token, &run))
+                .spawn(move || {
+                    if let Some(pending) = pending
+                        && !resend(&link, &outbox, &run, pending)
+                    {
+                        outbox.close();
+                        return;
+                    }
+                    send_all(&link, &outbox, &lost, &token, &run);
+                })
                 .ok()
         };
         let log = Arc::new(RemoteLog { ci, outbox: outbox.clone(), hidden: Mutex::default() });
@@ -249,6 +276,9 @@ impl AgentSite {
         if let Some(sender) = self.sender.lock().unwrap_or_else(PoisonError::into_inner).take() {
             let _ = sender.join();
         }
+        if let Some(journal) = &self.outbox.journal {
+            journal.remove();
+        }
     }
 
     fn outcome(&self, outcome: &RunOutcome) -> BuildStatus {
@@ -275,6 +305,31 @@ impl AgentSite {
     }
 }
 
+/// Sends what the journal of a life before kept and never reached the server, under its session
+/// and at its place, and says how many came (#966). Whether the server took them.
+fn resend(link: &Link, outbox: &Outbox, run: &str, pending: Pending) -> bool {
+    let mut came = 0;
+    let mut from = pending.from;
+    for lines in pending.lines.chunks(BATCH) {
+        let count = lines.len() as u64;
+        let batch =
+            LogBatch { run: run.to_owned(), session: pending.session.clone(), from, lines: lines.to_vec() };
+        match link.deliver("log", &batch) {
+            Some(Ok(_)) => {
+                came += count;
+                from += count;
+            }
+            _ => return false,
+        }
+    }
+    let mut text = format!("{came} linhas que o agente não tinha mandado antes de cair chegaram agora");
+    if pending.cut {
+        text.push_str("; a última, cortada no meio da escrita, se perdeu");
+    }
+    outbox.push(Msg::Line(AgentLine { step: String::new(), text }, None));
+    true
+}
+
 /// The thread of a build that sends its outbox, in order, until it is closed.
 fn send_all(link: &Link, outbox: &Outbox, lost: &AtomicBool, token: &CancelToken, run: &str) {
     while let Some(batch) = outbox.next() {
@@ -293,17 +348,25 @@ fn send_all(link: &Link, outbox: &Outbox, lost: &AtomicBool, token: &CancelToken
                     })
                 })
             }
-            Msg::Line(_) => {
+            Msg::Line(..) => {
+                let mut last = None;
                 let lines: Vec<AgentLine> = batch
                     .into_iter()
-                    .filter_map(|m| if let Msg::Line(l) = m { Some(l) } else { None })
+                    .filter_map(|m| {
+                        let Msg::Line(line, index) = m else { return None };
+                        last = index.or(last);
+                        Some(line)
+                    })
                     .collect();
                 let count = lines.len() as u64;
                 let from = outbox.lines_sent.load(Ordering::SeqCst);
                 let batch = LogBatch { run: run.to_owned(), session: link.session.clone(), from, lines };
                 link.deliver("log", &batch).map(|answer| {
                     answer.map(|_| {
-                        outbox.lines_sent.fetch_add(count, Ordering::SeqCst);
+                        let at = outbox.lines_sent.fetch_add(count, Ordering::SeqCst) + count;
+                        if let (Some(journal), Some(last)) = (&outbox.journal, last) {
+                            journal.ack(last + 1, at);
+                        }
                         true
                     })
                 })
@@ -456,9 +519,9 @@ mod tests {
 
     #[test]
     fn the_outbox_sends_steps_and_lines_in_batches_of_their_own() {
-        let outbox = Outbox::new();
-        outbox.push(Msg::Line(AgentLine { step: "a".into(), text: "1".into() }));
-        outbox.push(Msg::Line(AgentLine { step: "a".into(), text: "2".into() }));
+        let outbox = Outbox::new(None);
+        outbox.push(Msg::Line(AgentLine { step: "a".into(), text: "1".into() }, None));
+        outbox.push(Msg::Line(AgentLine { step: "a".into(), text: "2".into() }, None));
         outbox.push(Msg::Step(StepRecord::Started { node: "b".into() }));
         outbox.push(Msg::Code(None));
         let first = outbox.next().expect("a batch");
