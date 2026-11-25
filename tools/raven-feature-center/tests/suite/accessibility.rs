@@ -150,6 +150,7 @@ demonstrations! {
     codigo_de_verificacao => "Código de verificação",
     caixas_de_selecao => "Caixas de seleção",
     avatares => "Avatares",
+    cartoes => "Cartões",
     lista => "Lista",
     agenda_por_recurso => "Agenda por recurso",
 }

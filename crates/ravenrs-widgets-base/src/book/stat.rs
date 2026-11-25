@@ -39,6 +39,13 @@ fn render(args: &Args) -> AnyView {
     if args.bool("large") {
         it = it.large();
     }
+    it = it.value_tone(match args.choice("value_tone") {
+        "Accent" => Tone::Accent,
+        "Success" => Tone::Success,
+        "Warning" => Tone::Warning,
+        "Danger" => Tone::Danger,
+        _ => Tone::Neutral,
+    });
     Box::new(it)
 }
 
@@ -52,6 +59,14 @@ impl ComponentBook for Stat {
             .arg(ArgType::choice("delta_direction", &["Up", "Down", "Up, bad", "Down, good"], "Up"))
             .arg(ArgType::text("caption", "").description("A muted line under the value; empty shows none."))
             .arg(ArgType::bool("large", false))
+            .arg(
+                ArgType::choice(
+                    "value_tone",
+                    &["Neutral", "Accent", "Success", "Warning", "Danger"],
+                    "Neutral",
+                )
+                .description("The value in a tone, for a total whose color says what it is."),
+            )
             .story("Example", Args::new())
             .story("Large", Args::new().with("large", true))
             .story(
@@ -85,6 +100,22 @@ impl ComponentBook for Stat {
                     .with("value", "1.8%")
                     .with("delta", "-0.4%")
                     .with("delta_direction", ArgValue::choice("Down, good")),
+            )
+            .story(
+                "Value tone: Accent",
+                Args::new().with("delta", "").with("value_tone", ArgValue::choice("Accent")),
+            )
+            .story(
+                "Value tone: Success",
+                Args::new().with("delta", "").with("value_tone", ArgValue::choice("Success")),
+            )
+            .story(
+                "Value tone: Warning",
+                Args::new().with("delta", "").with("value_tone", ArgValue::choice("Warning")),
+            )
+            .story(
+                "Value tone: Danger",
+                Args::new().with("delta", "").with("value_tone", ArgValue::choice("Danger")),
             )
     }
 }

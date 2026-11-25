@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use ravenrs_app::{ActionInput, Object, ObjectSpace, Query, SpaceError, Value};
 use ravenrs_app_ui::Session;
-use ravenrs_core::{AccessAction, Primitive, Role, Size, Toggled};
+use ravenrs_core::{AccessAction, Primitive, Quad, Role, Size, Toggled};
 use ravenrs_style::{Semantic, Theme};
 use ravenrs_widgets::Ui;
 
@@ -1594,6 +1594,64 @@ fn avatars_take_a_size_a_picture_a_ring_and_a_circle_or_a_rounded_square() {
         .filter(|p| matches!(p, Primitive::Quad(q) if q.border.is_some_and(|b| b.width == 2.0 && b.color == accent)))
         .count();
     assert_eq!(rings, 1, "one ring, on the chosen one");
+fn cards_are_clicked_chosen_and_toned_and_take_every_shape() {
+    let mut c = Center::memory("ana");
+    c.press("Cartões");
+    let card_named = |c: &mut Center, start: &str| {
+        c.settle();
+        let tree = c.ui.access_tree();
+        tree.nodes
+            .iter()
+            .find(|n| n.role == Role::Button && n.name.as_deref().is_some_and(|name| name.starts_with(start)))
+            .unwrap_or_else(|| panic!("no card {start}"))
+            .clone()
+    };
+    // on_click: the card is a button, and a click opens it.
+    let report = card_named(&mut c, "Relatório do mês").id;
+    c.ui.perform_action(report, AccessAction::Click);
+    c.settle();
+    assert!(c.says("Aberto 1 vezes"), "{:?}", c.texts());
+    // selected: one plan of three is chosen, and choosing another moves the mark.
+    assert_eq!(card_named(&mut c, "Estúdio").selected, Some(true));
+    let network = card_named(&mut c, "Rede").id;
+    c.ui.perform_action(network, AccessAction::Click);
+    c.settle();
+    assert!(c.says("Plano escolhido: Rede"), "{:?}", c.texts());
+    assert_eq!(card_named(&mut c, "Rede").selected, Some(true));
+    assert_eq!(card_named(&mut c, "Estúdio").selected, Some(false));
+    // tone, fill, border, corner_radius, padding, shadow and no_shadow, as painted.
+    let theme = Theme::raven_dark();
+    let quads: Vec<Quad> =
+        c.ui.scene()
+            .primitives()
+            .iter()
+            .filter_map(|p| if let Primitive::Quad(q) = p { Some(*q) } else { None })
+            .collect();
+    for tone in [Semantic::Success, Semantic::Warning, Semantic::Danger] {
+        let hairline = theme.color(tone).with_alpha(0.30);
+        assert!(quads.iter().any(|q| q.border.is_some_and(|b| b.color == hairline)), "a {tone:?} card");
+    }
+    assert!(quads.iter().any(|q| q.corner_radius == 10.0 && q.border.is_some()), "the compact card");
+    assert!(
+        quads.iter().any(|q| q.border.is_none() && q.fill == theme.color(Semantic::Surface).into()),
+        "no hairline"
+    );
+    assert!(quads.iter().any(|q| q.shadow == Some(theme.elevation.raised)), "the raised card");
+    assert!(quads.iter().any(|q| q.shadow.is_none() && q.border.is_some()), "the flat card");
+    for said in [
+        "Padrão",
+        "Compacto",
+        "Plano",
+        "Elevado",
+        "Sem filete",
+        "Neutro",
+        "Destaque",
+        "Pós-venda",
+        "A conferir",
+        "Estornado",
+    ] {
+        assert!(c.says(said), "{said}: {:?}", c.texts());
+    }
 }
 
 #[test]
@@ -2000,6 +2058,23 @@ fn the_stats_say_their_number_with_a_caption_and_the_change_since_before() {
         assert!(c.says(change), "{change}: {:?}", c.texts());
     }
     assert!(c.says("Lida do processo, ao vivo; meta ≤ 60 MB"), "{:?}", c.texts());
+    // value_tone: the totals painted in their tone, taken toward ink as a badge's words are.
+    assert!(c.says("PÓS-VENDA") && c.says("R$ 1.240"), "{:?}", c.texts());
+    let theme = Theme::raven_dark();
+    let ink = theme.color(Semantic::Ink);
+    let colors: Vec<_> =
+        c.ui.scene()
+            .primitives()
+            .iter()
+            .filter_map(|p| {
+                if let Primitive::Glyphs(run) = p { (run.size == 30.0).then_some(run.color) } else { None }
+            })
+            .collect();
+    for tone in [Semantic::Success, Semantic::Warning, Semantic::Danger] {
+        let toned = theme.color(tone).lerp(ink, 0.3);
+        assert!(colors.contains(&toned), "a value in {tone:?}: {colors:?}");
+    }
+    assert!(colors.contains(&ink), "and the plain value stays in ink");
 }
 
 #[test]

@@ -3,6 +3,7 @@ pub mod avatares;
 pub mod barra_de_titulo;
 pub mod botoes;
 pub mod caixas;
+pub mod cartoes;
 pub mod chaves;
 pub mod codigo;
 pub mod indicadores;

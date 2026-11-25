@@ -59,6 +59,13 @@ pub const PAGES: &[Page] = &[
         make: || Box::new(basicos::caixas::CheckboxesPage),
     },
     Page {
+        id: basicos::cartoes::ID,
+        caption: basicos::cartoes::PAGE,
+        group: "Básicos",
+        icon: IconName::Layers,
+        make: || Box::new(basicos::cartoes::CardsPage),
+    },
+    Page {
         id: basicos::chaves::ID,
         caption: basicos::chaves::PAGE,
         group: "Básicos",
