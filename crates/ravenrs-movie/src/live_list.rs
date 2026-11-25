@@ -34,6 +34,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::BugLabels::__live_expose(registry);
     crate::BugReporter::__live_expose_fields(registry);
     crate::BugReporter::__live_expose(registry);
+    #[cfg(feature = "book")]
+    crate::BugReporter::__live_expose_part1(registry);
     crate::MovieError::__live_expose_variants(registry);
     crate::Chapter::__live_expose_fields(registry);
     crate::HotspotKind::__live_expose_variants(registry);
