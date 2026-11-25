@@ -180,7 +180,7 @@ pub fn message(build: &BuildInfo, words: &str, to: Vec<String>) -> Mail {
         lines.push(format!("Commit: {commit}"));
     }
     if let Some(url) = &build.url {
-        lines.push(format!("Painel: {url}"));
+        lines.push(format!("Build: {url}"));
     }
     Mail { to, subject, body: lines.join("\n") + "\n", attachments: Vec::new() }
 }

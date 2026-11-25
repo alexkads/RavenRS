@@ -211,6 +211,7 @@ fn the_code_is_fetched_before_the_first_step_and_its_commit_gets_pending_then_th
     assert_eq!(states, [CommitState::Pending, CommitState::Success]);
     assert_eq!(statuses.statuses()[0].commit, "f00d");
     assert_eq!(statuses.statuses()[0].context, "raven-ci/repo/main");
+    assert!(statuses.statuses().iter().all(|s| s.url.is_none()), "no address, no link");
     let told = events.events();
     assert!(matches!(told.first(), Some(BuildEvent::Started(_))));
     assert!(matches!(told.last(), Some(BuildEvent::Ended(info)) if info.status == BuildStatus::Succeeded));
@@ -368,4 +369,33 @@ fn the_folders_above_a_build_left_empty_go_with_it() {
     let workspace = ci.workspace("apps/web/site", n);
     let root = workspace.ancestors().nth(4).expect("the folder of every build").to_path_buf();
     assert!(!root.join("apps").exists(), "{} was left", root.join("apps").display());
+}
+
+#[test]
+fn the_notices_and_the_status_of_the_commit_link_to_the_page_of_the_build() {
+    let Setup { ci, statuses, events } = setup();
+    ci.store().set_setting("url", "http://ci.exemplo:8090/").expect("the address");
+    let settings = json!({
+        "scm": { "id": "fake-scm", "url": "https://exemplo/repo.git" },
+        "status": [{ "id": "fake-status", "repository": "dono/repo" }],
+        "notify": [{ "id": "fake-notifier" }],
+    });
+    ci.save_job(job("repo/main", json!({ "steps": [{ "show": "GIT_COMMIT" }] })).settings(settings))
+        .expect("saved");
+    let n = ci.request_build(BuildRequest::new("repo/main", "push")).expect("asked").number;
+    ci.work_until_idle("e1").expect("runs");
+    let page = format!("http://ci.exemplo:8090/painel/#/build/repo%2Fmain/{n}");
+    assert_eq!(ci.build_url("repo/main", n).as_deref(), Some(page.as_str()));
+    let linked: Vec<Option<String>> = statuses.statuses().iter().map(|s| s.url.clone()).collect();
+    assert_eq!(linked, [Some(page.clone()), Some(page.clone())], "pending and the end");
+    let told = events.events();
+    assert!(!told.is_empty());
+    for event in told {
+        match event {
+            BuildEvent::Started(info) | BuildEvent::Ended(info) => {
+                assert_eq!(info.url.as_deref(), Some(page.as_str()));
+            }
+            _ => {}
+        }
+    }
 }

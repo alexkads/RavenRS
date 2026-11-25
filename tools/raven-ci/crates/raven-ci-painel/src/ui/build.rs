@@ -41,34 +41,52 @@ impl S {
     pub(super) fn reload_build(self: &Rc<Self>, job: &str, number: u64) {
         let path = format!("/api/ci/build?job={}&number={number}", escaped(job));
         let (job, wanted) = (job.to_owned(), (job.to_owned(), number));
-        self.read(&path, move |s, body| {
-            if s.log_of.borrow().as_ref() != Some(&wanted) {
+        let asked = wanted.clone();
+        let missing = move |s: &Rc<S>, body: Json| {
+            if s.log_of.borrow().as_ref() != Some(&asked) {
                 return;
             }
-            let mut steps = std::collections::BTreeMap::new();
-            for stage in body["stages"].as_array().into_iter().flatten() {
-                let name = stage["name"].as_str().unwrap_or_default();
-                for step in stage["steps"].as_array().into_iter().flatten() {
-                    steps.insert(step["node"].as_str().unwrap_or_default().to_owned(), name.to_owned());
-                }
-            }
-            *s.stage_of_step.borrow_mut() = steps;
-            s.draw_stages(&body);
-            s.describe_sections(&body);
-            s.build.set(body);
-            let after = s.log_seq.get();
-            let path = format!("/api/ci/log?job={}&number={number}&after={after}", escaped(&job));
-            s.read(&path, move |s, lines| {
+            // The retention took it, or it never was: the page of jobs says which (#969).
+            *s.log_of.borrow_mut() = None;
+            s.go(Pagina::Jobs);
+            let said = body["message"].as_str().map_or_else(
+                || format!("O build #{} de {} não está no servidor.", asked.1, asked.0),
+                str::to_owned,
+            );
+            s.gone.set(Some(said));
+        };
+        self.read_else(
+            &path,
+            move |s, body| {
                 if s.log_of.borrow().as_ref() != Some(&wanted) {
                     return;
                 }
-                for line in lines.as_array().into_iter().flatten() {
-                    s.push_line(line);
+                let mut steps = std::collections::BTreeMap::new();
+                for stage in body["stages"].as_array().into_iter().flatten() {
+                    let name = stage["name"].as_str().unwrap_or_default();
+                    for step in stage["steps"].as_array().into_iter().flatten() {
+                        steps.insert(step["node"].as_str().unwrap_or_default().to_owned(), name.to_owned());
+                    }
                 }
-                let body = s.build.get();
+                *s.stage_of_step.borrow_mut() = steps;
+                s.draw_stages(&body);
                 s.describe_sections(&body);
-            });
-        });
+                s.build.set(body);
+                let after = s.log_seq.get();
+                let path = format!("/api/ci/log?job={}&number={number}&after={after}", escaped(&job));
+                s.read(&path, move |s, lines| {
+                    if s.log_of.borrow().as_ref() != Some(&wanted) {
+                        return;
+                    }
+                    for line in lines.as_array().into_iter().flatten() {
+                        s.push_line(line);
+                    }
+                    let body = s.build.get();
+                    s.describe_sections(&body);
+                });
+            },
+            missing,
+        );
     }
 
     /// A line the live channel heard, when it is of the build open and new.

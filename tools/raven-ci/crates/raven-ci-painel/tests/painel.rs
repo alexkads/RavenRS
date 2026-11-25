@@ -75,3 +75,51 @@ fn a_build_asked_for_goes_to_the_queue_and_a_reader_may_not_act() {
     let _ = std::fs::remove_dir_all(&dir);
     let _ = std::fs::remove_dir_all(folder("disparo-leitor"));
 }
+
+/// The panel opened on `page`, not signed in, over the core of the tests in `dir`, and the core.
+fn opened_on(dir: &std::path::Path, page: raven_ci_painel::Pagina) -> ravenrs_e2e::E2e {
+    let (_ci, client) = server(dir).expect("the server of the tests");
+    let painel = raven_ci_painel::Painel::new(client, false).abrir(page);
+    ravenrs_e2e::E2e::new(raven_ci_painel::app_of(painel), ravenrs::prelude::Theme::raven_dark())
+        .viewport(ravenrs::prelude::Size::new(1440.0, 900.0), 1.0)
+}
+
+/// Signs in as bia, then waits for `shown`, as a scenario of Raven Test Studio does.
+fn sign_in_and_see(session: &mut ravenrs_e2e::E2e, shown: &str) {
+    let text = format!(
+        "scenario: Raven CI: abrir pelo endereço\n\
+         open Raven CI | Abrir o painel no endereço de um aviso\n\
+         fill Usuário = bia | Escrever o usuário\n\
+         fill Senha = {PASSWORD} | Escrever a senha\n\
+         click Entrar | Entrar\n\
+         wait {shown} | A página do endereço abre\n"
+    );
+    let scenario = ravenrs_e2e_wire::Scenario::parse(&text).expect("the scenario reads");
+    scenario.play(session).expect("the scenario plays");
+}
+
+#[test]
+fn the_link_of_a_notice_opens_its_build_once_someone_signs_in() {
+    let dir = folder("endereco");
+    let (ci, _) = server(&folder("endereco-nucleo")).expect("the server of the tests");
+    ci.store().set_setting("url", "http://ci.exemplo:8090").expect("the address");
+    // What the core links to is what the panel opens.
+    let link = ci.build_url("apps/site", 2).expect("a link");
+    assert_eq!(link, "http://ci.exemplo:8090/painel/#/build/apps%2Fsite/2");
+    let page = raven_ci_painel::Pagina::from_path(&link).expect("the panel reads the link");
+    assert_eq!(page, raven_ci_painel::Pagina::Build("apps/site".to_owned(), 2));
+    let mut session = opened_on(&dir, page);
+    sign_in_and_see(&mut session, "Build #2");
+    drop(session);
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(folder("endereco-nucleo"));
+}
+
+#[test]
+fn the_link_to_a_build_that_is_not_there_lands_on_the_jobs_saying_so() {
+    let dir = folder("endereco-sem-build");
+    let mut session = opened_on(&dir, raven_ci_painel::Pagina::Build("apps/site".to_owned(), 99));
+    sign_in_and_see(&mut session, "Não há o build #99 de apps/site.");
+    drop(session);
+    let _ = std::fs::remove_dir_all(&dir);
+}

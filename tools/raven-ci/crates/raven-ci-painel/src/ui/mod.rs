@@ -8,6 +8,8 @@ use std::rc::Rc;
 
 use ravenrs::prelude::*;
 use ravenrs_app_remote::{LiveFeed, LiveState, RemoteClient, SignInError};
+
+use crate::Endereco;
 use serde_json::{Value as Json, json};
 
 mod admin;
@@ -56,6 +58,10 @@ pub(crate) struct S {
     client: RemoteClient,
     live_wanted: bool,
     page: State<Pagina>,
+    /// Where the address of the page is shown (#969): the browser's bar.
+    address: RefCell<Option<Endereco>>,
+    /// Why the build an address asked for is not there: what the page of jobs says on top.
+    gone: State<Option<String>>,
     // Signing in.
     name: State<String>,
     password: State<String>,
@@ -165,6 +171,8 @@ impl Painel {
             client,
             live_wanted: live,
             page: State::new(Pagina::Jobs),
+            address: RefCell::new(None),
+            gone: State::new(None),
             name: State::new(String::new()),
             password: State::new(String::new()),
             sign_in_error: State::new(String::new()),
@@ -246,6 +254,26 @@ impl Painel {
         Self { s: Rc::new(s) }
     }
 
+    /// The panel opening on `page` instead of the jobs: what an address asked for. Not signed
+    /// in, it goes there once someone signs in.
+    #[must_use]
+    pub fn abrir(self, page: Pagina) -> Self {
+        self.s.page.set(page);
+        self
+    }
+
+    /// The panel telling `address` each page it goes to, and going where `address` asks.
+    #[must_use]
+    pub fn endereco(self, address: Endereco) -> Self {
+        *self.s.address.borrow_mut() = Some(address);
+        self
+    }
+
+    /// Why the build an address asked for is not there, while the page of jobs says it.
+    pub fn gone(&self) -> Option<String> {
+        self.s.gone.get()
+    }
+
     /// Signs in as `name` with `password`, as the screen of sign in does: what a test does
     /// before its first step.
     pub fn sign_in(&self, name: &str, password: &str) {
@@ -296,10 +324,21 @@ impl S {
     /// Reads `path` and hands the JSON to `done` when it is a 200; anything else says why in the
     /// status bar, and a 401 goes back to signing in.
     pub(crate) fn read(self: &Rc<Self>, path: &str, done: impl FnOnce(&Rc<S>, Json) + 'static) {
+        self.read_else(path, done, |s, body| s.message.set(said(&body)));
+    }
+
+    /// As [`read`](Self::read), but a 404 goes to `missing` with what the server said.
+    pub(crate) fn read_else(
+        self: &Rc<Self>,
+        path: &str,
+        done: impl FnOnce(&Rc<S>, Json) + 'static,
+        missing: impl FnOnce(&Rc<S>, Json) + 'static,
+    ) {
         let s = self.clone();
         self.client.get_json(path, move |answer| {
             match answer {
                 Ok((200, body)) => done(&s, body),
+                Ok((404, body)) => missing(&s, body),
                 Ok((401, _)) => s.signed_in.set(false),
                 Ok((_, body)) => s.message.set(said(&body)),
                 Err(why) => s.message.set(format!("O servidor não respondeu: {why}")),
@@ -416,6 +455,11 @@ impl S {
     /// Goes to `page` and reads what it shows.
     pub(crate) fn go(self: &Rc<Self>, page: Pagina) {
         self.page.set(page.clone());
+        self.gone.set(None);
+        let address = self.address.borrow().clone();
+        if let Some(address) = address {
+            address.show(&page);
+        }
         match page {
             Pagina::Jobs => {
                 self.load_overview();
@@ -498,6 +542,19 @@ impl View for Painel {
         let s = &self.s;
         if s.waker.borrow().is_none() {
             *s.waker.borrow_mut() = Some(cx.ui_waker());
+            if let Some(address) = s.address.borrow().as_ref() {
+                address.wake_with(cx.ui_waker());
+            }
+        }
+        // An address asked for a page: back, forward or a link. Not signed in, it is where the
+        // panel goes once someone signs in.
+        let asked = s.address.borrow().as_ref().and_then(Endereco::take);
+        if let Some(page) = asked {
+            if !s.signed_in.get() {
+                s.page.set(page);
+            } else if page != s.page.get() {
+                s.go(page);
+            }
         }
         if !s.signed_in.get() {
             return cx.child(&self.sign_in_screen());
@@ -506,7 +563,22 @@ impl View for Painel {
         s.hear();
         S::poll_without_live(s, cx);
         s.fit_to(cx.viewport().width);
-        let content: AnyView = match s.page.get() {
+        let page = s.page.get();
+        // Keyed by the kind of page: two pages never share the local state of a view at the same
+        // place, as the grid of the jobs and the grid of the queue did when the notice of a build
+        // gone moved the first to where the second is (#969).
+        let kind = match &page {
+            Pagina::Jobs => 1,
+            Pagina::Historico => 2,
+            Pagina::Build(..) => 3,
+            Pagina::Fila => 4,
+            Pagina::Configuracao => 5,
+            Pagina::Plugins => 6,
+            Pagina::Credenciais => 7,
+            Pagina::Usuarios => 8,
+            Pagina::Plugin(..) => 9,
+        };
+        let content: AnyView = match page {
             Pagina::Jobs => jobs::page(s),
             Pagina::Historico => historico::page(s),
             Pagina::Build(job, number) => build::page(s, &job, number),
@@ -541,7 +613,7 @@ impl View for Painel {
                 top,
                 HStack::new((
                     self.sidebar(),
-                    VStack::new((ScrollView::new((content,)).grow(1.0), status))
+                    VStack::new((ScrollView::new((Keyed::new(kind, content),)).grow(1.0), status))
                         .spacing(0.0)
                         .align(Align::Stretch)
                         .grow(1.0),

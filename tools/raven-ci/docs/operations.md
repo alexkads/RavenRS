@@ -165,7 +165,12 @@ settings = { open = true }
 settings = { min_free_gb = 10 }
 ```
 
-`url` is the address people reach the server at: the notices link to its panel.
+`url` is the address people reach the server at. With it, a notice (e-mail, `webhook-out`) and
+the status of a commit on GitHub or Azure DevOps link to the page of the build on the panel:
+`https://ci.empresa.dev/painel/#/build/apps%2Fsite/42`. The panel opens on that page, after
+signing in when no one is; a build the retention took lands on the jobs, saying how many builds the
+job keeps. On the desktop, `raven-ci-painel --abrir build/apps%2Fsite/42` or the whole address
+pasted as an argument does the same (#969). Without `url`, there is no link.
 
 ## Agents in containers
 

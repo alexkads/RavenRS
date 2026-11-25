@@ -294,3 +294,28 @@ fn an_administrator_keeps_the_credentials_through_the_api_and_no_one_else_can() 
     assert!(said.contains(&("girar a credencial npm (fake-token)".to_owned(), true)), "{said:#?}");
     assert!(said.contains(&("apagar a credencial npm".to_owned(), true)), "{said:#?}");
 }
+
+#[test]
+fn a_build_the_retention_took_says_so_and_how_many_it_keeps() {
+    let mut server = server("api-build-apagado");
+    server
+        .ci
+        .save_job(JobSpec::new("apps/site", "fake-lines", "Build: compila").keep_builds(1).every_request())
+        .expect("saved");
+    for cause in ["um", "dois"] {
+        server.ci.request_build(BuildRequest::new("apps/site", cause)).expect("asked");
+        server.ci.work_until_idle("e1").expect("runs");
+    }
+    assert_eq!(server.ci.kept_builds("apps/site"), Some(1));
+    let token = server.token("caio");
+    let (status, said) = server.get("/api/ci/build?job=apps/site&number=1", Some(&token));
+    assert_eq!(status, 404, "{said}");
+    assert_eq!(said["gone"], true);
+    assert_eq!(said["kept"], 1);
+    assert_eq!(said["message"], "O build #1 de apps/site não existe mais (a retenção guarda só o último).");
+    let (status, said) = server.get("/api/ci/build?job=apps/site&number=9", Some(&token));
+    assert_eq!(status, 404, "{said}");
+    assert_eq!(said["gone"], false);
+    assert_eq!(said["message"], "Não há o build #9 de apps/site.");
+    assert_eq!(server.get("/api/ci/build?job=apps/site&number=2", Some(&token)).0, 200);
+}

@@ -424,6 +424,24 @@ impl Ci {
         let url = self.url().ok().flatten()?;
         Some(format!("{}{PANEL_PATH}", url.trim_end_matches('/')))
     }
+
+    /// The page of the build `job` #`number` on the panel, when the configuration says the
+    /// address people reach the server at: `<url>/painel/#/build/apps%2Fsite/3`, the link of a
+    /// notice and of a commit's status (#969). The panel reads it back (`Pagina::from_path`).
+    pub fn build_url(&self, job: &str, number: u64) -> Option<String> {
+        Some(format!("{}/#/build/{}/{number}", self.panel_url()?, escaped(job)))
+    }
+}
+
+/// A job's name as one part of an address: everything but letters, digits and `-_.~` escaped, the
+/// `/` of a folder included, as the panel escapes it.
+fn escaped(text: &str) -> String {
+    text.bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => (b as char).to_string(),
+            _ => format!("%{b:02X}"),
+        })
+        .collect()
 }
 
 /// What the server says of itself.
