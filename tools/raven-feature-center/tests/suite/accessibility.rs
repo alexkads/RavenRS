@@ -149,6 +149,7 @@ demonstrations! {
     progresso => "Progresso",
     codigo_de_verificacao => "Código de verificação",
     caixas_de_selecao => "Caixas de seleção",
+    avatares => "Avatar",
     cartoes => "Cartões",
     lista => "Lista",
     agenda_por_recurso => "Agenda por recurso",

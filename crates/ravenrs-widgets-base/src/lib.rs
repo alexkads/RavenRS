@@ -136,7 +136,9 @@ pub use context::{
     QuadPaint, RichFn, Semantics, UiActivity, WidgetId,
 };
 pub use date::{Date, days_in_month, is_leap_year};
-pub use display::{Alert, AlertAction, Avatar, Badge, Divider, ProgressBar, Section, Skeleton, Stat, Tone};
+pub use display::{
+    Alert, AlertAction, Avatar, AvatarShape, Badge, Divider, ProgressBar, Section, Skeleton, Stat, Tone,
+};
 pub use dock_side::DockSide;
 pub use drive::{Driving, UiDriver};
 pub use extras::{

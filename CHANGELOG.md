@@ -69,6 +69,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `Avatar::shape(AvatarShape)`: a circle, as before and by default, or a square with `radius-md` corners, as a profile picture is often shown; the picture is cropped to the same outline. RavenComponentBook has the settings `shape` and `picture` and the stories "Shape: Rounded" and "Rounded, with a picture", and the Raven Feature Center shows `Avatar` on its page "Avatares" ([#990](https://github.com/alexkads/RavenRS/issues/990)).
 - `Stat::value_tone(Tone)`: the value painted in a tone, for a total whose color says what it is, such as money that came in; the tone is taken toward ink as a badge's words are, so it keeps 4.5:1 over a card. RavenComponentBook has the setting `value_tone` and a story for each tone, and the page "Indicadores" of the Raven Feature Center shows it ([#994](https://github.com/alexkads/RavenRS/issues/994)).
 - `Card::tone(Tone)`: a card says by color what it is about, as a total of money that came in; the surface takes the tone at 10% and the hairline the tone at 30%, the proportions of `Alert`. `Tone::Neutral`, the default, draws the card as before, and `selected` still wins. RavenComponentBook has the setting `tone` and a story for each tone ([#989](https://github.com/alexkads/RavenRS/issues/989)).
 - RavenComponentBook: `DataGrid` has the setting `rows` and the stories "Empty" and "Empty, bare", so the card measures the empty text a list shows before its first row ([#993](https://github.com/alexkads/RavenRS/issues/993)).

@@ -4,7 +4,9 @@ use ravenrs_layout::Align;
 
 use super::button::{ICONS, icon};
 use super::{ArgType, ArgValue, Args, ComponentBook, Meta};
-use crate::{Alert, AnyView, Avatar, Badge, ProgressBar, Tone, VStack};
+use ravenrs_core::{Color, ImageData};
+
+use crate::{Alert, AnyView, Avatar, AvatarShape, Badge, Image, ProgressBar, Tone, VStack};
 
 const TONES: &[&str] = &["Neutral", "Accent", "Success", "Warning", "Danger"];
 
@@ -47,8 +49,22 @@ fn alert(args: &Args) -> AnyView {
     Box::new(alert)
 }
 
+/// A square gradient, standing in for a profile picture.
+fn portrait() -> ImageData {
+    ImageData::from_fn(64, 64, |x, y| {
+        let (u, v) = (x as f32 / 64.0, y as f32 / 64.0);
+        Color::rgb(0.25 + 0.5 * u, 0.35 + 0.3 * v, 0.85 - 0.4 * u)
+    })
+    .unwrap_or_else(|| unreachable!("the size is not zero"))
+}
+
 fn avatar(args: &Args) -> AnyView {
-    Box::new(Avatar::new(args.text("name")).size(args.number("size") as f32))
+    let shape = if args.choice("shape") == "Rounded" { AvatarShape::Rounded } else { AvatarShape::Circle };
+    let mut it = Avatar::new(args.text("name")).size(args.number("size") as f32).shape(shape);
+    if args.bool("picture") {
+        it = it.image(Image::new(portrait()));
+    }
+    Box::new(it)
 }
 
 fn progress(args: &Args) -> AnyView {
@@ -148,11 +164,23 @@ impl ComponentBook for Alert {
 impl ComponentBook for Avatar {
     fn book() -> Meta {
         Meta::new("Display and feedback/Avatar", avatar)
-            .summary("A person's initials or picture in a circle.")
+            .summary("A person's initials or picture, in a circle or a rounded square.")
             .arg(ArgType::text("name", "Ana Lima").description("The initials come from it."))
             .arg(ArgType::number("size", 32.0, 20.0, 96.0, 4.0))
+            .arg(ArgType::choice("shape", &["Circle", "Rounded"], "Circle").description(
+                "A circle, or a square with radius-md corners as a profile picture is often shown.",
+            ))
+            .arg(
+                ArgType::bool("picture", false)
+                    .description("A picture in place of the initials, cropped to the shape."),
+            )
             .story("Default", Args::new())
             .story("Large", Args::new().with("name", "Carla Dias").with("size", 44.0))
+            .story("Shape: Rounded", Args::new().with("shape", ArgValue::choice("Rounded")))
+            .story(
+                "Rounded, with a picture",
+                Args::new().with("shape", ArgValue::choice("Rounded")).with("picture", true),
+            )
     }
 }
 
