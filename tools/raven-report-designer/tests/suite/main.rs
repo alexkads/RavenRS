@@ -3,6 +3,7 @@
 #![allow(clippy::expect_used, reason = "tests fail loudly")]
 
 mod designer;
+mod telas;
 
 use std::process::Command;
 
