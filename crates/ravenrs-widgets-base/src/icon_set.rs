@@ -414,6 +414,10 @@ pub enum IconName {
     Bot,
     /// The Lucide `workflow` icon.
     Workflow,
+    /// The Lucide `calendar-check` icon.
+    CalendarCheck,
+    /// The Lucide `chevrons-up-down` icon.
+    ChevronsUpDown,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -625,6 +629,8 @@ impl IconName {
         IconName::Route,
         IconName::Bot,
         IconName::Workflow,
+        IconName::CalendarCheck,
+        IconName::ChevronsUpDown,
     ];
 
     /// The Lucide name, e.g. `"chevron-down"`.
@@ -835,6 +841,8 @@ impl IconName {
             IconName::Route => "route",
             IconName::Bot => "bot",
             IconName::Workflow => "workflow",
+            IconName::CalendarCheck => "calendar-check",
+            IconName::ChevronsUpDown => "chevrons-up-down",
         }
     }
 
@@ -1046,6 +1054,8 @@ impl IconName {
             IconName::Route => '\u{e53e}',
             IconName::Bot => '\u{e1bb}',
             IconName::Workflow => '\u{e425}',
+            IconName::CalendarCheck => '\u{e2b7}',
+            IconName::ChevronsUpDown => '\u{e211}',
         }
     }
 }
