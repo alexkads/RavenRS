@@ -1,6 +1,5 @@
 //! Pictures of the designer in each theme and as the system changes, for the eye (#290):
-//! `RAVEN_RD_TELAS=<pasta> cargo test -p raven-report-designer --test telas -- --ignored`.
-#![allow(clippy::expect_used, reason = "a test fails loudly")]
+//! `RAVEN_RD_TELAS=<pasta> cargo test -p raven-report-designer --test suite telas -- --ignored`.
 
 use raven_report_designer::Designer;
 use ravenrs::prelude::*;
@@ -15,7 +14,7 @@ fn pictures_of_the_designer_in_each_theme_and_as_the_system_changes() {
     let (width, height) = (1440, 900);
     let mut ui = Ui::new(Designer::new(), Theme::raven_dark());
     ui.set_viewport(Size::new(width as f32, height as f32), 1.0);
-    let mut snap = |ui: &mut Ui, name: &str| {
+    let snap = |ui: &mut Ui, name: &str| {
         for _ in 0..6 {
             ui.update();
         }

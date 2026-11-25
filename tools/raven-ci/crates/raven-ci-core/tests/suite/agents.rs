@@ -576,3 +576,33 @@ fn the_leftovers_of_agents_taken_down_outlive_a_restart_until_an_agent_says_they
     let left = told(&ci, &fifth, "sobra", &[]);
     assert!(!left.contains(&third), "past 30 days: forgotten {left:?}");
 }
+
+/// An agent that comes back after it died sends again, under its old session and from its old
+/// place, the lines it is not sure arrived; the server, even restarted since, writes none twice
+/// (#966).
+#[test]
+fn lines_sent_again_after_the_server_restarted_are_not_written_twice() {
+    let disk = OnDisk::new("agentes-diario");
+    let clock = ManualClock::at(1_000_000);
+    let (number, run) = {
+        let ci = core(&disk, Some(&clock));
+        join(&ci, "linux-1", &["linux"]);
+        let number = job(&ci, "apps/site", json!({ "agent": "linux", "steps": [{}] }));
+        let task = ci.agent_take("linux-1").expect("looked").expect("a build");
+        let run = task.lease.id.clone();
+        let lines =
+            ["um", "dois"].iter().map(|t| AgentLine { step: "s1".into(), text: (*t).into() }).collect();
+        let batch = LogBatch { run: run.clone(), session: "antiga".into(), from: 0, lines };
+        assert_eq!(ci.agent_log("linux-1", &batch).expect("kept"), 2);
+        (number, run)
+    };
+    // The server restarts; the agent comes back with what its journal kept.
+    let ci = reopen(&disk, &clock);
+    let lines =
+        ["um", "dois", "três"].iter().map(|t| AgentLine { step: "s1".into(), text: (*t).into() }).collect();
+    let again = LogBatch { run, session: "antiga".into(), from: 0, lines };
+    assert_eq!(ci.agent_log("linux-1", &again).expect("kept"), 3);
+    let texts: Vec<String> =
+        ci.build_log("apps/site", number, 0).expect("log").into_iter().map(|l| l.text).collect();
+    assert_eq!(texts, ["um", "dois", "três"], "each line once");
+}

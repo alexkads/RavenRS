@@ -116,3 +116,45 @@ fn an_agent_that_does_not_come_back_leaves_its_build_interrupted_and_forgets_it_
         "and it stays as it ended"
     );
 }
+
+/// The lines an agent wrote while the server did not answer, and that were still waiting when
+/// it was killed, reach the build's log when it comes back, once each (#966).
+#[test]
+fn the_lines_waiting_when_an_agent_was_killed_arrive_when_it_comes_back() {
+    let mut server = Server::start("diario", 0, Duration::from_secs(60));
+    // The first life writes v1 lines and sleeps; the one that takes the build up again finds the
+    // mark in the folder and writes a v2 line.
+    let step = if cfg!(windows) {
+        "if exist marca (echo v2-linha-1) else (type nul > marca & echo v1-linha-1 & ping -n 3 127.0.0.1 > NUL & echo v1-linha-2 & echo v1-linha-3 & ping -n 60 127.0.0.1 > NUL)".to_owned()
+    } else {
+        "if [ -f marca ]; then echo v2-linha-1; else touch marca; echo v1-linha-1; sleep 2; echo v1-linha-2; echo v1-linha-3; sleep 60; fi".to_owned()
+    };
+    server.job("apps/site", &pipeline(&[step]));
+    let number = server.request("apps/site");
+    let token = server.ci.agent_token("diario-1", &["teste".to_owned()], 1).expect("a token");
+    let dir = Folder::new("diario-agente");
+    let mut agent = Agent::start(&server, "diario-1", &dir.0, "teste", Some(&token), &[]);
+    assert!(
+        server.wait(Duration::from_secs(30), |ci| ci
+            .build_log("apps/site", number, 0)
+            .is_ok_and(|log| log.iter().any(|l| l.text == "v1-linha-1"))),
+        "the build started"
+    );
+    // The server stops answering; the next lines wait on the agent, which is killed with them.
+    server.stop_serving();
+    std::thread::sleep(Duration::from_secs(5));
+    agent.kill();
+    server.serve_again();
+
+    let _back = Agent::start(&server, "diario-1", &dir.0, "teste", None, &[]);
+    let status = server.wait_end("apps/site", number, Duration::from_secs(90));
+    let log = server.log("apps/site", number);
+    assert_eq!(status, BuildStatus::Succeeded, "{log:#?}");
+    for line in ["v1-linha-1", "v1-linha-2", "v1-linha-3", "v2-linha-1"] {
+        assert_eq!(log.iter().filter(|l| *l == line).count(), 1, "{line} once: {log:#?}");
+    }
+    assert!(
+        log.iter().any(|l| l.contains("linhas que o agente não tinha mandado antes de cair chegaram agora")),
+        "{log:#?}"
+    );
+}

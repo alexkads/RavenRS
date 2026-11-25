@@ -33,6 +33,7 @@
 //!     --nome linux-1 --rotulos linux,x64 --executores 2 --pasta /var/lib/raven-ci-agente
 //! ```
 
+mod journal;
 pub mod limits;
 pub mod link;
 pub mod plugins;
@@ -289,6 +290,7 @@ impl Agent {
                     if let Some(workspace) = left {
                         let _ = std::fs::remove_dir_all(&workspace);
                         let _ = std::fs::remove_file(workspace.with_extension("estado"));
+                        let _ = std::fs::remove_file(workspace.with_extension("saida"));
                         say(
                             &self.config.name,
                             &format!("{}: esquecido, a pasta foi apagada", workspace.display()),
@@ -344,12 +346,14 @@ impl Agent {
         self.left.lock().unwrap_or_else(PoisonError::into_inner).remove(&run);
         let token = CancelToken::new();
         let environment = self.config.limits.environment();
+        let journal = self.ci.workspace(&task.order.job, task.order.number).with_extension("saida");
         let site = Arc::new(AgentSite::new(
             self.ci.clone(),
             self.link.clone(),
             task.lease.clone(),
             token,
             environment,
+            Some(&journal),
         ));
         self.running.lock().unwrap_or_else(PoisonError::into_inner).insert(run.clone(), site.clone());
         let watch = self.config.limits.watch(
@@ -377,6 +381,7 @@ impl Agent {
             let workspace = self.ci.workspace(&order.job, order.number);
             let _ = std::fs::remove_dir_all(&workspace);
             let _ = std::fs::remove_file(workspace.with_extension("estado"));
+            let _ = std::fs::remove_file(workspace.with_extension("saida"));
             say(
                 &self.config.name,
                 &format!("{} #{} esquecido: a pasta foi apagada", order.job, order.number),

@@ -132,6 +132,12 @@ CREATE TABLE IF NOT EXISTS ci_agent_tokens (
     expires_ms INTEGER NOT NULL,
     launched_by TEXT
 );
+CREATE TABLE IF NOT EXISTS ci_agent_log_marks (
+    run TEXT NOT NULL,
+    session TEXT NOT NULL,
+    taken INTEGER NOT NULL,
+    PRIMARY KEY (run, session)
+);
 CREATE TABLE IF NOT EXISTS ci_agent_templates (
     name TEXT PRIMARY KEY,
     body TEXT NOT NULL
@@ -926,7 +932,22 @@ impl Ci {
         self.held_by(name, &batch.run)?;
         let (_, logger) = self.logger_of(&batch.run)?;
         let key = (batch.run.clone(), batch.session.clone());
-        let mut taken = self.agents.state().lines.get(&key).copied().unwrap_or(0);
+        // In memory, or in the file when the server restarted since (#966): an agent that comes
+        // back sends again what it is not sure arrived, and nothing repeats.
+        let known = self.agents.state().lines.get(&key).copied();
+        let mut taken = match known {
+            Some(taken) => taken,
+            None => self
+                .db()
+                .query_row(
+                    "SELECT taken FROM ci_agent_log_marks WHERE run = ?1 AND session = ?2",
+                    params![batch.run, batch.session],
+                    |row| row.get::<_, i64>(0),
+                )
+                .optional()
+                .map_err(db_error)?
+                .map_or(0, |taken| u64::try_from(taken).unwrap_or(0)),
+        };
         for (place, line) in (batch.from..).zip(&batch.lines) {
             if place < taken {
                 continue;
@@ -935,6 +956,13 @@ impl Ci {
             taken = place + 1;
         }
         self.agents.state().lines.insert(key, taken);
+        self.db()
+            .execute(
+                "INSERT INTO ci_agent_log_marks (run, session, taken) VALUES (?1, ?2, ?3)
+                 ON CONFLICT (run, session) DO UPDATE SET taken = excluded.taken",
+                params![batch.run, batch.session, i64::try_from(taken).unwrap_or(i64::MAX)],
+            )
+            .map_err(db_error)?;
         Ok(taken)
     }
 

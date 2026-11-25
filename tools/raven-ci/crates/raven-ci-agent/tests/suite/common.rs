@@ -91,12 +91,23 @@ impl Server {
     /// Stops answering HTTP for `pause`, as a network that fell, and answers again on the same port.
     #[allow(dead_code, reason = "only some tests stop it")]
     pub fn pause(&mut self, pause: Duration) {
+        self.stop_serving();
+        std::thread::sleep(pause);
+        self.serve_again();
+    }
+
+    /// Stops answering, until [`serve_again`](Self::serve_again).
+    pub fn stop_serving(&mut self) {
         let Some(runtime) = &self.runtime else { return };
         if let Some(serving) = self.serving.take() {
             serving.abort();
             let _ = runtime.block_on(serving);
         }
-        std::thread::sleep(pause);
+    }
+
+    /// Answers again, on the same port.
+    pub fn serve_again(&mut self) {
+        let Some(runtime) = &self.runtime else { return };
         let listener =
             runtime.block_on(tokio::net::TcpListener::bind(self.address)).expect("the same port again");
         self.serving =
