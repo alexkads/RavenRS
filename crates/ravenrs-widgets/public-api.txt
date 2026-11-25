@@ -4266,6 +4266,7 @@ method SegmentedControl::new
 method SegmentedControl::with_icons
 method Select::disabled
 method Select::fill
+method Select::icon
 method Select::label
 method Select::new
 method Select::of

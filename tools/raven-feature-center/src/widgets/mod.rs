@@ -87,6 +87,13 @@ pub const PAGES: &[Page] = &[
         make: || Box::new(basicos::indicadores::StatPage),
     },
     Page {
+        id: basicos::listas_de_escolha::ID,
+        caption: basicos::listas_de_escolha::PAGE,
+        group: "Básicos",
+        icon: IconName::ChevronsUpDown,
+        make: || Box::new(basicos::listas_de_escolha::SelectsPage),
+    },
+    Page {
         id: basicos::progresso::ID,
         caption: basicos::progresso::PAGE,
         group: "Básicos",

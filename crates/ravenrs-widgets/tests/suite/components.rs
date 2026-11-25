@@ -1471,3 +1471,26 @@ fn a_stat_value_in_a_tone_reads_at_4_5_to_1_over_a_card_in_every_theme() {
         );
     }
 }
+
+#[test]
+fn a_select_with_an_icon_draws_it_before_the_value_in_ink_muted() {
+    let muted = Theme::raven_dark().color(Semantic::InkMuted);
+    let plain = ui(Select::new(State::new(0usize).binding(), ["Estúdio"]).label("Estúdio"));
+    let pinned =
+        ui(Select::new(State::new(0usize).binding(), ["Estúdio"]).label("Estúdio").icon(IconName::MapPin));
+    assert_eq!(glyph_runs(&pinned), glyph_runs(&plain) + 1, "one more run of glyphs: the icon");
+    let runs: Vec<(f32, bool)> = pinned
+        .scene()
+        .primitives()
+        .iter()
+        .filter_map(|p| match p {
+            Primitive::Glyphs(g) => g.glyphs.first().map(|first| (first.x, g.color == muted)),
+            _ => None,
+        })
+        .collect();
+    let icon = runs.iter().filter(|(_, m)| *m).map(|(x, _)| *x).fold(f32::MAX, f32::min);
+    let value = runs.iter().filter(|(_, m)| !*m).map(|(x, _)| *x).fold(f32::MAX, f32::min);
+    assert!(icon < value, "the icon comes before the value: {runs:?}");
+    let mut pinned = pinned;
+    assert!(pinned.access_tree().find(ravenrs_core::Role::ComboBox, "Estúdio").is_some(), "the same name");
+}
