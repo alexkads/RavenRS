@@ -322,6 +322,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Tone::__live_expose(registry);
     crate::Badge::__live_expose_fields(registry);
     crate::Badge::__live_expose(registry);
+    crate::AvatarShape::__live_expose_variants(registry);
     crate::Avatar::__live_expose_fields(registry);
     crate::Avatar::__live_expose(registry);
     crate::Divider::__live_expose_fields(registry);

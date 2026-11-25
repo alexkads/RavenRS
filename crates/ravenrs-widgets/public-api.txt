@@ -7,6 +7,7 @@ const FLOW_NODE_DRAG
 const HOLD_TO_CARRY
 const SAMPLE
 enum AnchorPoint
+enum AvatarShape
 enum BoxHandle
 enum ButtonSize
 enum ButtonStyle
@@ -1034,6 +1035,7 @@ impl Clone for AnchorPoint
 impl Clone for AreaChart
 impl Clone for AudioPlayerButton
 impl Clone for Avatar
+impl Clone for AvatarShape
 impl Clone for Badge
 impl Clone for BarChart
 impl Clone for Barcode
@@ -1476,6 +1478,7 @@ impl ComponentBook for ZoomControl
 impl ComponentBook for ZoomPanView
 impl ComponentBook for grid::DataGrid
 impl Copy for AnchorPoint
+impl Copy for AvatarShape
 impl Copy for BoxHandle
 impl Copy for BoxTransform
 impl Copy for ButtonSize
@@ -1577,6 +1580,7 @@ impl Debug for Attachment
 impl Debug for AttachmentStrip
 impl Debug for AudioPlayerButton
 impl Debug for Avatar
+impl Debug for AvatarShape
 impl Debug for Badge
 impl Debug for BarChart
 impl Debug for Barcode
@@ -2017,6 +2021,7 @@ impl Debug for testing::SchedulerDriver
 impl Debug for testing::SortableDriver
 impl Default for AnchorPoint
 impl Default for AudioPlayerButton
+impl Default for AvatarShape
 impl Default for BusySignal
 impl Default for ButtonSize
 impl Default for ButtonStyle
@@ -2162,6 +2167,7 @@ impl Display for RecurrenceRule
 impl Display for RecurrenceSet
 impl Display for Time
 impl Eq for AnchorPoint
+impl Eq for AvatarShape
 impl Eq for BoxHandle
 impl Eq for ButtonSize
 impl Eq for ButtonStyle
@@ -2297,6 +2303,7 @@ impl Ord for Time
 impl Ord for TimePoint
 impl Ord for ToastPosition
 impl PartialEq for AnchorPoint
+impl PartialEq for AvatarShape
 impl PartialEq for BoxHandle
 impl PartialEq for BoxTransform
 impl PartialEq for ButtonSize
@@ -2733,6 +2740,7 @@ method AudioPlayerButton::transcript_open
 method Avatar::border
 method Avatar::image
 method Avatar::new
+method Avatar::shape
 method Avatar::size
 method Badge::color
 method Badge::height
@@ -5462,6 +5470,8 @@ variant AnchorPoint::Right
 variant AnchorPoint::Top
 variant AnchorPoint::TopLeft
 variant AnchorPoint::TopRight
+variant AvatarShape::Circle
+variant AvatarShape::Rounded
 variant BoxHandle::Bottom
 variant BoxHandle::BottomLeft
 variant BoxHandle::BottomRight
