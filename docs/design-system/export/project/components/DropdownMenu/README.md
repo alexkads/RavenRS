@@ -15,18 +15,24 @@ Button that opens a list of actions, with submenus and check marks.
 | `size` | Small · Medium · Large · Mini | `Medium` |  |
 | `style` | Primary · Secondary · Ghost · Danger | `Secondary` |  |
 | `open` | on/off | `false` | The list of actions is open. |
+| `trigger` | on/off | `false` | Opens from a view, here who is signed in, instead of the button. |
+| `header` | on/off | `false` | Who is signed in at the top of the menu. |
+| `sections` | on/off | `false` | A titled section, Theme, after the actions. |
 
 ## Stories
 
-- **Example**: 116 × 40 pt, settings `{"icon":"none","icon_only":false,"label":"Actions","open":false,"separator":true,"size":"Medium","style":"Secondary"}`
-- **Open**: 220 × 273 pt, settings `{"icon":"none","icon_only":false,"label":"Actions","open":true,"separator":true,"size":"Medium","style":"Secondary"}`
-- **Size: Small**: 94 × 32 pt, settings `{"icon":"none","icon_only":false,"label":"Actions","open":false,"separator":true,"size":"Small","style":"Secondary"}`
-- **Size: Large**: 128 × 48 pt, settings `{"icon":"none","icon_only":false,"label":"Actions","open":false,"separator":true,"size":"Large","style":"Secondary"}`
-- **Size: Mini**: 79 × 22 pt, settings `{"icon":"none","icon_only":false,"label":"Actions","open":false,"separator":true,"size":"Mini","style":"Secondary"}`
-- **Style: Primary**: 116 × 40 pt, settings `{"icon":"none","icon_only":false,"label":"Actions","open":false,"separator":true,"size":"Medium","style":"Primary"}`
-- **Style: Ghost**: 116 × 40 pt, settings `{"icon":"none","icon_only":false,"label":"Actions","open":false,"separator":true,"size":"Medium","style":"Ghost"}`
-- **Style: Danger**: 116 × 40 pt, settings `{"icon":"none","icon_only":false,"label":"Actions","open":false,"separator":true,"size":"Medium","style":"Danger"}`
-- **Primary with icon**: 172 × 40 pt, settings `{"icon":"plus","icon_only":false,"label":"New project","open":false,"separator":true,"size":"Medium","style":"Primary"}`
+- **Example**: 116 × 40 pt, settings `{"header":false,"icon":"none","icon_only":false,"label":"Actions","open":false,"sections":false,"separator":true,"size":"Medium","style":"Secondary","trigger":false}`
+- **Open**: 220 × 273 pt, settings `{"header":false,"icon":"none","icon_only":false,"label":"Actions","open":true,"sections":false,"separator":true,"size":"Medium","style":"Secondary","trigger":false}`
+- **Size: Small**: 94 × 32 pt, settings `{"header":false,"icon":"none","icon_only":false,"label":"Actions","open":false,"sections":false,"separator":true,"size":"Small","style":"Secondary","trigger":false}`
+- **Size: Large**: 128 × 48 pt, settings `{"header":false,"icon":"none","icon_only":false,"label":"Actions","open":false,"sections":false,"separator":true,"size":"Large","style":"Secondary","trigger":false}`
+- **Size: Mini**: 79 × 22 pt, settings `{"header":false,"icon":"none","icon_only":false,"label":"Actions","open":false,"sections":false,"separator":true,"size":"Mini","style":"Secondary","trigger":false}`
+- **Style: Primary**: 116 × 40 pt, settings `{"header":false,"icon":"none","icon_only":false,"label":"Actions","open":false,"sections":false,"separator":true,"size":"Medium","style":"Primary","trigger":false}`
+- **Style: Ghost**: 116 × 40 pt, settings `{"header":false,"icon":"none","icon_only":false,"label":"Actions","open":false,"sections":false,"separator":true,"size":"Medium","style":"Ghost","trigger":false}`
+- **Style: Danger**: 116 × 40 pt, settings `{"header":false,"icon":"none","icon_only":false,"label":"Actions","open":false,"sections":false,"separator":true,"size":"Medium","style":"Danger","trigger":false}`
+- **Primary with icon**: 172 × 40 pt, settings `{"header":false,"icon":"plus","icon_only":false,"label":"New project","open":false,"sections":false,"separator":true,"size":"Medium","style":"Primary","trigger":false}`
+- **Custom trigger**: 411 × 225 pt, settings `{"header":false,"icon":"none","icon_only":false,"label":"Account","open":true,"sections":false,"separator":true,"size":"Medium","style":"Secondary","trigger":true}`
+- **With a header**: 220 × 344 pt, settings `{"header":true,"icon":"none","icon_only":false,"label":"Actions","open":true,"sections":false,"separator":true,"size":"Medium","style":"Secondary","trigger":false}`
+- **With sections**: 220 × 378 pt, settings `{"header":false,"icon":"none","icon_only":false,"label":"Actions","open":true,"sections":true,"separator":true,"size":"Medium","style":"Secondary","trigger":false}`
 
 ## Sizing
 
@@ -67,10 +73,18 @@ Measured from what RavenRS paints, in points. Colors are tokens; `token@N` is th
 | Style: Ghost | Button "Actions" | 116.0 × 40.0 | radius-md | transparent | — | Inter 600 15.0px ink | chevron-down 16.0px ink | 18.0 |
 | Style: Danger | Button "Actions" | 116.0 × 40.0 | radius-md | danger | — | Inter 600 15.0px on-accent | chevron-down 16.0px on-accent | 18.0 |
 | Primary with icon | Button "New project" | 172.0 × 40.0 | radius-md | accent | — | Inter 600 15.0px on-accent | plus 16.0px on-accent | 18.0 |
+| Custom trigger | Button "Account" | 183.0 × 46.0 | — | — | — | Inter 600 14.0px mix(ink, focus-ring, 50) | — | 9.0 |
+| Custom trigger | Image "Ana Lima" | 36.0 × 36.0 | radius-md | focus-ring@28 | 1.0 focus-ring@50 | Inter 600 14.0px mix(ink, focus-ring, 50) | — | 9.0 |
+| With a header | Menu | 220.0 × 296.0 | radius-lg | bg-200 | 1.0 border | Inter 600 14.0px mix(ink, focus-ring, 50) | pencil 16.0px ink-muted | space-4 |
+| With a header | Label "Ana Lima" | 66.0 × 22.0 | — | — | — | Inter 400 15.0px ink | — | 0.0 |
+| With a header | Label "ana@example.com" | 135.0 × 22.0 | — | — | — | Inter 400 15.0px ink-muted | — | 0.0 |
+| With sections | Menu | 220.0 × 330.0 | radius-lg | bg-200 | 1.0 border | Inter 400 15.0px ink | pencil 16.0px ink-muted | space-4 |
+| With sections | MenuItem "Light" | 208.0 × 34.0 | 7.0 | transparent | — | Inter 400 15.0px ink | sun 16.0px ink-muted | 10.0 |
+| With sections | MenuItem "Dark" | 208.0 × 34.0 | 7.0 | transparent | — | Inter 600 15.0px ink | moon 16.0px ink-muted | 10.0 |
 
 ## API
 
-Builder methods: `icon`, `icon_only`, `item`, `new`, `open`, `separator`, `size`, `style`.
+Builder methods: `header`, `icon`, `icon_only`, `item`, `label`, `new`, `open`, `placement`, `separator`, `size`, `style`, `trigger`.
 
 ## Example
 

@@ -184,7 +184,7 @@ RavenComponentBook writes every file of this system from the RavenRS code, and t
 | Overlays | `CommandPalette` | Searchable list of commands, opened with Cmd/Ctrl+K | 2 |
 | Overlays | `ContextMenu` | Menu opened at the pointer on right click | 1 |
 | Overlays | `Dialog` | Modal window over a dimmed backdrop | 3 |
-| Overlays | `DropdownMenu` | Button that opens a list of actions, with submenus and check marks | 9 |
+| Overlays | `DropdownMenu` | Button that opens a list of actions, with submenus and check marks | 12 |
 | Overlays | `HelpTip` | A small question mark that explains something | 1 |
 | Overlays | `HoverCard` | Rich content shown while the pointer is over a trigger | 1 |
 | Overlays | `Popover` | Floating content anchored below a view | 2 |

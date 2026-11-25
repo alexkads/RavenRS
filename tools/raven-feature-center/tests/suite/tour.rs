@@ -2135,3 +2135,34 @@ fn the_title_bar_draws_the_window_buttons_and_the_bar_of_a_phone() {
     c.activate("Com o teclado");
     assert!(c.says("Relatório.pdf"), "{:?}", c.texts());
 }
+
+#[test]
+fn menus_open_from_a_button_or_any_view_with_a_header_titled_sections_and_every_kind_of_item() {
+    let mut c = Center::memory("ana");
+    c.press("Menus");
+    c.settle();
+    // trigger: the account is a button named by the label, beside the menus of every style and size.
+    for name in [
+        "Ações",
+        "Conta",
+        "Novo",
+        "Mais",
+        "Apagar",
+        "Pequeno",
+        "Mini",
+        "Grande",
+        "Opções",
+        "Abrir pelo atalho",
+    ] {
+        assert!(c.ui.access_tree().find(Role::Button, name).is_some(), "{name}: {:?}", c.texts());
+    }
+    c.press("Conta");
+    c.settle();
+    // header and label: who is signed in above the items, and the themes as a group named "Tema".
+    assert!(c.says("ana@exemplo.com"), "{:?}", c.texts());
+    assert!(c.ui.access_tree().find(Role::Group, "Tema").is_some(), "{:?}", c.texts());
+    let escuro = c.ui.access_tree().find(Role::MenuItem, "Escuro").map(|n| n.id).expect("the themes");
+    c.ui.perform_action(escuro, AccessAction::Click);
+    c.settle();
+    assert!(c.says("Tema: Escuro"), "{:?}", c.texts());
+}

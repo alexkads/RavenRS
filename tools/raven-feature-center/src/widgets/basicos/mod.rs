@@ -7,5 +7,6 @@ pub mod cartoes;
 pub mod chaves;
 pub mod codigo;
 pub mod indicadores;
+pub mod menus;
 pub mod progresso;
 pub mod texto;

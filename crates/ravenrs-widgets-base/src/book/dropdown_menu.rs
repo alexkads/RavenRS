@@ -47,6 +47,31 @@ fn render(args: &Args) -> AnyView {
                 .item(MenuItem::new("Show grid").checked(true))
                 .item(MenuItem::new("Label").element(Badge::new("Family").tone(Tone::Accent)))
                 .item(MenuItem::new("Delete").icon(IconName::Trash2).destructive());
+            if args.bool("sections") {
+                it = it
+                    .separator()
+                    .label("Theme")
+                    .item(MenuItem::new("Light").icon(IconName::Sun))
+                    .item(MenuItem::new("Dark").icon(IconName::Moon).checked(true));
+            }
+            let who = || {
+                HStack::new((
+                    Avatar::new("Ana Lima").shape(AvatarShape::Rounded),
+                    VStack::new((
+                        Text::new("Ana Lima"),
+                        Text::new("ana@example.com").foreground(Semantic::InkMuted),
+                    ))
+                    .spacing(2.0),
+                ))
+                .spacing(12.0)
+                .align(Align::Center)
+            };
+            if args.bool("header") {
+                it = it.header(who());
+            }
+            if args.bool("trigger") {
+                it = it.trigger(who()).placement(Placement::Right);
+            }
             if let Some(name) = icon(args.choice("icon")) {
                 it = it.icon(name);
             }
@@ -75,6 +100,12 @@ impl ComponentBook for DropdownMenu {
             .arg(ArgType::choice("size", &["Small", "Medium", "Large", "Mini"], "Medium"))
             .arg(ArgType::choice("style", &["Primary", "Secondary", "Ghost", "Danger"], "Secondary"))
             .arg(ArgType::bool("open", false).description("The list of actions is open."))
+            .arg(
+                ArgType::bool("trigger", false)
+                    .description("Opens from a view, here who is signed in, instead of the button."),
+            )
+            .arg(ArgType::bool("header", false).description("Who is signed in at the top of the menu."))
+            .arg(ArgType::bool("sections", false).description("A titled section, Theme, after the actions."))
             .story("Example", Args::new())
             .story("Open", Args::new().with("open", true))
             .story("Size: Small", Args::new().with("size", ArgValue::choice("Small")))
@@ -90,5 +121,11 @@ impl ComponentBook for DropdownMenu {
                     .with("label", "New project")
                     .with("icon", ArgValue::choice("plus")),
             )
+            .story(
+                "Custom trigger",
+                Args::new().with("label", "Account").with("trigger", true).with("open", true),
+            )
+            .story("With a header", Args::new().with("header", true).with("open", true))
+            .story("With sections", Args::new().with("sections", true).with("open", true))
     }
 }
