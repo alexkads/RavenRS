@@ -69,6 +69,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- Two Lucide icons: `IconName::CalendarCheck` and `ChevronsUpDown`, for a "today" filter and a menu a click opens (the account at the foot of a sidebar); the 205 icons there were keep their glyphs, and both came from lucide-static 1.73.0 by `scripts/gen-icons.py --add` ([#988](https://github.com/alexkads/RavenRS/issues/988)).
 - RavenComponentBook has `BugReporter`, as "Application/BugReporter": eight stories of the report dialog (describing, each kind, a box marked, without the film, with errors, in English, and closed behind the status bar action that opens it) and its settings `language`, `kind`, `open`, `include_film`, `marked` and `errors`, so a design can place it with the measures RavenRS draws ([#984](https://github.com/alexkads/RavenRS/issues/984)).
 - Four Lucide icons: `IconName::Brain`, `Route`, `Bot` and `Workflow`, for AI, the path of a decision, chatbots and automation; the 201 icons there were keep their glyphs. `scripts/gen-icons.py --add` refuses a name the Lucide font does not have before writing anything ([#748](https://github.com/alexkads/RavenRS/issues/748)).
 - `InputOtp::disabled(bool)`: the boxes lock while the code is verified. They fade, leave the tab order, take no typing nor a value set by a test, and never complete again; what was typed stays, and screen readers hear the field as unavailable. The Raven Feature Center shows `InputOtp` on its page "Código de verificação" ([#567](https://github.com/alexkads/RavenRS/issues/567)).
