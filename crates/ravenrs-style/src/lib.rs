@@ -427,7 +427,6 @@ const fn shadow(y: f32, blur: f32, color: Color) -> Shadow {
     Shadow { offset: Point::new(0.0, y), blur, color }
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose)]
 /// The least opacity of what floats over the content (#978): the text of a dialog stays
 /// readable over any screen behind it.
 pub const FLOATING_OPACITY: f32 = 0.92;
