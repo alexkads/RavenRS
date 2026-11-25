@@ -1259,6 +1259,11 @@ fn the_flow_diagram_shows_every_feature_and_its_connections_hang_as_cables() {
     // height: a strip 200 pt tall, as wide as the page.
     c.activate("Faixa de 200 pt");
     assert!(c.says("Nós no diagrama: 6"), "the diagram is the same in the strip");
+    // And in a row beside a text, which does not stretch it, it takes the width of its stages.
+    let tree = c.ui.access_tree();
+    let row = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Estágios do build 12"));
+    let wide = row.expect("the strip in a row").bounds.width();
+    assert!(wide > 400.0, "a strip in a row is as wide as its stages, not 0: {wide}");
     c.activate("Faixa de 200 pt");
     // Read only: the lock is not offered.
     c.activate("Só leitura");

@@ -171,6 +171,32 @@ impl View for FlowPage {
             canvas
         };
 
+        // height in a row that does not stretch it: beside a text, the strip takes the width of its
+        // stages, never more than the row has (#971).
+        let stages = cx.use_state(|| {
+            ["Baixar", "Compilar", "Testar", "Publicar"].iter().enumerate().fold(
+                FlowGraph::new(),
+                |graph, (i, title)| {
+                    let x = 24.0 + 200.0 * f32::from(u8::try_from(i).unwrap_or(0));
+                    graph.node(FlowNode::new(title.to_lowercase(), "step", *title, x, 24.0))
+                },
+            )
+        });
+        let row_strip = strip.get().then(|| {
+            Box::new(
+                HStack::new((
+                    Text::new("Build 12").style(TextStyle::Headline),
+                    FlowCanvas::new(stages.binding())
+                        .label("Estágios do build 12")
+                        .read_only(true)
+                        .minimap(false)
+                        .height(120.0),
+                ))
+                .spacing(16.0)
+                .align(Align::Center),
+            ) as AnyView
+        });
+
         let a = arrivals.clone();
         let options = Grid::new(
             if narrow { 1 } else { 4 },
@@ -210,6 +236,7 @@ impl View for FlowPage {
                 .spacing(12.0)
                 .wrap(),
                 canvas,
+                row_strip,
                 Text::new("Eventos").style(TextStyle::Headline),
                 Text::new(said.get()),
                 Text::new(format!("Nós no diagrama: {}", graph.get().nodes.len())),
