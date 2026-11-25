@@ -64,6 +64,7 @@ A component is done when it:
 6. Has rustdoc on the public type and builder methods.
 7. Is testable by the Raven Test Studio, as the next section says.
 8. Runs in the playground: `scripts/gen-live.py` exposes it to the interpreter (the gate fails until it is run), and its example runs from its code, which `coverage_of_the_interpreter` in `examples/component-gallery` checks. The check runs the example interpreted and compiled, and the two have to build as many elements, with no problem later in a paint or a handler. An example the interpreter cannot read yet goes in `examples/component-gallery/live-pending.txt`, with why; today the list is empty.
+9. Is current in the design system that is kept in git: `scripts/gen-design-system.py` rewrites `docs/design-system/export/` from RavenComponentBook (its card, preview and measured anatomy), and the gate fails until it is run (#1000).
 
 ## Testability (RTS)
 
