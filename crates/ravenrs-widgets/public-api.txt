@@ -2926,6 +2926,7 @@ method Card::on_click
 method Card::padding
 method Card::selected
 method Card::shadow
+method Card::tone
 method CardView::card_height
 method CardView::card_name
 method CardView::card_width
@@ -4418,6 +4419,7 @@ method Stat::delta
 method Stat::delta_toned
 method Stat::large
 method Stat::new
+method Stat::value_tone
 method StatusBar::action
 method StatusBar::center
 method StatusBar::center_tone
