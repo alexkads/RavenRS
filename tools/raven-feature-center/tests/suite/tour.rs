@@ -1565,7 +1565,7 @@ fn the_code_completes_once_and_locks_while_it_is_verified() {
 #[test]
 fn avatars_take_a_size_a_picture_a_ring_and_a_circle_or_a_rounded_square() {
     let mut c = Center::memory("ana");
-    c.press("Avatares");
+    c.press("Avatar");
     // new, size, image and shape: every avatar is named by the person, picture or initials.
     for name in ["Ana Lima", "Conta Redonda", "Conta Quadrada", "Foto Quadrada"] {
         c.settle();

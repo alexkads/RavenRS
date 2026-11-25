@@ -64,7 +64,7 @@
 {"crate": "ravenrs-widgets-base", "tipo": "Alert", "pendente": true, "issue": 579, "conhecidos": ["action", "compact", "message", "new", "tone"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Anchor", "pendente": true, "issue": 579, "conhecidos": ["new", "offset"]},
 {"crate": "ravenrs-widgets-base", "tipo": "AspectRatio", "pendente": true, "issue": 579, "conhecidos": ["new"]},
-{"crate": "ravenrs-widgets-base", "tipo": "Avatar", "pagina": "Avatares", "recursos": ["border", "image", "new", "shape", "size"]},
+{"crate": "ravenrs-widgets-base", "tipo": "Avatar", "pagina": "Avatar", "recursos": ["border", "image", "new", "shape", "size"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Badge", "pendente": true, "issue": 579, "conhecidos": ["color", "height", "icon", "new", "outline", "text", "tone"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Button", "pagina": "Botões", "recursos": ["accessible_description", "accessible_name", "disabled", "full_width", "icon", "loading", "new", "on_click", "selected", "shortcut", "size", "style", "trailing_icon"]},
 {"crate": "ravenrs-widgets-base", "tipo": "ButtonGroup", "pendente": true, "issue": 579, "conhecidos": ["label", "new"]},

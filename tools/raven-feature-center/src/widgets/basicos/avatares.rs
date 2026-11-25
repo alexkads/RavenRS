@@ -5,7 +5,7 @@ use ravenrs::prelude::*;
 /// The control registered in the center.
 pub const ID: &str = "AvatarDemo";
 /// The page's navigation caption.
-pub const PAGE: &str = "Avatares";
+pub const PAGE: &str = "Avatar";
 
 const TEAM: [&str; 3] = ["Ana Lima", "Bruno Reis", "Carla Dias"];
 
