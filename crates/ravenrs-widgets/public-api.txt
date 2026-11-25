@@ -5631,6 +5631,7 @@ variant IconName::Bot
 variant IconName::Brain
 variant IconName::Calculator
 variant IconName::Calendar
+variant IconName::CalendarCheck
 variant IconName::CalendarDays
 variant IconName::Camera
 variant IconName::ChartBar
@@ -5642,6 +5643,7 @@ variant IconName::ChevronDown
 variant IconName::ChevronLeft
 variant IconName::ChevronRight
 variant IconName::ChevronUp
+variant IconName::ChevronsUpDown
 variant IconName::Circle
 variant IconName::CircleAlert
 variant IconName::CircleCheck
