@@ -69,6 +69,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `Stat::value_tone(Tone)`: the value painted in a tone, for a total whose color says what it is, such as money that came in; the tone is taken toward ink as a badge's words are, so it keeps 4.5:1 over a card. RavenComponentBook has the setting `value_tone` and a story for each tone, and the page "Indicadores" of the Raven Feature Center shows it ([#994](https://github.com/alexkads/RavenRS/issues/994)).
 - `Card::tone(Tone)`: a card says by color what it is about, as a total of money that came in; the surface takes the tone at 10% and the hairline the tone at 30%, the proportions of `Alert`. `Tone::Neutral`, the default, draws the card as before, and `selected` still wins. RavenComponentBook has the setting `tone` and a story for each tone ([#989](https://github.com/alexkads/RavenRS/issues/989)).
 - RavenComponentBook: `DataGrid` has the setting `rows` and the stories "Empty" and "Empty, bare", so the card measures the empty text a list shows before its first row ([#993](https://github.com/alexkads/RavenRS/issues/993)).
 - Two Lucide icons: `IconName::CalendarCheck` and `ChevronsUpDown`, for a "today" filter and a menu a click opens (the account at the foot of a sidebar); the 205 icons there were keep their glyphs, and both came from lucide-static 1.73.0 by `scripts/gen-icons.py --add` ([#988](https://github.com/alexkads/RavenRS/issues/988)).

@@ -801,13 +801,21 @@ pub struct Stat {
     delta: Option<(String, bool, bool)>,
     caption: Option<String>,
     large: bool,
+    value_tone: Tone,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Stat {
     /// A stat showing `value` under `label`.
     pub fn new(label: impl Into<String>, value: impl Into<String>) -> Self {
-        Self { label: label.into(), value: value.into(), delta: None, caption: None, large: false }
+        Self {
+            label: label.into(),
+            value: value.into(),
+            delta: None,
+            caption: None,
+            large: false,
+            value_tone: Tone::Neutral,
+        }
     }
 
     /// A muted line under the value that says where it comes from or what it means, such as
@@ -826,6 +834,14 @@ impl Stat {
     /// A change such as `"+12.4%"`; `up` picks the color and arrow.
     pub fn delta(mut self, text: impl Into<String>, up: bool) -> Self {
         self.delta = Some((text.into(), up, up));
+        self
+    }
+
+    /// Paints the value in a tone, for a total whose color says what it is, such as money that
+    /// came in. The tone is taken toward ink as a badge's words are, so it keeps 4.5:1 over a card
+    /// in every theme; `Tone::Neutral`, the default, leaves the value in ink.
+    pub fn value_tone(mut self, tone: Tone) -> Self {
+        self.value_tone = tone;
         self
     }
 
@@ -852,7 +868,11 @@ impl View for Stat {
             value_attrs.size = 30.0;
             value_attrs.line_height = 36.0;
         }
-        let value = cx.text(&self.value, &value_attrs, theme.color(Semantic::Ink), LayoutStyle::leaf());
+        let value_color = match self.value_tone {
+            Tone::Neutral => theme.color(Semantic::Ink),
+            tone => tone.color(&theme).lerp(theme.color(Semantic::Ink), BADGE_TEXT_TOWARD_INK),
+        };
+        let value = cx.text(&self.value, &value_attrs, value_color, LayoutStyle::leaf());
         let mut children = vec![label, value];
         if let Some((text, up, good)) = &self.delta {
             let badge = Badge::new(text.clone())
