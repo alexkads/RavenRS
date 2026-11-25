@@ -418,6 +418,10 @@ pub enum IconName {
     CalendarCheck,
     /// The Lucide `chevrons-up-down` icon.
     ChevronsUpDown,
+    /// The Lucide `store` icon.
+    Store,
+    /// The Lucide `square-terminal` icon.
+    SquareTerminal,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -631,6 +635,8 @@ impl IconName {
         IconName::Workflow,
         IconName::CalendarCheck,
         IconName::ChevronsUpDown,
+        IconName::Store,
+        IconName::SquareTerminal,
     ];
 
     /// The Lucide name, e.g. `"chevron-down"`.
@@ -843,6 +849,8 @@ impl IconName {
             IconName::Workflow => "workflow",
             IconName::CalendarCheck => "calendar-check",
             IconName::ChevronsUpDown => "chevrons-up-down",
+            IconName::Store => "store",
+            IconName::SquareTerminal => "square-terminal",
         }
     }
 
@@ -1056,6 +1064,8 @@ impl IconName {
             IconName::Workflow => '\u{e425}',
             IconName::CalendarCheck => '\u{e2b7}',
             IconName::ChevronsUpDown => '\u{e211}',
+            IconName::Store => '\u{e3e4}',
+            IconName::SquareTerminal => '\u{e20a}',
         }
     }
 }
