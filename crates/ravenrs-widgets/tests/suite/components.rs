@@ -1435,6 +1435,9 @@ fn a_rounded_avatar_is_a_square_with_md_corners_and_crops_its_picture_the_same()
     });
     assert_eq!(cropped, Some([md; 4]), "the picture takes the same corners");
     assert!(photo.access_tree().find(ravenrs_core::Role::Image, "Ana Lima").is_some(), "and is still named");
+}
+
+#[test]
 fn a_stat_value_in_a_tone_reads_at_4_5_to_1_over_a_card_in_every_theme() {
     for theme in [Theme::raven_dark(), Theme::raven_light(), Theme::raven_glass()] {
         // The card over the canvas, as the eye sees a translucent glass surface.

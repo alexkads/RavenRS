@@ -1594,6 +1594,9 @@ fn avatars_take_a_size_a_picture_a_ring_and_a_circle_or_a_rounded_square() {
         .filter(|p| matches!(p, Primitive::Quad(q) if q.border.is_some_and(|b| b.width == 2.0 && b.color == accent)))
         .count();
     assert_eq!(rings, 1, "one ring, on the chosen one");
+}
+
+#[test]
 fn cards_are_clicked_chosen_and_toned_and_take_every_shape() {
     let mut c = Center::memory("ana");
     c.press("Cartões");
