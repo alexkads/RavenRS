@@ -136,7 +136,17 @@ CREATE TABLE IF NOT EXISTS ci_agent_templates (
     name TEXT PRIMARY KEY,
     body TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS ci_agent_leftovers (
+    template TEXT NOT NULL,
+    name TEXT NOT NULL,
+    since_ms INTEGER NOT NULL,
+    PRIMARY KEY (template, name)
+);
 ";
+
+/// How long the name of an agent taken down waits for an agent of its template to remove its
+/// folder before the server forgets it, saying so (#962).
+pub const LEFTOVER_MS: i64 = 30 * 24 * 60 * 60 * 1000;
 
 pub(crate) fn prepare(conn: &Connection) -> Result<(), CiError> {
     conn.execute_batch(SCHEMA).map_err(db)
@@ -190,6 +200,10 @@ pub struct Hello {
     /// server says which of them to forget (they ended without it) and gives back the rest.
     #[serde(default)]
     pub left: Vec<String>,
+    /// The agents taken down whose folders it was told of and that are no longer there: it
+    /// removed them, or found none. The server forgets them; the others it tells again (#962).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub removed: Vec<String>,
     /// The memory it holds with what it runs, in bytes, when it can tell.
     #[serde(default)]
     pub memory_bytes: Option<u64>,
@@ -404,8 +418,9 @@ struct State {
     /// The parts of attachments on their way, by run and name.
     parts: HashMap<(String, String), Vec<u8>>,
     launched: Vec<Launched>,
-    /// The agents taken down, by their template, until the next agent of it is told (#938).
-    leftovers: HashMap<String, Vec<String>>,
+    /// Whether the agents a life before brought up by a template were put among the leftovers
+    /// (#962): once, at the first tidy of this server.
+    recovered: bool,
     /// Until when a template (or a build's launcher) is not tried again, after a launch that
     /// failed or an agent that died before it came in.
     backoff: HashMap<String, i64>,
@@ -752,13 +767,7 @@ impl Ci {
                 }
             }
         }
-        {
-            let mut state = self.agents.state();
-            let template = state.launched.iter().find(|l| l.name == name).and_then(|l| l.template.clone());
-            if let Some(names) = template.and_then(|t| state.leftovers.remove(&t)) {
-                answer.leftovers = names.into_iter().filter(|other| other != name).collect();
-            }
-        }
+        answer.leftovers = self.leftovers_for(name, &hello.removed)?;
         for run in &hello.left {
             let record = runtime.get(run).ok();
             let ours = record.as_ref().is_some_and(|r| {
@@ -1104,6 +1113,15 @@ impl Ci {
         self.db()
             .execute("DELETE FROM ci_agent_templates WHERE name = ?1", params![name])
             .map_err(db_error)?;
+        let left = self
+            .db()
+            .execute("DELETE FROM ci_agent_leftovers WHERE template = ?1", params![name])
+            .map_err(db_error)?;
+        if left > 0 {
+            self.log.write(&format!(
+                "modelo {name} apagado: {left} pasta(s) de agentes derrubados ficaram sem quem as apague"
+            ));
+        }
         Ok(())
     }
 
@@ -1182,6 +1200,112 @@ impl Ci {
         self.dispatch(&waiting, now)?;
         self.tidy_launched(now);
         Ok(())
+    }
+
+    /// The folders of agents taken down that `name` is told to remove (#938, #962): those of its
+    /// template, kept in the core's file until an agent says they are gone. `name` itself is
+    /// alive, so it leaves the list; what `removed` names leaves it too.
+    fn leftovers_for(&self, name: &str, removed: &[String]) -> Result<Vec<String>, CiError> {
+        let launched =
+            self.agents.state().launched.iter().find(|l| l.name == name).and_then(|l| l.template.clone());
+        let db = self.db();
+        db.execute("DELETE FROM ci_agent_leftovers WHERE name = ?1", params![name]).map_err(db_error)?;
+        let template = match launched {
+            Some(template) => Some(template),
+            None => db
+                .query_row("SELECT launched_by FROM ci_agents WHERE name = ?1", params![name], |row| {
+                    row.get(0)
+                })
+                .optional()
+                .map_err(db_error)?
+                .flatten(),
+        };
+        let Some(template) = template else { return Ok(Vec::new()) };
+        for other in removed {
+            let gone = db
+                .execute(
+                    "DELETE FROM ci_agent_leftovers WHERE template = ?1 AND name = ?2",
+                    params![template, other],
+                )
+                .map_err(db_error)?;
+            if gone > 0 && check_name(other).is_err() {
+                self.log.write(&format!("sobra {other:?} do modelo {template} recusada pelo agente {name}"));
+            }
+        }
+        let mut stmt = db
+            .prepare(
+                "SELECT name FROM ci_agent_leftovers WHERE template = ?1 AND name <> ?2 ORDER BY since_ms",
+            )
+            .map_err(db_error)?;
+        let names = stmt.query_map(params![template, name], |row| row.get(0)).map_err(db_error)?;
+        names.collect::<Result<_, _>>().map_err(db_error)
+    }
+
+    /// Keeps `names`, agents of `template` taken down, among the leftovers (#962).
+    fn keep_leftovers(&self, left: &[(String, String)], now: i64) {
+        let db = self.db();
+        for (template, name) in left {
+            let kept = db.execute(
+                "INSERT OR IGNORE INTO ci_agent_leftovers (template, name, since_ms) VALUES (?1, ?2, ?3)",
+                params![template, name, now],
+            );
+            if let Err(e) = kept {
+                self.log.write(&format!("a sobra do agente {name} não foi guardada: {e}"));
+            }
+        }
+    }
+
+    /// Once, at the first tidy of this server: the agents a template brought up in a life before,
+    /// still in the list, went down with it; their folders join the leftovers (#962). And the
+    /// leftovers no agent removed in [`LEFTOVER_MS`] are forgotten, saying so.
+    fn tidy_leftovers(&self, now: i64) {
+        let first = !std::mem::replace(&mut self.agents.state().recovered, true);
+        if first {
+            let ours: BTreeSet<String> =
+                self.agents.state().launched.iter().map(|l| l.name.clone()).collect();
+            let templates: BTreeSet<String> =
+                self.agent_templates().unwrap_or_default().into_iter().map(|t| t.name).collect();
+            let before: Vec<(String, String)> = {
+                let db = self.db();
+                let rows = db
+                    .prepare("SELECT launched_by, name FROM ci_agents WHERE launched_by IS NOT NULL")
+                    .and_then(|mut stmt| {
+                        stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+                            .collect::<Result<Vec<_>, _>>()
+                    });
+                rows.unwrap_or_default()
+            };
+            let left: Vec<(String, String)> = before
+                .into_iter()
+                .filter(|(template, name)| templates.contains(template) && !ours.contains(name))
+                .collect();
+            if !left.is_empty() {
+                self.log.write(&format!(
+                    "{} agente(s) de modelo de antes do reinício entram nas sobras",
+                    left.len()
+                ));
+            }
+            self.keep_leftovers(&left, now);
+        }
+        let old: Vec<(String, String)> = {
+            let db = self.db();
+            let rows = db
+                .prepare("SELECT template, name FROM ci_agent_leftovers WHERE since_ms < ?1")
+                .and_then(|mut stmt| {
+                    stmt.query_map(params![now - LEFTOVER_MS], |row| Ok((row.get(0)?, row.get(1)?)))?
+                        .collect::<Result<Vec<_>, _>>()
+                });
+            rows.unwrap_or_default()
+        };
+        for (template, name) in old {
+            let _ = self.db().execute(
+                "DELETE FROM ci_agent_leftovers WHERE template = ?1 AND name = ?2",
+                params![template, name],
+            );
+            self.log.write(&format!(
+                "sobra do agente {name} esquecida: o modelo {template} não subiu agente em 30 dias"
+            ));
+        }
     }
 
     /// Ends `run`, held by the agent `name` that went quiet `ago` ms ago, as interrupted.
@@ -1357,6 +1481,8 @@ impl Ci {
         let mut failed: Vec<String> = Vec::new();
         // Agents of one build that died before coming in: the run, the agent, its tries and why.
         let mut died: Vec<(String, String, u32, String)> = Vec::new();
+        let mut left: Vec<(String, String)> = Vec::new();
+        self.tidy_leftovers(now);
         {
             let mut state = self.agents.state();
             let seen: HashMap<String, (bool, bool)> = state
@@ -1366,7 +1492,6 @@ impl Ci {
                     (name.clone(), (seen.assigned.is_empty(), now - seen.at_ms <= CONNECTED_MS))
                 })
                 .collect();
-            let mut left: Vec<(String, String)> = Vec::new();
             let gone = |left: &mut Vec<(String, String)>, launched: &Launched| {
                 if let Some(template) = &launched.template {
                     left.push((template.clone(), launched.name.clone()));
@@ -1421,13 +1546,11 @@ impl Ci {
                 }
                 true
             });
-            for (template, name) in left {
-                state.leftovers.entry(template).or_default().push(name);
-            }
             for key in failed {
                 state.backoff.insert(key, now + BACKOFF_MS);
             }
         }
+        self.keep_leftovers(&left, now);
         for (name, why) in going {
             self.log.write(&format!("agente {name} parado: {why}"));
             let _ = self.remove_agent(&name);

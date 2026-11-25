@@ -177,6 +177,8 @@ struct Agent {
     running: Mutex<HashMap<String, Arc<AgentSite>>>,
     /// The folders of builds a life before left, by run: given back or forgotten.
     left: Mutex<HashMap<String, PathBuf>>,
+    /// The agents taken down whose folders are no longer there, for the next hello (#962).
+    removed: Mutex<Vec<String>>,
     watching: Arc<limits::Watching>,
     doorbell: Arc<Doorbell>,
     stopping: Arc<AtomicBool>,
@@ -219,6 +221,7 @@ impl Agent {
             free: self.config.executors.saturating_sub(busy),
             running,
             left: self.left.lock().unwrap_or_else(PoisonError::into_inner).keys().cloned().collect(),
+            removed: self.removed.lock().unwrap_or_else(PoisonError::into_inner).drain(..).collect(),
             memory_bytes: limits::memory_now(),
             limits: self.config.limits.report(&self.config.dir),
             version: env!("CARGO_PKG_VERSION").to_owned(),
@@ -271,6 +274,11 @@ impl Agent {
                 for other in &answer.leftovers {
                     if let Some(said) = remove_leftover(&self.config.dir, other) {
                         say(&self.config.name, &said);
+                    }
+                    // Gone or never a folder of its own: the server forgets it. One in use or
+                    // touched lately stays, and comes again in a later hello (#962).
+                    if leftover_settled(&self.config.dir, other) {
+                        self.removed.lock().unwrap_or_else(PoisonError::into_inner).push(other.clone());
                     }
                 }
                 for run in answer.forget {
@@ -404,6 +412,15 @@ fn remove_leftover(own: &std::path::Path, other: &str) -> Option<String> {
     ))
 }
 
+/// Whether the server may forget the leftover `other`: its folder is not there, or the name is
+/// not one of a folder beside `own` (#962).
+fn leftover_settled(own: &std::path::Path, other: &str) -> bool {
+    if other.is_empty() || other.contains(['/', '\\']) || other.starts_with('.') {
+        return true;
+    }
+    own.parent().is_none_or(|parent| !parent.join(other).is_dir())
+}
+
 fn touched_lately(dir: &std::path::Path) -> bool {
     let Ok(entries) = std::fs::read_dir(dir) else { return false };
     let recent = |path: &std::path::Path| {
@@ -473,6 +490,7 @@ pub fn run(config: Config, stopping: Arc<AtomicBool>) -> Result<(), String> {
         plugins,
         running: Mutex::default(),
         left: Mutex::new(left_behind(&ci_workspaces)),
+        removed: Mutex::new(Vec::new()),
         watching: Arc::default(),
         doorbell: Arc::new(Doorbell::default()),
         stopping: stopping.clone(),
@@ -574,7 +592,7 @@ fn listen(agent: &Arc<Agent>) {
 
 #[cfg(test)]
 mod leftovers {
-    use super::remove_leftover;
+    use super::{leftover_settled, remove_leftover};
 
     #[test]
     fn a_folder_left_long_ago_goes_and_one_touched_lately_or_named_wrong_stays() {
@@ -600,9 +618,13 @@ mod leftovers {
         assert!(fresh.is_dir());
         assert!(remove_leftover(&own, "../fora").is_none(), "only a name beside its own");
         assert!(remove_leftover(&own, "modelo-b").is_none(), "never its own");
+        assert!(!leftover_settled(&own, "modelo-a"), "still there: the server tells it again");
         let said = remove_leftover(&own, "modelo-a").expect("removed");
         assert!(said.contains("modelo-a") && said.contains("MB liberados"), "{said}");
         assert!(!old.exists());
+        assert!(leftover_settled(&own, "modelo-a"), "gone: the server forgets it");
+        assert!(!leftover_settled(&own, "modelo-c"), "in use: it comes again");
+        assert!(leftover_settled(&own, "../fora"), "a name refused is forgotten too");
         let _ = std::fs::remove_dir_all(&base);
     }
 }

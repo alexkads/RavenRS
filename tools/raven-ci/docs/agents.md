@@ -291,6 +291,10 @@ Nothing a build starts outlives it, on the server or on an agent:
   its template: the next agent of that template, the same user on the same machine, is told in the
   answer to its hello and removes each folder beside its own that nothing touched in the last two
   minutes and no process has as its directory, saying how much it freed.
+  The list is kept in the server's file (#962): it outlives a restart, and a name leaves it only
+  when an agent says, in its next hello, that the folder is gone. One it left because it was in use
+  is told again. A name no agent of the template removed in 30 days is forgotten, and the server's
+  log says so; deleting the template forgets its list, saying how many folders were left.
 
 What runs where, on the server of the RPM:
 
@@ -315,7 +319,9 @@ machine by the cgroup instead, and a step sees the nice of the machine.
 
 After `systemctl restart raven-ci`: the server and the agents of `agent-local` it started stop
 (the agents are taken down with what they started); a build that was running is interrupted and
-taken up again by the next agent of its label; nothing of it stays running.
+taken up again by the next agent of its label; nothing of it stays running. The folders of the
+agents a template had brought up join its list when the server comes back, so the next agent of
+the template removes them (#962).
 
 ## Limits
 
