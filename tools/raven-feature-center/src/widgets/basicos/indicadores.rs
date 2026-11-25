@@ -59,6 +59,17 @@ impl View for StatPage {
                 ))
                 .spacing(16.0)
                 .wrap(),
+                Text::new("O tom do valor").style(TextStyle::Headline),
+                Text::new("Um total cuja cor diz o que ele é, como o dinheiro que entrou. O tom vai em direção à tinta, como as palavras de um selo, para ficar legível em todo tema.")
+                    .foreground(Semantic::InkMuted),
+                HStack::new((
+                    Card::new(Stat::new("Caixa", "R$ 2.180")),
+                    Card::new(Stat::new("Pós-venda", "R$ 1.240").value_tone(Tone::Success)),
+                    Card::new(Stat::new("A conferir", "R$ 310").value_tone(Tone::Warning)),
+                    Card::new(Stat::new("Estornado", "R$ 90").value_tone(Tone::Danger)),
+                ))
+                .spacing(16.0)
+                .wrap(),
             ))
             .spacing(12.0)
             .padding(16.0)

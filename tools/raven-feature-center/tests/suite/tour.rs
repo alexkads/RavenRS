@@ -7,8 +7,8 @@ use std::rc::Rc;
 
 use ravenrs_app::{ActionInput, Object, ObjectSpace, Query, SpaceError, Value};
 use ravenrs_app_ui::Session;
-use ravenrs_core::{AccessAction, Role, Size, Toggled};
-use ravenrs_style::Theme;
+use ravenrs_core::{AccessAction, Primitive, Role, Size, Toggled};
+use ravenrs_style::{Semantic, Theme};
 use ravenrs_widgets::Ui;
 
 use raven_feature_center::seed::PASSWORD;
@@ -1966,6 +1966,23 @@ fn the_stats_say_their_number_with_a_caption_and_the_change_since_before() {
         assert!(c.says(change), "{change}: {:?}", c.texts());
     }
     assert!(c.says("Lida do processo, ao vivo; meta ≤ 60 MB"), "{:?}", c.texts());
+    // value_tone: the totals painted in their tone, taken toward ink as a badge's words are.
+    assert!(c.says("PÓS-VENDA") && c.says("R$ 1.240"), "{:?}", c.texts());
+    let theme = Theme::raven_dark();
+    let ink = theme.color(Semantic::Ink);
+    let colors: Vec<_> =
+        c.ui.scene()
+            .primitives()
+            .iter()
+            .filter_map(|p| {
+                if let Primitive::Glyphs(run) = p { (run.size == 30.0).then_some(run.color) } else { None }
+            })
+            .collect();
+    for tone in [Semantic::Success, Semantic::Warning, Semantic::Danger] {
+        let toned = theme.color(tone).lerp(ink, 0.3);
+        assert!(colors.contains(&toned), "a value in {tone:?}: {colors:?}");
+    }
+    assert!(colors.contains(&ink), "and the plain value stays in ink");
 }
 
 #[test]

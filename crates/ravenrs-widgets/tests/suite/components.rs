@@ -8,6 +8,13 @@ use ravenrs_reactive::State;
 use ravenrs_style::{Semantic, Theme};
 use ravenrs_widgets::*;
 
+fn in_theme(view: impl View + 'static, theme: Theme) -> Ui {
+    let mut ui = Ui::new(view, theme);
+    ui.set_viewport(Size::new(800.0, 600.0), 1.0);
+    ui.update();
+    ui
+}
+
 fn ui(view: impl View + 'static) -> Ui {
     let mut ui = Ui::new(view, Theme::raven_dark());
     ui.set_viewport(Size::new(800.0, 600.0), 1.0);
@@ -1408,4 +1415,38 @@ fn labels_fill_their_templates_in_each_language() {
     assert_eq!(pt.rating_value(3, 5), "3 de 5");
     assert_eq!(en.wizard_progress(2, 4), "Step 2 of 4");
     assert_eq!(pt.tag_add("azul"), "Adicionar \"azul\"");
+}
+
+#[test]
+fn a_stat_value_in_a_tone_reads_at_4_5_to_1_over_a_card_in_every_theme() {
+    for theme in [Theme::raven_dark(), Theme::raven_light(), Theme::raven_glass()] {
+        // The card over the canvas, as the eye sees a translucent glass surface.
+        let card = theme.color(Semantic::SurfaceElevated);
+        let ground = theme.color(Semantic::Canvas).lerp(card.with_alpha(1.0), card.a);
+        let ink = theme.color(Semantic::Ink);
+        for tone in [Tone::Accent, Tone::Success, Tone::Warning, Tone::Danger] {
+            let ui = in_theme(Stat::new("Pós-venda", "R$ 1.240").value_tone(tone), theme);
+            let painted = ui
+                .scene()
+                .primitives()
+                .iter()
+                .find_map(|p| match p {
+                    Primitive::Glyphs(run) if run.size == 30.0 => Some(run.color),
+                    _ => None,
+                })
+                .expect("the value is painted");
+            assert_ne!(painted, ink, "{tone:?} paints the value in its tone");
+            let ratio = painted.contrast_ratio(ground);
+            assert!(ratio >= 4.5, "{tone:?} reads at {ratio:.2}:1");
+        }
+        let plain = in_theme(Stat::new("Caixa", "R$ 2.180"), theme);
+        assert!(
+            plain
+                .scene()
+                .primitives()
+                .iter()
+                .any(|p| matches!(p, Primitive::Glyphs(run) if run.size == 30.0 && run.color == ink)),
+            "without a tone the value stays in ink"
+        );
+    }
 }
