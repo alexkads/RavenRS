@@ -576,6 +576,37 @@ impl BugReporter {
     }
 }
 
+/// What RavenComponentBook needs to show a report half written (#984).
+#[cfg(feature = "book")]
+impl BugReporter {
+    /// Opens it as a story shows it: with `film` in place of what the recorder kept,
+    /// the kind at `kind`, the film in or out, and, when `marked` says so, a box
+    /// already drawn over the elements it names.
+    pub(crate) fn open_as_story(
+        &self,
+        film: Option<Movie>,
+        kind: usize,
+        include: bool,
+        marked: Option<(Rect, Vec<String>)>,
+    ) {
+        self.open();
+        {
+            let mut draft = self.draft.borrow_mut();
+            draft.editor = film.map(EditorState::new);
+            if let Some((area, elements)) = &marked {
+                draft.elements = elements.clone();
+                if let Some(editor) = draft.editor.clone() {
+                    let region = Region::new(area.x(), area.y(), area.width(), area.height());
+                    draft.light = Some(editor.light_at_end(region, None));
+                }
+            }
+        }
+        self.marked.set(marked.map(|(area, _)| area));
+        self.kind.set(kind.min(self.labels.kinds.len().saturating_sub(1)));
+        self.include.set(include);
+    }
+}
+
 impl View for BugReporter {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         if !self.open.get() {
