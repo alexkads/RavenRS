@@ -6555,7 +6555,9 @@ name = "raven-report-designer"
 version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
+ "image",
  "js-sys",
+ "pollster",
  "ravenrs",
  "ravenrs-app-update",
  "ravenrs-e2e",
