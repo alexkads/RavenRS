@@ -2926,6 +2926,7 @@ method Card::on_click
 method Card::padding
 method Card::selected
 method Card::shadow
+method Card::tone
 method CardView::card_height
 method CardView::card_name
 method CardView::card_width
