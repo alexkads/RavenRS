@@ -151,6 +151,7 @@ demonstrations! {
     caixas_de_selecao => "Caixas de seleção",
     avatares => "Avatar",
     cartoes => "Cartões",
+    listas_de_escolha => "Listas de escolha",
     lista => "Lista",
     agenda_por_recurso => "Agenda por recurso",
 }

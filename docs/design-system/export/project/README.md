@@ -144,7 +144,7 @@ RavenComponentBook writes every file of this system from the RavenRS code, and t
 | Actions and inputs | `ValueSlider` | A value in small that opens a slider or can be typed | 2 |
 | Actions and inputs | `Wizard` | A task in steps that can refuse to be left | 1 |
 | Forms | `TextField` | Single-line text input with placeholder, icon, prefix, suffix and a clear button | 9 |
-| Forms | `Select` | Picks one option from a list that opens under the field, with search when it is long | 7 |
+| Forms | `Select` | Picks one option from a list that opens under the field, with search when it is long | 8 |
 | Forms | `Calendar` | Month grid to pick a date | 1 |
 | Forms | `Combobox` | Select with a search box that filters the options | 3 |
 | Forms | `DatePicker` | Field that opens a calendar in a popover | 3 |
