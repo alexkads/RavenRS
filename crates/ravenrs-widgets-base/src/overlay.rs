@@ -19,7 +19,7 @@ fn panel_paint(theme: &Theme) -> Paint {
         corner_radius: theme.radii.lg,
         border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
         shadow: Some(theme.elevation.raised),
-        ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
+        ..QuadPaint::new(theme.floating_surface())
     })
 }
 
@@ -1526,7 +1526,7 @@ impl View for DialogLayer<'_> {
                 corner_radius: theme.radii.xl,
                 border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
                 shadow: Some(theme.elevation.raised),
-                ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
+                ..QuadPaint::new(theme.floating_surface())
             }),
         );
         let mut semantics = Semantics::new(Role::Dialog).name(d.title.clone()).modal();

@@ -57,3 +57,28 @@ fn an_application_s_own_pair_replaces_raven_s_when_following() {
     ui.system_themes(Theme::raven_glass(), dark);
     assert_eq!(ui.theme().name, Theme::raven_glass().name);
 }
+
+/// A dialog open over a full screen in glass paints a nearly opaque surface, so the screen
+/// behind never crosses its text; cards in the page stay a veil (#978).
+#[test]
+fn a_dialog_in_glass_is_nearly_opaque_over_the_screen_behind() {
+    use ravenrs_core::{Brush, Primitive, Size};
+    use ravenrs_reactive::State;
+    let open = State::new(true);
+    let view = VStack::new((
+        Text::new("Relatório de vendas por região, com bandas, campos e fórmulas atrás do diálogo"),
+        Dialog::new(open.binding(), "Novo relatório").content(Text::new("Comece por um modelo pronto")),
+    ));
+    let glass = Theme::raven_glass();
+    let mut ui = Ui::new(view, glass);
+    ui.set_viewport(Size::new(900.0, 600.0), 1.0);
+    for _ in 0..4 {
+        ui.update();
+    }
+    let want = glass.floating_surface();
+    let found = ui.scene().primitives().iter().any(|p| {
+        matches!(p, Primitive::Quad(q) if matches!(q.fill, Brush::Solid(c) if c == want) && q.rect.width() > 200.0)
+    });
+    assert!(found, "the dialog paints the floating surface");
+    assert!(want.a >= ravenrs_style::FLOATING_OPACITY, "{want:?}");
+}
