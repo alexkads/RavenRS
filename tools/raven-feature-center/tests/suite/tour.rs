@@ -2202,3 +2202,44 @@ fn menus_open_from_a_button_or_any_view_with_a_header_titled_sections_and_every_
     c.settle();
     assert!(c.says("Tema: Escuro"), "{:?}", c.texts());
 }
+
+#[test]
+fn tabs_switch_views_in_two_looks_and_three_sizes_and_send_what_does_not_fit_to_a_menu() {
+    let mut c = Center::memory("ana");
+    c.press("Abas");
+    c.settle();
+    // new and tab: the open tab builds its view.
+    assert!(c.says("O que aconteceu hoje."), "{:?}", c.texts());
+    c.activate("Ajustes");
+    c.settle();
+    assert!(c.says("Preferências da conta."), "{:?}", c.texts());
+    // item, variant and size: six channels in 360, with the last ones in the menu of each bar.
+    let tree = c.ui.access_tree();
+    let menus = tree
+        .nodes
+        .iter()
+        .filter(|n| n.role == Role::Button && n.name.as_deref() == Some("Mais abas"))
+        .count();
+    assert_eq!(menus, 2, "one menu in each look: {:?}", c.texts());
+    assert!(c.says("Canal: Todas"), "{:?}", c.texts());
+    let more = tree
+        .nodes
+        .iter()
+        .find(|n| n.role == Role::Button && n.name.as_deref() == Some("Mais abas"))
+        .map(|n| n.id)
+        .expect("the menu of the first bar");
+    c.ui.perform_action(more, AccessAction::Click);
+    c.settle();
+    let site = c.ui.access_tree().find(Role::MenuItem, "Site").map(|n| n.id).expect("Site in the menu");
+    c.ui.perform_action(site, AccessAction::Click);
+    c.settle();
+    assert!(c.says("Canal: Site"), "{:?}", c.texts());
+    // size: three bars, and disabled: the bar that waits keeps its tab.
+    for name in ["Hoje", "Semana", "Mês", "Rascunho", "Enviando"] {
+        assert!(c.ui.access_tree().find(Role::Tab, name).is_some(), "{name}: {:?}", c.texts());
+    }
+    c.activate("Rascunho");
+    c.settle();
+    let tree = c.ui.access_tree();
+    assert_eq!(tree.find(Role::Tab, "Enviando").and_then(|n| n.selected), Some(true), "it did not change");
+}
