@@ -1494,3 +1494,76 @@ fn a_select_with_an_icon_draws_it_before_the_value_in_ink_muted() {
     let mut pinned = pinned;
     assert!(pinned.access_tree().find(ravenrs_core::Role::ComboBox, "Estúdio").is_some(), "the same name");
 }
+
+#[test]
+fn a_dropdown_menu_opens_from_any_view_by_click_or_key_and_gives_it_the_focus_back() {
+    let open = State::new(false);
+    let mut ui = ui(VStack::new((DropdownMenu::new("Conta")
+        .trigger(HStack::new((Avatar::new("Ana Lima"), Text::new("Ana Lima"))).spacing(8.0))
+        .open(open.binding())
+        .item(MenuItem::new("Sair")),))
+    .padding(20.0));
+    let at = ui
+        .access_tree()
+        .find(ravenrs_core::Role::Button, "Conta")
+        .map(|n| n.bounds.center())
+        .expect("the view is a button named by the label");
+    click(&mut ui, at);
+    assert!(open.get(), "a click on the view opens the menu");
+    key(&mut ui, Key::Escape);
+    assert!(!open.get(), "Escape closes it");
+    key(&mut ui, Key::Enter);
+    assert!(open.get(), "the focus came back to the view, and Enter opens it again");
+}
+
+#[test]
+fn a_menu_title_names_its_group_and_the_arrows_pass_over_it() {
+    let picked = State::new(String::new());
+    let (first, second) = (picked.clone(), picked.clone());
+    let open = State::new(true);
+    let mut ui = ui(VStack::new((DropdownMenu::new("Conta")
+        .open(open.binding())
+        .item(MenuItem::new("Configurações").on_select(move || first.set("Configurações".to_owned())))
+        .separator()
+        .label("Tema")
+        .item(MenuItem::new("Claro").on_select(move || second.set("Claro".to_owned()))),))
+    .padding(20.0));
+    ui.update();
+    ui.update();
+    let tree = ui.access_tree();
+    assert!(
+        tree.find(ravenrs_core::Role::Group, "Tema").is_some(),
+        "the section is a group named by its title"
+    );
+    assert!(
+        tree.nodes
+            .iter()
+            .all(|n| n.role != ravenrs_core::Role::MenuItem || n.name.as_deref() != Some("TEMA")),
+        "the title is no item"
+    );
+    key(&mut ui, Key::ArrowDown);
+    key(&mut ui, Key::Enter);
+    assert_eq!(picked.get(), "Claro", "the arrow went from the first item over the title to the next");
+}
+
+#[test]
+fn a_menu_header_sits_above_the_items_without_taking_the_focus() {
+    let picked = State::new(String::new());
+    let chosen = picked.clone();
+    let open = State::new(true);
+    let mut ui = ui(VStack::new((DropdownMenu::new("Conta")
+        .open(open.binding())
+        .header(VStack::new((Text::new("Ana Lima"), Text::new("ana@exemplo.com"))))
+        .item(MenuItem::new("Sair").on_select(move || chosen.set("Sair".to_owned()))),))
+    .padding(20.0));
+    ui.update();
+    ui.update();
+    let tree = ui.access_tree();
+    let header = tree.nodes.iter().find(|n| n.name.as_deref() == Some("ana@exemplo.com")).map(|n| n.bounds);
+    let item = tree.find(ravenrs_core::Role::MenuItem, "Sair").map(|n| n.bounds);
+    let (header, item) = (header.expect("the header"), item.expect("the item"));
+    assert!(header.max_y() <= item.y(), "the header is above the items");
+    key(&mut ui, Key::Enter);
+    assert_eq!(picked.get(), "Sair", "the focus opened on the first item, not on the header");
+    assert!(!open.get(), "choosing it closed the menu");
+}

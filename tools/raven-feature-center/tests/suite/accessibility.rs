@@ -152,6 +152,7 @@ demonstrations! {
     avatares => "Avatar",
     cartoes => "Cartões",
     listas_de_escolha => "Listas de escolha",
+    menus => "Menus",
     lista => "Lista",
     agenda_por_recurso => "Agenda por recurso",
 }

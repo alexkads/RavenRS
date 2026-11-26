@@ -492,6 +492,10 @@ impl MenuItem {
 pub enum Entry {
     Item(MenuItem),
     Separator,
+    /// A title over the items up to the next separator or title.
+    Label(String),
+    /// A view at the top of the menu, above a line.
+    Header(AnyView),
 }
 
 /// A button that opens a list of actions. The first item takes focus as the
@@ -506,6 +510,8 @@ pub struct DropdownMenu {
     icon_only: bool,
     entries: Vec<Entry>,
     open: Option<Binding<bool>>,
+    trigger: Option<AnyView>,
+    placement: Placement,
 }
 
 impl fmt::Debug for DropdownMenu {
@@ -526,6 +532,8 @@ impl DropdownMenu {
             icon_only: false,
             entries: Vec::new(),
             open: None,
+            trigger: None,
+            placement: Placement::Below,
         }
     }
 
@@ -533,6 +541,37 @@ impl DropdownMenu {
     /// first item takes the focus, as on a click) and the app knows when it closes.
     pub fn open(mut self, open: Binding<bool>) -> Self {
         self.open = Some(open);
+        self
+    }
+
+    /// Opens the menu from `view` in place of the button, as the account at the foot of a
+    /// sidebar: a click on the view, or Enter or Space with the focus on it, opens it, and Escape
+    /// gives the focus back to it. The label stays as the name screen readers announce, so make
+    /// it say what the view is ("Account").
+    pub fn trigger(mut self, view: impl View + 'static) -> Self {
+        self.trigger = Some(Box::new(view));
+        self
+    }
+
+    /// Where the menu opens from its trigger: below, by default; [`Placement::Right`] beside the
+    /// rail of a sidebar.
+    pub fn placement(mut self, placement: Placement) -> Self {
+        self.placement = placement;
+        self
+    }
+
+    /// A view at the top of the menu, above a line, as who is signed in: it takes no focus, and a
+    /// click on it closes nothing. A second call replaces the first.
+    pub fn header(mut self, view: impl View + 'static) -> Self {
+        self.entries.retain(|entry| !matches!(entry, Entry::Header(_)));
+        self.entries.insert(0, Entry::Header(Box::new(view)));
+        self
+    }
+
+    /// A title over the items that follow, up to the next separator or title, as "Theme" over
+    /// the themes. It takes no focus; screen readers hear those items as a group with its name.
+    pub fn label(mut self, text: impl Into<String>) -> Self {
+        self.entries.push(Entry::Label(text.into()));
         self
     }
 
@@ -899,6 +938,17 @@ struct MenuLevel<'a> {
     pointer_in: Option<Rc<dyn Fn()>>,
 }
 
+/// The items under a title of a menu, as one group named by it.
+fn menu_section(cx: &mut BuildCx<'_>, name: &str, members: &[NodeId]) -> NodeId {
+    let node = cx.container(
+        LayoutStyle { align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
+        members,
+        Paint::None,
+    );
+    cx.semantics(node, Semantics::new(Role::Group).name(name));
+    node
+}
+
 impl View for MenuLevel<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let mut rows = Vec::new();
@@ -928,6 +978,8 @@ impl View for MenuLevel<'_> {
             aim.due.set(None);
         }
         let mut item_index = 0;
+        // The items under a title, kept apart to become a group named by it.
+        let mut section: Option<(&str, Vec<NodeId>)> = None;
         for (i, entry) in self.entries.iter().enumerate() {
             match entry {
                 Entry::Item(item) => {
@@ -955,9 +1007,60 @@ impl View for MenuLevel<'_> {
                         aim: has_submenus.then(|| aim.clone()),
                         pointer_in: self.pointer_in.clone(),
                     };
-                    rows.push(cx.keyed_child(i as u64, &row));
+                    let child = cx.keyed_child(i as u64, &row);
+                    match &mut section {
+                        Some((_, members)) => members.push(child),
+                        None => rows.push(child),
+                    }
+                }
+                Entry::Label(text) => {
+                    if let Some((name, members)) = section.take() {
+                        rows.push(menu_section(cx, name, &members));
+                    }
+                    let color = cx.theme().color(Semantic::InkMuted);
+                    let title =
+                        util::label(cx, &text.to_uppercase(), ravenrs_style::TextStyle::Caption, None, color);
+                    let line = cx.container(
+                        LayoutStyle {
+                            height: Some(28.0),
+                            padding: Insets::symmetric(0.0, 10.0),
+                            align: Align::Center,
+                            ..LayoutStyle::stack(Axis::Horizontal)
+                        },
+                        &[title],
+                        Paint::None,
+                    );
+                    // The group says the name; the title itself is not read twice.
+                    cx.semantics(line, Semantics::hidden());
+                    rows.push(line);
+                    section = Some((text.as_str(), Vec::new()));
+                }
+                Entry::Header(view) => {
+                    let inner = cx.child(view.as_ref());
+                    rows.push(cx.container(
+                        LayoutStyle {
+                            padding: Insets::symmetric(8.0, 10.0),
+                            align: Align::Stretch,
+                            ..LayoutStyle::stack(Axis::Vertical)
+                        },
+                        &[inner],
+                        Paint::None,
+                    ));
+                    let line = cx.child(&crate::Divider::horizontal());
+                    rows.push(cx.container(
+                        LayoutStyle {
+                            padding: Insets::symmetric(4.0, 4.0),
+                            align: Align::Stretch,
+                            ..LayoutStyle::stack(Axis::Vertical)
+                        },
+                        &[line],
+                        Paint::None,
+                    ));
                 }
                 Entry::Separator => {
+                    if let Some((name, members)) = section.take() {
+                        rows.push(menu_section(cx, name, &members));
+                    }
                     let line = cx.child(&crate::Divider::horizontal());
                     rows.push(cx.container(
                         LayoutStyle {
@@ -970,6 +1073,9 @@ impl View for MenuLevel<'_> {
                     ));
                 }
             }
+        }
+        if let Some((name, members)) = section.take() {
+            rows.push(menu_section(cx, name, &members));
         }
         let node = panel(cx, &rows, 6.0, 220.0);
         cx.semantics(node, Semantics::new(Role::Menu));
@@ -991,16 +1097,45 @@ impl View for DropdownMenu {
         let own: State<bool> = cx.use_state(|| false);
         let open: Binding<bool> = self.open.clone().unwrap_or_else(|| own.binding());
         let toggle = open.clone();
-        let shown = if self.icon_only { String::new() } else { self.label.clone() };
-        let mut trigger =
-            Button::new(shown).style(self.style).size(self.size).on_click(move || toggle.set(!toggle.get()));
-        if !self.icon_only {
-            trigger = trigger.trailing_icon(IconName::ChevronDown);
-        }
-        if let Some(icon) = self.icon {
-            trigger = trigger.icon(icon);
-        }
-        let anchor = cx.child(&trigger);
+        let anchor = if let Some(view) = &self.trigger {
+            // Any view: it is clicked, or focused and pressed, as the button would be.
+            let inner = cx.child(view.as_ref());
+            let node = cx.container(
+                LayoutStyle { align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
+                &[inner],
+                Paint::None,
+            );
+            cx.on_click(node, Rc::new(move || toggle.set(!toggle.get())));
+            let by_key = open.clone();
+            cx.on_key(
+                node,
+                Rc::new(move |key, _| {
+                    let opens = matches!(key, ravenrs_core::Key::Enter | ravenrs_core::Key::Space);
+                    if opens {
+                        by_key.set(!by_key.get());
+                    }
+                    opens
+                }),
+            );
+            let radius = cx.theme().radii.md;
+            cx.focusable(node, radius);
+            cx.cursor(node, CursorIcon::Pointer);
+            cx.semantics(node, Semantics::new(Role::Button).name(self.label.clone()));
+            node
+        } else {
+            let shown = if self.icon_only { String::new() } else { self.label.clone() };
+            let mut trigger = Button::new(shown)
+                .style(self.style)
+                .size(self.size)
+                .on_click(move || toggle.set(!toggle.get()));
+            if !self.icon_only {
+                trigger = trigger.trailing_icon(IconName::ChevronDown);
+            }
+            if let Some(icon) = self.icon {
+                trigger = trigger.icon(icon);
+            }
+            cx.child(&trigger)
+        };
         menu_opener(cx, anchor, &open);
         let is_open = open.get();
         let name = self.icon_only.then(|| self.label.clone());
@@ -1019,7 +1154,7 @@ impl View for DropdownMenu {
             };
             cx.overlay(
                 anchor,
-                Placement::Below,
+                self.placement,
                 &MenuList { entries: &self.entries, close: close.clone(), on_side: None },
                 Some(close),
             );

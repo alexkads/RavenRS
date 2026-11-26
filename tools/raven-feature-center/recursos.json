@@ -85,7 +85,7 @@
 {"crate": "ravenrs-widgets-base", "tipo": "DateRangePicker", "pendente": true, "issue": 579, "conhecidos": ["disabled", "label", "new", "placeholder", "preset", "range", "read_only", "today", "width"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Dialog", "pendente": true, "issue": 579, "conhecidos": ["action", "close_button", "close_label", "close_on_backdrop", "close_on_escape", "content", "description", "new", "width"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Divider", "pendente": true, "issue": 579, "conhecidos": ["horizontal", "vertical"]},
-{"crate": "ravenrs-widgets-base", "tipo": "DropdownMenu", "pendente": true, "issue": 579, "conhecidos": ["icon", "icon_only", "item", "new", "open", "separator", "size", "style"]},
+{"crate": "ravenrs-widgets-base", "tipo": "DropdownMenu", "pagina": "Menus", "recursos": ["header", "icon", "icon_only", "item", "label", "new", "open", "placement", "separator", "size", "style", "trigger"]},
 {"crate": "ravenrs-widgets-base", "tipo": "FavoriteToggle", "pendente": true, "issue": 579, "conhecidos": ["color", "label", "new", "size", "star"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Footer", "pendente": true, "issue": 579, "conhecidos": ["breakpoint", "center", "divider", "left", "link", "new", "right", "stacked", "text"]},
 {"crate": "ravenrs-widgets-base", "tipo": "FormField", "pendente": true, "issue": 579, "conhecidos": ["accessible_description", "accessible_name", "error", "error_text", "hint", "label_ink", "new", "note_text", "required", "show_errors", "tint", "validate"]},

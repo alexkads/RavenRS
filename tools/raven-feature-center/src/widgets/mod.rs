@@ -94,6 +94,13 @@ pub const PAGES: &[Page] = &[
         make: || Box::new(basicos::listas_de_escolha::SelectsPage),
     },
     Page {
+        id: basicos::menus::ID,
+        caption: basicos::menus::PAGE,
+        group: "Básicos",
+        icon: IconName::Menu,
+        make: || Box::new(basicos::menus::MenusPage),
+    },
+    Page {
         id: basicos::progresso::ID,
         caption: basicos::progresso::PAGE,
         group: "Básicos",
