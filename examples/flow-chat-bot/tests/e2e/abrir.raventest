@@ -6,4 +6,4 @@ check #node:menu = Boas-vindas                 | E segue para as boas-vindas
 fill Nome do fluxo = Atendimento               | Dar um nome à conversa
 click Salvar                                   | Salvar
 check Salvo = Salvo                            | Ela fica salva
-mention Atendimento = 7 nós                    | E entra na lista, com os sete blocos
+mention #document:Atendimento = 7 nós          | E entra na lista, com os sete blocos

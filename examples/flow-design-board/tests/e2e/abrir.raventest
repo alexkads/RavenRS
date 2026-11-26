@@ -1,8 +1,8 @@
 scenario: Design board: salvar o quadro
 // O quadro de exemplo tem doze peças; com um nome e salvo, ele entra na lista.
 open Design board                              | Abrir o quadro de design
-mention Sem nome = 12 nós                      | O quadro de exemplo tem doze peças
+mention #document:Sem nome = 12 nós            | O quadro de exemplo tem doze peças
 fill Nome do fluxo = Tela de pedidos           | Dar um nome ao quadro
 click Salvar                                   | Salvar
 check Salvo = Salvo                            | Ele fica salvo
-mention Tela de pedidos = 12 nós               | E entra na lista
+mention #document:Tela de pedidos = 12 nós     | E entra na lista
