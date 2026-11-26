@@ -90,9 +90,16 @@ pub struct Carrinho {
 }
 
 impl Carrinho {
-    /// Adds a line.
-    pub fn adicionar(&mut self, linha: Linha) {
+    /// Adds a line, or says why not: a price below zero, or a quantity that is not above it.
+    pub fn adicionar(&mut self, linha: Linha) -> Result<(), String> {
+        if linha.preco < Decimal::ZERO {
+            return Err(format!("O preço de {} não pode ser negativo.", linha.descricao));
+        }
+        if linha.quantidade <= Decimal::ZERO {
+            return Err("A quantidade precisa ser maior que zero.".to_owned());
+        }
         self.linhas.push(linha);
+        Ok(())
     }
 
     /// Takes out the last line, and gives it.
@@ -233,8 +240,8 @@ mod tests {
     #[test]
     fn totals_do_not_lose_a_cent() {
         let mut carrinho = Carrinho::default();
-        carrinho.adicionar(linha("0.10", "3"));
-        carrinho.adicionar(linha("5.49", "3"));
+        assert!(carrinho.adicionar(linha("0.10", "3")).is_ok());
+        assert!(carrinho.adicionar(linha("5.49", "3")).is_ok());
         assert_eq!(carrinho.total().to_string(), "16.77");
         assert_eq!(carrinho.ultimo().map(Linha::total).map(|t| t.to_string()), Some("16.47".to_owned()));
     }
@@ -242,9 +249,9 @@ mod tests {
     #[test]
     fn lines_come_out_by_position_or_the_last() {
         let mut carrinho = Carrinho::default();
-        carrinho.adicionar(linha("1", "1"));
-        carrinho.adicionar(linha("2", "1"));
-        carrinho.adicionar(linha("3", "1"));
+        assert!(carrinho.adicionar(linha("1", "1")).is_ok());
+        assert!(carrinho.adicionar(linha("2", "1")).is_ok());
+        assert!(carrinho.adicionar(linha("3", "1")).is_ok());
         assert_eq!(carrinho.cancelar_item(0), None);
         assert_eq!(carrinho.cancelar_item(9), None);
         assert_eq!(carrinho.cancelar_item(1).map(|l| l.preco), Some(Decimal::ONE));
@@ -255,7 +262,7 @@ mod tests {
     #[test]
     fn a_sale_comes_back_as_it_was_kept() {
         let mut carrinho = Carrinho::default();
-        carrinho.adicionar(linha("5.49", "1.500"));
+        assert!(carrinho.adicionar(linha("5.49", "1.500")).is_ok());
         carrinho.cliente = Some("12345678909".into());
         assert_eq!(Carrinho::de_texto(&carrinho.para_texto()), Ok(carrinho));
         assert!(Carrinho::de_texto("nada").is_err());
@@ -282,5 +289,15 @@ mod tests {
         assert!(troco(Forma::Dinheiro, total, Decimal::from(50)).is_err());
         assert!(troco(Forma::Pix, total, Decimal::from(100)).is_err());
         assert_eq!(troco(Forma::Pix, total, total), Ok(Decimal::ZERO));
+    }
+
+    #[test]
+    fn a_line_below_zero_is_refused_and_the_cart_stays_as_it_was() {
+        let mut carrinho = Carrinho::default();
+        assert!(carrinho.adicionar(linha("2", "1")).is_ok());
+        assert!(carrinho.adicionar(linha("-5", "1")).is_err(), "a negative price");
+        assert!(carrinho.adicionar(linha("5", "0")).is_err(), "no quantity");
+        assert_eq!(carrinho.linhas.len(), 1);
+        assert_eq!(carrinho.total(), Decimal::from(2));
     }
 }

@@ -222,6 +222,7 @@
 {"crate": "ravenrs-widgets-kit", "tipo": "StepBadge", "pendente": true, "issue": 579, "conhecidos": ["new", "size", "state"]},
 {"crate": "ravenrs-widgets-kit", "tipo": "StepIndicator", "pendente": true, "issue": 579, "conhecidos": ["new", "on_select", "vertical"]},
 {"crate": "ravenrs-widgets-kit", "tipo": "Table", "pendente": true, "issue": 579, "conhecidos": ["new", "row"]},
+{"crate": "ravenrs-widgets-kit", "tipo": "Receipt", "pagina": "Cupom", "recursos": ["empty_text", "line", "new", "subtitle", "summary", "title", "total"]},
 {"crate": "ravenrs-widgets-kit", "tipo": "Tabs", "pendente": true, "issue": 579, "conhecidos": ["disabled", "item", "new", "size", "tab", "variant"]},
 {"crate": "ravenrs-widgets-kit", "tipo": "TagBox", "pendente": true, "issue": 579, "conhecidos": ["allow_new", "disabled", "fill", "label", "most", "new", "placeholder", "read_only", "width"]},
 {"crate": "ravenrs-widgets-kit", "tipo": "TextArea", "pendente": true, "issue": 579, "conhecidos": ["code", "cursor", "disabled", "focus_request", "grows", "history", "new", "placeholder", "read_only", "rows", "width"]},

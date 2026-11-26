@@ -115,6 +115,13 @@ pub const PAGES: &[Page] = &[
         make: || Box::new(basicos::texto::TextPage),
     },
     Page {
+        id: kit::cupom::ID,
+        caption: kit::cupom::PAGE,
+        group: "Kit",
+        icon: IconName::Store,
+        make: || Box::new(kit::cupom::ReceiptPage),
+    },
+    Page {
         id: kit::expressoes::ID,
         caption: kit::expressoes::PAGE,
         group: "Kit",

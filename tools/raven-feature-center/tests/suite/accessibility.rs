@@ -154,6 +154,7 @@ demonstrations! {
     listas_de_escolha => "Listas de escolha",
     menus => "Menus",
     lista => "Lista",
+    cupom => "Cupom",
     agenda_por_recurso => "Agenda por recurso",
 }
 

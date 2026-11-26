@@ -299,9 +299,15 @@ impl Caixa {
         let achado = produto_por_codigo(&*space.borrow(), &leitura.codigo);
         match achado {
             Some(achado) => {
-                self.problema.set(None);
                 let linha = linha_de(&achado.produto, leitura.quantidade * achado.fator);
-                self.carrinho.update(|carrinho| carrinho.adicionar(linha));
+                let mut carrinho = self.carrinho.get();
+                match carrinho.adicionar(linha) {
+                    Ok(()) => {
+                        self.problema.set(None);
+                        self.carrinho.set(carrinho);
+                    }
+                    Err(why) => self.problema.set(Some(why)),
+                }
             }
             None => self.problema.set(Some(format!("Produto {} não encontrado.", leitura.codigo))),
         }
