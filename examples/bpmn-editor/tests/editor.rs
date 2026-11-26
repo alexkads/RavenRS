@@ -53,6 +53,6 @@ fn the_editor_starts_with_two_processes_one_of_them_between_participants() {
     };
     assert!(starts(&mut ui, "Compra aprovada"), "the open process has its name");
     assert!(!starts(&mut ui, "Sem nome"));
-    press(&mut ui, "Pedido entre cliente e loja 8 nós");
+    press(&mut ui, "Pedido entre cliente e loja");
     assert!(find(&mut ui, "Loja").is_some() && find(&mut ui, "Cliente").is_some(), "the participants show");
 }

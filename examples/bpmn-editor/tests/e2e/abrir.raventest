@@ -3,5 +3,5 @@ scenario: Editor BPMN: abrir outro processo
 open Editor BPMN                                         | Abrir o editor BPMN
 check Nome do fluxo = Compra aprovada                    | A compra aprovada abre primeiro
 check #node:start = Precisa comprar                      | Começa quando é preciso comprar
-click Pedido entre cliente e loja 8 nós                  | Abrir o pedido entre cliente e loja
+click Pedido entre cliente e loja                        | Abrir o pedido entre cliente e loja
 check Nome do fluxo = Pedido entre cliente e loja        | O processo aberto é o pedido
