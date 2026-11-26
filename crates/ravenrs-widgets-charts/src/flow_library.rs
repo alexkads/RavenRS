@@ -477,6 +477,8 @@ impl View for FlowLibrary {
                 .selected(is_open)
                 .on_click(move || opened.open(&id));
             let row = cx.keyed_child(util::hash_text(&format!("doc-{}", document.id)), &item);
+            // Found by its name, which a field of the open one also shows.
+            cx.test_id(row, &format!("document:{document_name}"));
             let (gone, id, ask, words) =
                 (shelf.clone(), document.id.clone(), confirm.clone(), labels.clone());
             let fallback = untitled.clone();
