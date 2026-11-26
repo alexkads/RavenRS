@@ -4501,6 +4501,7 @@ method Text::dynamic
 method Text::font_size
 method Text::font_weight
 method Text::foreground
+method Text::mono
 method Text::new
 method Text::style
 method Text::truncate

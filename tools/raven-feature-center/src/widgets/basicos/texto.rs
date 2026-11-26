@@ -50,8 +50,12 @@ impl View for TextPage {
                 ))
                 .spacing(4.0)
                 .width(320.0),
-                Text::new("Uma linha, texto completo no leitor de tela").style(TextStyle::Headline),
-                Text::new(LONG).truncate().width(280.0),
+                VStack::new((
+                    Text::new("Uma linha, texto completo no leitor de tela").style(TextStyle::Headline),
+                    Text::new(LONG).truncate().width(280.0),
+                ))
+                .spacing(12.0)
+                .align(Align::Start),
                 VStack::new((
                     Text::new("Monoespaçado, para código e cupom").style(TextStyle::Headline),
                     Text::new(CUPOM[0]).mono(),

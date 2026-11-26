@@ -1570,16 +1570,24 @@ fn a_menu_header_sits_above_the_items_without_taking_the_focus() {
 
 #[test]
 fn a_monospaced_text_draws_every_character_at_the_same_width() {
-    let width = |text: &str, mono: bool| {
+    // From the first glyph to the last: three advances, whatever frame the text sits in.
+    let span = |text: &str, mono: bool| {
         let line = if mono { Text::new(text).mono() } else { Text::new(text) };
-        let mut ui = ui(line);
-        ui.access_tree()
-            .nodes
+        let ui = ui(line);
+        let xs: Vec<f32> = ui
+            .scene()
+            .primitives()
             .iter()
-            .find(|n| n.name.as_deref() == Some(text))
-            .map(|n| n.bounds.width())
-            .expect("the text")
+            .filter_map(|p| match p {
+                Primitive::Glyphs(g) => Some(g.glyphs.iter().map(|glyph| glyph.x).collect::<Vec<_>>()),
+                _ => None,
+            })
+            .flatten()
+            .collect();
+        assert_eq!(xs.len(), 4, "four glyphs of {text:?}");
+        xs[3] - xs[0]
     };
-    assert_eq!(width("iiii", true), width("MMMM", true), "monospaced: the same count, the same width");
-    assert!(width("iiii", false) < width("MMMM", false), "and Inter stays proportional");
+    let (thin, wide) = (span("iiii", true), span("MMMM", true));
+    assert!((thin - wide).abs() < 0.01, "monospaced: the same count, the same width ({thin} and {wide})");
+    assert!(span("iiii", false) < span("MMMM", false), "and Inter stays proportional");
 }
