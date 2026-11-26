@@ -4,7 +4,20 @@ use ravenrs_reactive::State;
 
 use super::button::{SIZES, size};
 use super::{ArgType, ArgValue, Args, ComponentBook, Meta};
-use crate::{AnyView, Select};
+use crate::{AnyView, IconName, Select};
+
+/// Icons a select shows before its value: a place, a date, a person, a language.
+const ICONS: &[&str] = &["none", "map-pin", "calendar", "user", "globe"];
+
+fn icon(name: &str) -> Option<IconName> {
+    match name {
+        "map-pin" => Some(IconName::MapPin),
+        "calendar" => Some(IconName::Calendar),
+        "user" => Some(IconName::User),
+        "globe" => Some(IconName::Globe),
+        _ => None,
+    }
+}
 
 fn select(args: &Args) -> AnyView {
     let options: Vec<String> = args.text("options").split(',').map(|s| s.trim().to_owned()).collect();
@@ -19,6 +32,9 @@ fn select(args: &Args) -> AnyView {
     }
     if args.bool("searchable") {
         select = select.searchable();
+    }
+    if let Some(name) = icon(args.choice("icon")) {
+        select = select.icon(name);
     }
     Box::new(select)
 }
@@ -39,6 +55,10 @@ impl ComponentBook for Select {
                 ArgType::bool("fill", false)
                     .description("Fills the width of its column, as the fields around it."),
             )
+            .arg(
+                ArgType::choice("icon", ICONS, "none")
+                    .description("An icon before the value, as a pin before a place."),
+            )
             .arg(ArgType::bool("disabled", false))
             .arg(ArgType::bool("read_only", false))
             .story("Default", Args::new())
@@ -55,5 +75,12 @@ impl ComponentBook for Select {
             .story("Mini", Args::new().with("size", ArgValue::choice("Mini")))
             .story("Large", Args::new().with("size", ArgValue::choice("Large")))
             .story("Fill", Args::new().with("fill", true))
+            .story(
+                "With icon",
+                Args::new()
+                    .with("label", "Studio")
+                    .with("options", "All studios, Studio, Outside")
+                    .with("icon", ArgValue::choice("map-pin")),
+            )
     }
 }

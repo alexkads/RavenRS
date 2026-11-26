@@ -115,7 +115,7 @@
 {"crate": "ravenrs-widgets-base", "tipo": "ScrollView", "pendente": true, "issue": 579, "conhecidos": ["align", "height", "horizontal", "new", "padding", "scrollbar_outside", "spacing"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Section", "pendente": true, "issue": 579, "conhecidos": ["action", "description", "new"]},
 {"crate": "ravenrs-widgets-base", "tipo": "SegmentedControl", "pendente": true, "issue": 579, "conhecidos": ["label", "new", "with_icons"]},
-{"crate": "ravenrs-widgets-base", "tipo": "Select", "pendente": true, "issue": 579, "conhecidos": ["disabled", "fill", "label", "new", "of", "read_only", "searchable", "size", "width"]},
+{"crate": "ravenrs-widgets-base", "tipo": "Select", "pagina": "Listas de escolha", "recursos": ["disabled", "fill", "icon", "label", "new", "of", "read_only", "searchable", "size", "width"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Sheet", "pendente": true, "issue": 579, "conhecidos": ["content", "description", "new", "side", "width"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Skeleton", "pendente": true, "issue": 579, "conhecidos": ["block", "circle", "line"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Slider", "pendente": true, "issue": 579, "conhecidos": ["label", "marks", "neutral", "new", "range", "show_value", "step", "track_colors", "value_format", "width"]},

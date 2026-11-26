@@ -4270,6 +4270,7 @@ method SegmentedControl::new
 method SegmentedControl::with_icons
 method Select::disabled
 method Select::fill
+method Select::icon
 method Select::label
 method Select::new
 method Select::of
@@ -5791,8 +5792,10 @@ variant IconName::SpellCheck
 variant IconName::Split
 variant IconName::Square
 variant IconName::SquareFunction
+variant IconName::SquareTerminal
 variant IconName::Star
 variant IconName::StarOff
+variant IconName::Store
 variant IconName::Strikethrough
 variant IconName::Sun
 variant IconName::Table

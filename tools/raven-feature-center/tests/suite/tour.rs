@@ -2137,6 +2137,42 @@ fn the_title_bar_draws_the_window_buttons_and_the_bar_of_a_phone() {
 }
 
 #[test]
+fn selects_pick_by_position_or_value_in_four_sizes_with_search_an_icon_and_their_states() {
+    let mut c = Center::memory("ana");
+    c.press("Listas de escolha");
+    c.settle();
+    // new, of, label, icon, size, searchable, width, fill, disabled and read_only: each select is named.
+    for name in [
+        "Estúdio",
+        "Qualidade",
+        "Prazo",
+        "Responsável",
+        "Idioma",
+        "Tamanho Mini",
+        "Tamanho Small",
+        "Tamanho Medium",
+        "Tamanho Large",
+        "Moeda",
+        "Largura fixa",
+        "Largura da coluna",
+        "Desligada",
+        "Só leitura",
+    ] {
+        assert!(c.ui.access_tree().find(Role::ComboBox, name).is_some(), "{name}: {:?}", c.texts());
+    }
+    assert!(c.says("Estúdio escolhido: Todos os estúdios"), "{:?}", c.texts());
+    // Choosing writes the binding: open the list and pick another studio.
+    let field = c.ui.access_tree().find(Role::ComboBox, "Estúdio").map(|n| n.id).expect("the field");
+    c.ui.perform_action(field, AccessAction::Expand);
+    c.settle();
+    let option =
+        c.ui.access_tree().find(Role::ListBoxOption, "Externo").map(|n| n.id).expect("the open list");
+    c.ui.perform_action(option, AccessAction::Click);
+    c.settle();
+    assert!(c.says("Estúdio escolhido: Externo"), "{:?}", c.texts());
+}
+
+#[test]
 fn menus_open_from_a_button_or_any_view_with_a_header_titled_sections_and_every_kind_of_item() {
     let mut c = Center::memory("ana");
     c.press("Menus");

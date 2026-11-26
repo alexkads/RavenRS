@@ -1180,6 +1180,7 @@ pub struct Select {
     fill: bool,
     size: crate::ButtonSize,
     searchable: bool,
+    icon: Option<IconName>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -1195,6 +1196,7 @@ impl Select {
             state: util::EditorState::default(),
             size: crate::ButtonSize::Medium,
             searchable: false,
+            icon: None,
         }
     }
 
@@ -1243,6 +1245,13 @@ impl Select {
     /// Opens with a search box that filters the options as you type.
     pub fn searchable(mut self) -> Self {
         self.searchable = true;
+        self
+    }
+
+    /// An icon before the value, as a pin before a place, drawn as the chevron is: the same size and
+    /// ink-muted. The name and the value screen readers announce do not change.
+    pub fn icon(mut self, icon: IconName) -> Self {
+        self.icon = Some(icon);
         self
     }
 
@@ -1361,10 +1370,13 @@ impl View for Select {
             &[label],
             Paint::None,
         );
+        let side = if self.size == crate::ButtonSize::Mini { 12.0 } else { 16.0 };
+        let lead =
+            self.icon.map(|name| util::icon(cx, name, side, state.ink(theme.color(Semantic::InkMuted))));
         let chevron = util::icon(
             cx,
             if is_open { IconName::ChevronUp } else { IconName::ChevronDown },
-            if self.size == crate::ButtonSize::Mini { 12.0 } else { 16.0 },
+            side,
             state.ink(theme.color(Semantic::InkMuted)),
         );
         let border = if is_open {
@@ -1397,7 +1409,8 @@ impl View for Select {
             border: Some(border),
             ..QuadPaint::new(state.fill(theme.color(Semantic::Control)))
         };
-        let node = cx.container(style, &[label, chevron], Paint::Quad(paint));
+        let children: Vec<NodeId> = lead.into_iter().chain([label, chevron]).collect();
+        let node = cx.container(style, &children, Paint::Quad(paint));
         cx.semantics(label, Semantics::hidden());
         let mut semantics = Semantics::new(Role::ComboBox).value(current).expanded(is_open);
         if let Some(label) = &self.label {

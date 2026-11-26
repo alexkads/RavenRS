@@ -14,18 +14,20 @@ Picks one option from a list that opens under the field, with search when it is 
 | `size` | Mini · Small · Medium · Large | `Medium` |  |
 | `searchable` | on/off | `false` | A search box at the top of the list. |
 | `fill` | on/off | `false` | Fills the width of its column, as the fields around it. |
+| `icon` | none · map-pin · calendar · user · globe | `none` | An icon before the value, as a pin before a place. |
 | `disabled` | on/off | `false` |  |
 | `read_only` | on/off | `false` |  |
 
 ## Stories
 
-- **Default**: 220 × 40 pt, settings `{"disabled":false,"fill":false,"label":"Date range","options":"Last 7 days, Last 30 days, This year","read_only":false,"searchable":false,"selected":0.0,"size":"Medium"}`
-- **Small and searchable**: 220 × 32 pt, settings `{"disabled":false,"fill":false,"label":"Currency","options":"Real, Euro, Dollar","read_only":false,"searchable":true,"selected":0.0,"size":"Small"}`
-- **Disabled**: 220 × 40 pt, settings `{"disabled":true,"fill":false,"label":"Date range","options":"Last 7 days, Last 30 days, This year","read_only":false,"searchable":false,"selected":0.0,"size":"Medium"}`
-- **Read only**: 220 × 40 pt, settings `{"disabled":false,"fill":false,"label":"Date range","options":"Last 7 days, Last 30 days, This year","read_only":true,"searchable":false,"selected":0.0,"size":"Medium"}`
-- **Mini**: 220 × 22 pt, settings `{"disabled":false,"fill":false,"label":"Date range","options":"Last 7 days, Last 30 days, This year","read_only":false,"searchable":false,"selected":0.0,"size":"Mini"}`
-- **Large**: 220 × 48 pt, settings `{"disabled":false,"fill":false,"label":"Date range","options":"Last 7 days, Last 30 days, This year","read_only":false,"searchable":false,"selected":0.0,"size":"Large"}`
-- **Fill**: 728 × 40 pt, settings `{"disabled":false,"fill":true,"label":"Date range","options":"Last 7 days, Last 30 days, This year","read_only":false,"searchable":false,"selected":0.0,"size":"Medium"}`
+- **Default**: 220 × 40 pt, settings `{"disabled":false,"fill":false,"icon":"none","label":"Date range","options":"Last 7 days, Last 30 days, This year","read_only":false,"searchable":false,"selected":0.0,"size":"Medium"}`
+- **Small and searchable**: 220 × 32 pt, settings `{"disabled":false,"fill":false,"icon":"none","label":"Currency","options":"Real, Euro, Dollar","read_only":false,"searchable":true,"selected":0.0,"size":"Small"}`
+- **Disabled**: 220 × 40 pt, settings `{"disabled":true,"fill":false,"icon":"none","label":"Date range","options":"Last 7 days, Last 30 days, This year","read_only":false,"searchable":false,"selected":0.0,"size":"Medium"}`
+- **Read only**: 220 × 40 pt, settings `{"disabled":false,"fill":false,"icon":"none","label":"Date range","options":"Last 7 days, Last 30 days, This year","read_only":true,"searchable":false,"selected":0.0,"size":"Medium"}`
+- **Mini**: 220 × 22 pt, settings `{"disabled":false,"fill":false,"icon":"none","label":"Date range","options":"Last 7 days, Last 30 days, This year","read_only":false,"searchable":false,"selected":0.0,"size":"Mini"}`
+- **Large**: 220 × 48 pt, settings `{"disabled":false,"fill":false,"icon":"none","label":"Date range","options":"Last 7 days, Last 30 days, This year","read_only":false,"searchable":false,"selected":0.0,"size":"Large"}`
+- **Fill**: 728 × 40 pt, settings `{"disabled":false,"fill":true,"icon":"none","label":"Date range","options":"Last 7 days, Last 30 days, This year","read_only":false,"searchable":false,"selected":0.0,"size":"Medium"}`
+- **With icon**: 220 × 40 pt, settings `{"disabled":false,"fill":false,"icon":"map-pin","label":"Studio","options":"All studios, Studio, Outside","read_only":false,"searchable":false,"selected":0.0,"size":"Medium"}`
 
 ## Sizing
 
@@ -59,10 +61,11 @@ Measured from what RavenRS paints, in points. Colors are tokens; `token@N` is th
 | Read only | ComboBox "Date range" | 220.0 × 40.0 | radius-md | bg-300@50 | 1.0 control-border | Inter 400 15.0px ink | chevron-down 16.0px ink-muted | space-3 |
 | Mini | ComboBox "Date range" | 220.0 × 22.0 | radius-md | bg-300 | 1.0 control-border | Inter 600 12.0px ink | chevron-down 12.0px ink-muted | space-2 |
 | Large | ComboBox "Date range" | 220.0 × 48.0 | radius-md | bg-300 | 1.0 control-border | Inter 400 15.0px ink | chevron-down 16.0px ink-muted | space-3 |
+| With icon | ComboBox "Studio" | 220.0 × 40.0 | radius-md | bg-300 | 1.0 control-border | Inter 400 15.0px ink | map-pin 16.0px ink-muted | space-3 |
 
 ## API
 
-Builder methods: `disabled`, `fill`, `label`, `new`, `of`, `read_only`, `searchable`, `size`, `width`.
+Builder methods: `disabled`, `fill`, `icon`, `label`, `new`, `of`, `read_only`, `searchable`, `size`, `width`.
 
 `SelectionMode`: `Multiple`, `None`, `Single`.
 
