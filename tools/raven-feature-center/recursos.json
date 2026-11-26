@@ -123,7 +123,7 @@
 {"crate": "ravenrs-widgets-base", "tipo": "Spinner", "pendente": true, "issue": 579, "conhecidos": ["color", "new", "size"]},
 {"crate": "ravenrs-widgets-base", "tipo": "SplashScreen", "pendente": true, "issue": 579, "conhecidos": ["icon", "logo", "new", "progress", "reveal_after", "status"]},
 {"crate": "ravenrs-widgets-base", "tipo": "SplitHandle", "pendente": true, "issue": 579, "conhecidos": ["inverted", "label", "new", "on_end", "range"]},
-{"crate": "ravenrs-widgets-base", "tipo": "SplitPanes", "pendente": true, "issue": 579, "conhecidos": ["height", "horizontal", "on_end", "pane", "sizes", "vertical"]},
+{"crate": "ravenrs-widgets-base", "tipo": "SplitPanes", "pagina": "Painéis divididos", "recursos": ["height", "horizontal", "on_end", "pane", "sizes", "vertical"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Splitter", "pendente": true, "issue": 579, "conhecidos": ["height", "horizontal", "limits", "ratio", "vertical"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Stat", "pagina": "Indicadores", "recursos": ["caption", "delta", "delta_toned", "large", "new", "value_tone"]},
 {"crate": "ravenrs-widgets-base", "tipo": "StatusBar", "pendente": true, "issue": 579, "conhecidos": ["action", "center", "center_tone", "left", "new", "right", "text"]},

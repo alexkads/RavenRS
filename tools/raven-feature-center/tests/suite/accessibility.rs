@@ -153,6 +153,7 @@ demonstrations! {
     cartoes => "Cartões",
     listas_de_escolha => "Listas de escolha",
     menus => "Menus",
+    paineis_divididos => "Painéis divididos",
     lista => "Lista",
     agenda_por_recurso => "Agenda por recurso",
 }
