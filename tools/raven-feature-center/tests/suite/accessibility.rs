@@ -155,6 +155,8 @@ demonstrations! {
     menus => "Menus",
     lista => "Lista",
     agenda_por_recurso => "Agenda por recurso",
+    ano => "Ano",
+    calendario_de_eventos => "Calendário de eventos",
 }
 
 #[test]

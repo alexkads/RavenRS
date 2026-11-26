@@ -150,6 +150,20 @@ pub const PAGES: &[Page] = &[
         make: || Box::new(listas::log::LogPage),
     },
     Page {
+        id: agenda::ano::ID,
+        caption: agenda::ano::PAGE,
+        group: "Listas e árvores",
+        icon: IconName::CalendarCheck,
+        make: || Box::new(agenda::ano::YearViewPage),
+    },
+    Page {
+        id: agenda::calendario::ID,
+        caption: agenda::calendario::PAGE,
+        group: "Listas e árvores",
+        icon: IconName::Calendar,
+        make: || Box::new(agenda::calendario::EventCalendarPage),
+    },
+    Page {
         id: agenda::scheduler::ID,
         caption: agenda::scheduler::PAGE,
         group: "Listas e árvores",
