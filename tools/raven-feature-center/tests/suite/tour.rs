@@ -2265,6 +2265,8 @@ fn the_year_view_marks_days_opens_months_and_shows_a_season_without_its_header()
         .filter(|n| n.role == Role::Calendar && n.name.as_deref().is_some_and(|name| name.contains("2025")))
         .count();
     assert_eq!(crossing, 1, "December says its year: {:?}", c.texts());
+}
+
 #[test]
 fn tabs_switch_views_in_two_looks_and_three_sizes_and_send_what_does_not_fit_to_a_menu() {
     let mut c = Center::memory("ana");
