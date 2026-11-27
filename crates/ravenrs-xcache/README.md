@@ -69,7 +69,7 @@ The 23m01s with an empty cache is not the cache: it is `CARGO_INCREMENTAL=0`, wh
 - A proc macro that reads a file or a variable without rustc knowing (no `include_str!`, no `env!`) can change a crate without changing its key. Cargo itself would not rebuild in that case either.
 - With the wrapper on, debug information names `/xcache/cwd` instead of the checkout. In lldb: `settings set target.source-map /xcache/cwd <checkout>`.
 - Nothing limits the size of the cache by itself: run `gc`.
-- Tested on macOS with rustc 1.99. Linux and Windows were not run.
+- Tested on macOS with rustc 1.99 and on Linux (Fedora, x86_64) with rustc 1.100: on 27/11/2026 a quick `scripts/check.sh` after a change to `ravenrs-widgets-base` took 17m04s from an empty build directory with the cache full, 1,018 of 1,018 libraries restored and no failure, where it took 42 to 60 minutes with the cache off. Windows was not run.
 - No remote cache, no C or C++, no distributed compilation.
 
 ## Where it goes from here
