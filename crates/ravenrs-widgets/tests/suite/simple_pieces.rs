@@ -732,3 +732,53 @@ fn color_pair_swaps_resets_and_reports_clicks() {
     named(&tree, Role::Image, "Foreground");
     assert!(tree.find(Role::Button, "Default colors").is_none(), "no default colors, no button");
 }
+
+#[test]
+fn days_are_said_as_people_say_them_in_each_language() {
+    let today = Date::new(2026, 11, 14).expect("a day");
+    let (pt, en) = (Labels::pt_br(), Labels::default());
+    for (offset, words, english) in [
+        (0, "Hoje", "Today"),
+        (1, "Amanhã", "Tomorrow"),
+        (-1, "Ontem", "Yesterday"),
+        (5, "Em 5 dias", "In 5 days"),
+        (-3, "Há 3 dias", "3 days ago"),
+    ] {
+        assert_eq!(pt.relative_day(today.add_days(offset), today), words);
+        assert_eq!(en.relative_day(today.add_days(offset), today), english);
+    }
+    assert_eq!(pt.full_date(today), "sábado, 14 de novembro de 2026");
+    assert_eq!(pt.written_date(today), "14 de novembro de 2026");
+    assert_eq!(en.full_date(today), "Saturday, November 14, 2026");
+    assert_eq!(en.written_date(today), "November 14, 2026");
+    assert_eq!(
+        (pt.weekday_name(today), en.weekday_name(today)),
+        ("sábado".to_owned(), "Saturday".to_owned())
+    );
+    assert_eq!(
+        (pt.weekdays[6].as_str(), en.weekdays[6].as_str()),
+        ("Sáb", "Sa"),
+        "the calendar keeps its short ones"
+    );
+    assert_eq!(pt.month_abbr(today), "nov");
+    // A translation with no {0} is shown as it is, with no panic.
+    let mut odd = Labels::pt_br();
+    odd.in_days = "Daqui a pouco".to_owned();
+    assert_eq!(odd.relative_day(today.add_days(9), today), "Daqui a pouco");
+}
+
+#[test]
+fn screens_and_reports_write_a_date_alike() {
+    use ravenrs_criteria::{Culture, DateTime, Value, format_value};
+    let day = Date::new(2026, 11, 14).expect("a day");
+    for (labels, culture) in [(Labels::pt_br(), Culture::pt_br()), (Labels::default(), Culture::en_us())] {
+        for (i, month) in culture.months.iter().enumerate() {
+            assert_eq!(labels.months[i], *month, "{}", culture.name);
+        }
+        for (i, weekday) in culture.days.iter().enumerate() {
+            assert_eq!(labels.weekday_names[i], *weekday, "{}", culture.name);
+        }
+        let moment = Value::Date(DateTime { days: day.to_days(), seconds: 0 });
+        assert_eq!(labels.full_date(day), format_value(&moment, "D", &culture), "{}", culture.name);
+    }
+}

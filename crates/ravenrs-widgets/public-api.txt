@@ -291,6 +291,7 @@ field Labels::curve_output
 field Labels::curve_point
 field Labels::curve_points
 field Labels::day_marked
+field Labels::days_ago
 field Labels::decimal_separator
 field Labels::decrease
 field Labels::diagnostics
@@ -535,6 +536,7 @@ field Labels::flow_unlock
 field Labels::folder_empty
 field Labels::folder_word
 field Labels::form_errors
+field Labels::full_date
 field Labels::grid_add_row
 field Labels::grid_all_values
 field Labels::grid_apply
@@ -617,6 +619,7 @@ field Labels::image_choose
 field Labels::image_invalid
 field Labels::image_none
 field Labels::image_replace
+field Labels::in_days
 field Labels::increase
 field Labels::inspector_absent
 field Labels::inspector_boolean
@@ -824,12 +827,14 @@ field Labels::tile_move
 field Labels::tile_resize
 field Labels::today
 field Labels::toggle_sidebar
+field Labels::tomorrow
 field Labels::transform
 field Labels::tree_name
 field Labels::unsaved
 field Labels::value_adjust
 field Labels::verification_code
 field Labels::verification_code_digits
+field Labels::weekday_names
 field Labels::weekdays
 field Labels::window_maximize
 field Labels::window_minimize
@@ -841,6 +846,7 @@ field Labels::wizard_error
 field Labels::wizard_finish
 field Labels::wizard_next
 field Labels::wizard_progress
+field Labels::written_date
 field Labels::yesterday
 field Labels::zoom
 field Labels::zoom_actual
@@ -3894,8 +3900,10 @@ method Labels::expression_signature
 method Labels::fill
 method Labels::flow_count
 method Labels::from_texts
+method Labels::full_date
 method Labels::lightbox_counter
 method Labels::long_date
+method Labels::month_abbr
 method Labels::month_title
 method Labels::moved_to_position
 method Labels::page_name
@@ -3903,6 +3911,7 @@ method Labels::pt_br
 method Labels::rating_value
 method Labels::recurrence_summary
 method Labels::recurrence_unit
+method Labels::relative_day
 method Labels::season_title
 method Labels::short_date
 method Labels::split_collapse
@@ -3911,7 +3920,9 @@ method Labels::summary
 method Labels::tag_add
 method Labels::theme_changed
 method Labels::theme_contrast
+method Labels::weekday_name
 method Labels::wizard_progress
+method Labels::written_date
 method LightboxItem::caption
 method LightboxItem::new
 method Link::icon

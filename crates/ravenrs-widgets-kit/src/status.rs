@@ -940,9 +940,8 @@ impl View for DaySeparator {
             DayText::Free(text) => text.clone(),
             DayText::Day { day, today } => {
                 let labels = cx.labels();
-                match today.to_days() - day.to_days() {
-                    0 => labels.today.clone(),
-                    1 => labels.yesterday.clone(),
+                match day.to_days() - today.to_days() {
+                    0 | -1 => labels.relative_day(*day, *today),
                     _ => labels.short_date(*day),
                 }
             }
