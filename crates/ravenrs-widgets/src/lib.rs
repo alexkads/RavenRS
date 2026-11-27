@@ -319,7 +319,8 @@ pub use stack::{
     ToolRail, ToolRailItem, VStack, ZStack,
 };
 pub use status::{
-    DaySeparator, Dot, EmptyState, HeroBanner, IconTile, MultiProgress, OverlayBadge, Rating, ShimmerText,
+    DateTile, DaySeparator, Dot, EmptyState, HeroBanner, IconTile, MultiProgress, OverlayBadge, Rating,
+    ShimmerText,
 };
 pub use summary::Summary;
 pub use system_appearance::SystemAppearance;

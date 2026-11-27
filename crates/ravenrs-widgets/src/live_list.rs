@@ -666,6 +666,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::OverlayBadge::<crate::AnyView, crate::AnyView>::__live_expose(registry);
     crate::Rating::__live_expose_fields(registry);
     crate::Rating::__live_expose(registry);
+    crate::DateTile::__live_expose_fields(registry);
+    crate::DateTile::__live_expose(registry);
     crate::IconTile::__live_expose_fields(registry);
     crate::IconTile::__live_expose(registry);
     crate::EmptyState::__live_expose_fields(registry);
@@ -1151,6 +1153,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::HoverCard<crate::AnyView, crate::AnyView>>(registry);
     crate::live::view::<crate::Icon>(registry);
     crate::live::view::<crate::IconButton>(registry);
+    crate::live::view::<crate::DateTile>(registry);
     crate::live::view::<crate::IconTile>(registry);
     crate::live::view::<crate::Image>(registry);
     #[cfg(feature = "decode")]

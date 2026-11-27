@@ -186,6 +186,7 @@
 {"crate": "ravenrs-widgets-kit", "tipo": "CardView", "pendente": true, "issue": 579, "conhecidos": ["card_height", "card_name", "card_width", "height", "label", "new", "on_open", "selection", "selection_mode"]},
 {"crate": "ravenrs-widgets-kit", "tipo": "CodeBlock", "pendente": true, "issue": 579, "conhecidos": ["new"]},
 {"crate": "ravenrs-widgets-kit", "tipo": "ConfirmDialog", "pendente": true, "issue": 579, "conhecidos": ["ask", "ask_plainly", "ask_typing", "new"]},
+{"crate": "ravenrs-widgets-kit", "tipo": "DateTile", "pagina": "Datas e horas", "recursos": ["new", "outlined", "size", "tone"]},
 {"crate": "ravenrs-widgets-kit", "tipo": "DateTimePicker", "pagina": "Datas e horas", "recursos": ["disabled", "label", "new", "range", "read_only", "step_minutes"]},
 {"crate": "ravenrs-widgets-kit", "tipo": "DaySeparator", "pendente": true, "issue": 579, "conhecidos": ["new", "of"]},
 {"crate": "ravenrs-widgets-kit", "tipo": "Disclosure", "pendente": true, "issue": 579, "conhecidos": ["expanded", "key", "mark", "new", "open", "switch", "title_view"]},

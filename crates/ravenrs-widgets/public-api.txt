@@ -1121,6 +1121,7 @@ impl Clone for ContentSpace
 impl Clone for CropArea
 impl Clone for Date
 impl Clone for DateRange
+impl Clone for DateTile
 impl Clone for DateTime
 impl Clone for DayMark
 impl Clone for DaySeparator
@@ -1374,6 +1375,7 @@ impl ComponentBook for DataGrid
 impl ComponentBook for DataInspector
 impl ComponentBook for DatePicker
 impl ComponentBook for DateRangePicker
+impl ComponentBook for DateTile
 impl ComponentBook for DateTimePicker
 impl ComponentBook for DaySeparator
 impl ComponentBook for Dialog
@@ -1700,6 +1702,7 @@ impl Debug for Date
 impl Debug for DatePicker
 impl Debug for DateRange
 impl Debug for DateRangePicker
+impl Debug for DateTile
 impl Debug for DateTime
 impl Debug for DateTimePicker
 impl Debug for DayMark
@@ -2591,6 +2594,7 @@ impl View for DataGrid
 impl View for DataInspector
 impl View for DatePicker
 impl View for DateRangePicker
+impl View for DateTile
 impl View for DateTimePicker
 impl View for DaySeparator
 impl View for DiagnosticsHost
@@ -3331,6 +3335,10 @@ method DateRangePicker::range
 method DateRangePicker::read_only
 method DateRangePicker::today
 method DateRangePicker::width
+method DateTile::new
+method DateTile::outlined
+method DateTile::size
+method DateTile::tone
 method DateTimePicker::disabled
 method DateTimePicker::label
 method DateTimePicker::new
@@ -5195,6 +5203,7 @@ struct Date
 struct DatePicker
 struct DateRange
 struct DateRangePicker
+struct DateTile
 struct DateTime
 struct DateTimePicker
 struct DayMark

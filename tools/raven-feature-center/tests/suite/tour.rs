@@ -2464,6 +2464,15 @@ fn dates_and_times_offer_only_what_their_limits_allow_and_say_why_a_day_is_off()
     let mut c = Center::memory("ana");
     c.press("Datas e horas");
     c.settle();
+    // DateTile: new, tone, size and outlined, each heard as the whole date.
+    for name in [
+        "sábado, 14 de novembro de 2026",
+        "domingo, 15 de novembro de 2026",
+        "sábado, 21 de novembro de 2026",
+        "sábado, 28 de novembro de 2026",
+    ] {
+        assert!(c.ui.access_tree().find(Role::Image, name).is_some(), "{name}: {:?}", c.texts());
+    }
     // Calendar: new, today, range, blocked and on_pick.
     let holiday =
         c.ui.access_tree()
