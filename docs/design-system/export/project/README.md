@@ -234,7 +234,7 @@ RavenComponentBook writes every file of this system from the RavenRS code, and t
 | Layout | `Section` | Titled group of content with an optional description | 2 |
 | Layout | `Spacer` | Flexible space that pushes its siblings apart | 1 |
 | Layout | `SplitHandle` | A bar to drag that changes a size | 2 |
-| Layout | `SplitPanes` | Any number of panes with a bar between each two, and limits | 1 |
+| Layout | `SplitPanes` | Any number of panes with a bar between each two, and limits | 3 |
 | Layout | `Splitter` | Two panes with a draggable divider | 2 |
 | Layout | `Sticky` | Stays below the top while its section scrolls past | 1 |
 | Layout | `Ticker` | A strip of content that keeps moving sideways, still under reduced motion | 2 |

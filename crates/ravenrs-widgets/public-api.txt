@@ -764,6 +764,9 @@ field Labels::short_date
 field Labels::shortcut_sheet
 field Labels::sortable_hint
 field Labels::sortable_name
+field Labels::split_collapse
+field Labels::split_expand
+field Labels::split_pane
 field Labels::split_resize
 field Labels::step_down
 field Labels::step_up
@@ -3849,6 +3852,8 @@ method Labels::rating_value
 method Labels::recurrence_summary
 method Labels::recurrence_unit
 method Labels::short_date
+method Labels::split_collapse
+method Labels::split_expand
 method Labels::summary
 method Labels::tag_add
 method Labels::theme_changed
@@ -4412,6 +4417,9 @@ method SplitHandle::label
 method SplitHandle::new
 method SplitHandle::on_end
 method SplitHandle::range
+method SplitPane::collapsed
+method SplitPane::collapsible
+method SplitPane::label
 method SplitPane::new
 method SplitPane::range
 method SplitPane::size
