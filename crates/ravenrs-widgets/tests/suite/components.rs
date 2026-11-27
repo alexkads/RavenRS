@@ -233,6 +233,85 @@ fn tooltip_appears_on_hover() {
     assert_eq!(glyph_runs(&ui), runs + 1);
 }
 
+/// Moves the clock to `at` in short frames, as a screen does, so what fades out is gone: the
+/// animations skip a long gap instead of jumping to its end.
+fn settle(ui: &mut Ui, from: f64, at: f64) {
+    let mut now = from;
+    while now < at {
+        now = (now + 1.0 / 60.0).min(at);
+        ui.set_time(now);
+        ui.update();
+    }
+    ui.update();
+}
+
+#[test]
+fn a_tooltip_opens_from_the_keyboard_and_escape_hides_it_without_moving_the_focus() {
+    let mut ui =
+        ui(VStack::new((Tooltip::new(Button::new("Save"), "Saves the draft"), Button::new("Other")))
+            .padding(80.0));
+    let runs = glyph_runs(&ui);
+    key(&mut ui, Key::Tab);
+    ui.update();
+    assert_eq!(glyph_runs(&ui), runs + 1, "the focus from the keyboard shows it");
+    let focused = ui.access_tree().focus;
+    assert!(focused.is_some());
+    key(&mut ui, Key::Escape);
+    settle(&mut ui, 0.0, 2.0);
+    assert_eq!(glyph_runs(&ui), runs, "Escape hides it");
+    assert_eq!(ui.access_tree().focus, focused, "and the focus stays on the button");
+    settle(&mut ui, 2.0, 4.0);
+    assert_eq!(glyph_runs(&ui), runs, "it does not come back by itself");
+    key(&mut ui, Key::Tab);
+    settle(&mut ui, 4.0, 6.0);
+    assert_eq!(glyph_runs(&ui), runs, "on the other button, nothing");
+    key(&mut ui, Key::Tab);
+    ui.update();
+    assert_eq!(glyph_runs(&ui), runs + 1, "a new visit shows it again");
+}
+
+#[test]
+fn a_tooltip_waits_before_it_opens_and_lingers_after_the_pointer_leaves() {
+    let mut ui = ui(VStack::new((Tooltip::new(Text::new("Hover me"), "Explains things")
+        .open_delay(0.5)
+        .close_delay(0.3),))
+    .padding(80.0));
+    let runs = glyph_runs(&ui);
+    ui.set_time(10.0);
+    ui.handle_event(&Event::PointerMove { position: Point::new(90.0, 90.0) });
+    ui.update();
+    assert_eq!(glyph_runs(&ui), runs, "not before the delay");
+    ui.set_time(10.6);
+    ui.update();
+    ui.update();
+    assert_eq!(glyph_runs(&ui), runs + 1, "after resting half a second");
+    ui.set_time(11.0);
+    ui.handle_event(&Event::PointerMove { position: Point::new(5.0, 5.0) });
+    ui.update();
+    assert_eq!(glyph_runs(&ui), runs + 1, "it stays a moment after the pointer leaves");
+    settle(&mut ui, 11.0, 12.0);
+    assert_eq!(glyph_runs(&ui), runs, "and then goes");
+    ui.set_time(13.0);
+    ui.handle_event(&Event::PointerMove { position: Point::new(90.0, 90.0) });
+    ui.update();
+    ui.set_time(13.2);
+    ui.handle_event(&Event::PointerMove { position: Point::new(5.0, 5.0) });
+    ui.update();
+    settle(&mut ui, 13.2, 14.0);
+    assert_eq!(glyph_runs(&ui), runs, "passing by quickly shows nothing");
+}
+
+#[test]
+fn a_tooltip_over_a_disabled_button_still_explains_it() {
+    let mut ui =
+        ui(VStack::new((Tooltip::new(Button::new("Send").disabled(true), "Fill in the address first"),))
+            .padding(80.0));
+    let runs = glyph_runs(&ui);
+    ui.handle_event(&Event::PointerMove { position: Point::new(95.0, 95.0) });
+    ui.update();
+    assert_eq!(glyph_runs(&ui), runs + 1);
+}
+
 #[test]
 fn theme_switcher_changes_app_theme() {
     let mut ui = ui(VStack::new((ThemeSwitcher::new(),)));

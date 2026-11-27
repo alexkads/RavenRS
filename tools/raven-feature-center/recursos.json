@@ -140,7 +140,7 @@
 {"crate": "ravenrs-widgets-base", "tipo": "ToggleButton", "pendente": true, "issue": 579, "conhecidos": ["count", "icon", "new", "pill"]},
 {"crate": "ravenrs-widgets-base", "tipo": "ToggleGroup", "pendente": true, "issue": 579, "conhecidos": ["multiple", "single"]},
 {"crate": "ravenrs-widgets-base", "tipo": "ToolRail", "pendente": true, "issue": 579, "conhecidos": ["columns", "icons_only", "new", "on_drag_tool", "separator", "tool", "width"]},
-{"crate": "ravenrs-widgets-base", "tipo": "Tooltip", "pendente": true, "issue": 579, "conhecidos": ["new", "shortcut"]},
+{"crate": "ravenrs-widgets-base", "tipo": "Tooltip", "pagina": "Dicas", "recursos": ["close_delay", "new", "open_delay", "shortcut"]},
 {"crate": "ravenrs-widgets-base", "tipo": "ZStack", "pendente": true, "issue": 579, "conhecidos": ["align", "new"]},
 {"crate": "ravenrs-widgets-base", "tipo": "ZoomControl", "pendente": true, "issue": 579, "conhecidos": ["label", "new", "range", "size"]},
 {"crate": "ravenrs-widgets-charts", "tipo": "AreaChart", "pendente": true, "issue": 579, "conhecidos": ["height", "new", "tone"]},
