@@ -1101,6 +1101,67 @@ fn cover() -> String {
     )
 }
 
+/// The three files of one card, measured and written out.
+struct Card {
+    folder: String,
+    name: &'static str,
+    readme: String,
+    preview: String,
+    json: String,
+}
+
+/// Measures every entry `list` gives and writes its card, on several threads, and gives the cards
+/// back in the order of the list.
+///
+/// Measuring is most of the time `--verify` takes in `scripts/check.sh`, and one entry does not
+/// depend on another. A story draws through views that stay on the thread that made them, so each
+/// thread asks `list` for its own copy and measures the entries whose turn it takes. The result
+/// does not depend on how many threads there are. `CARGO_BUILD_JOBS` limits them, as it limits
+/// the build that comes before.
+fn cards(list: fn() -> Vec<Entry>, parent: &str) -> std::io::Result<Vec<Card>> {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let total = list().len();
+    let cores = std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
+    let jobs = std::env::var("CARGO_BUILD_JOBS").ok().and_then(|jobs| jobs.parse::<usize>().ok());
+    let threads = jobs.unwrap_or(cores).clamp(1, total.max(1));
+    let next = AtomicUsize::new(0);
+    let measure = || -> Vec<(usize, std::io::Result<Card>)> {
+        let entries = list();
+        let mut done = Vec::new();
+        loop {
+            let at = next.fetch_add(1, Ordering::Relaxed);
+            let Some(entry) = entries.get(at) else { return done };
+            let stories = measure_entry(entry);
+            let card = serde_json::to_string(&component_json(entry, &stories))
+                .map(|json| Card {
+                    folder: format!("{parent}/{}", entry.name()),
+                    name: entry.name(),
+                    readme: card_readme(entry, &stories),
+                    preview: preview(entry, &stories),
+                    json,
+                })
+                .map_err(std::io::Error::from);
+            done.push((at, card));
+        }
+    };
+    let mut measured: Vec<(usize, std::io::Result<Card>)> = std::thread::scope(|scope| {
+        let workers: Vec<_> = (0..threads)
+            .map(|_| {
+                // Laying out a whole screen goes deep: the same stack the main thread has.
+                std::thread::Builder::new().stack_size(8 << 20).spawn_scoped(scope, || measure())
+            })
+            .collect::<std::io::Result<_>>()?;
+        let mut all = Vec::with_capacity(total);
+        for worker in workers {
+            let done = worker.join().map_err(|_| std::io::Error::other("a thread measuring cards panicked"))?;
+            all.extend(done);
+        }
+        Ok::<_, std::io::Error>(all)
+    })?;
+    measured.sort_by_key(|(at, _)| *at);
+    measured.into_iter().map(|(_, card)| card).collect()
+}
+
 /// Writes the whole design system under `<dir>/project/`, everything the design tool shows: the
 /// index, the guide with every component, the tokens read from `ravenrs-style` and their CSS, the
 /// fonts, the cover, and for each component its card, its vector preview and its JSON. Nothing
@@ -1129,28 +1190,15 @@ pub fn write_claude_design(dir: &Path, sha: &str) -> std::io::Result<Vec<String>
     put("project/fonts/RavenIcons.ttf", ICON_FONT)?;
     put("project/fonts/FiraMono-Medium.ttf", MONO_FONT)?;
     put("project/components/Cover/preview.html", cover().as_bytes())?;
-    for entry in &entries {
-        let stories = measure_entry(entry);
-        let folder = format!("project/components/{}", entry.name());
-        std::fs::create_dir_all(dir.join(&folder))?;
-        put(&format!("{folder}/README.md"), card_readme(entry, &stories).as_bytes())?;
-        put(&format!("{folder}/preview.html"), preview(entry, &stories).as_bytes())?;
-        put(
-            &format!("{folder}/{}.json", entry.name()),
-            serde_json::to_string(&component_json(entry, &stories))?.as_bytes(),
-        )?;
-    }
-    // The patterns: small screens made of components, measured and exported the same way.
-    for pattern in crate::patterns::entries() {
-        let stories = measure_entry(&pattern);
-        let folder = format!("project/patterns/{}", pattern.name());
-        std::fs::create_dir_all(dir.join(&folder))?;
-        put(&format!("{folder}/README.md"), card_readme(&pattern, &stories).as_bytes())?;
-        put(&format!("{folder}/preview.html"), preview(&pattern, &stories).as_bytes())?;
-        put(
-            &format!("{folder}/{}.json", pattern.name()),
-            serde_json::to_string(&component_json(&pattern, &stories))?.as_bytes(),
-        )?;
+    // The components, then the patterns: small screens made of components, measured and exported
+    // the same way.
+    let components = cards(index::entries, "project/components")?;
+    let patterns = cards(crate::patterns::entries, "project/patterns")?;
+    for card in components.into_iter().chain(patterns) {
+        std::fs::create_dir_all(dir.join(&card.folder))?;
+        put(&format!("{}/README.md", card.folder), card.readme.as_bytes())?;
+        put(&format!("{}/preview.html", card.folder), card.preview.as_bytes())?;
+        put(&format!("{}/{}.json", card.folder, card.name), card.json.as_bytes())?;
     }
     // The index last, as the design tool asks; then the list of everything, for the publisher.
     put(
