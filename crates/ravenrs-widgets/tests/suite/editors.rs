@@ -189,6 +189,40 @@ fn money_is_held_in_whole_cents() {
     assert_eq!(cents.get(), Some(129), "no rounding error in 1.29");
 }
 
+fn field_description(ui: &mut Ui) -> Option<String> {
+    let tree = ui.access_tree();
+    tree.nodes.iter().find(|n| n.role == Role::TextInput).and_then(|n| n.description.clone())
+}
+
+#[test]
+fn money_reads_as_the_framework_does_and_says_what_to_fix() {
+    let cents = State::new(None::<i64>);
+    let mut ui = ui(Localized::new(Labels::pt_br(), NumberField::money(cents.binding(), "R$ ")));
+    focus_field(&mut ui);
+    typed(&mut ui, "1.000");
+    assert_eq!(cents.get(), Some(100_000), "a thousand, as in an action's parameter and a report's");
+    assert_eq!(field_description(&mut ui), None);
+    for _ in 0..5 {
+        key(&mut ui, Key::Backspace);
+    }
+    typed(&mut ui, "1,2x");
+    assert_eq!(cents.get(), Some(120), "the x leaves alone what 1,2 gave");
+    assert_eq!(
+        field_description(&mut ui).as_deref(),
+        Some("\"1,2x\" não é um valor válido. Use, por exemplo, 1.234,56."),
+    );
+    for _ in 0..4 {
+        key(&mut ui, Key::Backspace);
+    }
+    typed(&mut ui, "99999999999999999999");
+    assert!(
+        cents.get().is_some_and(|c| c > 0 && c < 1 << 50),
+        "too large is refused, not cut: {:?}",
+        cents.get()
+    );
+    assert_eq!(field_description(&mut ui).as_deref(), Some("O valor é grande demais."));
+}
+
 #[test]
 fn masked_field_follows_the_pattern_while_typing() {
     let phone = State::new(String::new());

@@ -1281,7 +1281,12 @@ pub struct NumberField {
     label: Option<String>,
     on_leave: Option<Rc<dyn Fn()>>,
     state: util::EditorState,
+    /// Read as money, with the framework's reading of cents, in place of a plain number.
+    money: bool,
 }
+
+/// The most cents a money field takes, so every amount goes through `f64` and back exactly.
+const MOST_CENTS: i64 = 1 << 50;
 
 impl std::fmt::Debug for NumberField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -1314,17 +1319,33 @@ impl NumberField {
             label: None,
             on_leave: None,
             state: util::EditorState::default(),
+            money: false,
         }
     }
 
     /// A field for money held as a whole number of cents: exact, two decimals,
-    /// showing `prefix`, such as `"R$ "`.
+    /// showing `prefix`, such as `"R$ "`. It reads what is typed as the rest of the framework
+    /// does (`ravenrs_criteria::Culture::parse_signed_cents`), so `1.000` is a thousand, and
+    /// text that is not an amount says what to fix to screen readers. Amounts past 2⁵⁰ cents
+    /// are refused, not cut.
+    #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
     pub fn money(cents: Binding<Option<i64>>, prefix: impl Into<String>) -> Self {
         let value = cents.map(
             |c| c.map(|c| c as f64 / 100.0),
-            |c, v: Option<f64>| *c = v.map(|v| (v * 100.0).round() as i64),
+            |c, v: Option<f64>| match v {
+                None => *c = None,
+                Some(v) => {
+                    let whole = (v * 100.0).round();
+                    if whole.abs() <= MOST_CENTS as f64 {
+                        *c = Some(whole as i64);
+                    }
+                }
+            },
         );
-        Self::new(value).decimals(2).step(1.0).prefix(prefix)
+        let most = MOST_CENTS as f64 / 100.0;
+        let mut field = Self::new(value).decimals(2).step(1.0).prefix(prefix).range(-most, most);
+        field.money = true;
+        field
     }
 
     /// Accepts only `min..=max`.
@@ -1434,17 +1455,53 @@ impl View for NumberField {
             }
             .format(n)
         });
-        let invalid = typed.as_ref().is_some_and(|(text, _)| {
-            !text.trim().is_empty()
-                && parse_number(text, decimal, group).is_none_or(|n| !(min..=max).contains(&n))
+        // Money is read in cents by the framework's one reading; anything else as a number.
+        let money = self.money.then(|| {
+            Rc::new(ravenrs_criteria::Culture {
+                decimal,
+                group,
+                ..ravenrs_criteria::Culture::named(&labels.culture)
+            })
         });
+        let prefix = self.prefix.trim().to_owned();
+        let culture = money.clone();
+        let reading = move |text: &str| -> Result<f64, Option<String>> {
+            match &culture {
+                Some(culture) => {
+                    let bare = text.trim().strip_prefix(prefix.as_str()).unwrap_or(text);
+                    let cents = culture.parse_signed_cents(bare).and_then(|cents| {
+                        if cents.abs() <= MOST_CENTS {
+                            Ok(cents)
+                        } else {
+                            Err(ravenrs_criteria::MoneyError::TooLarge)
+                        }
+                    });
+                    #[allow(clippy::cast_precision_loss)]
+                    cents.map(|cents| cents as f64 / 100.0).map_err(|error| Some(error.message(culture)))
+                }
+                None => parse_number(text, decimal, group).ok_or(None),
+            }
+        };
+        let reading = Rc::new(reading);
+        let problem = typed.as_ref().and_then(|(text, _)| {
+            if text.trim().is_empty() {
+                return None;
+            }
+            match reading(text) {
+                Ok(n) if (min..=max).contains(&n) => None,
+                Ok(_) => Some(None),
+                Err(message) => Some(message),
+            }
+        });
+        let invalid = problem.is_some();
 
         let (read, write, target) = (draft.clone(), draft.clone(), self.value.clone());
+        let parse = reading.clone();
         let current = self.value.clone();
         let text = Binding::new(
             move || read.get().map(|(text, _)| text).or_else(|| current.get().map(plain)).unwrap_or_default(),
             move |text: String| {
-                let parsed = parse_number(&text, decimal, group).filter(|n| (min..=max).contains(n));
+                let parsed = parse(&text).ok().filter(|n| (min..=max).contains(n));
                 let next = if text.trim().is_empty() { None } else { parsed.or(target.get()) };
                 write.set(Some((text, next)));
                 if next != target.get() {
@@ -1485,6 +1542,9 @@ impl View for NumberField {
         let node = cx.child(&field);
         if let Some(label) = &self.label {
             cx.update_semantics(node, |s| s.name = Some(label.clone()));
+        }
+        if let Some(Some(message)) = problem {
+            cx.update_semantics(node, |s| s.description = Some(message));
         }
         if !self.spin_buttons {
             return node;

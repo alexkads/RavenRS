@@ -95,7 +95,7 @@ pub use ravenrs_app_derive::{BusinessEnum, BusinessObject};
 #[cfg(not(target_arch = "wasm32"))]
 pub use ravenrs_core::FileStorage;
 pub use ravenrs_core::{MemoryStorage, Storage};
-pub use ravenrs_criteria::{Criteria, Value};
+pub use ravenrs_criteria::{Criteria, Culture, MoneyError, Remainder, Value, allocate, allocate_by};
 
 pub use records::{
     AppRecordsModule, DRAFT_ENTITY, Draft, SEQUENCE_ENTITY, draft_entity, drafts, next_number, save_draft,
