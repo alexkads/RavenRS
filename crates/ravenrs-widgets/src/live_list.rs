@@ -647,6 +647,10 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::ValueSlider::__live_expose(registry);
     crate::InlineRename::__live_expose_fields(registry);
     crate::InlineRename::__live_expose(registry);
+    crate::ReceiptLine::__live_expose_fields(registry);
+    crate::ReceiptLine::__live_expose(registry);
+    crate::Receipt::__live_expose_fields(registry);
+    crate::Receipt::__live_expose(registry);
     crate::CodeBlock::__live_expose_fields(registry);
     crate::CodeBlock::__live_expose(registry);
     crate::ReleaseNote::__live_expose_fields(registry);
@@ -1189,6 +1193,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::QuarterTurn<crate::AnyView>>(registry);
     crate::live::view::<crate::RadioGroup>(registry);
     crate::live::view::<crate::Rating>(registry);
+    crate::live::view::<crate::Receipt>(registry);
     crate::live::view::<crate::RecurrenceEditor>(registry);
     crate::live::view::<crate::ReleaseNotes>(registry);
     crate::live::view::<crate::Ribbon>(registry);

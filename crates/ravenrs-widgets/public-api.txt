@@ -724,6 +724,8 @@ field Labels::progress_mark
 field Labels::protractor
 field Labels::rating
 field Labels::rating_value
+field Labels::receipt_empty
+field Labels::receipt_lines
 field Labels::recurrence_each
 field Labels::recurrence_ends
 field Labels::recurrence_ends_name
@@ -1181,6 +1183,8 @@ impl Clone for PickedFile
 impl Clone for Placement
 impl Clone for ProgressBar
 impl Clone for QuadPaint
+impl Clone for Receipt
+impl Clone for ReceiptLine
 impl Clone for RecurrenceEnd
 impl Clone for RecurrenceRule
 impl Clone for RecurrenceSet
@@ -1404,6 +1408,7 @@ impl ComponentBook for QuadField
 impl ComponentBook for QuarterTurn
 impl ComponentBook for RadioGroup
 impl ComponentBook for Rating
+impl ComponentBook for Receipt
 impl ComponentBook for RecurrenceEditor
 impl ComponentBook for ReleaseNotes
 impl ComponentBook for Ribbon
@@ -1830,6 +1835,8 @@ impl Debug for QuadPaint
 impl Debug for QuarterTurn
 impl Debug for RadioGroup
 impl Debug for Rating
+impl Debug for Receipt
+impl Debug for ReceiptLine
 impl Debug for RecurrenceEditor
 impl Debug for RecurrenceEnd
 impl Debug for RecurrenceRule
@@ -2086,6 +2093,7 @@ impl Default for NoFilePicker
 impl Default for NumberFormat
 impl Default for Paint
 impl Default for ParamValues
+impl Default for Receipt
 impl Default for RecurrenceEnd
 impl Default for RecurrenceRule
 impl Default for RecurrenceSet
@@ -2223,6 +2231,7 @@ impl Eq for NodeId
 impl Eq for PatchLink
 impl Eq for PathStep
 impl Eq for PickedFile
+impl Eq for ReceiptLine
 impl Eq for RecurrenceEnd
 impl Eq for RecurrenceRule
 impl Eq for RecurrenceSet
@@ -2396,6 +2405,7 @@ impl PartialEq for PathStep
 impl PartialEq for PickedFile
 impl PartialEq for Placement
 impl PartialEq for QuadPaint
+impl PartialEq for ReceiptLine
 impl PartialEq for RecurrenceEnd
 impl PartialEq for RecurrenceRule
 impl PartialEq for RecurrenceSet
@@ -2616,6 +2626,7 @@ impl View for QuadField
 impl View for QuarterTurn
 impl View for RadioGroup
 impl View for Rating
+impl View for Receipt
 impl View for RecurrenceEditor
 impl View for ReleaseNotes
 impl View for Responsive
@@ -4096,6 +4107,15 @@ method Rating::new
 method Rating::read_only
 method Rating::size
 method Rating::tone
+method Receipt::empty_text
+method Receipt::line
+method Receipt::new
+method Receipt::subtitle
+method Receipt::summary
+method Receipt::title
+method Receipt::total
+method ReceiptLine::detail
+method ReceiptLine::new
 method RecurrenceEditor::new
 method RecurrenceRule::days_from
 method RecurrenceRule::end
@@ -5240,6 +5260,8 @@ struct QuadPaint
 struct QuarterTurn
 struct RadioGroup
 struct Rating
+struct Receipt
+struct ReceiptLine
 struct RecurrenceEditor
 struct RecurrenceRule
 struct RecurrenceSet
