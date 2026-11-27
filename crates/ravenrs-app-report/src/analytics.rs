@@ -74,13 +74,6 @@ pub fn analytics_entities() -> Vec<EntityInfo> {
     ]
 }
 
-fn text(record: &Object, name: &str) -> String {
-    match record.get(name) {
-        Value::Text(text) => text,
-        _ => String::new(),
-    }
-}
-
 /// What a tile is asked to show: the same fields a kept tile has, from a record or from code.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct TileSpec {
@@ -98,13 +91,13 @@ pub(crate) struct TileSpec {
 impl TileSpec {
     fn of(tile: &Object) -> Self {
         Self {
-            title: text(tile, "title"),
-            target: text(tile, "target_entity"),
-            kind: text(tile, "kind"),
-            argument: text(tile, "argument"),
-            series: text(tile, "series"),
-            interval: text(tile, "interval"),
-            filter: text(tile, "filter"),
+            title: tile.text("title"),
+            target: tile.text("target_entity"),
+            kind: tile.text("kind"),
+            argument: tile.text("argument"),
+            series: tile.text("series"),
+            interval: tile.text("interval"),
+            filter: tile.text("filter"),
         }
     }
 }
@@ -181,7 +174,7 @@ impl PanelView {
         let spots = tiles
             .iter()
             .map(|tile| {
-                let (columns, rows) = if text(tile, "kind") == "number" {
+                let (columns, rows) = if tile.text("kind") == "number" {
                     (NUMBER_COLUMNS, NUMBER_ROWS)
                 } else {
                     (TILE_COLUMNS, TILE_ROWS)
@@ -202,7 +195,7 @@ impl View for PanelView {
             let key = ravenrs_app::key_text(&tile.get("id")).unwrap_or_default();
             tiles = tiles.tile(Tile::new(
                 key,
-                text(tile, "title"),
+                tile.text("title"),
                 tile_content(&self.session, &TileSpec::of(tile)),
             ));
         }
@@ -242,12 +235,8 @@ impl ViewController for Panels {
                 .on_execute(move |cx| {
                     let session = Session::of(cx).ok_or("this action needs the screens")?;
                     let record = cx.selected.first().ok_or("this action needs a panel")?;
-                    let shown = PanelView::new(
-                        session.clone(),
-                        record.get("id"),
-                        text(record, "name"),
-                        close.clone(),
-                    );
+                    let shown =
+                        PanelView::new(session.clone(), record.get("id"), record.text("name"), close.clone());
                     session.show_full(move || Box::new(shown.clone()) as AnyView);
                     Ok(())
                 }),

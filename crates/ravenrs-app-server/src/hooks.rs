@@ -139,13 +139,6 @@ fn refused() -> Failure {
     Failure::new(401, "unauthorized", "The notification was not accepted.")
 }
 
-fn text(record: &Object, name: &str) -> String {
-    match record.get(name) {
-        Value::Text(text) => text,
-        _ => String::new(),
-    }
-}
-
 /// Answers one notification for `source`.
 pub(crate) fn receive(
     hook: &Webhook,
@@ -180,14 +173,14 @@ pub(crate) fn receive(
     let known = space.borrow().query(WEBHOOK_EVENT, &Query::all())?;
     let ours: Vec<&Object> = known
         .iter()
-        .filter(|e| text(e, "organization") == *organization && text(e, "source") == source)
+        .filter(|e| e.text("organization") == *organization && e.text("source") == source)
         .collect();
-    if ours.iter().any(|e| text(e, "provider_id") == id) {
+    if ours.iter().any(|e| e.text("provider_id") == id) {
         return Ok((200, json!({ "received": true, "duplicate": true })));
     }
     let latest = ours
         .iter()
-        .filter(|e| text(e, "subject") == subject && e.get("applied") == Value::Bool(true))
+        .filter(|e| e.text("subject") == subject && e.get("applied") == Value::Bool(true))
         .filter_map(|e| match e.get("at") {
             Value::Number(at) => Some(at as i64),
             _ => None,

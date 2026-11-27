@@ -9,8 +9,8 @@ use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 use ravenrs_widgets::{
-    Alert, AnyView, Breadcrumb, BuildCx, Button, ButtonSize, ButtonStyle, Date, Divider, IconButton,
-    IconName, KeyBar, KeyBarItem, Keyed, NodeId, Paint, ScrollView, Sidebar, SidebarCollapse, SidebarItem,
+    Alert, AnyView, Breadcrumb, BuildCx, Button, ButtonSize, ButtonStyle, Divider, IconButton, IconName,
+    KeyBar, KeyBarItem, Keyed, NodeId, Paint, ScrollView, Sidebar, SidebarCollapse, SidebarItem,
     SidebarSection, SidebarState, SidebarTrigger, Text, TextField, ThemePicker, Tone, VStack, View, ViewExt,
 };
 
@@ -252,8 +252,7 @@ impl AppShell {
         words: Words,
         editors: EditorRegistry,
     ) -> Self {
-        let today = Date::from_days(ravenrs_app::local_now().days);
-        let session = Session::new(application, factory, words, editors, today);
+        let session = Session::new(application, factory, words, editors, None);
         // The list editors that come with the framework; the sessions it opens share them.
         crate::list_editors::register(&session);
         if let Some(first) = session.first_view() {

@@ -15,7 +15,7 @@ use ravenrs_widgets::{
 
 use crate::session::{EditorRegistry, EditorRequest, Session};
 use crate::values::{
-    date_of, date_time_of, display, file_name, file_of, key_from_text, key_text, value_of_date,
+    date_time_of, day_of, display, file_name, file_of, key_from_text, key_text, value_of_date,
     value_of_date_time, value_of_file,
 };
 
@@ -490,7 +490,7 @@ fn built_in(request: &EditorRequest) -> AnyView {
         )),
         FieldKind::Date => {
             let (read, write) = (value.clone(), value.clone());
-            let date = Binding::new(move || date_of(&read.get()), move |d| write.set(value_of_date(d)));
+            let date = Binding::new(move || day_of(&read.get()), move |d| write.set(value_of_date(d)));
             Box::new(
                 DatePicker::new(date, today(&request.session))
                     .fill()

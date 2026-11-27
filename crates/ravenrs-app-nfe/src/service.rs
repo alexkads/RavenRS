@@ -420,10 +420,7 @@ pub(crate) fn agora_com_fuso() -> String {
 }
 
 pub(crate) fn texto(record: &Object, field: &str) -> String {
-    match record.get(field) {
-        Value::Text(text) => text.trim().to_owned(),
-        _ => String::new(),
-    }
+    record.text(field).trim().to_owned()
 }
 
 /// A state by its abbreviation, or that this beta does not reach it yet.
