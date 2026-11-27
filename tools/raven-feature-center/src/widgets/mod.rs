@@ -101,6 +101,13 @@ pub const PAGES: &[Page] = &[
         make: || Box::new(basicos::menus::MenusPage),
     },
     Page {
+        id: basicos::paineis::ID,
+        caption: basicos::paineis::PAGE,
+        group: "Básicos",
+        icon: IconName::Columns3,
+        make: || Box::new(basicos::paineis::SplitPanesPage),
+    },
+    Page {
         id: basicos::progresso::ID,
         caption: basicos::progresso::PAGE,
         group: "Básicos",
@@ -113,6 +120,13 @@ pub const PAGES: &[Page] = &[
         group: "Básicos",
         icon: IconName::FileText,
         make: || Box::new(basicos::texto::TextPage),
+    },
+    Page {
+        id: kit::abas::ID,
+        caption: kit::abas::PAGE,
+        group: "Kit",
+        icon: IconName::Layers,
+        make: || Box::new(kit::abas::TabsPage),
     },
     Page {
         id: kit::expressoes::ID,

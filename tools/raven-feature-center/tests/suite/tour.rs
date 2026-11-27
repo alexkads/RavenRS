@@ -2265,4 +2265,105 @@ fn the_year_view_marks_days_opens_months_and_shows_a_season_without_its_header()
         .filter(|n| n.role == Role::Calendar && n.name.as_deref().is_some_and(|name| name.contains("2025")))
         .count();
     assert_eq!(crossing, 1, "December says its year: {:?}", c.texts());
+#[test]
+fn tabs_switch_views_in_two_looks_and_three_sizes_and_send_what_does_not_fit_to_a_menu() {
+    let mut c = Center::memory("ana");
+    c.press("Abas");
+    c.settle();
+    // new and tab: the open tab builds its view.
+    assert!(c.says("O que aconteceu hoje."), "{:?}", c.texts());
+    c.activate("Ajustes");
+    c.settle();
+    assert!(c.says("Preferências da conta."), "{:?}", c.texts());
+    // item, variant and size: six channels in 360, with the last ones in the menu of each bar.
+    let tree = c.ui.access_tree();
+    let menus = tree
+        .nodes
+        .iter()
+        .filter(|n| n.role == Role::Button && n.name.as_deref() == Some("Mais abas"))
+        .count();
+    assert_eq!(menus, 2, "one menu in each look: {:?}", c.texts());
+    assert!(c.says("Canal: Todas"), "{:?}", c.texts());
+    let more = tree
+        .nodes
+        .iter()
+        .find(|n| n.role == Role::Button && n.name.as_deref() == Some("Mais abas"))
+        .map(|n| n.id)
+        .expect("the menu of the first bar");
+    c.ui.perform_action(more, AccessAction::Click);
+    c.settle();
+    let site = c.ui.access_tree().find(Role::MenuItem, "Site").map(|n| n.id).expect("Site in the menu");
+    c.ui.perform_action(site, AccessAction::Click);
+    c.settle();
+    assert!(c.says("Canal: Site"), "{:?}", c.texts());
+    // size: three bars, and disabled: the bar that waits keeps its tab.
+    for name in ["Hoje", "Semana", "Mês", "Rascunho", "Enviando"] {
+        assert!(c.ui.access_tree().find(Role::Tab, name).is_some(), "{name}: {:?}", c.texts());
+    }
+    c.activate("Rascunho");
+    c.settle();
+    let tree = c.ui.access_tree();
+    assert_eq!(tree.find(Role::Tab, "Enviando").and_then(|n| n.selected), Some(true), "it did not change");
+}
+
+#[test]
+fn split_panes_fold_a_side_keep_their_sizes_and_hide_a_pane() {
+    let mut c = Center::memory("ana");
+    c.press("Painéis divididos");
+    c.settle();
+    // horizontal, pane, size, range, label and collapsed: the first column folds by its arrow.
+    assert!(c.says("Sessões: aberta"), "{:?}", c.texts());
+    assert!(c.says("Larguras guardadas: 220, o resto, 220"), "{:?}", c.texts());
+    c.activate("Recolher Sessões");
+    c.settle();
+    assert!(c.says("Sessões: recolhida"), "{:?}", c.texts());
+    assert!(c.ui.access_tree().find(Role::Button, "Mostrar Sessões").is_some(), "{:?}", c.texts());
+    c.activate("Mostrar Sessões");
+    c.settle();
+    assert!(c.says("Sessões: aberta"), "{:?}", c.texts());
+    // collapsible: the last column folds with its own arrow, kept by the pane.
+    c.activate("Recolher Movimento");
+    c.settle();
+    assert!(c.ui.access_tree().find(Role::Button, "Mostrar Movimento").is_some(), "{:?}", c.texts());
+    c.activate("Mostrar Movimento");
+    c.settle();
+    // sizes and on_end: a key on the first bar writes the width the app keeps, and asks to save.
+    let bar =
+        c.ui.access_tree()
+            .nodes
+            .iter()
+            .find(|n| n.role == Role::Slider && n.name.as_deref() == Some("Redimensionar"))
+            .map(|n| n.id)
+            .expect("the first bar");
+    c.ui.perform_action(bar, AccessAction::Increment);
+    c.settle();
+    assert!(c.says("Tamanhos salvos: 1"), "{:?}", c.texts());
+    assert!(!c.says("Larguras guardadas: 220, o resto, 220"), "{:?}", c.texts());
+    // vertical, height and visible: the lower pane goes and comes back.
+    assert!(c.says("Detalhes"), "{:?}", c.texts());
+    c.activate("Esconder detalhes");
+    c.settle();
+    assert!(!c.says("Detalhes"), "{:?}", c.texts());
+    c.activate("Mostrar detalhes");
+    c.settle();
+    assert!(c.says("Detalhes"), "{:?}", c.texts());
+}
+
+#[test]
+fn monospaced_text_lines_up_the_lines_of_a_receipt() {
+    let mut c = Center::memory("ana");
+    c.press("Texto");
+    c.settle();
+    let [subtotal, total] = raven_feature_center::widgets::basicos::texto::CUPOM;
+    let tree = c.ui.access_tree();
+    // Screen readers may hear a run of spaces as one.
+    let words = |text: &str| text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let width = |name: &str| {
+        tree.nodes
+            .iter()
+            .find(|n| n.name.as_deref().is_some_and(|said| words(said) == words(name)))
+            .map(|n| n.bounds.width())
+            .expect("the line")
+    };
+    assert_eq!(width(subtotal), width(total), "the same number of characters ends at the same place");
 }

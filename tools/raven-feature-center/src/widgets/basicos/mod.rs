@@ -9,5 +9,6 @@ pub mod codigo;
 pub mod indicadores;
 pub mod listas_de_escolha;
 pub mod menus;
+pub mod paineis;
 pub mod progresso;
 pub mod texto;

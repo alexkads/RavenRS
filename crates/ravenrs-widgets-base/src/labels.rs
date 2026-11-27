@@ -266,6 +266,14 @@ pub struct Labels {
     pub wizard_error: String,
     /// The bar between two panes, for screen readers.
     pub split_resize: String,
+    /// The arrow that folds a pane of a `SplitPanes`; `{0}` is the pane's name.
+    /// [`Labels::split_collapse`] fills it in.
+    pub split_collapse: String,
+    /// The arrow that brings a folded pane back; `{0}` is the pane's name.
+    /// [`Labels::split_expand`] fills it in.
+    pub split_expand: String,
+    /// What a pane of a `SplitPanes` without a name is called.
+    pub split_pane: String,
     /// What dragging a `FloatingPanel` by its header does.
     pub panel_move: String,
     /// Reduces a `FloatingPanel` to its header.
@@ -321,6 +329,8 @@ pub struct Labels {
     /// What an option of a `TagBox` says when it adds what was typed, where `{0}`
     /// is what was typed. [`Labels::tag_add`] fills it in.
     pub tag_add: String,
+    /// The button at the end of a `Tabs` bar with the tabs that do not fit.
+    pub tabs_more: String,
     /// Where a `Wizard` stands, where `{0}` is its step and `{1}` its count.
     /// [`Labels::wizard_progress`] fills it in.
     pub wizard_progress: String,
@@ -1402,6 +1412,9 @@ impl Labels {
             wizard_done: texts.get("widgets.wizard_done"),
             wizard_error: texts.get("widgets.wizard_error"),
             split_resize: texts.get("widgets.split_resize"),
+            split_collapse: texts.get("widgets.split_collapse"),
+            split_expand: texts.get("widgets.split_expand"),
+            split_pane: texts.get("widgets.split_pane"),
             panel_move: texts.get("widgets.panel_move"),
             panel_minimize: texts.get("widgets.panel_minimize"),
             panel_restore: texts.get("widgets.panel_restore"),
@@ -1429,6 +1442,7 @@ impl Labels {
             grid_expand_row: texts.get("widgets.grid_expand_row"),
             grid_collapse_row: texts.get("widgets.grid_collapse_row"),
             tag_add: texts.get("widgets.tag_add"),
+            tabs_more: texts.get("widgets.tabs_more"),
             wizard_progress: texts.get("widgets.wizard_progress"),
             culture: texts.get("widgets.culture"),
             loading: texts.get("widgets.loading"),
@@ -1979,6 +1993,16 @@ impl Labels {
         } else {
             ravenrs_app_i18n::format(&self.calendar_events, &[&count.to_string()])
         }
+    }
+
+    /// The arrow that folds the pane called `pane`.
+    pub fn split_collapse(&self, pane: &str) -> String {
+        ravenrs_app_i18n::format(&self.split_collapse, &[pane])
+    }
+
+    /// The arrow that brings back the folded pane called `pane`.
+    pub fn split_expand(&self, pane: &str) -> String {
+        ravenrs_app_i18n::format(&self.split_expand, &[pane])
     }
 
     /// Where a `Wizard` stands, at `step` of `count`.

@@ -4,6 +4,7 @@ project/tokens.css
 project/fonts/Inter-Regular.ttf
 project/fonts/Inter-SemiBold.ttf
 project/fonts/RavenIcons.ttf
+project/fonts/FiraMono-Medium.ttf
 project/components/Cover/preview.html
 project/components/Button/README.md
 project/components/Button/preview.html

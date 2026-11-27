@@ -56,6 +56,16 @@ fn all_sizes(args: &Args) -> AnyView {
     Box::new(VStack::new(bars).spacing(16.0))
 }
 
+/// Six channels in a column 360 wide, in both looks: the tabs that do not fit go to the
+/// button at the end of the bar.
+fn overflow(args: &Args) -> AnyView {
+    let bars: Vec<AnyView> = ["Underline", "Segmented"]
+        .into_iter()
+        .map(|variant| bar_only(&args.clone().with("variant", ArgValue::choice(variant))))
+        .collect();
+    Box::new(VStack::new(bars).spacing(16.0).width(360.0))
+}
+
 impl ComponentBook for Tabs {
     fn book() -> Meta {
         Meta::new("Navigation/Tabs", tabs)
@@ -76,5 +86,12 @@ impl ComponentBook for Tabs {
             .story_with("All sizes", Args::new(), all_sizes)
             .story("Disabled", Args::new().with("disabled", true).with("selected", 1.0))
             .story_with("Tabs without content", Args::new(), bar_only)
+            .story_with(
+                "Overflow",
+                Args::new()
+                    .with("tabs", "All, WhatsApp, Instagram, Messenger, Telegram, Site")
+                    .with("size", ArgValue::choice("Small")),
+                overflow,
+            )
     }
 }
