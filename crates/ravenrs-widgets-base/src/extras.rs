@@ -785,10 +785,11 @@ impl View for SplitPanes {
         let limits: Vec<(f32, f32)> = shown.iter().map(|&i| (self.panes[i].min, self.panes[i].max)).collect();
         // The room a folded pane leaves goes to one that takes what is left, or to the last.
         let rails = parts.iter().filter(|p| matches!(p, SplitPart::Rail { .. })).count();
-        if rails > 0 && asked.iter().all(Option::is_some) {
-            if let Some(last) = asked.last_mut() {
-                *last = None;
-            }
+        if rails > 0
+            && asked.iter().all(Option::is_some)
+            && let Some(last) = asked.last_mut()
+        {
+            *last = None;
         }
         let bars = parts.iter().filter(|p| matches!(p, SplitPart::Bar { .. })).count();
         // Known from the second build on, when the bars need it.
