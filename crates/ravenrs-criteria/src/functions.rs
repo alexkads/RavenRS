@@ -184,6 +184,8 @@ functions! {
     PageNumber "PageNumber" 0 0 Reporting "PageNumber()" "The page being printed.";
     PageCount "PageCount" 0 0 Reporting "PageCount()" "The number of pages.";
     CurrentRowIndexInGroup "CurrentRowIndexInGroup" 0 0 Reporting "CurrentRowIndexInGroup()" "The row's position in its group, from 0.";
+    GroupIndex "GroupIndex" 0 0 Reporting "GroupIndex()" "The group's position among the groups beside it, from 0.";
+    GetDisplayText "GetDisplayText" 1 1 Reporting "GetDisplayText(value)" "The value as the report shows it, in its culture.";
     PrevRowColumnValue "PrevRowColumnValue" 1 1 Reporting "PrevRowColumnValue(value)" "The value on the previous row of the scope.";
     NextRowColumnValue "NextRowColumnValue" 1 1 Reporting "NextRowColumnValue(value)" "The value on the next row of the scope.";
 }
