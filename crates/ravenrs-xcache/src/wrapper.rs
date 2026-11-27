@@ -98,6 +98,9 @@ pub(crate) fn run(compiler: &OsStr, rest: &[OsString]) -> i32 {
         let at = args.iter().position(|a| a == "--crate-name");
         at.and_then(|at| args.get(at + 1)).cloned().unwrap_or_else(|| "?".to_owned())
     };
+    if let Some(rustc) = rustc_behind_clippy(compiler, rest, std::env::var_os("CARGO_PRIMARY_PACKAGE").is_some()) {
+        return run(rustc, &rest[1..]);
+    }
     if Path::new(compiler).file_stem().is_none_or(|stem| stem != "rustc") {
         // `ravenrs-xcache clippy-driver rustc …`: a workspace wrapper compiles, not rustc.
         return pass(&name_of(&args), "another tool compiles in rustc's place (clippy-driver)");
@@ -159,6 +162,19 @@ pub(crate) fn run(compiler: &OsStr, rest: &[OsString]) -> i32 {
         Err(reason) => reason,
     };
     job.compile_and_keep(&request, &reason, &mut times)
+}
+
+/// The rustc to run in place of `clippy-driver`, when clippy would not lint the crate.
+///
+/// `cargo clippy` puts `clippy-driver` in front of rustc for every member of the workspace, but it
+/// lints only the packages named on the command line, the ones Cargo marks with
+/// `CARGO_PRIMARY_PACKAGE`. For any other member, such as a crate of the workspace the linted ones
+/// depend on, `clippy-driver` runs rustc as it is, with no lint and no `--cfg clippy`. Run rustc
+/// itself for those, and the result is kept and shared like any other compile.
+fn rustc_behind_clippy<'a>(compiler: &OsStr, rest: &'a [OsString], linted: bool) -> Option<&'a OsStr> {
+    let driver = Path::new(compiler).file_stem().is_some_and(|stem| stem == "clippy-driver");
+    let rustc = rest.first().filter(|next| Path::new(next).file_stem().is_some_and(|stem| stem == "rustc"))?;
+    (driver && !linted).then_some(rustc.as_os_str())
 }
 
 /// What identifies the compiler: what `rustc -vV` says, read once for each binary.
@@ -563,6 +579,24 @@ fn dep_info(text: &str) -> (Vec<String>, Vec<String>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_member_clippy_does_not_lint_goes_to_rustc_and_a_linted_one_does_not() {
+        let driver = OsStr::new("/home/x/.rustup/toolchains/s/bin/clippy-driver");
+        let rest: Vec<OsString> = ["/home/x/.rustup/toolchains/s/bin/rustc", "--crate-name", "core"]
+            .into_iter()
+            .map(OsString::from)
+            .collect();
+        assert_eq!(
+            rustc_behind_clippy(driver, &rest, false),
+            Some(OsStr::new("/home/x/.rustup/toolchains/s/bin/rustc"))
+        );
+        assert_eq!(rustc_behind_clippy(driver, &rest, true), None, "clippy lints a primary package");
+        let plain = OsStr::new("/home/x/.rustup/toolchains/s/bin/rustc");
+        assert_eq!(rustc_behind_clippy(plain, &rest[1..], false), None, "rustc is not clippy-driver");
+        let other = OsStr::new("/usr/bin/some-wrapper");
+        assert_eq!(rustc_behind_clippy(other, &rest, false), None, "only clippy-driver is known to run rustc as it is");
+    }
 
     #[test]
     fn dep_info_gives_the_sources_once_and_the_variables_read() {

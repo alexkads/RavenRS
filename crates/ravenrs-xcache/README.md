@@ -46,6 +46,8 @@ The 23m01s with an empty cache is not the cache: it is `CARGO_INCREMENTAL=0`, wh
 
 **Two keys.** The first is made of what is known before compiling: the compiler (`rustc -vV`), the arguments with the roots replaced by markers, what each `--extern` is, and the build's variables (`CARGO_PKG_*`, `CARGO_MANIFEST_DIR`, `OUT_DIR`, the deployment targets). It leads to a manifest: for each way the crate was compiled before, the source files it read and the environment variables rustc said it read, taken from the dep-info of that compile. A hit needs every one of them to be as it was. rustc is not run a second time to find them out.
 
+**Clippy.** `cargo clippy` puts `clippy-driver` in front of rustc for every member of the workspace, but lints only the packages named on its command line (`CARGO_PRIMARY_PACKAGE`). For the other members, the workspace crates the linted ones depend on, `clippy-driver` is rustc with nothing added, so the wrapper runs rustc itself and those come from the cache like any library. The linted ones still compile every time.
+
 **Proc macros.** A proc macro links, so it is compiled every time. Compiled with the same remapping it is the same macro in every worktree, so the crates that use it are told apart by what the macro was built from, not by the bytes of a library the linker stamped with one build directory.
 
 **Storage.** Files are named by the SHA-256 of their content and written to a temporary file, then renamed, so a build stopped halfway leaves nothing that reads as whole. A restore checks the size and the hash; a file that changed on disk is refused, the crate is compiled, and the good file replaces it. Restoring is a copy, which is a copy-on-write clone on APFS. The dep-info Cargo reads is kept with markers and written back with the paths of the worktree it is restored into.
@@ -56,7 +58,7 @@ The 23m01s with an empty cache is not the cache: it is `CARGO_INCREMENTAL=0`, wh
 |---|---|---|
 | Executables, test binaries, `cdylib`, `dylib` | They link; the linker's inputs are not all known | yes |
 | Proc macros | They link (but their users are shared, see above) | yes |
-| Clippy on workspace crates | `clippy-driver` compiles in rustc's place | yes |
+| Clippy on the packages it lints | `clippy-driver` compiles in rustc's place, with its lints | yes |
 | Incremental compiles | They depend on the state in the build directory | no: turn it off for the build |
 | rustdoc, build script runs | They do not go through `RUSTC_WRAPPER` | yes |
 | LTO libraries in another build directory | The path search cannot read bitcode | to be studied |
