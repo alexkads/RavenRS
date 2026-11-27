@@ -84,6 +84,11 @@ pub fn local_now() -> ravenrs_criteria::DateTime {
     }
 }
 
+/// Today on this machine, at midnight: [`local_now`] without the time.
+pub fn local_today() -> ravenrs_criteria::DateTime {
+    ravenrs_criteria::DateTime { days: local_now().days, seconds: 0 }
+}
+
 /// Whether a change keeps to the state machines of its entity. Whoever keeps records calls this
 /// with what is stored and what is about to be, before writing, as every space here does.
 pub fn check_transitions(entity: &EntityInfo, old: Option<&Object>, new: &Object) -> Result<(), SpaceError> {

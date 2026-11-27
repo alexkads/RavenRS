@@ -53,10 +53,7 @@ pub struct Servicos {
 
 impl Servicos {
     fn escolher(&self, servico: &Object) {
-        let preco = match servico.get("preco") {
-            Value::Number(centavos) => Decimal::new(centavos.round() as i64, 2),
-            _ => Decimal::ZERO,
-        };
+        let preco = servico.cents("preco").map_or(Decimal::ZERO, |centavos| Decimal::new(centavos, 2));
         self.venda.update(|venda| {
             venda.servico = Some(texto(servico, "codigo"));
             venda.valor = valor_em_texto(preco);

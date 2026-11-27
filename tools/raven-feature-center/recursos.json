@@ -15,7 +15,7 @@
 {"crate": "ravenrs-app", "tipo": "Message", "pendente": true, "issue": 579, "conhecidos": ["action", "new", "on_close", "seconds"]},
 {"crate": "ravenrs-app", "tipo": "ModelNode", "pendente": true, "issue": 579, "conhecidos": ["at", "child", "flag", "get", "in_order", "integer", "new", "number", "text", "typed", "with"]},
 {"crate": "ravenrs-app", "tipo": "ModuleManifest", "pendente": true, "issue": 579, "conhecidos": ["capability", "database", "job", "migration", "new", "requires", "role", "target", "version"]},
-{"crate": "ravenrs-app", "tipo": "Object", "pendente": true, "issue": 579, "conhecidos": ["entity", "from_values", "get", "keep_only", "set", "values", "without_paths"]},
+{"crate": "ravenrs-app", "tipo": "Object", "pagina": "Registro", "recursos": ["cents", "date", "entity", "from_values", "get", "integer", "keep_only", "key", "number", "set", "text", "values", "without_paths"]},
 {"crate": "ravenrs-app", "tipo": "Query", "pendente": true, "issue": 579, "conhecidos": ["all", "filter", "only", "page", "sort"]},
 {"crate": "ravenrs-app", "tipo": "RecordAction", "pendente": true, "issue": 579, "conhecidos": ["confirm", "confirm_detail", "enabled", "id", "id_on", "new", "selection", "set", "to_action"]},
 {"crate": "ravenrs-app", "tipo": "Reminder", "pendente": true, "issue": 579, "conhecidos": ["criteria", "message", "new"]},

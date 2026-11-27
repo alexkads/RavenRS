@@ -2486,3 +2486,41 @@ fn masks_follow_their_pattern_take_rules_of_their_own_and_say_when_they_are_comp
         assert!(node.is_some(), "{name}: {:?}", c.texts());
     }
 }
+
+#[test]
+fn a_record_reads_each_field_in_its_type_and_changes_by_field() {
+    let mut c = Center::memory("ana");
+    c.press("Registro");
+    c.settle();
+    // from_values, entity, values, get and the typed reads.
+    for line in [
+        "Entidade: Bill",
+        "Descrição (text): Conta de luz",
+        "Valor (number): 18990.4",
+        "Valor em centavos (cents): 18990",
+        "Parcelas (integer): 3",
+        "Vencimento (date): 2026-12-10",
+        "Conta (key): 7",
+    ] {
+        assert!(c.says(line), "{line}: {:?}", c.texts());
+    }
+    assert!(c.texts().iter().any(|t| t.starts_with("Valor bruto (get): Number(")), "{:?}", c.texts());
+    assert!(
+        c.says("Campos: account_id, account_id.name, amount, description, due, installments"),
+        "{:?}",
+        c.texts()
+    );
+    // set.
+    c.press("Mudar o valor");
+    assert!(c.says("Valor em centavos (cents): 20000"), "{:?}", c.texts());
+    // without_paths.
+    c.press("Tirar os caminhos");
+    assert!(c.says("Campos: account_id, amount, description, due, installments"), "{:?}", c.texts());
+    // keep_only: what is left out reads empty, in every type.
+    c.press("Só descrição e valor");
+    assert!(c.says("Campos: amount, description"), "{:?}", c.texts());
+    assert!(c.says("Parcelas (integer): vazio"), "{:?}", c.texts());
+    assert!(c.says("Conta (key): vazio"), "{:?}", c.texts());
+    c.press("Recomeçar");
+    assert!(c.says("Parcelas (integer): 3"), "{:?}", c.texts());
+}

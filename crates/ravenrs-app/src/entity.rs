@@ -16,7 +16,7 @@ pub use crate::model_node::ModelNode;
 pub use appearance_types::{AppearanceContext, AppearanceRule, AppearanceTarget, Tint};
 pub use record_actions::{RecordAction, Selection};
 pub use rules::{Comparison, Operand, Rule, RuleKind, Severity, TextComparison};
-pub use workflow_types::{Reminder, StateMachine, Transition, check_transitions, local_now};
+pub use workflow_types::{Reminder, StateMachine, Transition, check_transitions, local_now, local_today};
 
 /// What a field holds, which decides how it is edited and stored.
 #[derive(Clone, Debug, PartialEq)]
@@ -1084,6 +1084,47 @@ impl Object {
         self.values.get(field).cloned().unwrap_or(Value::Null)
     }
 
+    /// The text of a field; `""` when it is empty or holds something other than text.
+    pub fn text(&self, field: &str) -> String {
+        match self.values.get(field) {
+            Some(Value::Text(text)) => text.clone(),
+            _ => String::new(),
+        }
+    }
+
+    /// The number in a field; `None` when it is empty or holds anything else, numeric text
+    /// included.
+    pub fn number(&self, field: &str) -> Option<f64> {
+        match self.values.get(field) {
+            Some(Value::Number(n)) if n.is_finite() => Some(*n),
+            _ => None,
+        }
+    }
+
+    /// The whole number in a field; `None` when it is empty, has a fraction, does not fit an
+    /// `i64` or is not a number.
+    pub fn integer(&self, field: &str) -> Option<i64> {
+        self.values.get(field).and_then(Value::cents)
+    }
+
+    /// The cents in a money field, rounded to the nearest whole one; `None` when it is empty,
+    /// does not fit an `i64` or is not a number.
+    pub fn cents(&self, field: &str) -> Option<i64> {
+        self.number(field).and_then(|n| Value::Number(n.round()).cents())
+    }
+
+    /// The date and time in a field, also from ISO 8601 text, as [`Value::as_date`] reads it;
+    /// `None` when it is empty or holds anything else.
+    pub fn date(&self, field: &str) -> Option<ravenrs_criteria::DateTime> {
+        self.values.get(field).and_then(Value::as_date)
+    }
+
+    /// The key a reference field holds, as text (`"7"`, or the text of a `Guid`), the same as
+    /// [`crate::key_text`] gives; `None` when it is empty.
+    pub fn key(&self, field: &str) -> Option<String> {
+        crate::key_text(&self.get(field))
+    }
+
     /// Changes the value of a field.
     pub fn set(&mut self, field: &str, value: impl Into<Value>) {
         self.values.insert(field.to_owned(), value.into());
@@ -1165,6 +1206,56 @@ pub fn exact_decimals(entity: &EntityInfo, object: &mut Object) -> Result<(), St
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fields_read_in_the_type_asked_for() {
+        let day = ravenrs_criteria::DateTime::parse("2026-11-22").expect("a day");
+        let mut o = Object::from_values("Bill", BTreeMap::new());
+        o.set("name", "Ana");
+        o.set("count", 42.0);
+        o.set("half", 42.5);
+        o.set("digits", "42");
+        o.set("amount", 1999.6);
+        o.set("due", Value::Date(day));
+        o.set("due_text", "2026-11-22");
+        o.set("tomorrow", "amanhã");
+        o.set("owner", 7.0);
+        o.set("guid", "5f0c-7a");
+        // text
+        assert_eq!(o.text("name"), "Ana");
+        assert_eq!(o.text("missing"), "");
+        assert_eq!(o.text("count"), "", "a number is not text");
+        // number and integer
+        assert_eq!(o.number("half"), Some(42.5));
+        assert_eq!(o.number("digits"), None, "numeric text is not a number");
+        assert_eq!(o.integer("count"), Some(42));
+        assert_eq!(o.integer("half"), None);
+        assert_eq!(o.integer("digits"), None);
+        assert_eq!(o.integer("missing"), None);
+        // cents
+        assert_eq!(o.cents("amount"), Some(2000));
+        assert_eq!(o.cents("missing"), None);
+        assert_eq!(o.cents("name"), None);
+        // date
+        assert_eq!(o.date("due"), Some(day));
+        assert_eq!(o.date("due_text"), Some(day), "ISO text gives the same day");
+        assert_eq!(o.date("tomorrow"), None);
+        assert_eq!(o.date("missing"), None);
+        // key
+        assert_eq!(o.key("owner").as_deref(), Some("7"));
+        assert_eq!(o.key("guid").as_deref(), Some("5f0c-7a"));
+        assert_eq!(o.key("missing"), None);
+    }
+
+    #[test]
+    fn today_is_now_at_midnight() {
+        let (now, today) = (local_now(), local_today());
+        assert_eq!(today.seconds, 0);
+        assert!(
+            today.days == now.days || today.days == local_now().days,
+            "the same day, unless it just turned"
+        );
+    }
 
     #[test]
     fn captions_follow_from_names() {

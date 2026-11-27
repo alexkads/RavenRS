@@ -7,7 +7,7 @@ use ravenrs::prelude::*;
 use ravenrs_app::{Object, Value as Field};
 use ravenrs_app_ui::{EditorRegistry, EditorRequest, EntityForm, FormText};
 
-use super::{Lazy, cents_of, flow_of, key_field, text_of, usual_account_id};
+use super::{Lazy, flow_of, key_field, usual_account_id};
 use crate::model::{Flow, Occurrence, ScheduleInput, date_label};
 use crate::ui::entities;
 use crate::ui::store::{Store, date_of_field, field_of_date, id_of_field};
@@ -94,14 +94,14 @@ fn save_schedule(store: &Store, record: &Object, is_new: bool) -> bool {
         return false;
     };
     let input = ScheduleInput {
-        description: text_of(record, "description"),
+        description: record.text("description"),
         flow: flow_of(record),
-        amount_cents: cents_of(record, "amount"),
+        amount_cents: record.cents("amount").unwrap_or(0),
         account_id,
         category_id,
         member_id: id_of_field(&record.get("member")),
         start,
-        rule: RecurrenceRule::parse(&text_of(record, "rule")).unwrap_or_default(),
+        rule: RecurrenceRule::parse(&record.text("rule")).unwrap_or_default(),
     };
     let id = id_of_field(&record.get("id"));
     store
@@ -137,7 +137,7 @@ impl ConfirmForm {
                         ) else {
                             return false;
                         };
-                        let amount = cents_of(record, "amount");
+                        let amount = record.cents("amount").unwrap_or(0);
                         keeper
                             .write("Confirmado", |db| db.confirm_occurrence(id, day, account, when, amount))
                             .is_some()

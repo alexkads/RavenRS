@@ -28,17 +28,25 @@ const MEETINGS: [(&str, (i32, u8, u8), u32); 3] =
     [("Easter", (2026, 4, 5), 9), ("Advent", (2025, 12, 1), 19), ("Harvest", (2026, 3, 30), 10)];
 
 fn world(language: Language) -> Ui {
-    let app =
-        App::new("Church").language(language).entity_info(meeting()).seed(|space: &mut dyn ObjectSpace| {
-            for (name, (year, month, day), hour) in MEETINGS {
-                let mut object = space.new_object("Meeting").map_err(|e| e.to_string())?;
-                object.set("name", name);
-                object.set("day", moment(year, month, day, 0, 0));
-                object.set("starts", moment(year, month, day, hour, 30));
-                space.save(object).map_err(|e| e.to_string())?;
-            }
-            Ok(())
-        });
+    world_on(language, None)
+}
+
+fn world_on(language: Language, today: Option<Date>) -> Ui {
+    let app = App::new("Church");
+    let app = match today {
+        Some(day) => app.with_session(move |session| session.set_today(Some(day))),
+        None => app,
+    };
+    let app = app.language(language).entity_info(meeting()).seed(|space: &mut dyn ObjectSpace| {
+        for (name, (year, month, day), hour) in MEETINGS {
+            let mut object = space.new_object("Meeting").map_err(|e| e.to_string())?;
+            object.set("name", name);
+            object.set("day", moment(year, month, day, 0, 0));
+            object.set("starts", moment(year, month, day, hour, 30));
+            space.save(object).map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    });
     let mut ui = Ui::new(app.build().expect("valid"), Theme::raven_dark());
     ui.set_viewport(Size::new(1200.0, 800.0), 1.0);
     settle(&mut ui);
@@ -134,4 +142,23 @@ fn searching_finds_what_is_shown() {
     let mut ui = world(Language::BrazilianPortuguese);
     search(&mut ui, "Buscar em todas as colunas", "2026 10:30");
     assert_eq!(names(&mut ui), ["Harvest"]);
+}
+
+fn press(ui: &mut Ui, role: Role, name: &str) {
+    settle(ui);
+    let id = ui.access_tree().find(role, name).map(|n| n.id).unwrap_or_else(|| panic!("no {role:?} {name}"));
+    ui.perform_action(id, AccessAction::Click);
+    settle(ui);
+}
+
+#[test]
+fn a_fixed_today_is_where_the_date_picker_opens() {
+    // Far from the clock, so only the fixed day can bring it there.
+    let first = Date::new(2030, 3, 1).expect("a day");
+    let mut ui = world_on(Language::English, Some(first));
+    press(&mut ui, Role::Button, "New");
+    press(&mut ui, Role::ComboBox, "Day");
+    let tree = ui.access_tree();
+    let names: Vec<String> = tree.nodes.iter().filter_map(|n| n.name.clone()).collect();
+    assert!(names.iter().any(|n| n == "March 2030"), "opens on March 2030: {names:?}");
 }

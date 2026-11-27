@@ -139,6 +139,12 @@ fn application() -> App {
                 .control(page.caption, page.id),
         );
     }
+    app = app.dashboard(
+        DashboardInfo::new(crate::registro::ID, crate::registro::PAGE)
+            .navigation("Aplicação")
+            .icon("database")
+            .control(crate::registro::PAGE, crate::registro::ID),
+    );
     // The server does not run in a browser, so neither does its page.
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -168,6 +174,7 @@ fn application() -> App {
 fn register_controls(session: &Session) {
     session.register_control(THEME_EDITOR, || Box::new(ThemeEditor::new()) as AnyView);
     session.register_control(model::COUNTER_WINDOW, actions::counter_control());
+    session.register_control(crate::registro::ID, || Box::new(crate::registro::RecordPage) as AnyView);
     #[cfg(not(target_arch = "wasm32"))]
     session.register_control(crate::servidor::ID, || Box::new(crate::servidor::ApiOptionsPage) as AnyView);
     #[cfg(not(target_arch = "wasm32"))]
