@@ -34,6 +34,8 @@ e2e-source = []
 decode = ["dep:image"]
 # The stories of its components, for RavenComponentBook (`book::stories`).
 book = []
+# Fira Mono embedded in `ravenrs-text`, for `Text::mono`.
+mono = ["ravenrs-text/mono"]
 # The types of the base exposed to the playground's interpreter.
 live = ["dep:ravenrs-live", "ravenrs-core/live", "ravenrs-style/live", "ravenrs-layout/live", "ravenrs-text/live"]
 

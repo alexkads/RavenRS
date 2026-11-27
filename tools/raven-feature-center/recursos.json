@@ -130,7 +130,7 @@
 {"crate": "ravenrs-widgets-base", "tipo": "Stepper", "pendente": true, "issue": 579, "conhecidos": ["disabled", "label", "new", "range", "read_only"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Sticky", "pendente": true, "issue": 579, "conhecidos": ["left", "new", "top"]},
 {"crate": "ravenrs-widgets-base", "tipo": "SwatchGrid", "pendente": true, "issue": 579, "conhecidos": ["columns", "label", "new", "on_pick", "selected"]},
-{"crate": "ravenrs-widgets-base", "tipo": "Text", "pagina": "Texto", "recursos": ["align", "bound", "dynamic", "font_size", "font_weight", "foreground", "new", "style", "truncate"]},
+{"crate": "ravenrs-widgets-base", "tipo": "Text", "pagina": "Texto", "recursos": ["align", "bound", "dynamic", "font_size", "font_weight", "foreground", "mono", "new", "style", "truncate"]},
 {"crate": "ravenrs-widgets-base", "tipo": "TextField", "pendente": true, "issue": 579, "conhecidos": ["autofocus", "clearable", "compact", "disabled", "end_aligned", "flat", "icon", "intercept_keys", "keeps_focus", "new", "on_cancel", "on_leave", "on_submit", "placeholder", "prefix", "read_only", "recall", "secure", "select_on_open", "size", "suffix", "width"]},
 {"crate": "ravenrs-widgets-base", "tipo": "ThemeSwitcher", "pendente": true, "issue": 579, "conhecidos": ["new", "on_change", "themes"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Ticker", "pendente": true, "issue": 579, "conhecidos": ["gap", "new", "reverse", "speed"]},

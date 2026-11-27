@@ -2202,3 +2202,22 @@ fn menus_open_from_a_button_or_any_view_with_a_header_titled_sections_and_every_
     c.settle();
     assert!(c.says("Tema: Escuro"), "{:?}", c.texts());
 }
+
+#[test]
+fn monospaced_text_lines_up_the_lines_of_a_receipt() {
+    let mut c = Center::memory("ana");
+    c.press("Texto");
+    c.settle();
+    let [subtotal, total] = raven_feature_center::widgets::basicos::texto::CUPOM;
+    let tree = c.ui.access_tree();
+    // Screen readers may hear a run of spaces as one.
+    let words = |text: &str| text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let width = |name: &str| {
+        tree.nodes
+            .iter()
+            .find(|n| n.name.as_deref().is_some_and(|said| words(said) == words(name)))
+            .map(|n| n.bounds.width())
+            .expect("the line")
+    };
+    assert_eq!(width(subtotal), width(total), "the same number of characters ends at the same place");
+}

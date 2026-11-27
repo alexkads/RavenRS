@@ -249,7 +249,7 @@ RavenComponentBook writes every file of this system from the RavenRS code, and t
 | Display and feedback | `Kbd` | Keyboard key, for showing shortcuts | 1 |
 | Display and feedback | `Skeleton` | Placeholder block shown while content loads | 1 |
 | Display and feedback | `Spinner` | Indeterminate activity indicator | 2 |
-| Display and feedback | `Text` | Text in the theme's type scale, with truncation | 3 |
+| Display and feedback | `Text` | Text in the theme's type scale, with truncation | 4 |
 | Display and feedback | `DaySeparator` | A line with a word in the middle that divides a list by day | 1 |
 | Display and feedback | `Dot` | Small round mark of state, such as not saved | 5 |
 | Display and feedback | `EmptyState` | What an area shows when it has nothing: icon, title, sentence and actions | 2 |
