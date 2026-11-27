@@ -101,6 +101,13 @@ pub const PAGES: &[Page] = &[
         make: || Box::new(basicos::menus::MenusPage),
     },
     Page {
+        id: basicos::paineis::ID,
+        caption: basicos::paineis::PAGE,
+        group: "Básicos",
+        icon: IconName::Columns3,
+        make: || Box::new(basicos::paineis::SplitPanesPage),
+    },
+    Page {
         id: basicos::progresso::ID,
         caption: basicos::progresso::PAGE,
         group: "Básicos",

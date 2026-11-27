@@ -41,7 +41,7 @@ binary = "raven-feature-center"
 
 [dependencies]
 serde_json.workspace = true
-ravenrs = { workspace = true, features = ["tray"] }
+ravenrs = { workspace = true, features = ["tray", "mono"] }
 ravenrs-app-update = { workspace = true, features = ["ui"] }
 ravenrs-widgets.workspace = true
 ravenrs-app = { workspace = true, optional = true }

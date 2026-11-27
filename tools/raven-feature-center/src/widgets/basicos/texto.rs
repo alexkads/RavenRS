@@ -9,6 +9,9 @@ pub const PAGE: &str = "Texto";
 pub const LONG: &str =
     "Este texto é longo e fica visualmente cortado, mas continua inteiro para quem usa leitor de tela.";
 
+/// The lines of a receipt, the same number of characters: monospaced, they end at the same place.
+pub const CUPOM: [&str; 2] = ["SUBTOTAL (2 ITENS)   R$ 30,00", "TOTAL A RECEBER      R$ 30,00"];
+
 /// Every public feature of Text on one page.
 #[derive(Debug, Default)]
 pub struct TextPage;
@@ -47,8 +50,19 @@ impl View for TextPage {
                 ))
                 .spacing(4.0)
                 .width(320.0),
-                Text::new("Uma linha, texto completo no leitor de tela").style(TextStyle::Headline),
-                Text::new(LONG).truncate().width(280.0),
+                VStack::new((
+                    Text::new("Uma linha, texto completo no leitor de tela").style(TextStyle::Headline),
+                    Text::new(LONG).truncate().width(280.0),
+                ))
+                .spacing(12.0)
+                .align(Align::Start),
+                VStack::new((
+                    Text::new("Monoespaçado, para código e cupom").style(TextStyle::Headline),
+                    Text::new(CUPOM[0]).mono(),
+                    Text::new(CUPOM[1]).mono(),
+                ))
+                .spacing(4.0)
+                .align(Align::Start),
                 Text::new("Conteúdo que acompanha o estado").style(TextStyle::Headline),
                 Text::bound(&count, |n| format!("Vinculado: {n}")),
                 Text::dynamic(move || format!("Calculado: {}", dynamic.get() * 2)),

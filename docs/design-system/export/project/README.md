@@ -234,7 +234,7 @@ RavenComponentBook writes every file of this system from the RavenRS code, and t
 | Layout | `Section` | Titled group of content with an optional description | 2 |
 | Layout | `Spacer` | Flexible space that pushes its siblings apart | 1 |
 | Layout | `SplitHandle` | A bar to drag that changes a size | 2 |
-| Layout | `SplitPanes` | Any number of panes with a bar between each two, and limits | 1 |
+| Layout | `SplitPanes` | Any number of panes with a bar between each two, and limits | 3 |
 | Layout | `Splitter` | Two panes with a draggable divider | 2 |
 | Layout | `Sticky` | Stays below the top while its section scrolls past | 1 |
 | Layout | `Ticker` | A strip of content that keeps moving sideways, still under reduced motion | 2 |
@@ -249,7 +249,7 @@ RavenComponentBook writes every file of this system from the RavenRS code, and t
 | Display and feedback | `Kbd` | Keyboard key, for showing shortcuts | 1 |
 | Display and feedback | `Skeleton` | Placeholder block shown while content loads | 1 |
 | Display and feedback | `Spinner` | Indeterminate activity indicator | 2 |
-| Display and feedback | `Text` | Text in the theme's type scale, with truncation | 3 |
+| Display and feedback | `Text` | Text in the theme's type scale, with truncation | 4 |
 | Display and feedback | `DaySeparator` | A line with a word in the middle that divides a list by day | 1 |
 | Display and feedback | `Dot` | Small round mark of state, such as not saved | 5 |
 | Display and feedback | `EmptyState` | What an area shows when it has nothing: icon, title, sentence and actions | 2 |

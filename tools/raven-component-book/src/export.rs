@@ -16,6 +16,8 @@ use crate::measure::{self, Fit, Interaction, Measured};
 const GUIDE: &str = include_str!("../../../docs/design-system/README.md");
 /// The font of RavenRS's icons, so the previews draw them as RavenRS does.
 const ICON_FONT: &[u8] = include_bytes!("../../../crates/ravenrs-text/fonts/RavenIcons.ttf");
+/// Fira Mono (SIL Open Font License), what `Text::mono` and `CodeBlock` draw with.
+const MONO_FONT: &[u8] = include_bytes!("../../../crates/ravenrs-text/fonts/FiraMono-Medium.ttf");
 /// The text faces RavenRS embeds in every build, the same files the previews draw with.
 const INTER_REGULAR: &[u8] = include_bytes!("../../../crates/ravenrs-text/fonts/Inter-Regular.ttf");
 const INTER_SEMIBOLD: &[u8] = include_bytes!("../../../crates/ravenrs-text/fonts/Inter-SemiBold.ttf");
@@ -1122,6 +1124,7 @@ pub fn write_claude_design(dir: &Path, sha: &str) -> std::io::Result<Vec<String>
     put("project/fonts/Inter-Regular.ttf", INTER_REGULAR)?;
     put("project/fonts/Inter-SemiBold.ttf", INTER_SEMIBOLD)?;
     put("project/fonts/RavenIcons.ttf", ICON_FONT)?;
+    put("project/fonts/FiraMono-Medium.ttf", MONO_FONT)?;
     put("project/components/Cover/preview.html", cover().as_bytes())?;
     for entry in &entries {
         let stories = measure_entry(entry);

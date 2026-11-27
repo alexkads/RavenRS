@@ -266,6 +266,14 @@ pub struct Labels {
     pub wizard_error: String,
     /// The bar between two panes, for screen readers.
     pub split_resize: String,
+    /// The arrow that folds a pane of a `SplitPanes`; `{0}` is the pane's name.
+    /// [`Labels::split_collapse`] fills it in.
+    pub split_collapse: String,
+    /// The arrow that brings a folded pane back; `{0}` is the pane's name.
+    /// [`Labels::split_expand`] fills it in.
+    pub split_expand: String,
+    /// What a pane of a `SplitPanes` without a name is called.
+    pub split_pane: String,
     /// What dragging a `FloatingPanel` by its header does.
     pub panel_move: String,
     /// Reduces a `FloatingPanel` to its header.
@@ -1392,6 +1400,9 @@ impl Labels {
             wizard_done: texts.get("widgets.wizard_done"),
             wizard_error: texts.get("widgets.wizard_error"),
             split_resize: texts.get("widgets.split_resize"),
+            split_collapse: texts.get("widgets.split_collapse"),
+            split_expand: texts.get("widgets.split_expand"),
+            split_pane: texts.get("widgets.split_pane"),
             panel_move: texts.get("widgets.panel_move"),
             panel_minimize: texts.get("widgets.panel_minimize"),
             panel_restore: texts.get("widgets.panel_restore"),
@@ -1951,6 +1962,16 @@ impl Labels {
     /// What a `TagBox` option says when it adds `typed`.
     pub fn tag_add(&self, typed: &str) -> String {
         ravenrs_app_i18n::format(&self.tag_add, &[typed])
+    }
+
+    /// The arrow that folds the pane called `pane`.
+    pub fn split_collapse(&self, pane: &str) -> String {
+        ravenrs_app_i18n::format(&self.split_collapse, &[pane])
+    }
+
+    /// The arrow that brings back the folded pane called `pane`.
+    pub fn split_expand(&self, pane: &str) -> String {
+        ravenrs_app_i18n::format(&self.split_expand, &[pane])
     }
 
     /// Where a `Wizard` stands, at `step` of `count`.
