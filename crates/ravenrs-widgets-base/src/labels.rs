@@ -329,6 +329,10 @@ pub struct Labels {
     /// What an option of a `TagBox` says when it adds what was typed, where `{0}`
     /// is what was typed. [`Labels::tag_add`] fills it in.
     pub tag_add: String,
+    /// A date outside the days a picker allows.
+    pub date_out_of_range: String,
+    /// A time outside the times a picker allows.
+    pub time_out_of_range: String,
     /// The button that opens the dialog of a `Ribbon` group; `{0}` is the group.
     pub ribbon_group_options: String,
     /// How many boxes an `InputOtp` has, for screen readers; `{0}` is the count.
@@ -538,6 +542,21 @@ pub struct Labels {
     pub weekdays: [String; 7],
     /// January to December.
     pub months: [String; 12],
+    /// Sunday to Saturday, whole, as a date written out says them.
+    /// [`Labels::weekday_name`] picks one.
+    pub weekday_names: [String; 7],
+    /// The day after today. [`Labels::relative_day`] uses it.
+    pub tomorrow: String,
+    /// A day ahead, where `{0}` is how many days. [`Labels::relative_day`] fills it in.
+    pub in_days: String,
+    /// A day past, where `{0}` is how many days. [`Labels::relative_day`] fills it in.
+    pub days_ago: String,
+    /// A date written out, where `{0}` is the day of the week, `{1}` the day, `{2}` the month and
+    /// `{3}` the year. [`Labels::written_date`] fills it in.
+    pub written_date: String,
+    /// A date written out with its day of the week, with the parts of [`Self::written_date`].
+    /// [`Labels::full_date`] fills it in.
+    pub full_date: String,
     /// Between a month and its year, such as `" "` or `" de "`.
     pub month_year: String,
     /// How people here write a date, for a date picker, where `{0}` is the day and `{1}` the month
@@ -1488,6 +1507,8 @@ impl Labels {
             grid_expand_row: texts.get("widgets.grid_expand_row"),
             grid_collapse_row: texts.get("widgets.grid_collapse_row"),
             tag_add: texts.get("widgets.tag_add"),
+            date_out_of_range: texts.get("widgets.date_out_of_range"),
+            time_out_of_range: texts.get("widgets.time_out_of_range"),
             ribbon_group_options: texts.get("widgets.ribbon_group_options"),
             verification_code_digits: texts.get("widgets.verification_code_digits"),
             pagination: texts.get("widgets.pagination"),
@@ -1591,6 +1612,12 @@ impl Labels {
             today: texts.get("widgets.today"),
             weekdays: texts.array("widgets.weekdays"),
             months: texts.array("widgets.months"),
+            weekday_names: texts.array("widgets.weekday_names"),
+            tomorrow: texts.get("widgets.tomorrow"),
+            in_days: texts.get("widgets.in_days"),
+            days_ago: texts.get("widgets.days_ago"),
+            written_date: texts.get("widgets.written_date"),
+            full_date: texts.get("widgets.full_date"),
             month_year: texts.get("widgets.month_year"),
             short_date: texts.get("widgets.short_date"),
             form_errors: texts.get("widgets.form_errors"),
@@ -2028,7 +2055,7 @@ impl Labels {
 
     /// A date the way people here write it, for a date picker.
     pub fn short_date(&self, date: Date) -> String {
-        let month = &self.months[usize::from(date.month().clamp(1, 12)) - 1];
+        let month = self.month_abbr(date);
         format_with(&self.short_date, |index, out| {
             match index {
                 0 => write!(out, "{:02}", date.day()),
@@ -2036,7 +2063,7 @@ impl Labels {
                 2 => write!(out, "{:04}", date.year()),
                 3 => write!(out, "{}", date.day()),
                 4 => {
-                    out.extend(month.chars().take(3));
+                    out.push_str(&month);
                     Ok(())
                 }
                 _ => return false,
@@ -2137,6 +2164,53 @@ impl Labels {
     /// A full date, for screen readers: `15 November 2026`, `15 novembro de 2026`.
     pub fn long_date(&self, date: Date) -> String {
         format!("{} {}", date.day(), self.month_title(date))
+    }
+
+    /// A day as people say it from `today`: today, tomorrow, yesterday, in N days or N days ago.
+    ///
+    /// ```
+    /// use ravenrs_widgets_base::{Date, Labels};
+    ///
+    /// let today = Date::new(2026, 11, 14).expect("a day");
+    /// let pt = Labels::pt_br();
+    /// assert_eq!(pt.relative_day(today.add_days(1), today), "Amanhã");
+    /// assert_eq!(pt.relative_day(today.add_days(-3), today), "Há 3 dias");
+    /// ```
+    pub fn relative_day(&self, day: Date, today: Date) -> String {
+        match day.to_days() - today.to_days() {
+            0 => self.today.clone(),
+            1 => self.tomorrow.clone(),
+            -1 => self.yesterday.clone(),
+            ahead if ahead > 1 => ravenrs_app_i18n::format(&self.in_days, &[&ahead.to_string()]),
+            past => ravenrs_app_i18n::format(&self.days_ago, &[&past.unsigned_abs().to_string()]),
+        }
+    }
+
+    /// The day of the week of `date`, whole: `Saturday`, `sábado`.
+    pub fn weekday_name(&self, date: Date) -> String {
+        self.weekday_names[usize::from(date.weekday().min(6))].clone()
+    }
+
+    /// The month of `date` in three letters, as [`Self::short_date`] writes it: `Nov`, `nov`.
+    pub fn month_abbr(&self, date: Date) -> String {
+        self.months[usize::from(date.month().clamp(1, 12)) - 1].chars().take(3).collect()
+    }
+
+    /// A date written out: `November 14, 2026`, `14 de novembro de 2026`.
+    pub fn written_date(&self, date: Date) -> String {
+        self.date_words(&self.written_date, date)
+    }
+
+    /// A date written out with its day of the week: `Saturday, November 14, 2026`,
+    /// `sábado, 14 de novembro de 2026`, as the long date (`D`) of a report's culture.
+    pub fn full_date(&self, date: Date) -> String {
+        self.date_words(&self.full_date, date)
+    }
+
+    fn date_words(&self, template: &str, date: Date) -> String {
+        let month = &self.months[usize::from(date.month().clamp(1, 12)) - 1];
+        let (weekday, day, year) = (self.weekday_name(date), date.day().to_string(), date.year().to_string());
+        ravenrs_app_i18n::format(template, &[&weekday, &day, month, &year])
     }
 }
 

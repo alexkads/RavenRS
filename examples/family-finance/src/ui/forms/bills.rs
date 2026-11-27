@@ -6,9 +6,7 @@ use std::rc::Rc;
 use ravenrs_app::{Object, Value as Field};
 use ravenrs_app_ui::{EditorRegistry, EntityForm, FormText};
 
-use super::{
-    AfterSave, Lazy, cents_of, installments_editor, key_field, text_of, usual_account_id, usual_category_id,
-};
+use super::{AfterSave, Lazy, installments_editor, key_field, usual_account_id, usual_category_id};
 use crate::model::{BillInput, Recurrence, date_label};
 use crate::ui::entities;
 use crate::ui::request::Prefill;
@@ -34,7 +32,7 @@ impl BillForm {
                 editors.register("Installments", installments_editor);
                 entities::form("Bill", store, editors).map(|form| {
                     form.captions(Rc::new(|field, record| {
-                        let split = cents_of(record, "installments") > 1;
+                        let split = record.cents("installments").unwrap_or(0) > 1;
                         match field {
                             "amount" if split => Some("Valor total".to_owned()),
                             "due" if split => Some("Primeiro vencimento".to_owned()),
@@ -131,16 +129,16 @@ fn save_bill(store: &Store, record: &Object, is_new: bool) -> bool {
     else {
         return false;
     };
-    let code = text_of(record, "recurrence");
+    let code = record.text("recurrence");
     let input = BillInput {
-        description: text_of(record, "description"),
+        description: record.text("description"),
         category_id,
         member_id: id_of_field(&record.get("member")),
-        amount_cents: cents_of(record, "amount"),
+        amount_cents: record.cents("amount").unwrap_or(0),
         due,
         recurrence: Recurrence::ALL.into_iter().find(|r| r.code() == code).unwrap_or(Recurrence::None),
-        installments: cents_of(record, "installments").max(1) as u32,
-        barcode: text_of(record, "barcode").chars().filter(char::is_ascii_digit).collect(),
+        installments: record.cents("installments").unwrap_or(0).max(1) as u32,
+        barcode: record.text("barcode").chars().filter(char::is_ascii_digit).collect(),
     };
     let id = id_of_field(&record.get("id"));
     let parts = input.installments;
@@ -185,7 +183,7 @@ impl PayForm {
                         ) else {
                             return false;
                         };
-                        let amount = cents_of(record, "amount");
+                        let amount = record.cents("amount").unwrap_or(0);
                         let paid =
                             keeper.write("Conta paga", |db| db.pay_bill(id, account, date, amount)).is_some();
                         if paid {

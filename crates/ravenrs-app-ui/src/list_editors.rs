@@ -20,7 +20,7 @@ use ravenrs_widgets::{
 
 use crate::ListEditorRequest;
 use crate::Session;
-use crate::values::{date_of, display};
+use crate::values::{day_of, display};
 
 /// The name of the editor that shows a list as a chart.
 pub const CHART_EDITOR: &str = "Chart";
@@ -265,7 +265,7 @@ fn is_number(field: &FieldInfo) -> bool {
 
 /// A date as what it is grouped by. The text sorts as time goes.
 fn date_group(value: &Value, interval: &str) -> Option<String> {
-    let date = date_of(value)?;
+    let date = day_of(value)?;
     let (year, month, _) = (date.year(), date.month(), date.day());
     Some(match interval {
         "Year" => format!("{year:04}"),
@@ -469,7 +469,7 @@ fn calendar(data: &Data, cx: &mut BuildCx<'_>) -> Result<NodeId, String> {
     let month: State<_> = cx.use_state(|| today.first_of_month());
     let day: State<Option<_>> = cx.use_state(|| None);
     let events = data.objects.iter().enumerate().filter_map(|(at, object)| {
-        let date = date_of(&object.get(&start))?;
+        let date = day_of(&object.get(&start))?;
         Some(
             CalendarEvent::new(at as u64, date, data.title_of(NODE, object))
                 .tone(data.tone_of(NODE, object))

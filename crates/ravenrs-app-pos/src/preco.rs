@@ -156,9 +156,8 @@ impl View for TelaPreco {
         .label("Produto");
         let custo =
             produto.as_ref().map_or(Decimal::ZERO, |produto| Decimal::from_value(produto.get("custo")));
-        let preco_atual = produto.as_ref().map_or(Decimal::ZERO, |produto| match produto.get("preco") {
-            Value::Number(centavos) => Decimal::new(centavos.round() as i64, 2),
-            _ => Decimal::ZERO,
+        let preco_atual = produto.as_ref().map_or(Decimal::ZERO, |produto| {
+            produto.cents("preco").map_or(Decimal::ZERO, |centavos| Decimal::new(centavos, 2))
         });
         let valores = campos.get();
         let composicao = composicao_de(custo, &valores);

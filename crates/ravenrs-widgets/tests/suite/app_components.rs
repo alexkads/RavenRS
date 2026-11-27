@@ -285,6 +285,90 @@ fn day_button(ui: &mut Ui, d: u8) -> Point {
     named(ui, Role::Button, &name).unwrap_or_else(|| panic!("no {name}")).bounds.center()
 }
 
+fn day_node(ui: &mut Ui, date: Date) -> AccessNode {
+    let name = Labels::default().long_date(date);
+    named(ui, Role::Button, &name).unwrap_or_else(|| panic!("no {name}"))
+}
+
+#[test]
+fn a_date_picker_offers_only_the_days_its_limits_and_rules_allow() {
+    let value = State::new(None::<Date>);
+    let holiday = day(15);
+    let mut ui = ui(DatePicker::new(value.binding(), day(1))
+        .range(Some(day(3)), Some(day(28)))
+        .blocked(move |d| (d == holiday).then(|| "Feriado".to_owned()))
+        .label("Entrega"));
+    focus(&mut ui, Role::ComboBox);
+    assert!(
+        !day_node(&mut ui, day(3)).disabled && !day_node(&mut ui, day(28)).disabled,
+        "both limits included"
+    );
+    assert!(
+        day_node(&mut ui, day(2)).disabled && day_node(&mut ui, day(29)).disabled,
+        "the days past them are off"
+    );
+    let blocked = day_node(&mut ui, holiday);
+    assert!(blocked.disabled, "the holiday is off");
+    assert_eq!(blocked.description.as_deref(), Some("Feriado"), "and says why");
+    click(&mut ui, blocked.bounds.center());
+    assert_eq!(value.get(), None, "a click on it picks nothing");
+    let ok = day_node(&mut ui, day(16)).bounds.center();
+    click(&mut ui, ok);
+    assert_eq!(value.get(), Some(day(16)));
+}
+
+#[test]
+fn a_date_picker_limit_in_a_leap_year_and_in_another_month() {
+    let value = State::new(None::<Date>);
+    let leap = Date::new(2028, 2, 29).expect("a leap day");
+    let mut ui = ui(DatePicker::new(value.binding(), leap).range(None, Some(leap)).label("Até"));
+    focus(&mut ui, Role::ComboBox);
+    assert!(!day_node(&mut ui, leap).disabled, "29 February 2028 is the last day");
+    press(&mut ui, Role::Button, &Labels::default().next_month);
+    assert!(day_node(&mut ui, Date::new(2028, 3, 1).expect("a date")).disabled, "and March is past it");
+}
+
+#[test]
+fn a_date_the_app_sets_outside_the_rules_is_shown_and_marked_never_corrected() {
+    let value = State::new(Some(day(30)));
+    let mut ui = ui(DatePicker::new(value.binding(), day(1)).range(None, Some(day(28))).label("Entrega"));
+    let field = named(&mut ui, Role::ComboBox, "Entrega").expect("the field");
+    assert_eq!(field.description.as_deref(), Some("Outside the dates allowed"));
+    assert_eq!(value.get(), Some(day(30)), "the value stays as the app set it");
+    let id = field.id;
+    assert!(!ui.set_access_value(id, "2026-11-29"), "a day past the limit is not taken");
+    assert!(ui.set_access_value(id, "2026-11-20"), "one inside is");
+    assert_eq!(value.get(), Some(day(20)));
+    assert!(ui.set_access_value(id, ""), "and nothing clears it");
+    assert_eq!(value.get(), None);
+}
+
+#[test]
+fn a_date_picker_clears_to_no_date() {
+    let value = State::new(Some(day(10)));
+    let mut ui = ui(VStack::new((DatePicker::new(value.binding(), day(1)).label("Entrega"),)));
+    key(&mut ui, Key::Tab);
+    key(&mut ui, Key::Delete);
+    assert_eq!(value.get(), None, "Delete clears it");
+}
+
+#[test]
+fn a_period_does_not_cross_a_blocked_day() {
+    let period = State::new(None::<DateRange>);
+    let holiday = day(15);
+    let mut ui = ui(DateRangePicker::new(period.binding(), day(1))
+        .blocked(move |d| (d == holiday).then(|| "Feriado".to_owned()))
+        .label("Período"));
+    focus(&mut ui, Role::ComboBox);
+    let (from, past) = (day_button(&mut ui, 10), day_button(&mut ui, 20));
+    click(&mut ui, from);
+    click(&mut ui, past);
+    assert_eq!(period.get(), None, "the 15th is in the way: the second click starts again");
+    let end = day_button(&mut ui, 25);
+    click(&mut ui, end);
+    assert_eq!(period.get(), Some(DateRange::new(day(20), day(25))));
+}
+
 #[test]
 fn a_period_is_two_clicks_in_either_order() {
     let period = State::new(None::<DateRange>);

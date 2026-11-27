@@ -51,6 +51,8 @@ mod centro;
 #[cfg(feature = "app")]
 pub mod model;
 #[cfg(feature = "app")]
+pub mod registro;
+#[cfg(feature = "app")]
 pub mod seed;
 #[cfg(all(feature = "app", not(target_arch = "wasm32")))]
 pub mod servico;

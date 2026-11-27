@@ -32,7 +32,12 @@ fn parameter_of(kind: &FieldKind, text: &str) -> Result<Value, String> {
         _ if typed.is_empty() => Ok(Value::Null),
         FieldKind::Integer => number().map(|n| Value::Number(n.trunc())),
         FieldKind::Decimal(_) => number().map(Value::Number),
-        FieldKind::Money => number().map(|n| Value::Number((n * 100.0).round())),
+        // The framework's reading of money, so "1.000" is a thousand here as in a form's field.
+        #[allow(clippy::cast_precision_loss)]
+        FieldKind::Money => ravenrs_criteria::Culture::pt_br()
+            .parse_signed_cents(typed)
+            .map(|cents| Value::Number(cents as f64))
+            .map_err(|_| bad()),
         FieldKind::Date | FieldKind::DateTime => {
             ravenrs_criteria::DateTime::parse(typed).map(Value::Date).ok_or_else(bad)
         }
@@ -287,6 +292,13 @@ mod tests {
     #[test]
     fn what_is_typed_becomes_what_the_action_asks_for() {
         assert_eq!(parameter_of(&FieldKind::Money, "1.234,56"), Ok(Value::Number(123_456.0)));
+        assert_eq!(
+            parameter_of(&FieldKind::Money, "1.000"),
+            Ok(Value::Number(100_000.0)),
+            "a thousand, as in a form"
+        );
+        assert_eq!(parameter_of(&FieldKind::Money, "-R$ 1,50"), Ok(Value::Number(-150.0)));
+        assert!(parameter_of(&FieldKind::Money, "99999999999999999999").is_err(), "too large, not saturated");
         assert_eq!(parameter_of(&FieldKind::Integer, "12"), Ok(Value::Number(12.0)));
         assert_eq!(parameter_of(&FieldKind::Boolean, "sim"), Ok(Value::Bool(true)));
         assert_eq!(parameter_of(&FieldKind::Text, "  a "), Ok(Value::Text("a".into())));

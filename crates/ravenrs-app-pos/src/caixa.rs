@@ -50,18 +50,12 @@ pub enum Tela {
 }
 
 pub(crate) fn texto(record: &Object, field: &str) -> String {
-    match record.get(field) {
-        Value::Text(text) => text.trim().to_owned(),
-        _ => String::new(),
-    }
+    record.text(field).trim().to_owned()
 }
 
 /// A product as a line of a sale.
 fn linha_de(produto: &Object, quantidade: Decimal) -> Linha {
-    let centavos = match produto.get("preco") {
-        Value::Number(centavos) => centavos.round() as i64,
-        _ => 0,
-    };
+    let centavos = produto.cents("preco").unwrap_or(0);
     let gtin = texto(produto, "gtin");
     let cest = texto(produto, "cest");
     Linha {
