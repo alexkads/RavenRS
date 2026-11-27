@@ -1107,6 +1107,9 @@ fn cover() -> String {
 /// else belongs to the design system: a published file not in the returned list is removed.
 /// `sha` is the commit it comes from.
 pub fn write_claude_design(dir: &Path, sha: &str) -> std::io::Result<Vec<String>> {
+    // A shortcut reads "⌘↵" on a Mac and "Ctrl+↵" elsewhere, and so measures differently: the copy
+    // in the repository is written the same on every system, with the keys of Linux and Windows.
+    ravenrs::widgets::set_apple_keys(false);
     let project = dir.join("project");
     std::fs::create_dir_all(project.join("fonts"))?;
     std::fs::create_dir_all(project.join("components/Cover"))?;
