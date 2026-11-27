@@ -226,6 +226,7 @@ field Labels::audio_stop
 field Labels::audio_transcribe
 field Labels::audio_transcribing
 field Labels::audio_transcript
+field Labels::breadcrumb
 field Labels::calendar_agenda_empty
 field Labels::calendar_all_day
 field Labels::calendar_events
@@ -641,6 +642,7 @@ field Labels::inspector_schema
 field Labels::inspector_table
 field Labels::inspector_text
 field Labels::inspector_tree
+field Labels::invalid_email
 field Labels::lightbox
 field Labels::lightbox_counter
 field Labels::lightbox_next
@@ -658,6 +660,7 @@ field Labels::log_point_line
 field Labels::log_search
 field Labels::log_show_all
 field Labels::marquee
+field Labels::min_length
 field Labels::minimap
 field Labels::month_year
 field Labels::months
@@ -673,6 +676,9 @@ field Labels::no_commands
 field Labels::no_results
 field Labels::page_of
 field Labels::page_word
+field Labels::pagination
+field Labels::pagination_next
+field Labels::pagination_previous
 field Labels::panel_minimize
 field Labels::panel_move
 field Labels::panel_restore
@@ -689,6 +695,19 @@ field Labels::param_none
 field Labels::param_remove
 field Labels::param_required
 field Labels::param_retry
+field Labels::patch_connected_to
+field Labels::patch_flip
+field Labels::patch_free
+field Labels::patch_input
+field Labels::patch_of_signal
+field Labels::patch_other_panel
+field Labels::patch_output
+field Labels::patch_panel
+field Labels::patch_refuses
+field Labels::patch_show_back
+field Labels::patch_taken
+field Labels::patch_two_inputs
+field Labels::patch_two_outputs
 field Labels::pick_color
 field Labels::pick_date
 field Labels::pick_date_range
@@ -749,6 +768,7 @@ field Labels::rename_hint
 field Labels::required
 field Labels::ribbon
 field Labels::ribbon_collapse
+field Labels::ribbon_group_options
 field Labels::ribbon_pin
 field Labels::ribbon_search
 field Labels::rubber_band
@@ -809,6 +829,7 @@ field Labels::tree_name
 field Labels::unsaved
 field Labels::value_adjust
 field Labels::verification_code
+field Labels::verification_code_digits
 field Labels::weekdays
 field Labels::window_maximize
 field Labels::window_minimize
@@ -1039,6 +1060,7 @@ fn set_apple_keys
 fn validate::email
 fn validate::min_length
 fn validate::required
+fn validate::with_labels
 fn view_fn
 impl ClipboardProvider for MemoryClipboard
 impl Clone for Alert
@@ -2822,6 +2844,7 @@ method BuildCx::full_screen
 method BuildCx::held
 method BuildCx::hit_outline
 method BuildCx::is_focus_visible
+method BuildCx::is_focus_visible_within
 method BuildCx::is_focus_within
 method BuildCx::is_focused
 method BuildCx::is_hover_within
@@ -3868,6 +3891,7 @@ method Labels::dock_with_name
 method Labels::expression_error
 method Labels::expression_function
 method Labels::expression_signature
+method Labels::fill
 method Labels::flow_count
 method Labels::from_texts
 method Labels::lightbox_counter
@@ -3956,12 +3980,15 @@ method Marquee::segments
 method Marquee::size
 method Marquee::space
 method Marquee::stage
+method MaskedField::complete
 method MaskedField::disabled
 method MaskedField::keep_literals
 method MaskedField::label
 method MaskedField::new
+method MaskedField::optional_rule
 method MaskedField::placeholder
 method MaskedField::read_only
+method MaskedField::rule
 method MaskedField::width
 method MenuItem::checked
 method MenuItem::destructive
@@ -4120,8 +4147,11 @@ method QuadField::new
 method QuadField::range
 method QuadPaint::new
 method QuarterTurn::new
+method RadioGroup::disable_option
+method RadioGroup::disabled
 method RadioGroup::label
 method RadioGroup::new
+method RadioGroup::read_only
 method Rating::clearable
 method Rating::color
 method Rating::label
@@ -4308,8 +4338,11 @@ method ScrollView::spacing
 method Section::action
 method Section::description
 method Section::new
+method SegmentedControl::disable_option
+method SegmentedControl::disabled
 method SegmentedControl::label
 method SegmentedControl::new
+method SegmentedControl::read_only
 method SegmentedControl::with_icons
 method Select::disabled
 method Select::fill
@@ -4404,11 +4437,13 @@ method SidebarTrigger::new
 method Skeleton::block
 method Skeleton::circle
 method Skeleton::line
+method Slider::disabled
 method Slider::label
 method Slider::marks
 method Slider::neutral
 method Slider::new
 method Slider::range
+method Slider::read_only
 method Slider::show_value
 method Slider::step
 method Slider::track_colors
@@ -4718,7 +4753,9 @@ method ToolbarAction::icon_only
 method ToolbarAction::new
 method ToolbarAction::on_click
 method ToolbarAction::style
+method Tooltip::close_delay
 method Tooltip::new
+method Tooltip::open_delay
 method Tooltip::shortcut
 method TransformHandles::aspect
 method TransformHandles::confined

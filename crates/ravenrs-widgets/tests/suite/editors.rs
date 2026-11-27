@@ -299,3 +299,60 @@ fn a_field_recalls_what_was_sent_with_the_arrows() {
     key(&mut ui, Key::ArrowDown);
     assert_eq!(value.get(), "", "past the last, empty again");
 }
+
+fn field_id(ui: &mut Ui) -> u64 {
+    ui.access_tree().nodes.iter().find(|n| n.role == Role::TextInput).expect("a text input").id
+}
+
+#[test]
+fn masked_field_takes_an_optional_slot_and_says_when_it_is_complete() {
+    let phone = State::new(String::new());
+    let done = State::new(false);
+    let field = MaskedField::new(phone.binding(), "(00) 90000-0000")
+        .optional_rule('9', |c| c.is_ascii_digit())
+        .complete(done.binding());
+    let mut ui = ui(field);
+    focus_field(&mut ui);
+    typed(&mut ui, "119876543");
+    assert!(!done.get(), "not done while typing, and not wrong either");
+    typed(&mut ui, "2");
+    assert!(done.get(), "ten digits fill every slot that must be");
+    assert_eq!(field_value(&mut ui), "(11) 9876-5432", "the optional slot stays out");
+    typed(&mut ui, "1");
+    assert_eq!(field_value(&mut ui), "(11) 98765-4321", "and takes the eleventh digit");
+    key(&mut ui, Key::Backspace);
+    key(&mut ui, Key::Backspace);
+    assert_eq!(phone.get(), "119876543");
+    assert!(!done.get(), "Backspace makes it incomplete again");
+}
+
+#[test]
+fn masked_field_takes_pasted_text_with_or_without_the_pattern() {
+    let phone = State::new(String::new());
+    let mut ui =
+        ui(MaskedField::new(phone.binding(), "(00) 90000-0000").optional_rule('9', |c| c.is_ascii_digit()));
+    let id = field_id(&mut ui);
+    assert!(ui.set_access_value(id, "(11) 98765-4321"));
+    ui.update();
+    assert_eq!(phone.get(), "11987654321", "the pattern's own characters are left out");
+    assert!(ui.set_access_value(id, "11 9876 5432"));
+    ui.update();
+    assert_eq!(phone.get(), "1198765432", "plain digits with spaces give the same");
+    assert_eq!(field_value(&mut ui), "(11) 9876-5432");
+}
+
+#[test]
+fn masked_field_rules_take_unicode_and_follow_a_new_mask() {
+    let code = State::new(String::new());
+    let mask = State::new("v-v".to_owned());
+    let (c, m) = (code.clone(), mask.clone());
+    let mut ui =
+        ui(view_fn(move || MaskedField::new(c.binding(), m.get()).rule('v', |ch| "aeiouáéíóú".contains(ch))));
+    focus_field(&mut ui);
+    typed(&mut ui, "xáé");
+    assert_eq!(code.get(), "áé", "the rule takes accented vowels and nothing else");
+    assert_eq!(field_value(&mut ui), "á-é");
+    mask.set("v/v/v".to_owned());
+    ui.update();
+    assert_eq!(field_value(&mut ui), "á/é", "the same value follows the new mask");
+}

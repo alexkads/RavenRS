@@ -204,7 +204,7 @@
 {"crate": "ravenrs-widgets-kit", "tipo": "KeyBar", "pendente": true, "issue": 579, "conhecidos": ["item", "new"]},
 {"crate": "ravenrs-widgets-kit", "tipo": "List", "pagina": "Lista", "recursos": ["compact", "new"]},
 {"crate": "ravenrs-widgets-kit", "tipo": "LookupField", "pendente": true, "issue": 579, "conhecidos": ["disabled", "label", "limit", "new", "placeholder", "read_only", "remote", "width"]},
-{"crate": "ravenrs-widgets-kit", "tipo": "MaskedField", "pendente": true, "issue": 579, "conhecidos": ["disabled", "keep_literals", "label", "new", "placeholder", "read_only", "width"]},
+{"crate": "ravenrs-widgets-kit", "tipo": "MaskedField", "pagina": "Máscaras", "recursos": ["complete", "disabled", "keep_literals", "label", "new", "optional_rule", "placeholder", "read_only", "rule", "width"]},
 {"crate": "ravenrs-widgets-kit", "tipo": "ModelPicker", "pendente": true, "issue": 579, "conhecidos": ["labels", "new", "on_cancel", "on_download", "on_remove", "on_test", "on_use"]},
 {"crate": "ravenrs-widgets-kit", "tipo": "MultiProgress", "pendente": true, "issue": 579, "conhecidos": ["bar", "label", "meter", "new"]},
 {"crate": "ravenrs-widgets-kit", "tipo": "NumberField", "pendente": true, "issue": 579, "conhecidos": ["decimals", "disabled", "grouping", "label", "money", "new", "on_leave", "placeholder", "prefix", "range", "read_only", "spin_buttons", "step", "suffix", "width"]},
