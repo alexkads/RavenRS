@@ -2415,3 +2415,46 @@ fn tooltips_explain_a_control_by_the_pointer_or_the_keyboard_and_escape_hides_th
     c.activate("Guarda o rascunho");
     assert!(c.says("Salvo 1 vezes"), "{:?}", c.texts());
 }
+
+#[test]
+fn choices_skip_what_cannot_be_chosen_and_stay_put_when_read_only_or_off() {
+    let mut c = Center::memory("ana");
+    c.press("Escolhas");
+    c.settle();
+    // RadioGroup: new, label and disable_option; read_only and disabled keep the choice.
+    for group in [
+        "Plano",
+        "Plano travado",
+        "Plano desligado",
+        "Visão",
+        "Densidade",
+        "Visão travada",
+        "Visão desligada",
+    ] {
+        assert!(c.ui.access_tree().find(Role::RadioGroup, group).is_some(), "{group}: {:?}", c.texts());
+    }
+    c.activate("Anual");
+    assert!(c.says("Plano: Anual"), "{:?}", c.texts());
+    let tree = c.ui.access_tree();
+    let first =
+        tree.nodes.iter().find(|n| n.role == Role::RadioButton && n.name.as_deref() == Some("Vitalício"));
+    assert_eq!(
+        first.map(|n| n.disabled),
+        Some(true),
+        "Vitalício cannot be chosen in the first group: {:?}",
+        c.texts()
+    );
+    // SegmentedControl: new, with_icons, label and disable_option.
+    c.activate("Mês");
+    assert!(c.says("Visão: Mês"), "{:?}", c.texts());
+    // Slider: range, step, marks, label, width, show_value, value_format, neutral and track_colors.
+    for slider in ["Volume", "Temperatura", "Volume travado", "Volume desligado"] {
+        assert!(c.ui.access_tree().find(Role::Slider, slider).is_some(), "{slider}: {:?}", c.texts());
+    }
+    let volume = c.ui.access_tree().find(Role::Slider, "Volume").and_then(|n| n.value.clone());
+    assert_eq!(volume.as_deref(), Some("40%"), "the value in its format");
+    let locked = c.ui.access_tree().find(Role::Slider, "Volume travado").map(|n| (n.read_only, n.disabled));
+    assert_eq!(locked, Some((true, false)));
+    let off = c.ui.access_tree().find(Role::Slider, "Volume desligado").map(|n| n.disabled);
+    assert_eq!(off, Some(true));
+}

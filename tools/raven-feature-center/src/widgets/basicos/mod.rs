@@ -7,6 +7,7 @@ pub mod cartoes;
 pub mod chaves;
 pub mod codigo;
 pub mod dicas;
+pub mod escolhas;
 pub mod indicadores;
 pub mod listas_de_escolha;
 pub mod menus;

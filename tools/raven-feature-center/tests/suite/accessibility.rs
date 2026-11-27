@@ -149,6 +149,7 @@ demonstrations! {
     progresso => "Progresso",
     codigo_de_verificacao => "Código de verificação",
     dicas => "Dicas",
+    escolhas => "Escolhas",
     caixas_de_selecao => "Caixas de seleção",
     avatares => "Avatar",
     cartoes => "Cartões",

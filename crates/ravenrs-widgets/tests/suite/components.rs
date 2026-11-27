@@ -1717,3 +1717,123 @@ fn an_empty_receipt_says_where_the_lines_will_show_and_draws_them_monospaced() {
     let mut own = ui(Receipt::new().empty_text("Passe o primeiro produto."));
     assert!(own.access_tree().nodes.iter().any(|n| n.name.as_deref() == Some("Passe o primeiro produto.")));
 }
+
+/// The options of a choice, with their state: (name, selected, disabled, read only).
+fn options_of(ui: &mut Ui) -> Vec<(String, bool, bool, bool)> {
+    ui.access_tree()
+        .nodes
+        .iter()
+        .filter(|n| n.role == ravenrs_core::Role::RadioButton)
+        .map(|n| (n.name.clone().unwrap_or_default(), n.selected == Some(true), n.disabled, n.read_only))
+        .collect()
+}
+
+fn option_at(ui: &mut Ui, name: &str) -> Point {
+    ui.access_tree()
+        .find(ravenrs_core::Role::RadioButton, name)
+        .map(|n| n.bounds.center())
+        .unwrap_or_else(|| panic!("no option {name}"))
+}
+
+#[test]
+fn a_choice_skips_the_options_that_cannot_be_chosen() {
+    for segmented in [false, true] {
+        let chosen = State::new(0_usize);
+        let view: Box<dyn View> = if segmented {
+            Box::new(SegmentedControl::new(chosen.binding(), ["Dia", "Semana", "Mês"]).disable_option(1))
+        } else {
+            Box::new(RadioGroup::new(chosen.binding(), ["Dia", "Semana", "Mês"]).disable_option(1))
+        };
+        let mut ui = ui(VStack::new((view,)).padding(20.0));
+        let states = options_of(&mut ui);
+        assert_eq!(states[1], ("Semana".to_owned(), false, true, false), "{segmented}: off and said so");
+        let at = option_at(&mut ui, "Semana");
+        click(&mut ui, at);
+        assert_eq!(chosen.get(), 0, "{segmented}: a click on it chooses nothing");
+        key(&mut ui, Key::Tab);
+        key(&mut ui, Key::ArrowRight);
+        assert_eq!(chosen.get(), 2, "{segmented}: the arrow goes over it");
+        key(&mut ui, Key::ArrowLeft);
+        assert_eq!(chosen.get(), 0, "{segmented}: both ways");
+    }
+}
+
+#[test]
+fn a_choice_turned_off_leaves_the_tab_order_and_one_read_only_keeps_it_without_choosing() {
+    let chosen = State::new(0_usize);
+    let mut off = ui(VStack::new((
+        RadioGroup::new(chosen.binding(), ["A", "B"]).disabled(true),
+        Button::new("Depois"),
+    ))
+    .padding(20.0));
+    key(&mut off, Key::Tab);
+    let tree = off.access_tree();
+    let focused = tree.nodes.iter().find(|n| Some(n.id) == tree.focus).and_then(|n| n.name.clone());
+    assert_eq!(focused.as_deref(), Some("Depois"), "Tab goes past the group that is off");
+    let at = option_at(&mut off, "B");
+    click(&mut off, at);
+    assert_eq!(chosen.get(), 0);
+    assert!(options_of(&mut off).iter().all(|o| o.2), "every option says it is off");
+
+    let mut read =
+        ui(VStack::new((SegmentedControl::new(chosen.binding(), ["A", "B"]).read_only(true),)).padding(20.0));
+    key(&mut read, Key::Tab);
+    assert!(read.access_tree().focus.is_some(), "read only still takes the focus");
+    key(&mut read, Key::ArrowRight);
+    let at = option_at(&mut read, "B");
+    click(&mut read, at);
+    assert_eq!(chosen.get(), 0, "neither the arrow nor a click chooses");
+    assert!(options_of(&mut read).iter().all(|o| o.3), "and screen readers hear it is read only");
+}
+
+#[test]
+fn a_choice_with_every_option_off_or_none_at_all_chooses_nothing() {
+    let chosen = State::new(0_usize);
+    let mut ui = ui(VStack::new((
+        RadioGroup::new(chosen.binding(), ["A", "B"]).disable_option(0).disable_option(1),
+        RadioGroup::new(State::new(0_usize).binding(), Vec::<String>::new()),
+    ))
+    .padding(20.0));
+    key(&mut ui, Key::Tab);
+    assert!(ui.access_tree().focus.is_none(), "nothing to focus");
+    key(&mut ui, Key::ArrowRight);
+    assert_eq!(chosen.get(), 0);
+    assert_eq!(
+        options_of(&mut ui)[0],
+        ("A".to_owned(), true, true, false),
+        "the chosen one stays shown, off"
+    );
+}
+
+#[test]
+fn a_slider_that_is_off_or_read_only_never_moves_and_still_shows_the_value_the_app_sets() {
+    for (disabled, read_only) in [(true, false), (false, true)] {
+        let volume = State::new(40.0_f32);
+        let mut ui = ui(VStack::new((Slider::new(volume.binding())
+            .range(0.0, 100.0)
+            .step(5.0)
+            .label("Volume")
+            .width(240.0)
+            .disabled(disabled)
+            .read_only(read_only),))
+        .padding(20.0));
+        let bar = ui
+            .access_tree()
+            .find(ravenrs_core::Role::Slider, "Volume")
+            .map(|n| n.bounds)
+            .expect("the slider");
+        click(&mut ui, Point::new(bar.max_x() - 5.0, bar.center().y));
+        key(&mut ui, Key::Tab);
+        key(&mut ui, Key::ArrowRight);
+        assert_eq!(volume.get(), 40.0, "disabled {disabled}, read only {read_only}: nothing moves it");
+        assert_eq!(ui.access_tree().focus.is_some(), read_only, "only read only takes the focus");
+        volume.set(70.0);
+        ui.update();
+        let shown = ui
+            .access_tree()
+            .find(ravenrs_core::Role::Slider, "Volume")
+            .and_then(|n| n.numeric)
+            .map(|n| n.value);
+        assert_eq!(shown, Some(70.0), "a value set by the app still shows");
+    }
+}
