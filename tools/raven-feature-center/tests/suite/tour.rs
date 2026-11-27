@@ -2458,3 +2458,31 @@ fn choices_skip_what_cannot_be_chosen_and_stay_put_when_read_only_or_off() {
     let off = c.ui.access_tree().find(Role::Slider, "Volume desligado").map(|n| n.disabled);
     assert_eq!(off, Some(true));
 }
+
+#[test]
+fn masks_follow_their_pattern_take_rules_of_their_own_and_say_when_they_are_complete() {
+    let mut c = Center::memory("ana");
+    c.press("Máscaras");
+    c.settle();
+    // new, label, optional_rule, complete and width.
+    c.type_into("Celular", "119876543");
+    assert!(c.says("Celular: 119876543 (incompleto)"), "{:?}", c.texts());
+    c.type_into("Celular", "2");
+    assert!(c.says("Celular: 1198765432 (completo)"), "{:?}", c.texts());
+    // keep_literals.
+    c.type_into("CPF", "12345678901");
+    assert!(c.says("CPF guardado com a pontuação: 123.456.789-01"), "{:?}", c.texts());
+    // rule and placeholder.
+    c.type_into("Cor", "1a2bzz3c");
+    assert!(c.says("Cor: 1a2b3c"), "{:?}", c.texts());
+    // read_only and disabled.
+    for name in ["Placa travada", "Placa desligada"] {
+        let node =
+            c.ui.access_tree()
+                .nodes
+                .iter()
+                .find(|n| n.name.as_deref() == Some(name))
+                .map(|n| (n.value.clone(), n.disabled));
+        assert!(node.is_some(), "{name}: {:?}", c.texts());
+    }
+}

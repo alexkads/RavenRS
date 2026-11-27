@@ -10,6 +10,7 @@ pub mod dicas;
 pub mod escolhas;
 pub mod indicadores;
 pub mod listas_de_escolha;
+pub mod mascaras;
 pub mod menus;
 pub mod paineis;
 pub mod progresso;
