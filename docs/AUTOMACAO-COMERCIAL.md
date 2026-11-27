@@ -24,6 +24,7 @@ A coluna "Como foi verificado" diz o que de fato aconteceu. "Sem janela" quer di
 | O quê | Crate | Como foi verificado |
 |---|---|---|
 | Carrinho, `quantidade*código`, totais em decimal exato, formas de pagamento e troco | `ravenrs-pos` | Testes do crate |
+| Desconto na venda inteira, rateado nos itens ao centavo (a sobra vai à linha de maior valor), dado na tela de pagamento e mostrado no cupom da tela e no impresso | `ravenrs-pos` (`Carrinho::dar_desconto`, `ratear`), `ravenrs-app-pos`, `ravenrs-app-nfe` | Testes do crate e do caixa: o `vDesc` da nota é a soma dos itens e o total é o do carrinho. **Não pede senha de gerente, nunca foi à SEFAZ e o rateio não foi validado por contador** |
 | Tela do caixa só pelo teclado, com leitor de código, venda pendente, cliente e observação | `ravenrs-app-pos` | `examples/mini-pdv/tests/caixa.rs`, sem janela; telas olhadas em PNG. Sem leitor físico |
 | Produtos com GTIN validado, NCM, CFOP, CSOSN, unidade e preço | `ravenrs-app-pos`, editor `Gtin` em `ravenrs-app-ui` | Testes sem janela |
 | Clientes com endereço, para a nota grande | `ravenrs-app-pos` | Testes sem janela |

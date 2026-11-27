@@ -18,7 +18,7 @@ pub const MODELO_DANFE: &str = "DANFE A4";
 pub const CAMPOS_OBRIGATORIOS: [&str; 4] = ["chave", "qr_code", "numero", "protocolo"];
 
 /// The fields of a line, with what people call them in the designer.
-const CAMPOS: [(&str, &str); 32] = [
+const CAMPOS: [(&str, &str); 33] = [
     ("documento", "Documento"),
     ("modelo", "Modelo"),
     ("dest_nome", "Destinatário"),
@@ -39,6 +39,7 @@ const CAMPOS: [(&str, &str); 32] = [
     ("unitario", "Valor unitário"),
     ("valor", "Valor do item"),
     ("itens", "Quantidade de itens"),
+    ("desconto", "Desconto"),
     ("total", "Total"),
     ("pagamento", "Forma de pagamento"),
     ("recebido", "Valor recebido"),
@@ -102,6 +103,7 @@ pub fn cupom_report(stock: &LabelStock, name: impl Into<String>) -> Report {
     let mut footer = Band::new(0.0);
     let rows = [
         ("'Qtde. total de itens: ' + [itens]", line, right()),
+        ("Iif([desconto] = '', '', 'Desconto R$ ' + [desconto])", line, right()),
         ("'TOTAL R$ ' + [total]", line * 1.3, strong()),
         ("[pagamento] + ' R$ ' + [recebido]", line, right()),
         ("'Troco R$ ' + [troco]", line, right()),
