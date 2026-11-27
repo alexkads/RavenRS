@@ -98,7 +98,9 @@ pub(crate) fn run(compiler: &OsStr, rest: &[OsString]) -> i32 {
         let at = args.iter().position(|a| a == "--crate-name");
         at.and_then(|at| args.get(at + 1)).cloned().unwrap_or_else(|| "?".to_owned())
     };
-    if let Some(rustc) = rustc_behind_clippy(compiler, rest, std::env::var_os("CARGO_PRIMARY_PACKAGE").is_some()) {
+    if let Some(rustc) =
+        rustc_behind_clippy(compiler, rest, std::env::var_os("CARGO_PRIMARY_PACKAGE").is_some())
+    {
         return run(rustc, &rest[1..]);
     }
     if Path::new(compiler).file_stem().is_none_or(|stem| stem != "rustc") {
@@ -173,7 +175,8 @@ pub(crate) fn run(compiler: &OsStr, rest: &[OsString]) -> i32 {
 /// itself for those, and the result is kept and shared like any other compile.
 fn rustc_behind_clippy<'a>(compiler: &OsStr, rest: &'a [OsString], linted: bool) -> Option<&'a OsStr> {
     let driver = Path::new(compiler).file_stem().is_some_and(|stem| stem == "clippy-driver");
-    let rustc = rest.first().filter(|next| Path::new(next).file_stem().is_some_and(|stem| stem == "rustc"))?;
+    let rustc =
+        rest.first().filter(|next| Path::new(next).file_stem().is_some_and(|stem| stem == "rustc"))?;
     (driver && !linted).then_some(rustc.as_os_str())
 }
 
@@ -595,7 +598,11 @@ mod tests {
         let plain = OsStr::new("/home/x/.rustup/toolchains/s/bin/rustc");
         assert_eq!(rustc_behind_clippy(plain, &rest[1..], false), None, "rustc is not clippy-driver");
         let other = OsStr::new("/usr/bin/some-wrapper");
-        assert_eq!(rustc_behind_clippy(other, &rest, false), None, "only clippy-driver is known to run rustc as it is");
+        assert_eq!(
+            rustc_behind_clippy(other, &rest, false),
+            None,
+            "only clippy-driver is known to run rustc as it is"
+        );
     }
 
     #[test]

@@ -1148,12 +1148,13 @@ fn cards(list: fn() -> Vec<Entry>, parent: &str) -> std::io::Result<Vec<Card>> {
         let workers: Vec<_> = (0..threads)
             .map(|_| {
                 // Laying out a whole screen goes deep: the same stack the main thread has.
-                std::thread::Builder::new().stack_size(8 << 20).spawn_scoped(scope, || measure())
+                std::thread::Builder::new().stack_size(8 << 20).spawn_scoped(scope, &measure)
             })
             .collect::<std::io::Result<_>>()?;
         let mut all = Vec::with_capacity(total);
         for worker in workers {
-            let done = worker.join().map_err(|_| std::io::Error::other("a thread measuring cards panicked"))?;
+            let done =
+                worker.join().map_err(|_| std::io::Error::other("a thread measuring cards panicked"))?;
             all.extend(done);
         }
         Ok::<_, std::io::Error>(all)
