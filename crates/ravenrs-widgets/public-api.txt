@@ -104,6 +104,12 @@ field CellEdit::column
 field CellEdit::previous
 field CellEdit::row
 field CellEdit::value
+field ChronologyItem::badge
+field ChronologyItem::detail
+field ChronologyItem::id
+field ChronologyItem::title
+field ChronologyItem::tone
+field ChronologyItem::when
 field CodeCompletion::detail
 field CodeCompletion::insert
 field CodeCompletion::label
@@ -1105,6 +1111,8 @@ impl Clone for ChartTooltip
 impl Clone for ChatAuthor
 impl Clone for ChatMedia
 impl Clone for ChatMessage
+impl Clone for Chronology
+impl Clone for ChronologyItem
 impl Clone for Clipboard
 impl Clone for CodeBlock
 impl Clone for CodeCompletion
@@ -1356,6 +1364,7 @@ impl ComponentBook for Chart
 impl ComponentBook for ChartCard
 impl ComponentBook for Chat
 impl ComponentBook for Checkbox
+impl ComponentBook for Chronology
 impl ComponentBook for CodeBlock
 impl ComponentBook for CodeEditor
 impl ComponentBook for Collapse
@@ -1668,6 +1677,8 @@ impl Debug for ChatAuthor
 impl Debug for ChatMedia
 impl Debug for ChatMessage
 impl Debug for Checkbox
+impl Debug for Chronology
+impl Debug for ChronologyItem
 impl Debug for Clipboard
 impl Debug for CodeBlock
 impl Debug for CodeCompletion
@@ -2377,6 +2388,7 @@ impl PartialEq for ChartIndicator
 impl PartialEq for ChartLegend
 impl PartialEq for ChartReference
 impl PartialEq for ChatAuthor
+impl PartialEq for ChronologyItem
 impl PartialEq for CodeCompletion
 impl PartialEq for CodeDiagnostic
 impl PartialEq for CodeLanguage
@@ -2575,6 +2587,7 @@ impl View for ChartCard
 impl View for Chat
 impl View for ChatMedia
 impl View for Checkbox
+impl View for Chronology
 impl View for CodeBlock
 impl View for CodeEditor
 impl View for Collapse
@@ -3131,6 +3144,13 @@ method Checkbox::mixed
 method Checkbox::new
 method Checkbox::optional
 method Checkbox::read_only
+method Chronology::label
+method Chronology::new
+method Chronology::on_open
+method ChronologyItem::badge
+method ChronologyItem::detail
+method ChronologyItem::new
+method ChronologyItem::tone
 method Clipboard::new
 method Clipboard::read
 method Clipboard::write
@@ -5175,6 +5195,8 @@ struct Chat
 struct ChatMedia
 struct ChatMessage
 struct Checkbox
+struct Chronology
+struct ChronologyItem
 struct Clipboard
 struct CodeBlock
 struct CodeCompletion

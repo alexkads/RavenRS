@@ -185,6 +185,13 @@ pub const PAGES: &[Page] = &[
         make: || Box::new(kit::parametros::ParametersPage),
     },
     Page {
+        id: listas::cronologia::ID,
+        caption: listas::cronologia::PAGE,
+        group: "Listas e árvores",
+        icon: IconName::History,
+        make: || Box::new(listas::cronologia::ChronologyPage),
+    },
+    Page {
         id: listas::inspetor::ID,
         caption: listas::inspetor::PAGE,
         group: "Listas e árvores",

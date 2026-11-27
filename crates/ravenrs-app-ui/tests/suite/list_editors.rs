@@ -418,3 +418,125 @@ fn what_someone_cannot_read_is_not_on_a_chart_or_a_tree() {
     assert!(!world.says("Roof"));
     assert_eq!(database.space().query("Task", &Query::all()).expect("reads").len(), 3);
 }
+
+/// The items of the history, by the names screen readers hear, in the order shown.
+fn history_items(world: &mut World) -> Vec<(String, String)> {
+    world.settle();
+    world
+        .ui
+        .access_tree()
+        .nodes
+        .iter()
+        .filter(|node| node.role == AccessRole::ListItem)
+        .filter_map(|node| Some((node.name.clone()?, node.description.clone().unwrap_or_default())))
+        .collect()
+}
+
+#[test]
+fn a_history_goes_by_date_with_a_detail_a_badge_and_a_tone_and_opens_a_record() {
+    let entity = task()
+        .editor_setting("HistorySettings", "Date", "starts")
+        .editor_setting("HistorySettings", "Detail", "cost")
+        .editor_setting("HistorySettings", "Badge", "state")
+        .editor_setting("HistorySettings", "Tone", "state");
+    let (mut world, database) = World::with(entity.clone());
+    {
+        let mut space = database.space();
+        let mut roof = space.find("Task", &Value::Number(12.0)).expect("reads").expect("there");
+        roof.set("state", "late");
+        space.save(roof).expect("saved");
+        space.commit().expect("committed");
+    }
+    world.show("History");
+    assert_eq!(world.cells(), 0, "no grid");
+    let items = history_items(&mut world);
+    let titles: Vec<&str> = items.iter().map(|(title, _)| title.as_str()).collect();
+    assert_eq!(titles, ["Build", "Walls", "Roof"], "the oldest first");
+    let (_, roof) = &items[2];
+    assert!(roof.contains("50") && roof.contains("Late"), "the detail and the badge: {roof}");
+    world.click_on("Roof");
+    let form = world.session.form_record().expect("the form opened");
+    assert_eq!(form.get("id"), Value::Number(12.0));
+
+    let newest = entity.editor_setting("HistorySettings", "Order", "Descending");
+    let (mut world, _database) = World::with(newest);
+    world.show("History");
+    let titles: Vec<String> = history_items(&mut world).into_iter().map(|(title, _)| title).collect();
+    assert_eq!(titles.first().map(String::as_str), Some("Roof"), "the newest first: {titles:?}");
+}
+
+#[test]
+fn a_history_with_nothing_said_takes_the_first_date_and_says_when_there_is_none() {
+    let (mut world, _database) = World::with(task());
+    world.show("History");
+    assert_eq!(history_items(&mut world).len(), 3, "the first date field: {:?}", world.texts());
+
+    let bare = EntityInfo::new("Task")
+        .caption("Tasks")
+        .navigation("Work")
+        .field(FieldInfo::new("id", FieldKind::Integer).key())
+        .field(FieldInfo::new("title", FieldKind::Text).default_property());
+    let database = MemoryDatabase::new(vec![bare.clone()]).expect("valid");
+    let source = database.clone();
+    let mut world = World::over(vec![bare], move || source.space(), |builder| builder);
+    world.show("History");
+    assert!(world.says("HistorySettings/Date"), "{:?}", world.texts());
+}
+
+#[test]
+fn a_history_shows_only_what_someone_can_read() {
+    let mut entities = vec![person(), task()];
+    entities.extend(security_entities());
+    let database = database(entities.clone());
+    let raw = database.clone();
+    let maker: SpaceMaker = std::rc::Rc::new(move || Box::new(raw.space()) as Box<dyn ObjectSpace>);
+    let directory = UserDirectory::new(maker, Vec::new()).expect("roles");
+    let role = Role::new("r").policy(PermissionPolicy::ReadOnlyAll).object_permission(
+        "Task",
+        "[title] = 'Roof'",
+        [Operation::Read],
+        Access::Deny,
+    );
+    let context = std::rc::Rc::new(SecurityContext::new(
+        Identity::new("bia", "bia", vec![role]),
+        directory,
+        entities.clone(),
+        RoleMerge::AnyRole,
+    ));
+    let source = database.clone();
+    let spaces = context.clone();
+    let mut world = World::over(
+        vec![person(), task()],
+        move || SecuredObjectSpace::new(Box::new(source.space()), spaces.clone()),
+        |builder| builder,
+    );
+    world.show("History");
+    let titles: Vec<String> = history_items(&mut world).into_iter().map(|(title, _)| title).collect();
+    assert_eq!(titles, ["Build", "Walls"], "the record they cannot read is not there");
+
+    // With no read on the entity at all, nothing of it shows.
+    let raw = database.clone();
+    let maker: SpaceMaker = std::rc::Rc::new(move || Box::new(raw.space()) as Box<dyn ObjectSpace>);
+    let directory = UserDirectory::new(maker, Vec::new()).expect("roles");
+    let none = Role::new("n").policy(PermissionPolicy::ReadOnlyAll).type_permission(
+        "Task",
+        [Operation::Read],
+        Access::Deny,
+    );
+    let context = std::rc::Rc::new(SecurityContext::new(
+        Identity::new("cid", "cid", vec![none]),
+        directory,
+        entities,
+        RoleMerge::AnyRole,
+    ));
+    let source = database.clone();
+    let mut world = World::over(
+        vec![person(), task()],
+        move || SecuredObjectSpace::new(Box::new(source.space()), context.clone()),
+        |builder| builder,
+    );
+    world.session.choose_list_editor("Task_ListView", "History").expect("a setting");
+    world.session.open_view("Task_ListView");
+    assert!(history_items(&mut world).is_empty(), "{:?}", world.texts());
+    assert!(!world.says("Roof") && !world.says("Build"));
+}

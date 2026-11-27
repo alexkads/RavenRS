@@ -2358,6 +2358,16 @@
   },
   {
    "crate": "ravenrs-widgets-lists",
+   "tipo": "Chronology",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-lists",
    "tipo": "DataInspector",
    "rts": {
     "ids": [],
