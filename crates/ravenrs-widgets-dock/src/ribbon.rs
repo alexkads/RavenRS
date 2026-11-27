@@ -513,7 +513,13 @@ impl View for GroupView<'_> {
                 &[arrow],
                 Paint::None,
             );
-            cx.semantics(b, Semantics::new(Role::Button).name(format!("{} options", g.title)));
+            cx.semantics(
+                b,
+                Semantics::new(Role::Button).name({
+                    let labels = cx.labels();
+                    labels.fill(&labels.ribbon_group_options, &[&g.title])
+                }),
+            );
             cx.on_click(b, l.clone());
             cx.cursor(b, CursorIcon::Pointer);
             caption.push(b);

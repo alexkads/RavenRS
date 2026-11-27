@@ -208,6 +208,10 @@ step "every type keeps the testability contract of the RTS, or is pending with i
 ./scripts/rts-coverage.py --self-test
 ./scripts/rts-coverage.py
 
+step "the components say no fixed words: what they show or read aloud comes from Labels (#775)"
+./scripts/check-fixed-texts.py --self-test
+./scripts/check-fixed-texts.py
+
 step "every app with a window keeps scenarios the Raven Test Studio finds and runs (CONTRIBUTING.md, #702)"
 ./scripts/e2e-scenarios.py --self-test
 ./scripts/e2e-scenarios.py

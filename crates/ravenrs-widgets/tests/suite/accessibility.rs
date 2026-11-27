@@ -333,3 +333,94 @@ fn a_node_says_how_much_of_it_shows_and_the_window_does_not_cut_it() {
     assert!(right.bounds.x() > 800.0, "{right:?}");
     assert_eq!(right.visible, right.bounds);
 }
+
+/// The name and the description of each node, in a language.
+fn said_in(labels: Labels, view: impl View + 'static) -> Vec<(Option<String>, Option<String>)> {
+    let mut ui = Ui::new(Localized::new(labels, view), Theme::raven_dark());
+    ui.set_viewport(Size::new(1200.0, 800.0), 1.0);
+    ui.update();
+    ui.update();
+    ui.access_tree().nodes.iter().map(|n| (n.name.clone(), n.description.clone())).collect()
+}
+
+fn names(said: &[(Option<String>, Option<String>)]) -> Vec<String> {
+    said.iter().filter_map(|(n, _)| n.clone()).collect()
+}
+
+#[test]
+fn components_say_their_own_words_in_the_language_of_the_app() {
+    let page = ravenrs_reactive::State::new(0_usize);
+    let code = ravenrs_reactive::State::new(String::new());
+    let view = || {
+        VStack::new((
+            Pagination::new(page.binding(), 5),
+            InputOtp::new(code.binding(), 6),
+            Breadcrumb::new(["Arquivo", "2026"]),
+            PatchPanel::new(
+                vec![Jack::output("a", "Saída A")],
+                ravenrs_reactive::State::new(Vec::new()).binding(),
+            ),
+        ))
+    };
+    let pt = said_in(Labels::pt_br(), view());
+    let pt_names = names(&pt);
+    for name in ["Paginação", "Anterior", "Próxima", "Trilha de navegação", "Painel de tomadas"] {
+        assert!(pt_names.iter().any(|n| n == name), "{name}: {pt_names:?}");
+    }
+    assert!(pt.iter().any(|(_, d)| d.as_deref() == Some("6 dígitos")), "{pt:?}");
+    assert!(pt.iter().any(|(_, d)| d.as_deref() == Some("saída, livre")), "{pt:?}");
+    let english = said_in(Labels::default(), view());
+    assert!(english.iter().any(|(_, d)| d.as_deref() == Some("output, free")), "not Portuguese: {english:?}");
+    let en = names(&english);
+    for name in ["Pagination", "Previous", "Next", "Breadcrumb", "Patch panel"] {
+        assert!(en.iter().any(|n| n == name), "{name}: {en:?}");
+    }
+    let own = names(&said_in(
+        Labels::pt_br(),
+        Pagination::new(page.binding(), 5).labels("Antes", "Depois", "Folha"),
+    ));
+    assert!(
+        own.iter().any(|n| n == "Antes") && own.iter().any(|n| n == "Depois"),
+        "the words given win: {own:?}"
+    );
+    assert!(own.iter().any(|n| n.starts_with("Folha ")), "{own:?}");
+}
+
+#[test]
+fn a_ribbon_group_dialog_is_named_in_the_language_of_the_app() {
+    let ribbon = || {
+        Ribbon::new().page(
+            RibbonPage::new("Início").group(
+                RibbonGroup::new("Fonte")
+                    .item(RibbonItem::button("Negrito", IconName::Bold))
+                    .dialog_launcher(|| {}),
+            ),
+        )
+    };
+    assert!(names(&said_in(Labels::pt_br(), ribbon())).iter().any(|n| n == "Opções de Fonte"));
+    assert!(names(&said_in(Labels::default(), ribbon())).iter().any(|n| n == "Fonte options"));
+}
+
+#[test]
+fn the_rules_of_a_form_field_speak_the_language_of_the_app() {
+    let email = ravenrs_reactive::State::new("ana@".to_owned());
+    let short = ravenrs_reactive::State::new("abc".to_owned());
+    let form = || {
+        VStack::new((
+            FormField::new("E-mail", TextField::new(email.binding()))
+                .validate(email.binding(), validate::email),
+            FormField::new("Senha", TextField::new(short.binding()))
+                .validate(short.binding(), validate::min_length(8)),
+        ))
+    };
+    let pt = format!("{:?}", said_in(Labels::pt_br(), form()));
+    assert!(pt.contains("Digite um e-mail como nome@exemplo.com."), "{pt}");
+    assert!(pt.contains("Use pelo menos 8 caracteres."), "{pt}");
+    let en = format!("{:?}", said_in(Labels::default(), form()));
+    assert!(en.contains("Enter an email like name@example.com."), "{en}");
+    assert_eq!(
+        validate::email("ana@").err().as_deref(),
+        Some("Enter an email like name@example.com."),
+        "outside a field: English"
+    );
+}
