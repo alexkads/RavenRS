@@ -915,3 +915,94 @@ fn a_cell_drawn_by_a_template_with_a_text_of_its_own_is_called_by_that_text() {
     let cell = tree.by_test_id("cell:docker:Ligado").expect("the cell");
     assert_eq!(cell.name.as_deref(), Some("ligado"));
 }
+
+/// The headers a grid shows, left to right.
+fn headers(ui: &mut Ui) -> Vec<String> {
+    let tree = ui.access_tree();
+    let mut found: Vec<(f32, String)> = tree
+        .nodes
+        .iter()
+        .filter(|n| n.role == ravenrs_core::Role::ColumnHeader)
+        .filter_map(|n| n.name.clone().map(|name| (n.bounds.x(), name)))
+        .collect();
+    found.sort_by(|a, b| a.0.total_cmp(&b.0));
+    found.into_iter().map(|(_, name)| name).collect()
+}
+
+/// A grid whose columns the app swaps in the same place: `wide` gives the first list, else the second.
+fn swapping(wide: &State<bool>, first: fn() -> Vec<GridColumn>, second: fn() -> Vec<GridColumn>) -> Ui {
+    let flag = wide.clone();
+    let view = ravenrs_widgets::responsive(move |_| {
+        let columns = if flag.get() { first() } else { second() };
+        let row: Vec<Value> = columns.iter().map(|c| Value::from(c.title.clone())).collect();
+        DataGrid::new(GridData::new(vec![row]), columns).toolbar(false).height(300.0)
+    });
+    let mut ui = Ui::new(VStack::new((view,)).padding(10.0), Theme::raven_dark());
+    ui.set_viewport(Size::new(1400.0, 700.0), 1.0);
+    ui.update();
+    ui.update();
+    ui
+}
+
+fn seven() -> Vec<GridColumn> {
+    vec![
+        GridColumn::text("Job").pinned(true),
+        GridColumn::text("Branch"),
+        GridColumn::text("Status"),
+        GridColumn::text("Agent").hidden(),
+        GridColumn::text("Started"),
+        GridColumn::number("Seconds").summary(Summary::Sum),
+        GridColumn::text("Trigger"),
+    ]
+}
+
+fn six() -> Vec<GridColumn> {
+    vec![
+        GridColumn::text("Job"),
+        GridColumn::text("Branch"),
+        GridColumn::text("Status"),
+        GridColumn::text("Agent"),
+        GridColumn::text("Started"),
+        GridColumn::number("Seconds"),
+    ]
+}
+
+fn eight() -> Vec<GridColumn> {
+    let mut columns = six();
+    columns.push(GridColumn::text("Queue"));
+    columns.push(GridColumn::text("Owner"));
+    columns
+}
+
+#[test]
+fn a_grid_whose_columns_change_in_the_same_place_follows_them_and_keeps_what_stays() {
+    let wide = State::new(true);
+    let mut ui = swapping(&wide, seven, six);
+    assert_eq!(
+        headers(&mut ui),
+        ["Job", "Branch", "Status", "Started", "Seconds", "Trigger"],
+        "Agent starts hidden"
+    );
+    wide.set(false);
+    ui.update();
+    ui.update();
+    assert_eq!(
+        headers(&mut ui),
+        ["Job", "Branch", "Status", "Started", "Seconds"],
+        "six columns, no fall; Agent stays hidden as it was"
+    );
+}
+
+#[test]
+fn columns_added_in_the_same_place_show_at_the_end() {
+    let wide = State::new(false);
+    let mut ui = swapping(&wide, eight, six);
+    assert_eq!(headers(&mut ui), ["Job", "Branch", "Status", "Agent", "Started", "Seconds"]);
+    wide.set(true);
+    ui.update();
+    ui.update();
+    assert_eq!(
+        headers(&mut ui),
+        ["Job", "Branch", "Status", "Agent", "Started", "Seconds", "Queue", "Owner"]
+    );
+}
