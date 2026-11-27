@@ -218,7 +218,7 @@ pub fn dev(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
     check.step("tests, on the packages changed");
     let documented: Vec<String> =
         selection.documented.iter().filter(|name| selection.touched.contains(name)).cloned().collect();
-    tests(check, &touched, Some(&documented))?;
+    tests(check, &touched, Some(documented.as_slice()))?;
     Ok("Dev checks passed (for the pull request: cargo xtask pr)")
 }
 
@@ -268,7 +268,7 @@ pub fn pr(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
     check.step("clippy (native), on every package the change reaches");
     clippy(check, &packages(&selection.reached))?;
     check.step("tests, on the packages changed and their direct dependents");
-    tests(check, &packages(&selection.tested), Some(&selection.documented))?;
+    tests(check, &packages(&selection.tested), Some(selection.documented.as_slice()))?;
     Ok("Pull request checks passed (before a release: cargo xtask release)")
 }
 

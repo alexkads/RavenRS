@@ -40,7 +40,7 @@ pub fn build(check: &Check, name: &str, flags: &[&str]) -> Done {
     let mut args = vec![
         "build",
         "-p",
-        &package,
+        package.as_str(),
         "--lib",
         "--target",
         "wasm32-unknown-unknown",

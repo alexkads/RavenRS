@@ -76,7 +76,7 @@ impl Check {
         }
         let _ = fs::write(&mark, format!("{here}\n"));
         // An empty build directory and a reused one take very different times: the table says which.
-        let empty = fs::read_dir(target.join("debug/deps")).map_or(true, |mut dir| dir.next().is_none());
+        let empty = !fs::read_dir(target.join("debug/deps")).is_ok_and(|mut dir| dir.next().is_some());
         let started_at = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs());
         Ok(Check {
             mode: mode.to_owned(),
@@ -96,11 +96,6 @@ impl Check {
     pub fn set_env(&mut self, name: &str, value: impl Into<OsString>) {
         self.env.retain(|(known, _)| known != name);
         self.env.push((name.to_owned(), value.into()));
-    }
-
-    /// Whether a variable was set for the commands.
-    pub fn has_env(&self, name: &str) -> bool {
-        self.env.iter().any(|(known, _)| known == name)
     }
 
     /// Starts a step, closing the one before.
