@@ -2278,7 +2278,7 @@
    }
   },
   {
-   "crate": "ravenrs-widgets-lists",
+   "crate": "ravenrs-widgets-scheduler",
    "tipo": "YearView",
    "rts": {
     "ids": [

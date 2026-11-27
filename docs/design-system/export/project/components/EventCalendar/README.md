@@ -9,17 +9,22 @@ A month with its events inside each day.
 | Setting | Control | Default | What it does |
 |---|---|---|---|
 | `events_per_day` | number 0–12 by 1 | `3` |  |
-| `view` | Month · Week · Day | `Month` | A month of days, or a week or a day with an hour on each line. |
+| `view` | Month · Week · Day · Agenda · Year · Season | `Month` | A month of days, a week or a day with an hour on each line, the events in a list, the year or the season. |
 
 ## Stories
 
 - **Month**: 486 × 602 pt, settings `{"events_per_day":3.0,"view":"Month"}`
 - **Week**: 565 × 666 pt, settings `{"events_per_day":3.0,"view":"Week"}`
 - **Day**: 498 × 666 pt, settings `{"events_per_day":3.0,"view":"Day"}`
+- **Agenda**: 794 × 210 pt, settings `{"events_per_day":3.0,"view":"Agenda"}`
+- **Year**: 622 × 890 pt, settings `{"events_per_day":3.0,"view":"Year"}`
+- **Season**: 670 × 228 pt, settings `{"events_per_day":3.0,"view":"Season"}`
 
 ## Sizing
 
 Hugs its content: 486 × 602 pt in a parent of 760 pt; in a parent that stretches its children, as a form column, it takes the whole width.
+
+- **Year**: Hugs its content: 622 × 890 pt in a parent of 760 pt; in a parent of 320 pt it narrows to 609 pt; in a parent that stretches its children, as a form column, it takes the whole width; its height follows the width, as its content wraps.
 
 ## Interaction
 
@@ -61,10 +66,20 @@ Measured from what RavenRS paints, in points. Colors are tokens; `token@N` is th
 | Month | Button "20 November 2026" | 66.0 × 104.0 | radius-sm | transparent | 1.0 border | Inter 600 12.0px ink | — | 7.0 |
 | Month | Button "1 December 2026" | 66.0 × 104.0 | radius-sm | ink@2 | 1.0 border | Inter 600 12.0px ink-muted | — | space-3 |
 | Month | Button "2 December 2026" | 66.0 × 104.0 | radius-sm | ink@2 | 1.0 border | Inter 600 12.0px ink-muted | — | 11.0 |
+| Agenda | Label "12 November 2026" | 794.0 × 18.0 | — | — | — | Inter 600 13.0px ink | — | 0.0 |
+| Agenda | Label "All day" | 43.0 × 16.0 | — | — | — | Inter 600 12.0px ink-muted | — | 0.0 |
+| Agenda | Label "16 November 2026" | 794.0 × 18.0 | — | — | — | Inter 600 13.0px accent | — | 0.0 |
+| Year | Button "1 January 2026" | 26.0 × 26.0 | radius-sm | transparent | — | Inter 600 12.0px ink | — | 10.0 |
+| Year | Button "2 January 2026" | 26.0 × 26.0 | radius-sm | transparent | — | Inter 600 12.0px ink | — | 9.0 |
+| Year | Button "10 January 2026" | 26.0 × 26.0 | radius-sm | transparent | — | Inter 600 12.0px ink | — | 6.0 |
+| Year | Button "11 January 2026" | 26.0 × 26.0 | radius-sm | transparent | — | Inter 600 12.0px ink | — | space-2 |
+| Year | Button "17 January 2026" | 26.0 × 26.0 | radius-sm | transparent | — | Inter 600 12.0px ink | — | 7.0 |
+| Year | Button "20 January 2026" | 26.0 × 26.0 | radius-sm | transparent | — | Inter 600 12.0px ink | — | 5.0 |
+| Year | Button "16 November 2026" | 26.0 × 26.0 | radius-sm | accent | — | Inter 600 12.0px on-accent | — | 6.0 |
 
 ## API
 
-Builder methods: `events`, `events_per_day`, `hours`, `new`, `on_create`, `on_event`, `on_move`, `today`, `view`.
+Builder methods: `events`, `events_per_day`, `hemisphere`, `hours`, `new`, `on_create`, `on_event`, `on_move`, `today`, `view`, `views`.
 
 ## Example
 

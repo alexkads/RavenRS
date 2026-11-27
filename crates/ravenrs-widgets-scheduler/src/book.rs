@@ -15,6 +15,7 @@ mod event_calendar;
 mod recurrence_editor;
 mod scheduler;
 mod timeline;
+mod year_view;
 #[allow(unused_imports)]
 use ravenrs_widgets_base::AnyView;
 
@@ -30,6 +31,7 @@ pub(crate) fn generated() -> Vec<Meta> {
     all.push(<crate::RecurrenceEditor as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::Scheduler as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::Timeline as ravenrs_widgets_base::book::ComponentBook>::book());
+    all.push(<crate::YearView as ravenrs_widgets_base::book::ComponentBook>::book());
     all
 }
 // rcb-scaffold: end

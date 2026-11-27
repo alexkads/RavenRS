@@ -153,9 +153,13 @@ demonstrations! {
     cartoes => "Cartões",
     listas_de_escolha => "Listas de escolha",
     menus => "Menus",
+    paineis_divididos => "Painéis divididos",
     lista => "Lista",
     cupom => "Cupom",
+    abas => "Abas",
     agenda_por_recurso => "Agenda por recurso",
+    ano => "Ano",
+    calendario_de_eventos => "Calendário de eventos",
 }
 
 #[test]

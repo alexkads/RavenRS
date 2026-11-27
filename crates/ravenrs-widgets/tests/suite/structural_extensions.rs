@@ -232,6 +232,82 @@ fn segmented_tabs_change_their_look_and_size_and_work_like_the_others() {
     assert_eq!(named(&tree, Role::Tab, "One").selected, Some(true));
 }
 
+/// The six channels of a chat, as tabs only, in a column `width` wide.
+fn channels(chosen: &State<usize>, variant: TabsVariant, width: f32) -> impl View + use<> {
+    let mut tabs = Tabs::new(chosen.binding()).variant(variant).size(ButtonSize::Small);
+    for name in ["All", "WhatsApp", "Instagram", "Messenger", "Telegram", "Site"] {
+        tabs = tabs.item(name);
+    }
+    VStack::new((tabs,)).width(width).align(ravenrs_layout::Align::Stretch)
+}
+
+fn tab_names(ui: &mut Ui) -> Vec<String> {
+    ui.access_tree().nodes.iter().filter(|n| n.role == Role::Tab).filter_map(|n| n.name.clone()).collect()
+}
+
+#[test]
+fn tabs_that_do_not_fit_go_to_a_menu_and_the_one_chosen_there_joins_the_bar() {
+    for variant in [TabsVariant::Underline, TabsVariant::Segmented] {
+        let chosen = State::new(0);
+        let mut ui = ui(channels(&chosen, variant, 360.0));
+        ui.update();
+        let shown = tab_names(&mut ui);
+        assert!((2..6).contains(&shown.len()), "{variant:?}: some fit, not all: {shown:?}");
+        assert!(!shown.iter().any(|n| n == "Site"), "{variant:?}: the last one is in the menu");
+        let tree = ui.access_tree();
+        for tab in tree.nodes.iter().filter(|n| n.role == Role::Tab) {
+            assert!(
+                tab.bounds.max_x() <= 360.5,
+                "{variant:?}: {:?} inside the bar: {:?}",
+                tab.name,
+                tab.bounds
+            );
+        }
+        let more = named(&tree, Role::Button, "More tabs").bounds;
+        assert!(more.max_x() <= 360.5, "{variant:?}: the button inside the bar: {more:?}");
+        click(&mut ui, more.center());
+        ui.update();
+        let tree = ui.access_tree();
+        let site = named(&tree, Role::MenuItem, "Site");
+        assert_eq!(site.toggled, Some(ravenrs_core::Toggled::False), "{variant:?}: listed, not the open one");
+        let at = site.bounds.center();
+        click(&mut ui, at);
+        ui.update();
+        assert_eq!(chosen.get(), 5, "{variant:?}: chosen in the menu");
+        let tree = ui.access_tree();
+        assert_eq!(named(&tree, Role::Tab, "Site").selected, Some(true), "{variant:?}: and shown in the bar");
+        assert!(tree.find(Role::Button, "More tabs").is_some(), "{variant:?}: the rest still in the menu");
+    }
+}
+
+#[test]
+fn tabs_with_room_to_spare_have_no_menu() {
+    let chosen = State::new(0);
+    let mut ui = ui(channels(&chosen, TabsVariant::Underline, 760.0));
+    ui.update();
+    assert_eq!(tab_names(&mut ui).len(), 6);
+    assert!(ui.access_tree().find(Role::Button, "More tabs").is_none());
+}
+
+#[test]
+fn the_arrows_reach_the_tabs_in_the_menu_and_bring_them_to_the_bar() {
+    let chosen = State::new(0);
+    let mut ui = ui(channels(&chosen, TabsVariant::Underline, 360.0));
+    ui.update();
+    key(&mut ui, Key::Tab);
+    key(&mut ui, Key::End);
+    ui.update();
+    assert_eq!(chosen.get(), 5, "End goes to the last tab, in the menu");
+    let tree = ui.access_tree();
+    let site = named(&tree, Role::Tab, "Site");
+    assert_eq!(tree.focus, Some(site.id), "the focus is on it, now in the bar");
+    key(&mut ui, Key::ArrowLeft);
+    ui.update();
+    assert_eq!(chosen.get(), 4);
+    let tree = ui.access_tree();
+    assert_eq!(tree.focus, Some(named(&tree, Role::Tab, "Telegram").id), "and back along the tabs");
+}
+
 #[test]
 fn tabs_without_content_are_only_the_bar_and_the_app_holds_the_selection() {
     let chosen = State::new(0);
@@ -786,6 +862,141 @@ fn a_hidden_pane_takes_its_bar_with_it_and_keeps_its_size() {
     ui.update();
     ui.update();
     assert_eq!(dot_x(&mut ui, "B"), 210.0);
+}
+
+/// Two panes side by side: "Sessions" (200, foldable) and "Receipt", which takes the rest.
+fn folding(first: SplitPane) -> SplitPanes {
+    SplitPanes::horizontal()
+        .pane(first.size(200.0).range(100.0, 300.0).label("Sessions"))
+        .pane(SplitPane::new(HStack::new((Dot::new().label("B"),))).range(150.0, f32::MAX))
+        .height(300.0)
+}
+
+fn sessions() -> SplitPane {
+    SplitPane::new(HStack::new((Dot::new().label("A"), Button::new("Open session"))))
+}
+
+fn arrow(ui: &mut Ui, name: &str) -> Option<AccessNode> {
+    ui.access_tree().nodes.into_iter().find(|n| n.role == Role::Button && n.name.as_deref() == Some(name))
+}
+
+fn press(ui: &mut Ui, at: Point) {
+    click(ui, at);
+    ui.update();
+}
+
+#[test]
+fn a_collapsible_pane_folds_to_its_edge_and_comes_back_at_its_size() {
+    let mut ui = ui(folding(sessions().collapsible(true)));
+    ui.update();
+    assert_eq!(dot_x(&mut ui, "B"), 210.0);
+    let fold = arrow(&mut ui, "Collapse Sessions").expect("an arrow on the bar beside it");
+    assert_eq!(fold.expanded, Some(true), "it says the pane is open");
+    press(&mut ui, fold.bounds.center());
+    assert!(bars(&mut ui).is_empty(), "no bar beside a folded pane");
+    assert_eq!(dot_x(&mut ui, "B"), 16.0, "a strip is all that is left of it");
+    assert!(ui.access_tree().nodes.iter().all(|n| n.name.as_deref() != Some("A")), "its content is gone");
+    let show = arrow(&mut ui, "Show Sessions").expect("an arrow on the strip");
+    assert_eq!(show.expanded, Some(false), "it says the pane is folded");
+    press(&mut ui, show.bounds.center());
+    assert_eq!(dot_x(&mut ui, "B"), 210.0, "back at the size it had");
+    assert_eq!(bars(&mut ui).len(), 1, "and the bar with it");
+}
+
+#[test]
+fn the_app_keeps_whether_a_pane_is_folded_and_can_fold_it() {
+    let folded = State::new(false);
+    let mut ui = ui(folding(sessions().collapsed(folded.binding())));
+    ui.update();
+    let fold = arrow(&mut ui, "Collapse Sessions").expect("the arrow");
+    press(&mut ui, fold.bounds.center());
+    assert!(folded.get(), "the click went to the binding");
+    folded.set(false);
+    ui.update();
+    ui.update();
+    assert_eq!(dot_x(&mut ui, "B"), 210.0, "the app opened it");
+    folded.set(true);
+    ui.update();
+    ui.update();
+    assert!(arrow(&mut ui, "Show Sessions").is_some(), "the app folded it");
+    assert_eq!(dot_x(&mut ui, "B"), 16.0);
+}
+
+#[test]
+fn a_pane_that_does_not_fold_has_no_arrow() {
+    let mut ui = ui(dots(["A", "B", "C"]));
+    ui.update();
+    assert!(
+        ui.access_tree().nodes.iter().all(|n| n.role != Role::Button),
+        "no arrow, and the bars are as they were"
+    );
+    assert_eq!(bars(&mut ui).len(), 2);
+}
+
+#[test]
+fn the_last_pane_folds_toward_its_end_and_each_side_keeps_its_own_arrow() {
+    let mut ui = ui(SplitPanes::horizontal()
+        .pane(
+            SplitPane::new(HStack::new((Dot::new().label("A"),)))
+                .size(200.0)
+                .collapsible(true)
+                .label("Sessions"),
+        )
+        .pane(SplitPane::new(HStack::new((Dot::new().label("B"),))))
+        .pane(
+            SplitPane::new(HStack::new((Dot::new().label("C"),)))
+                .size(200.0)
+                .collapsible(true)
+                .label("Activity"),
+        )
+        .height(300.0));
+    ui.update();
+    let (left, right) = (bars(&mut ui)[0].bounds, bars(&mut ui)[1].bounds);
+    let sessions = arrow(&mut ui, "Collapse Sessions").expect("on the first bar").bounds;
+    let activity = arrow(&mut ui, "Collapse Activity").expect("on the second bar").bounds;
+    assert!((sessions.center().x - left.center().x).abs() < 1.0, "over the bar after it");
+    assert!((activity.center().x - right.center().x).abs() < 1.0, "over the bar before it");
+    press(&mut ui, activity.center());
+    let strip = arrow(&mut ui, "Show Activity").expect("the strip at the end").bounds;
+    assert!(strip.max_x() <= 800.0 && strip.x() >= 784.0, "at the right edge: {strip:?}");
+    assert_eq!(dot_x(&mut ui, "B"), 210.0, "the middle took the room");
+}
+
+#[test]
+fn the_arrow_folds_by_key_takes_the_focus_along_and_the_folded_pane_leaves_the_tab_order() {
+    let mut ui = ui(folding(sessions().collapsible(true)));
+    ui.update();
+    let tree = ui.access_tree();
+    let fold = named(&tree, Role::Button, "Collapse Sessions").id;
+    for _ in 0..4 {
+        if ui.access_tree().focus == Some(fold) {
+            break;
+        }
+        key(&mut ui, Key::Tab);
+    }
+    assert_eq!(ui.access_tree().focus, Some(fold), "the arrow is in the Tab order");
+    key(&mut ui, Key::Enter);
+    ui.update();
+    let tree = ui.access_tree();
+    let show = named(&tree, Role::Button, "Show Sessions").id;
+    assert_eq!(tree.focus, Some(show), "the focus went with the arrow to the strip");
+    for _ in 0..4 {
+        key(&mut ui, Key::Tab);
+        let tree = ui.access_tree();
+        let on = tree.nodes.iter().find(|n| Some(n.id) == tree.focus).and_then(|n| n.name.clone());
+        assert_ne!(on.as_deref(), Some("Open session"), "nothing in the folded pane takes the focus");
+    }
+    let tree = ui.access_tree();
+    let show = named(&tree, Role::Button, "Show Sessions").id;
+    for _ in 0..6 {
+        if ui.access_tree().focus == Some(show) {
+            break;
+        }
+        key(&mut ui, Key::Tab);
+    }
+    key(&mut ui, Key::Space);
+    ui.update();
+    assert_eq!(dot_x(&mut ui, "B"), 210.0, "Space brings it back");
 }
 
 #[test]

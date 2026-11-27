@@ -81,6 +81,8 @@ pub struct YearView {
     on_pick: Option<Rc<dyn Fn(Date)>>,
     on_month: Option<Rc<dyn Fn(Date)>>,
     columns: Option<usize>,
+    range: Option<(Date, usize)>,
+    header: bool,
 }
 
 impl fmt::Debug for YearView {
@@ -93,7 +95,17 @@ impl fmt::Debug for YearView {
 impl YearView {
     /// The year in `year`, which its buttons and the keyboard also change.
     pub fn new(year: Binding<i32>) -> Self {
-        Self { year, selected: None, today: None, marks: None, on_pick: None, on_month: None, columns: None }
+        Self {
+            year,
+            selected: None,
+            today: None,
+            marks: None,
+            on_pick: None,
+            on_month: None,
+            columns: None,
+            range: None,
+            header: true,
+        }
     }
 
     /// The chosen day, shown filled.
@@ -129,6 +141,21 @@ impl YearView {
     /// How many months go on a line. As many as fit by default.
     pub fn columns(mut self, columns: usize) -> Self {
         self.columns = Some(columns.clamp(1, 12));
+        self
+    }
+
+    /// Shows `count` months from the month of `first` (up to twelve) instead of the twelve of
+    /// the year, such as the three of a season; they may run into the next year, and each says
+    /// its year. The keyboard stays in them.
+    pub fn months(mut self, first: Date, count: usize) -> Self {
+        self.range = Some((first.first_of_month(), count.clamp(1, 12)));
+        self
+    }
+
+    /// Whether the year and its arrows show above the months (they do by default). A view with
+    /// its own, as an `EventCalendar`, leaves them out.
+    pub fn header(mut self, header: bool) -> Self {
+        self.header = header;
         self
     }
 }
@@ -257,7 +284,18 @@ impl View for YearView {
         let seen = cx.use_state(|| Rc::new(Cell::new(year))).peek().clone();
         // The keyboard walks past December through the month it keeps, and the year follows;
         // a year set from outside takes the keyboard with it.
-        let shown = if year != seen.get() {
+        // The months shown, in order: the year's, or those asked for.
+        let firsts: Vec<Date> = match self.range {
+            Some((first, count)) => (0..count).map(|i| first.add_months(i as i32)).collect(),
+            None => (1..=12_u8).filter_map(|number| Date::new(year, number, 1)).collect(),
+        };
+        let shown = if let Some((first, _)) = self.range {
+            // The keyboard does not leave the months asked for.
+            if !firsts.contains(&month.peek().first_of_month()) {
+                month.set(first);
+            }
+            year
+        } else if year != seen.get() {
             month.set(first_of_year(year));
             year
         } else if month.get().year() != year {
@@ -272,56 +310,71 @@ impl View for YearView {
             cursor: cx.use_state(|| None),
             focus_to: cx.use_state(|| Rc::new(Cell::new(None))).get(),
         };
+        let firsts: Vec<Date> = match self.range {
+            Some(_) => firsts,
+            None => (1..=12_u8).filter_map(|number| Date::new(shown, number, 1)).collect(),
+        };
         let selected = self.selected.as_ref().and_then(Binding::get);
         let active = [keys.cursor.get(), selected, self.today]
             .into_iter()
             .flatten()
-            .find(|d| d.year() == shown)
+            .find(|d| firsts.contains(&d.first_of_month()))
+            .or_else(|| firsts.first().copied())
             .unwrap_or(first_of_year(shown));
 
-        let (back_to, on_to) = (self.year.clone(), self.year.clone());
-        let back = cx.child(
-            &IconButton::new(IconName::ChevronLeft)
-                .label(labels.previous_year.clone())
-                .size(ButtonSize::Small)
-                .on_click(move || back_to.set(shown - 1)),
-        );
-        let title = util::label(
-            cx,
-            &shown.to_string(),
-            TextStyle::Body,
-            Some(Weight::SEMIBOLD),
-            theme.color(Semantic::Ink),
-        );
-        let forward = cx.child(
-            &IconButton::new(IconName::ChevronRight)
-                .label(labels.next_year.clone())
-                .size(ButtonSize::Small)
-                .on_click(move || on_to.set(shown + 1)),
-        );
-        let header = cx.container(
-            LayoutStyle {
-                spacing: theme.spacing.s2,
-                align: Align::Center,
-                ..LayoutStyle::stack(Axis::Horizontal)
-            },
-            &[back, title, forward],
-            Paint::None,
-        );
+        let header = if self.header {
+            let (back_to, on_to) = (self.year.clone(), self.year.clone());
+            let back = cx.child(
+                &IconButton::new(IconName::ChevronLeft)
+                    .label(labels.previous_year.clone())
+                    .size(ButtonSize::Small)
+                    .on_click(move || back_to.set(shown - 1)),
+            );
+            let title = util::label(
+                cx,
+                &shown.to_string(),
+                TextStyle::Body,
+                Some(Weight::SEMIBOLD),
+                theme.color(Semantic::Ink),
+            );
+            let forward = cx.child(
+                &IconButton::new(IconName::ChevronRight)
+                    .label(labels.next_year.clone())
+                    .size(ButtonSize::Small)
+                    .on_click(move || on_to.set(shown + 1)),
+            );
+            let header_node = cx.container(
+                LayoutStyle {
+                    spacing: theme.spacing.s2,
+                    align: Align::Center,
+                    ..LayoutStyle::stack(Axis::Horizontal)
+                },
+                &[back, title, forward],
+                Paint::None,
+            );
 
+            Some(header_node)
+        } else {
+            None
+        };
         let width = 7.0 * DAY + 6.0 * DAY_GAP;
         let room = cx.scroll_viewport().map_or(cx.viewport().width, |size| size.width);
         let columns = self.columns.unwrap_or_else(|| {
             let fit = ((room + MONTH_GAP) / (width + MONTH_GAP)).floor() as usize;
             LINES.into_iter().find(|line| *line <= fit).unwrap_or(1)
         });
-        let mut months = Vec::with_capacity(12);
-        for number in 1..=12_u8 {
-            let Some(first) = Date::new(shown, number, 1) else { continue };
-            let name = labels.months[usize::from(number - 1)].clone();
+        let mut months = Vec::with_capacity(firsts.len());
+        for &first in &firsts {
+            let number = first.month();
+            // Months that may cross into another year say which.
+            let name = if self.range.is_some() {
+                labels.month_title(first)
+            } else {
+                labels.months[usize::from(number - 1)].clone()
+            };
             let title = match &self.on_month {
                 Some(open) => cx.keyed_child(
-                    u64::from(number),
+                    (first.to_days() as u64).wrapping_add(1 << 33),
                     &MonthTitle { text: &name, date: first, open: open.clone() },
                 ),
                 None => util::label(
@@ -355,7 +408,7 @@ impl View for YearView {
                     Paint::None,
                 ));
             }
-            for day in 1..=days_in_month(shown, number) {
+            for day in 1..=days_in_month(first.year(), number) {
                 let date = first.add_days(i32::from(day) - 1);
                 let view = YearDay { date, view: self, active: date == active, keys: &keys };
                 // A day before 1970 counts below zero: the key only has to differ from the others.
@@ -396,7 +449,7 @@ impl View for YearView {
                 align_self: Some(Align::Stretch),
                 ..LayoutStyle::stack(Axis::Vertical)
             },
-            &[header, grid],
+            &header.into_iter().chain([grid]).collect::<Vec<_>>(),
             Paint::None,
         );
         cx.report_frame(node);

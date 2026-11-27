@@ -199,3 +199,15 @@ fn as_many_months_go_on_a_line_as_fit() {
     settle(&mut ui);
     assert_eq!(same_line(&mut ui), 1, "two months at this width");
 }
+
+#[test]
+fn a_year_view_can_show_the_months_of_a_season_without_its_header() {
+    let year = State::new(2026);
+    let mut ui = ui(YearView::new(year.binding()).months(day(2025, 12, 20), 3).header(false));
+    let calendars: Vec<String> =
+        of_role(&mut ui, Role::Calendar).into_iter().filter_map(|n| n.name).collect();
+    assert_eq!(calendars.len(), 3, "three months: {calendars:?}");
+    assert_eq!(of_role(&mut ui, Role::Button).len(), 31 + 31 + 28, "their days, and no arrows");
+    assert!(named(&mut ui, "1 December 2025").name.is_some(), "it crosses into the year before");
+    assert!(named(&mut ui, "28 February 2026").name.is_some());
+}

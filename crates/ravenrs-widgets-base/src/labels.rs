@@ -266,6 +266,14 @@ pub struct Labels {
     pub wizard_error: String,
     /// The bar between two panes, for screen readers.
     pub split_resize: String,
+    /// The arrow that folds a pane of a `SplitPanes`; `{0}` is the pane's name.
+    /// [`Labels::split_collapse`] fills it in.
+    pub split_collapse: String,
+    /// The arrow that brings a folded pane back; `{0}` is the pane's name.
+    /// [`Labels::split_expand`] fills it in.
+    pub split_expand: String,
+    /// What a pane of a `SplitPanes` without a name is called.
+    pub split_pane: String,
     /// What dragging a `FloatingPanel` by its header does.
     pub panel_move: String,
     /// Reduces a `FloatingPanel` to its header.
@@ -325,6 +333,8 @@ pub struct Labels {
     pub receipt_empty: String,
     /// The list of the lines of a `Receipt`, for screen readers.
     pub receipt_lines: String,
+    /// The button at the end of a `Tabs` bar with the tabs that do not fit.
+    pub tabs_more: String,
     /// Where a `Wizard` stands, where `{0}` is its step and `{1}` its count.
     /// [`Labels::wizard_progress`] fills it in.
     pub wizard_progress: String,
@@ -581,7 +591,19 @@ pub struct Labels {
     /// After the count of events an `EventCalendar` day has no room for.
     pub calendar_more: String,
     /// Month, week and day, as an `EventCalendar` offers its views.
-    pub calendar_views: [String; 3],
+    pub calendar_views: [String; 6],
+    /// The seasons, from the one that starts in December as the south calls it: summer,
+    /// autumn, winter, spring.
+    pub seasons: [String; 4],
+    /// A season with its year; `{0}` is the season, `{1}` the year. [`Labels::season_title`]
+    /// fills it in.
+    pub season_title: String,
+    /// What the agenda of an `EventCalendar` says when nothing falls in it.
+    pub calendar_agenda_empty: String,
+    /// A day with one event, for screen readers.
+    pub calendar_one_event: String,
+    /// A day with more events; `{0}` is how many. [`Labels::calendar_events`] picks.
+    pub calendar_events: String,
     /// The name of an `EventCalendar`'s choice of view.
     pub calendar_view_name: String,
     /// An `EventCalendar`'s back button, by week or by day.
@@ -1394,6 +1416,9 @@ impl Labels {
             wizard_done: texts.get("widgets.wizard_done"),
             wizard_error: texts.get("widgets.wizard_error"),
             split_resize: texts.get("widgets.split_resize"),
+            split_collapse: texts.get("widgets.split_collapse"),
+            split_expand: texts.get("widgets.split_expand"),
+            split_pane: texts.get("widgets.split_pane"),
             panel_move: texts.get("widgets.panel_move"),
             panel_minimize: texts.get("widgets.panel_minimize"),
             panel_restore: texts.get("widgets.panel_restore"),
@@ -1423,6 +1448,7 @@ impl Labels {
             tag_add: texts.get("widgets.tag_add"),
             receipt_empty: texts.get("widgets.receipt_empty"),
             receipt_lines: texts.get("widgets.receipt_lines"),
+            tabs_more: texts.get("widgets.tabs_more"),
             wizard_progress: texts.get("widgets.wizard_progress"),
             culture: texts.get("widgets.culture"),
             loading: texts.get("widgets.loading"),
@@ -1549,6 +1575,11 @@ impl Labels {
             step_down: texts.get("widgets.step_down"),
             calendar_more: texts.get("widgets.calendar_more"),
             calendar_views: texts.array("widgets.calendar_views"),
+            seasons: texts.array("widgets.seasons"),
+            season_title: texts.get("widgets.season_title"),
+            calendar_agenda_empty: texts.get("widgets.calendar_agenda_empty"),
+            calendar_one_event: texts.get("widgets.calendar_one_event"),
+            calendar_events: texts.get("widgets.calendar_events"),
             calendar_view_name: texts.get("widgets.calendar_view_name"),
             calendar_previous: texts.get("widgets.calendar_previous"),
             calendar_next: texts.get("widgets.calendar_next"),
@@ -1954,6 +1985,30 @@ impl Labels {
     /// What a `TagBox` option says when it adds `typed`.
     pub fn tag_add(&self, typed: &str) -> String {
         ravenrs_app_i18n::format(&self.tag_add, &[typed])
+    }
+
+    /// A season with the year most of it is in.
+    pub fn season_title(&self, season: &str, year: i32) -> String {
+        ravenrs_app_i18n::format(&self.season_title, &[season, &year.to_string()])
+    }
+
+    /// How many events a day has, for screen readers: "1 event", "3 events".
+    pub fn calendar_events(&self, count: usize) -> String {
+        if count == 1 {
+            self.calendar_one_event.clone()
+        } else {
+            ravenrs_app_i18n::format(&self.calendar_events, &[&count.to_string()])
+        }
+    }
+
+    /// The arrow that folds the pane called `pane`.
+    pub fn split_collapse(&self, pane: &str) -> String {
+        ravenrs_app_i18n::format(&self.split_collapse, &[pane])
+    }
+
+    /// The arrow that brings back the folded pane called `pane`.
+    pub fn split_expand(&self, pane: &str) -> String {
+        ravenrs_app_i18n::format(&self.split_expand, &[pane])
     }
 
     /// Where a `Wizard` stands, at `step` of `count`.
