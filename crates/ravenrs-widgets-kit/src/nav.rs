@@ -1998,7 +1998,7 @@ impl View for Breadcrumb {
             &children,
             Paint::None,
         );
-        cx.semantics(node, Semantics::new(Role::Group).name("Breadcrumb"));
+        cx.semantics(node, Semantics::new(Role::Group).name(cx.labels().breadcrumb.clone()));
         node
     }
 }

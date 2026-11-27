@@ -1346,7 +1346,10 @@ impl View for InputOtp {
         let mut semantics = Semantics::new(Role::TextInput)
             .name(cx.labels().verification_code.clone())
             .value(typed)
-            .description(format!("{} digits", self.length));
+            .description({
+                let labels = cx.labels();
+                labels.fill(&labels.verification_code_digits, &[&self.length.to_string()])
+            });
         semantics.fallback_name = true;
         cx.semantics(node, state.semantics(semantics));
         if !state.accepts_input() {
@@ -1400,9 +1403,33 @@ impl View for InputOtp {
 /// Common validation rules for [`FormField::validate`].
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 pub mod validate {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    use crate::Labels;
+
+    thread_local! {
+        /// The words of the part of the app a `FormField` is drawn in, while it checks its value.
+        static WORDS: RefCell<Option<Rc<Labels>>> = const { RefCell::new(None) };
+        static ENGLISH: Rc<Labels> = Rc::new(Labels::default());
+    }
+
+    /// Runs `f` with the rules below saying their messages in the words of `labels`, as a
+    /// [`FormField`](crate::FormField) does while it is drawn. Outside of it, they are English.
+    pub fn with_labels<T>(labels: Rc<Labels>, f: impl FnOnce() -> T) -> T {
+        let before = WORDS.with(|w| w.replace(Some(labels)));
+        let out = f();
+        WORDS.with(|w| *w.borrow_mut() = before);
+        out
+    }
+
+    fn words() -> Rc<Labels> {
+        WORDS.with(|w| w.borrow().clone()).unwrap_or_else(|| ENGLISH.with(Rc::clone))
+    }
+
     /// The field must not be empty.
     pub fn required(value: &str) -> Result<(), String> {
-        if value.trim().is_empty() { Err("This field is required.".into()) } else { Ok(()) }
+        if value.trim().is_empty() { Err(words().required.clone()) } else { Ok(()) }
     }
 
     /// A plausible email address (something@something.tld).
@@ -1410,7 +1437,7 @@ pub mod validate {
         let ok = value.split_once('@').is_some_and(|(user, domain)| {
             !user.is_empty() && domain.contains('.') && !domain.starts_with('.') && !domain.ends_with('.')
         });
-        if ok || value.is_empty() { Ok(()) } else { Err("Enter an email like name@example.com.".into()) }
+        if ok || value.is_empty() { Ok(()) } else { Err(words().invalid_email.clone()) }
     }
 
     /// At least `n` characters.
@@ -1419,7 +1446,8 @@ pub mod validate {
             if value.chars().count() >= n || value.is_empty() {
                 Ok(())
             } else {
-                Err(format!("Use at least {n} characters."))
+                let labels = words();
+                Err(labels.fill(&labels.min_length, &[&n.to_string()]))
             }
         }
     }
@@ -1581,7 +1609,13 @@ impl<V: View> View for FormField<V> {
         // The same check as `error`, in the words of this part of the app.
         let error = self.told_error.clone().or_else(|| {
             (self.show_errors || !value.is_empty())
-                .then(|| if blank { Some(cx.labels().required.clone()) } else { self.error() })
+                .then(|| {
+                    if blank {
+                        Some(cx.labels().required.clone())
+                    } else {
+                        validate::with_labels(cx.labels(), || self.error())
+                    }
+                })
                 .flatten()
         });
         let note = self.told_note.as_ref().map(|(note, _)| note.as_str());

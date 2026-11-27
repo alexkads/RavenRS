@@ -329,6 +329,48 @@ pub struct Labels {
     /// What an option of a `TagBox` says when it adds what was typed, where `{0}`
     /// is what was typed. [`Labels::tag_add`] fills it in.
     pub tag_add: String,
+    /// The button that opens the dialog of a `Ribbon` group; `{0}` is the group.
+    pub ribbon_group_options: String,
+    /// How many boxes an `InputOtp` has, for screen readers; `{0}` is the count.
+    pub verification_code_digits: String,
+    /// A `Pagination`, for screen readers.
+    pub pagination: String,
+    /// The button of a `Pagination` to the page before.
+    pub pagination_previous: String,
+    /// The button of a `Pagination` to the page after.
+    pub pagination_next: String,
+    /// A `Breadcrumb`, for screen readers.
+    pub breadcrumb: String,
+    /// What a `PatchPanel` is called without a label of its own.
+    pub patch_panel: String,
+    /// A jack of a `PatchPanel` that sends.
+    pub patch_output: String,
+    /// A jack of a `PatchPanel` that takes.
+    pub patch_input: String,
+    /// A jack and its signal; `{0}` is the jack's kind, `{1}` the signal.
+    pub patch_of_signal: String,
+    /// A jack with no cable; `{0}` is what it is.
+    pub patch_free: String,
+    /// A jack with cables; `{0}` is what it is, `{1}` the jacks it goes to.
+    pub patch_connected_to: String,
+    /// Why a cable cannot join two outputs.
+    pub patch_two_outputs: String,
+    /// Why a cable cannot join two inputs.
+    pub patch_two_inputs: String,
+    /// Why a jack refuses a signal; `{0}` is the jack, `{1}` the signal.
+    pub patch_refuses: String,
+    /// Why an input refuses a second cable; `{0}` is the jack.
+    pub patch_taken: String,
+    /// Why a plug from another panel is refused.
+    pub patch_other_panel: String,
+    /// The button that turns a `PatchPanel` to its back.
+    pub patch_show_back: String,
+    /// The button that turns a `PatchPanel` to its front.
+    pub patch_flip: String,
+    /// What `validate::email` says of an address that does not look like one.
+    pub invalid_email: String,
+    /// What `validate::min_length` says; `{0}` is how many characters.
+    pub min_length: String,
     /// What a `Receipt` with no lines says.
     pub receipt_empty: String,
     /// The list of the lines of a `Receipt`, for screen readers.
@@ -1446,6 +1488,27 @@ impl Labels {
             grid_expand_row: texts.get("widgets.grid_expand_row"),
             grid_collapse_row: texts.get("widgets.grid_collapse_row"),
             tag_add: texts.get("widgets.tag_add"),
+            ribbon_group_options: texts.get("widgets.ribbon_group_options"),
+            verification_code_digits: texts.get("widgets.verification_code_digits"),
+            pagination: texts.get("widgets.pagination"),
+            pagination_previous: texts.get("widgets.pagination_previous"),
+            pagination_next: texts.get("widgets.pagination_next"),
+            breadcrumb: texts.get("widgets.breadcrumb"),
+            patch_panel: texts.get("widgets.patch_panel"),
+            patch_output: texts.get("widgets.patch_output"),
+            patch_input: texts.get("widgets.patch_input"),
+            patch_of_signal: texts.get("widgets.patch_of_signal"),
+            patch_free: texts.get("widgets.patch_free"),
+            patch_connected_to: texts.get("widgets.patch_connected_to"),
+            patch_two_outputs: texts.get("widgets.patch_two_outputs"),
+            patch_two_inputs: texts.get("widgets.patch_two_inputs"),
+            patch_refuses: texts.get("widgets.patch_refuses"),
+            patch_taken: texts.get("widgets.patch_taken"),
+            patch_other_panel: texts.get("widgets.patch_other_panel"),
+            patch_show_back: texts.get("widgets.patch_show_back"),
+            patch_flip: texts.get("widgets.patch_flip"),
+            invalid_email: texts.get("widgets.invalid_email"),
+            min_length: texts.get("widgets.min_length"),
             receipt_empty: texts.get("widgets.receipt_empty"),
             receipt_lines: texts.get("widgets.receipt_lines"),
             tabs_more: texts.get("widgets.tabs_more"),
@@ -1985,6 +2048,12 @@ impl Labels {
     /// What a `TagBox` option says when it adds `typed`.
     pub fn tag_add(&self, typed: &str) -> String {
         ravenrs_app_i18n::format(&self.tag_add, &[typed])
+    }
+
+    /// Fills in one of these words that has `{0}`, `{1}`... with `parts`, such as
+    /// `labels.fill(&labels.patch_taken, &["Saída 1"])`.
+    pub fn fill(&self, words: &str, parts: &[&str]) -> String {
+        ravenrs_app_i18n::format(words, parts)
     }
 
     /// A season with the year most of it is in.

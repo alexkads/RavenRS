@@ -238,9 +238,9 @@ impl View for ToggleGroup {
 pub struct Pagination {
     page: Binding<usize>,
     pages: usize,
-    previous: String,
-    next: String,
-    page_name: String,
+    previous: Option<String>,
+    next: Option<String>,
+    page_name: Option<String>,
     compact: bool,
 }
 
@@ -248,14 +248,7 @@ pub struct Pagination {
 impl Pagination {
     /// `page` is zero-based; `pages` is the total count.
     pub fn new(page: Binding<usize>, pages: usize) -> Self {
-        Self {
-            page,
-            pages: pages.max(1),
-            previous: "Previous".into(),
-            next: "Next".into(),
-            page_name: "Page".into(),
-            compact: false,
-        }
+        Self { page, pages: pages.max(1), previous: None, next: None, page_name: None, compact: false }
     }
 
     /// Shows "1 / 12" between the buttons instead of the page numbers, so that the
@@ -273,9 +266,9 @@ impl Pagination {
         next: impl Into<String>,
         page_name: impl Into<String>,
     ) -> Self {
-        self.previous = previous.into();
-        self.next = next.into();
-        self.page_name = page_name.into();
+        self.previous = Some(previous.into());
+        self.next = Some(next.into());
+        self.page_name = Some(page_name.into());
         self
     }
 }
@@ -311,12 +304,17 @@ pub fn page_window(current: usize, pages: usize) -> Vec<Option<usize>> {
 impl View for Pagination {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
+        // The words given by `labels`, or those of the part of the app the bar is in.
+        let labels = cx.labels();
+        let previous_word = self.previous.clone().unwrap_or_else(|| labels.pagination_previous.clone());
+        let next_word = self.next.clone().unwrap_or_else(|| labels.pagination_next.clone());
+        let page_name = self.page_name.clone().unwrap_or_else(|| labels.page_word.clone());
         let current = self.page.get().min(self.pages - 1);
         let mut items = Vec::new();
         let prev = self.page.clone();
         items.push(
             cx.child(
-                &crate::Button::new(self.previous.clone())
+                &crate::Button::new(previous_word.clone())
                     .style(ButtonStyle::Ghost)
                     .size(ButtonSize::Small)
                     .icon(IconName::ChevronLeft)
@@ -337,7 +335,7 @@ impl View for Pagination {
                 &[label],
                 Paint::None,
             );
-            cx.semantics(node, Semantics::new(Role::Label).name(format!("{} {text}", self.page_name)));
+            cx.semantics(node, Semantics::new(Role::Label).name(format!("{page_name} {text}")));
             items.push(node);
         }
         let window = if self.compact { Vec::new() } else { page_window(current, self.pages) };
@@ -347,7 +345,7 @@ impl View for Pagination {
                     let b = self.page.clone();
                     let style = if p == current { ButtonStyle::Secondary } else { ButtonStyle::Ghost };
                     let button = crate::Button::new((p + 1).to_string())
-                        .accessible_name(format!("{} {}", self.page_name, p + 1))
+                        .accessible_name(format!("{page_name} {}", p + 1))
                         .style(style)
                         .size(ButtonSize::Small)
                         .on_click(move || b.set(p));
@@ -375,7 +373,7 @@ impl View for Pagination {
         let (next, last) = (self.page.clone(), self.pages - 1);
         items.push(
             cx.child(
-                &crate::Button::new(self.next.clone())
+                &crate::Button::new(next_word.clone())
                     .style(ButtonStyle::Ghost)
                     .size(ButtonSize::Small)
                     .trailing_icon(IconName::ChevronRight)
@@ -393,7 +391,7 @@ impl View for Pagination {
             &items,
             Paint::None,
         );
-        cx.semantics(node, Semantics::new(Role::Group).name("Pagination"));
+        cx.semantics(node, Semantics::new(Role::Group).name(labels.pagination.clone()));
         node
     }
 }

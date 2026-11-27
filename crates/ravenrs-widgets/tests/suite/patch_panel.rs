@@ -45,7 +45,9 @@ impl View for Rack {
 
 fn rack(links: Vec<PatchLink>, front: bool) -> (Ui, State<Vec<PatchLink>>, Log) {
     let (links, log) = (State::new(links), Rc::new(RefCell::new(Vec::new())));
-    let mut ui = Ui::new(Rack { links: links.clone(), log: log.clone(), front }, Theme::raven_dark());
+    // The panel speaks the language of the app; these tests read it in Portuguese.
+    let rack = Rack { links: links.clone(), log: log.clone(), front };
+    let mut ui = Ui::new(Localized::new(Labels::pt_br(), rack), Theme::raven_dark());
     ui.set_viewport(Size::new(600.0, 500.0), 1.0);
     ui.set_time(0.0);
     ui.update();
@@ -242,7 +244,8 @@ impl View for Board {
 #[test]
 fn a_pair_of_cords_joins_two_extensions_and_a_cord_let_go_goes_home() {
     let (links, joined) = (State::new(Vec::new()), Rc::new(RefCell::new(Vec::new())));
-    let mut ui = Ui::new(Board { links: links.clone(), joined: joined.clone() }, Theme::raven_dark());
+    let board = Board { links: links.clone(), joined: joined.clone() };
+    let mut ui = Ui::new(Localized::new(Labels::pt_br(), board), Theme::raven_dark());
     ui.set_viewport(Size::new(500.0, 400.0), 1.0);
     ui.set_time(0.0);
     ui.update();
