@@ -619,6 +619,14 @@ fn guardar_cupom(
             ("unitario", money(item.valor_unitario)),
             ("valor", money(valor)),
             ("itens", rascunho.itens.len().to_string()),
+            (
+                "desconto",
+                if documento.totais.v_desc > Decimal::ZERO {
+                    money(documento.totais.v_desc)
+                } else {
+                    String::new()
+                },
+            ),
             ("total", money(documento.valor_total())),
             ("pagamento", venda.pagamento.clone()),
             ("recebido", money(venda.recebido)),
