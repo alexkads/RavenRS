@@ -1975,13 +1975,32 @@ pub struct TimePicker {
     width: f32,
     label: Option<String>,
     state: util::EditorState,
+    min: Option<Time>,
+    max: Option<Time>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TimePicker {
     /// A picker bound to `value`; `None` is empty.
     pub fn new(value: Binding<Option<Time>>) -> Self {
-        Self { value, step: 30, width: 120.0, label: None, state: util::EditorState::default() }
+        Self {
+            value,
+            step: 30,
+            width: 120.0,
+            label: None,
+            state: util::EditorState::default(),
+            min: None,
+            max: None,
+        }
+    }
+
+    /// The first and the last time that can be chosen, both included: the list offers only those,
+    /// and a time typed outside them is not taken. A value outside them set by the app is shown as
+    /// it is, and screen readers hear it is outside.
+    pub fn range(mut self, min: Option<Time>, max: Option<Time>) -> Self {
+        self.min = min;
+        self.max = max;
+        self
     }
 
     /// The minutes between the times in the list. 30 by default.
@@ -2029,6 +2048,8 @@ impl View for TimePicker {
         // Unfinished digits live here until they make a time.
         let draft: State<Option<String>> = cx.use_state(|| None);
         let labels = cx.labels();
+        let (min, max) = (self.min, self.max);
+        let allowed = move |t: Time| min.is_none_or(|m| t >= m) && max.is_none_or(|m| t <= m);
         let (read, write, target, value) =
             (draft.clone(), draft.clone(), self.value.clone(), self.value.clone());
         let digits = Binding::new(
@@ -2038,7 +2059,8 @@ impl View for TimePicker {
                 })
             },
             move |text: String| {
-                let time = time_from_digits(&text);
+                // A time outside the limits stays as typed, and is not taken.
+                let time = time_from_digits(&text).filter(|t| allowed(*t));
                 write.set(if time.is_some() || text.is_empty() { None } else { Some(text.clone()) });
                 if time.is_some() || text.is_empty() {
                     target.set(time);
@@ -2071,10 +2093,18 @@ impl View for TimePicker {
             &[field, button],
             Paint::None,
         );
+        if let Some(outside) = self.value.get().filter(|t| !allowed(*t)) {
+            let mut semantics = Semantics::new(Role::Group).description(labels.time_out_of_range.clone());
+            if let Some(label) = &self.label {
+                semantics = semantics.name(label.clone());
+            }
+            cx.semantics(node, semantics.value(outside.to_string()));
+        }
         if open.get() && accepts {
             let slots: Vec<Time> = (0..24 * 60)
                 .step_by(self.step as usize)
                 .filter_map(|m: u16| Time::new((m / 60) as u8, (m % 60) as u8))
+                .filter(|t| allowed(*t))
                 .collect();
             let options: Vec<String> = slots.iter().map(Time::to_string).collect();
             let chosen = self.value.clone();
@@ -2105,13 +2135,31 @@ pub struct DateTimePicker {
     step: u16,
     label: Option<String>,
     state: util::EditorState,
+    min: Option<DateTime>,
+    max: Option<DateTime>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DateTimePicker {
     /// `month` is shown when no date is selected yet.
     pub fn new(value: Binding<Option<DateTime>>, month: Date) -> Self {
-        Self { value, month, step: 30, label: None, state: util::EditorState::default() }
+        Self {
+            value,
+            month,
+            step: 30,
+            label: None,
+            state: util::EditorState::default(),
+            min: None,
+            max: None,
+        }
+    }
+
+    /// The first and the last moment that can be chosen, both included: its calendar offers the
+    /// days between them, and on the first and the last day its times start or end there.
+    pub fn range(mut self, min: Option<DateTime>, max: Option<DateTime>) -> Self {
+        self.min = min;
+        self.max = max;
+        self
     }
 
     /// The name screen readers announce. Both of its fields use it.
@@ -2156,12 +2204,18 @@ impl View for DateTimePicker {
                 };
             },
         );
+        let chosen = self.value.get().map(|v| v.date);
         let mut day = DatePicker::new(date, self.month)
             .fill()
+            .range(self.min.map(|m| m.date), self.max.map(|m| m.date))
             .disabled(self.state.disabled)
             .read_only(self.state.read_only);
+        // On the first and the last day, the times start and end with the limits.
+        let earliest = self.min.filter(|m| Some(m.date) == chosen).map(|m| m.time);
+        let latest = self.max.filter(|m| Some(m.date) == chosen).map(|m| m.time);
         let mut hour = TimePicker::new(time)
             .step_minutes(self.step)
+            .range(earliest, latest)
             .disabled(self.state.disabled)
             .read_only(self.state.read_only);
         if let Some(label) = &self.label {

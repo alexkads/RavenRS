@@ -290,6 +290,7 @@ field Labels::curve_input
 field Labels::curve_output
 field Labels::curve_point
 field Labels::curve_points
+field Labels::date_out_of_range
 field Labels::day_marked
 field Labels::days_ago
 field Labels::decimal_separator
@@ -825,6 +826,7 @@ field Labels::theme_system
 field Labels::theme_text
 field Labels::tile_move
 field Labels::tile_resize
+field Labels::time_out_of_range
 field Labels::today
 field Labels::toggle_sidebar
 field Labels::tomorrow
@@ -2970,6 +2972,7 @@ method Cables::ids
 method Cables::moving
 method Cables::on_gpu
 method Cables::shape
+method Calendar::blocked
 method Calendar::new
 method Calendar::range
 method Calendar::today
@@ -3305,17 +3308,20 @@ method Date::short
 method Date::to_days
 method Date::weekday
 method Date::year
+method DatePicker::blocked
 method DatePicker::disabled
 method DatePicker::fill
 method DatePicker::label
 method DatePicker::new
 method DatePicker::placeholder
+method DatePicker::range
 method DatePicker::read_only
 method DatePicker::today
 method DatePicker::width
 method DateRange::contains
 method DateRange::days
 method DateRange::new
+method DateRangePicker::blocked
 method DateRangePicker::disabled
 method DateRangePicker::label
 method DateRangePicker::new
@@ -3328,6 +3334,7 @@ method DateRangePicker::width
 method DateTimePicker::disabled
 method DateTimePicker::label
 method DateTimePicker::new
+method DateTimePicker::range
 method DateTimePicker::read_only
 method DateTimePicker::step_minutes
 method DayMark::label
@@ -4676,6 +4683,7 @@ method TimeLink::new
 method TimePicker::disabled
 method TimePicker::label
 method TimePicker::new
+method TimePicker::range
 method TimePicker::read_only
 method TimePicker::step_minutes
 method TimePicker::width

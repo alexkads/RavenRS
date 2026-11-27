@@ -149,6 +149,7 @@ demonstrations! {
     indicadores => "Indicadores",
     progresso => "Progresso",
     codigo_de_verificacao => "Código de verificação",
+    datas_e_horas => "Datas e horas",
     dicas => "Dicas",
     mascaras => "Máscaras",
     escolhas => "Escolhas",

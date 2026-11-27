@@ -2460,6 +2460,49 @@ fn choices_skip_what_cannot_be_chosen_and_stay_put_when_read_only_or_off() {
 }
 
 #[test]
+fn dates_and_times_offer_only_what_their_limits_allow_and_say_why_a_day_is_off() {
+    let mut c = Center::memory("ana");
+    c.press("Datas e horas");
+    c.settle();
+    // Calendar: new, today, range, blocked and on_pick.
+    let holiday =
+        c.ui.access_tree()
+            .nodes
+            .iter()
+            .find(|n| n.description.as_deref().is_some_and(|d| d.contains("Feriado")))
+            .map(|n| n.disabled);
+    assert_eq!(holiday, Some(true), "the holiday is off and says why: {:?}", c.texts());
+    let open_day =
+        c.ui.access_tree()
+            .nodes
+            .iter()
+            .find(|n| n.name.as_deref() == Some("16 novembro de 2026"))
+            .map(|n| n.id);
+    let id = open_day.unwrap_or_else(|| panic!("the 16th: {:?}", c.texts()));
+    c.ui.perform_action(id, AccessAction::Click);
+    c.settle();
+    assert!(c.says("Escolhido no calendário: 2026-11-16"), "{:?}", c.texts());
+    // DatePicker, DateRangePicker, TimePicker and DateTimePicker, each with its states.
+    for name in [
+        "Entrega",
+        "Entrega, largura da coluna",
+        "Entrega travada",
+        "Entrega desligada",
+        "Férias",
+        "Férias travadas",
+        "Férias desligadas",
+    ] {
+        assert!(c.ui.access_tree().find(Role::ComboBox, name).is_some(), "{name}: {:?}", c.texts());
+    }
+    let field = c.ui.access_tree().find(Role::ComboBox, "Entrega").map(|n| n.id).expect("Entrega");
+    assert!(!c.ui.set_access_value(field, "2026-11-20"), "the holiday is not taken");
+    assert!(c.ui.set_access_value(field, "2026-11-19"));
+    c.settle();
+    assert!(c.says("Entrega: 2026-11-19"), "{:?}", c.texts());
+    assert!(c.says("Início: 09:00"), "{:?}", c.texts());
+}
+
+#[test]
 fn masks_follow_their_pattern_take_rules_of_their_own_and_say_when_they_are_complete() {
     let mut c = Center::memory("ana");
     c.press("Máscaras");
