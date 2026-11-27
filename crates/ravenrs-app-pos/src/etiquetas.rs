@@ -36,10 +36,7 @@ fn nome_de(record: &Object) -> String {
 }
 
 fn preco_de(produto: &Object) -> String {
-    match produto.get("preco") {
-        ravenrs_app::Value::Number(centavos) => valor_em_texto(Decimal::new(centavos.round() as i64, 2)),
-        _ => String::new(),
-    }
+    produto.cents("preco").map_or_else(String::new, |centavos| valor_em_texto(Decimal::new(centavos, 2)))
 }
 
 /// The first label as the printer's dots will make it.

@@ -73,6 +73,7 @@ pub use session::{JobInfo, JobProgress};
 pub use session::{ListEditorRequest, ListSource, OpenHandler};
 pub use shell::{AppShell, CounterTemplate, FrameTemplate, MainTemplate, TemplateParts};
 pub use system::{CloneModule, SystemModule};
+pub use values::day_of;
 pub use words::Words;
 
 /// Registers this crate's types with a playground's interpreter (feature `live`).

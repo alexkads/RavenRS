@@ -369,8 +369,10 @@ fn duplicated(entity: &EntityInfo, object: &Object, fields: &[&str], space: &dyn
 /// What a value is, as a message says it.
 fn shown(field: Option<&crate::FieldInfo>, value: &Value, words: &RuleWords) -> String {
     match (field.map(|field| &field.kind), value) {
-        (Some(crate::FieldKind::Money), Value::Number(cents)) => {
-            format!("{:.2}", cents / 100.0).replace('.', &words.decimal.to_string())
+        (Some(crate::FieldKind::Money), money @ Value::Number(_)) if money.cents().is_some() => {
+            let culture =
+                ravenrs_criteria::Culture { decimal: words.decimal, ..ravenrs_criteria::Culture::en_us() };
+            culture.input_cents(money.cents().unwrap_or_default())
         }
         (Some(crate::FieldKind::Enum(options)), Value::Text(code)) => options
             .iter()

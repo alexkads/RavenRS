@@ -1,23 +1,17 @@
-//! Money as whole cents, so totals never pick up floating point errors.
+//! Money as whole cents, so totals never pick up floating point errors. The reading, writing
+//! and splitting are the framework's (`ravenrs_app`); this module only fixes the culture.
+
+use ravenrs_app::{Culture, Remainder, allocate};
 
 /// Writes cents as Brazilian currency: `R$ 1.234,56`.
 pub fn format_brl(cents: i64) -> String {
-    let abs = cents.unsigned_abs();
-    let digits = (abs / 100).to_string();
-    let mut grouped = String::with_capacity(digits.len() + digits.len() / 3);
-    for (i, c) in digits.chars().enumerate() {
-        if i > 0 && (digits.len() - i).is_multiple_of(3) {
-            grouped.push('.');
-        }
-        grouped.push(c);
-    }
-    let sign = if cents < 0 { "-" } else { "" };
-    format!("{sign}R$ {grouped},{:02}", abs % 100)
+    // The app's texts use a plain space after the symbol.
+    Culture::pt_br().format_cents(cents).replace('\u{a0}', " ")
 }
 
 /// Writes cents the way a person types them: `1234,56`.
 pub fn format_input(cents: i64) -> String {
-    format!("{},{:02}", cents / 100, (cents % 100).abs())
+    Culture::pt_br().input_cents(cents)
 }
 
 /// Reads an amount typed as `1.234,56`, `1234.5`, `R$ 12` or `12,`.
@@ -25,30 +19,8 @@ pub fn format_input(cents: i64) -> String {
 /// The last separator is the decimal one when one or two digits follow it;
 /// with three digits after it, it separates thousands.
 pub fn parse_brl(text: &str) -> Result<i64, String> {
-    let invalid = || format!("\"{}\" não é um valor válido. Use, por exemplo, 1.234,56.", text.trim());
-    let cleaned: String =
-        text.trim().trim_start_matches("R$").chars().filter(|c| !c.is_whitespace()).collect();
-    if cleaned.is_empty() {
-        return Err("Informe um valor.".to_owned());
-    }
-    if !cleaned.chars().all(|c| c.is_ascii_digit() || c == '.' || c == ',') {
-        return Err(invalid());
-    }
-    let (whole, fraction) = match cleaned.rfind(['.', ',']) {
-        Some(at) if cleaned.len() - at - 1 <= 2 => (&cleaned[..at], &cleaned[at + 1..]),
-        _ => (cleaned.as_str(), ""),
-    };
-    let digits: String = whole.chars().filter(char::is_ascii_digit).collect();
-    if digits.is_empty() && fraction.is_empty() {
-        return Err(invalid());
-    }
-    let reais: i64 = if digits.is_empty() { 0 } else { digits.parse().map_err(|_| invalid())? };
-    let centavos: i64 = match fraction.len() {
-        0 => 0,
-        1 => fraction.parse::<i64>().map_err(|_| invalid())? * 10,
-        _ => fraction.parse().map_err(|_| invalid())?,
-    };
-    reais.checked_mul(100).and_then(|r| r.checked_add(centavos)).ok_or_else(invalid)
+    let culture = Culture::pt_br();
+    culture.parse_cents(text).map_err(|error| error.message(&culture))
 }
 
 /// Accepts only amounts above zero; the rule behind the amount fields.
@@ -61,9 +33,7 @@ pub fn validate_positive(text: &str) -> Result<(), String> {
 
 /// Splits `total` into `parts` amounts that add up exactly; the first ones take the leftover cents.
 pub fn split_installments(total: i64, parts: u32) -> Vec<i64> {
-    let parts = i64::from(parts.max(1));
-    let (each, extra) = (total / parts, total % parts);
-    (0..parts).map(|i| each + i64::from(i < extra)).collect()
+    allocate(total, parts, Remainder::First)
 }
 
 #[cfg(test)]

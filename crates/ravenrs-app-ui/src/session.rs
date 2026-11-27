@@ -153,7 +153,8 @@ struct SessionInner {
     pending: RefCell<Vec<Object>>,
     /// The fields the keyboard has left, whose errors a form that checks on leaving shows.
     left: State<BTreeSet<String>>,
-    today: Cell<Date>,
+    /// The day fixed for tests and demonstrations; none follows the clock.
+    today: Rc<Cell<Option<Date>>>,
     /// The keys of the list a form came from, for moving between records.
     siblings: RefCell<Vec<Value>>,
     /// Who is signed in and how they leave.
@@ -192,7 +193,7 @@ impl Session {
         new_space: SpaceFactory,
         words: Words,
         editors: EditorRegistry,
-        today: Date,
+        today: Option<Date>,
     ) -> Self {
         // What it announces speaks the language of its words.
         let access_words = Rc::new(RefCell::new(words.access.clone()));
@@ -234,7 +235,7 @@ impl Session {
             popup_filter: RefCell::default(),
             pending: RefCell::default(),
             left: State::new(BTreeSet::new()),
-            today: Cell::new(today),
+            today: Rc::new(Cell::new(today)),
             siblings: RefCell::default(),
             account: RefCell::default(),
             announcer: Announcer::new(),
@@ -314,7 +315,8 @@ impl Session {
             popup_filter: RefCell::default(),
             pending: RefCell::default(),
             left: State::new(BTreeSet::new()),
-            today: Cell::new(parent.today.get()),
+            // Shared, so a day fixed later reaches the sessions already open inside it.
+            today: parent.today.clone(),
             siblings: RefCell::default(),
             account: RefCell::default(),
             announcer: parent.announcer.clone(),
@@ -866,9 +868,27 @@ impl Session {
         &self.0.editors
     }
 
-    /// The day pickers open on.
-    pub(crate) fn today(&self) -> Date {
-        self.0.today.get()
+    /// Today on this machine, read from the clock each time, so a session left open overnight
+    /// moves on to the new day; or the day [`Self::set_today`] fixed. Date pickers,
+    /// the calendar and the scheduler open on it.
+    pub fn today(&self) -> Date {
+        self.0.today.get().unwrap_or_else(|| Date::from_days(ravenrs_app::local_today().days))
+    }
+
+    /// Fixes the day [`Self::today`] gives, for tests and demonstrations, or lets it follow the
+    /// clock again with `None`. The sessions inside this one follow it too. From an
+    /// [`App`](crate::App), it goes through [`App::with_session`](crate::App::with_session):
+    ///
+    /// ```
+    /// use ravenrs_app_ui::App;
+    /// use ravenrs_widgets::Date;
+    ///
+    /// let day = Date::new(2030, 3, 1).expect("a day");
+    /// let app = App::new("Church").with_session(move |session| session.set_today(Some(day)));
+    /// # let _ = app;
+    /// ```
+    pub fn set_today(&self, day: Option<Date>) {
+        self.0.today.set(day);
     }
 
     /// The model as it stands.
@@ -888,8 +908,7 @@ impl Session {
         words: Words,
         editors: EditorRegistry,
     ) -> Self {
-        let today = Date::from_days(ravenrs_app::local_now().days);
-        Self::new(application, new_space, words, editors, today)
+        Self::new(application, new_space, words, editors, None)
     }
 
     /// Tells lists to read again, after something changed the records from outside.
