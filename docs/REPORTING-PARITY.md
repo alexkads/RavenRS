@@ -45,7 +45,7 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 | Rich text | RTF/HTML subset | ⬜ [R3]: HTML subset |
 | Character comb | One character per cell (forms) | ⬜ [R3] |
 | PDF content, PDF signature | Embed PDF pages; signature fields | ⬜ [R5] |
-| Mail merge in text (`[Field]` inside text) | Embedded fields | ⬜ [R2] |
+| Mail merge in text (`[Field]` inside text) | Embedded fields | ✅ fixed text shows each `[Field]` as a field with no format; `[[` and `]]` are brackets |
 
 ## 3. Expressions
 

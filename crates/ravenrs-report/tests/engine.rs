@@ -69,6 +69,24 @@ fn nested_groups_close_inner_levels_first() {
 }
 
 #[test]
+fn fixed_text_shows_the_fields_inside_it() {
+    let text = |t: &str| Control::label(t).at(0.0, 0.0, 300.0, 18.0);
+    let report = Report::new("r").culture("pt-BR").sort_by("[Amount]", false).detail(
+        Band::new(20.0).control(text("[City], [Region]: R$ [Amount] [[obs]]")).control(text("sem campo")),
+    );
+    let doc = render(&report, &sales());
+    assert_eq!(
+        doc.page_text(0)[..4],
+        ["Curitiba, Sul: R$ 1 [obs]", "sem campo", "Manaus, Norte: R$ 5 [obs]", "sem campo"]
+    );
+    assert!(doc.errors.is_empty(), "{:?}", doc.errors);
+    let broken = Report::new("r").detail(Band::new(20.0).control(text("aberto [City e [Nada]")));
+    let doc = render(&broken, &json!([{ "City": "Lapa" }]));
+    assert_eq!(doc.page_text(0), ["aberto #ERRO"], "a field that does not parse shows as an error");
+    assert!(!doc.errors.is_empty(), "and the error is reported");
+}
+
+#[test]
 fn descending_groups_and_filters_with_parameters() {
     let report = Report::new("r")
         .parameter("Min", ParameterKind::Number, json!(5))
