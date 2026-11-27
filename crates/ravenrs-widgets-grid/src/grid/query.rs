@@ -32,6 +32,25 @@ pub struct GridQuery {
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl GridQuery {
+    /// The same query for `columns`, where `from[i]` is the column `i` was before, if it was
+    /// there: filters, sort, grouping and hidden columns follow the columns that stay; a new
+    /// column starts with no filter, hidden only if it is declared so.
+    pub(crate) fn carried_to(&self, from: &[Option<usize>], columns: &[super::GridColumn]) -> Self {
+        let now = |old: usize| from.iter().position(|f| *f == Some(old));
+        Self {
+            sort: self.sort.iter().filter_map(|(c, d)| now(*c).map(|c| (c, *d))).collect(),
+            filters: from.iter().map(|f| f.map_or(String::new(), |o| self.filter(o).to_owned())).collect(),
+            search: self.search.clone(),
+            group_by: self.group_by.iter().filter_map(|c| now(*c)).collect(),
+            collapsed: self.collapsed.clone(),
+            hidden: from
+                .iter()
+                .zip(columns)
+                .map(|(f, column)| f.map_or(!column.visible, |o| self.is_hidden(o)))
+                .collect(),
+        }
+    }
+
     /// The filter text of `column` (zero-based), or `""`.
     pub fn filter(&self, column: usize) -> &str {
         self.filters.get(column).map_or("", String::as_str)

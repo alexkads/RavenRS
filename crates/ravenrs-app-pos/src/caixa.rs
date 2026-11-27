@@ -99,7 +99,8 @@ fn rascunho_de(
 ) -> Rascunho {
     let modelo = if destinatario.is_some() { Modelo::Nfe55 } else { Modelo::Nfce65 };
     let mut rascunho = Rascunho::novo(modelo, serie, numero, "VENDA DE MERCADORIA", String::new());
-    for linha in &carrinho.linhas {
+    // The discount of the sale goes on the items, split to the cent: the SEFAZ adds them up.
+    for (linha, desconto) in carrinho.linhas.iter().zip(carrinho.desconto_por_linha()) {
         rascunho = rascunho.com_item(Item {
             codigo: linha.codigo.clone(),
             gtin: linha.gtin.as_deref().and_then(gtin_fiscal).map(str::to_owned),
@@ -110,7 +111,7 @@ fn rascunho_de(
             unidade: linha.unidade.clone(),
             quantidade: linha.quantidade,
             valor_unitario: linha.preco,
-            desconto: Decimal::ZERO,
+            desconto,
             csosn: if linha.csosn == "500" { Csosn::S500 } else { Csosn::S102 },
             origem: 0,
         });
@@ -532,6 +533,27 @@ impl Caixa {
         );
     }
 
+    /// Takes `texto` (`20`, `R$ 1.234,56`) off the whole sale, or says why not; empty takes the
+    /// discount away. A way to pay with no change follows the new total.
+    pub fn dar_desconto(&self, texto: &str) {
+        let valor = if texto.trim().is_empty() { Some(Decimal::ZERO) } else { ravenrs_pos::ler_valor(texto) };
+        let Some(valor) = valor else {
+            return self
+                .problema
+                .set(Some(format!("Desconto \u{201c}{}\u{201d} não é um valor.", texto.trim())));
+        };
+        let mut carrinho = self.carrinho.get();
+        if let Err(why) = carrinho.dar_desconto(valor) {
+            return self.problema.set(Some(why));
+        }
+        let total = carrinho.total();
+        self.carrinho.set(carrinho);
+        self.problema.set(None);
+        if !self.forma.peek().tem_troco() {
+            self.recebido.set(ravenrs_pos::valor_em_texto(total));
+        }
+    }
+
     /// Takes out the last line.
     pub fn cancelar_ultimo(&self) {
         if *self.tela.peek() == Tela::Vendendo {
@@ -674,4 +696,42 @@ pub(crate) fn configuracao(session: &Session, campo: &str) -> String {
     let space = session.frame().space();
     let found = space.borrow().query(CONFIGURACAO, &Query::all()).unwrap_or_default();
     found.first().map_or_else(String::new, |record| texto(record, campo))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn linha(descricao: &str, preco: &str, quantidade: &str) -> Linha {
+        Linha {
+            codigo: descricao.to_owned(),
+            gtin: None,
+            descricao: descricao.to_owned(),
+            unidade: "UN".to_owned(),
+            preco: preco.parse().unwrap_or_default(),
+            quantidade: quantidade.parse().unwrap_or_default(),
+            ncm: "49119900".to_owned(),
+            cfop: "5102".to_owned(),
+            cest: None,
+            csosn: "102".to_owned(),
+        }
+    }
+
+    #[test]
+    fn the_discount_of_the_sale_goes_on_the_items_and_the_note_comes_to_the_cart() {
+        let mut carrinho = Carrinho::default();
+        for (descricao, preco, quantidade) in
+            [("FOTO", "15", "2"), ("ALBUM", "189.90", "1"), ("PAPEL", "12.40", "1.5")]
+        {
+            assert!(carrinho.adicionar(linha(descricao, preco, quantidade)).is_ok());
+        }
+        assert!(carrinho.dar_desconto(Decimal::from(20)).is_ok());
+        let rascunho = rascunho_de(&carrinho, None, Forma::Dinheiro, Decimal::from(250), None, 1, 1);
+        let por_item: Decimal = rascunho.itens.iter().map(|item| item.desconto).sum();
+        assert_eq!(por_item, Decimal::from(20), "the items carry the whole discount");
+        let totais = ravenrs_nfe::totais::calcular(&rascunho).expect("a valid note");
+        assert_eq!(totais.v_desc, Decimal::from(20), "vDesc is the sum of the items");
+        assert_eq!(totais.v_nf, carrinho.total(), "and the note comes to the total of the cart");
+        assert_eq!(totais.v_troco.to_string(), "31.50");
+    }
 }

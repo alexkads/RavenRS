@@ -209,9 +209,39 @@ impl Arrangement {
         self.order.insert(at, column);
     }
 
+    /// The same arrangement for `columns`, where `from[i]` is the column `i` was before, if it
+    /// was there: the columns that stay keep their order, pin, summary and formula; the new
+    /// ones come last, as they are declared.
+    pub(crate) fn carried_to(&self, from: &[Option<usize>], columns: &[GridColumn]) -> Self {
+        let now = |old: usize| from.iter().position(|f| *f == Some(old));
+        let mut order: Vec<usize> = self.order.iter().filter_map(|c| now(*c)).collect();
+        order.extend((0..columns.len()).filter(|i| from[*i].is_none()));
+        let kept = |i: usize| from.get(i).copied().flatten();
+        Self {
+            order,
+            pinned: (0..columns.len())
+                .map(|i| kept(i).and_then(|o| self.pinned.get(o).copied()).unwrap_or(columns[i].pinned))
+                .collect(),
+            group_panel: self.group_panel,
+            page_size: self.page_size,
+            summaries: (0..columns.len())
+                .map(|i| kept(i).and_then(|o| self.summaries.get(o).copied()).unwrap_or(columns[i].summary))
+                .collect(),
+            formulas: (0..columns.len())
+                .map(|i| {
+                    kept(i)
+                        .and_then(|o| self.formulas.get(o).cloned())
+                        .unwrap_or_else(|| columns[i].formula.clone())
+                })
+                .collect(),
+        }
+    }
+
     /// The columns to show, the pinned ones first. A grouped column shows in its groups.
     pub fn visible(&self, query: &GridQuery) -> Vec<usize> {
-        let shown = |c: &usize| !query.is_hidden(*c) && !query.group_by.contains(c);
+        // An order kept from other columns never points past the ones there are now.
+        let count = self.pinned.len();
+        let shown = |c: &usize| *c < count && !query.is_hidden(*c) && !query.group_by.contains(c);
         let pinned = |c: &usize| self.pinned.get(*c).copied().unwrap_or(false);
         let mut out: Vec<usize> = self.order.iter().filter(|c| shown(c) && pinned(c)).copied().collect();
         out.extend(self.order.iter().filter(|c| shown(c) && !pinned(c)));
@@ -404,5 +434,58 @@ mod tests {
     fn scenarios_go_to_json_and_back() {
         let list = vec![GridScenario::new("Por conta", GridLayout::default())];
         assert_eq!(GridScenario::list_from_json(&GridScenario::list_to_json(&list)), Ok(list));
+    }
+}
+
+/// What names a column across builds: its field, or its title when it has none.
+pub(crate) fn column_id(column: &GridColumn) -> String {
+    column.field.clone().unwrap_or_else(|| column.title.clone())
+}
+
+/// For each of the columns now (`now`), the one it was before (`before`), by name; a name that
+/// repeats is matched in order.
+pub(crate) fn carried_columns(before: &[String], now: &[String]) -> Vec<Option<usize>> {
+    let mut taken = vec![false; before.len()];
+    now.iter()
+        .map(|id| {
+            let at = before.iter().enumerate().position(|(i, b)| !taken[i] && b == id)?;
+            taken[at] = true;
+            Some(at)
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod carried {
+    use super::*;
+
+    fn names(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| (*s).to_owned()).collect()
+    }
+
+    #[test]
+    fn the_columns_that_stay_are_found_by_name_and_the_new_ones_are_new() {
+        let before = names(&["a", "b", "c", "a"]);
+        assert_eq!(
+            carried_columns(&before, &names(&["c", "a", "x", "a", "a"])),
+            [Some(2), Some(0), None, Some(3), None]
+        );
+    }
+
+    #[test]
+    fn an_arrangement_keeps_the_order_and_pins_of_the_columns_that_stay() {
+        let seven: Vec<GridColumn> =
+            ["a", "b", "c", "d", "e", "f", "g"].iter().map(|t| GridColumn::text(*t)).collect();
+        let mut arrangement = Arrangement::new(&seven, false, None);
+        arrangement.move_column(6, Some(0));
+        arrangement.pinned[1] = true;
+        let six: Vec<GridColumn> =
+            ["g", "b", "c", "d", "e", "z"].iter().map(|t| GridColumn::text(*t)).collect();
+        let ids: Vec<String> = six.iter().map(column_id).collect();
+        let from = carried_columns(&seven.iter().map(column_id).collect::<Vec<_>>(), &ids);
+        let carried = arrangement.carried_to(&from, &six);
+        assert_eq!(carried.order, [0, 1, 2, 3, 4, 5], "g first as it was, then b to e, and z last");
+        assert_eq!(carried.pinned, [false, true, false, false, false, false], "b stays pinned");
+        assert!(carried.visible(&GridQuery::default()).iter().all(|c| *c < 6));
     }
 }
