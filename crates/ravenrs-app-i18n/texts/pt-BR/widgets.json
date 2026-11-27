@@ -624,6 +624,8 @@
  "widgets.protractor": "Ângulo",
  "widgets.rating": "Nota",
  "widgets.rating_value": "{0} de {1}",
+ "widgets.receipt_empty": "O cupom aparece aqui.",
+ "widgets.receipt_lines": "Itens do cupom",
  "widgets.recurrence_each.0": "Todo dia",
  "widgets.recurrence_each.1": "Toda semana",
  "widgets.recurrence_each.2": "Todo mês",

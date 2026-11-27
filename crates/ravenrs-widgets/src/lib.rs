@@ -156,8 +156,8 @@ use ravenrs_widgets_base::{
 #[allow(unused_imports)]
 use ravenrs_widgets_kit::{
     commands, counter, data, diagnostics, editors, expression_editor, files, filter_builder, form_layout,
-    lookup, model_picker, nav, parameter_form, quad_field, quick_edit, release_notes, shortcuts, status,
-    tag_box, theme, tiles, wizard,
+    lookup, model_picker, nav, parameter_form, quad_field, quick_edit, receipt, release_notes, shortcuts,
+    status, tag_box, theme, tiles, wizard,
 };
 
 #[cfg(feature = "live")]
@@ -296,6 +296,7 @@ pub use ravenrs_core::cable;
 pub use ravenrs_lottie::{Animation as LottieAnimation, LottieError};
 pub use ravenrs_text::TextAlign;
 pub use ravenrs_widgets_base::{Driving, UiDriver};
+pub use receipt::{Receipt, ReceiptLine};
 pub use recurrence::{
     Frequency, RecurrenceEnd, RecurrenceRule, RecurrenceSet, exceptions_text, parse_exceptions,
 };

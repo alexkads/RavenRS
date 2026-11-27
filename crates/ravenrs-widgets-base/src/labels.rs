@@ -329,6 +329,10 @@ pub struct Labels {
     /// What an option of a `TagBox` says when it adds what was typed, where `{0}`
     /// is what was typed. [`Labels::tag_add`] fills it in.
     pub tag_add: String,
+    /// What a `Receipt` with no lines says.
+    pub receipt_empty: String,
+    /// The list of the lines of a `Receipt`, for screen readers.
+    pub receipt_lines: String,
     /// The button at the end of a `Tabs` bar with the tabs that do not fit.
     pub tabs_more: String,
     /// Where a `Wizard` stands, where `{0}` is its step and `{1}` its count.
@@ -1442,6 +1446,8 @@ impl Labels {
             grid_expand_row: texts.get("widgets.grid_expand_row"),
             grid_collapse_row: texts.get("widgets.grid_collapse_row"),
             tag_add: texts.get("widgets.tag_add"),
+            receipt_empty: texts.get("widgets.receipt_empty"),
+            receipt_lines: texts.get("widgets.receipt_lines"),
             tabs_more: texts.get("widgets.tabs_more"),
             wizard_progress: texts.get("widgets.wizard_progress"),
             culture: texts.get("widgets.culture"),

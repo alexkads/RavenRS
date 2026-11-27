@@ -297,6 +297,9 @@ project/components/PatchPanel/PatchPanel.json
 project/components/Stat/README.md
 project/components/Stat/preview.html
 project/components/Stat/Stat.json
+project/components/Receipt/README.md
+project/components/Receipt/preview.html
+project/components/Receipt/Receipt.json
 project/components/CardView/README.md
 project/components/CardView/preview.html
 project/components/CardView/CardView.json

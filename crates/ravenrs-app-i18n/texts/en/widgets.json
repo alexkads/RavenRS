@@ -624,6 +624,8 @@
  "widgets.protractor": "Angle",
  "widgets.rating": "Rating",
  "widgets.rating_value": "{0} of {1}",
+ "widgets.receipt_empty": "The receipt shows here.",
+ "widgets.receipt_lines": "Receipt items",
  "widgets.recurrence_each.0": "Every day",
  "widgets.recurrence_each.1": "Every week",
  "widgets.recurrence_each.2": "Every month",

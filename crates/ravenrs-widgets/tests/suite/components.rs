@@ -1591,3 +1591,50 @@ fn a_monospaced_text_draws_every_character_at_the_same_width() {
     assert!((thin - wide).abs() < 0.01, "monospaced: the same count, the same width ({thin} and {wide})");
     assert!(span("iiii", false) < span("MMMM", false), "and Inter stays proportional");
 }
+
+#[test]
+fn a_receipt_reads_its_lines_in_order_and_the_total_by_name_and_amount() {
+    let mut ui = ui(Receipt::new()
+        .title("Cupom")
+        .line(ReceiptLine::new("FOTO 10X15", "30,00").detail("2 x 15,00"))
+        .line(ReceiptLine::new("ALBUM 20X30", "189,90"))
+        .summary("SUBTOTAL (2 ITENS)", "219,90")
+        .total("TOTAL A RECEBER", "R$ 219,90"));
+    let tree = ui.access_tree();
+    let lines: Vec<(Option<String>, Option<String>)> = tree
+        .nodes
+        .iter()
+        .filter(|n| n.role == ravenrs_core::Role::ListItem)
+        .map(|n| (n.name.clone(), n.value.clone()))
+        .collect();
+    assert_eq!(
+        lines,
+        [
+            (Some("FOTO 10X15".to_owned()), Some("30,00".to_owned())),
+            (Some("ALBUM 20X30".to_owned()), Some("189,90".to_owned()))
+        ],
+        "the lines in order, each with what it comes to"
+    );
+    let first = tree.find(ravenrs_core::Role::ListItem, "FOTO 10X15").expect("the first line");
+    assert_eq!(first.description.as_deref(), Some("2 x 15,00"), "how many at what price");
+    assert!(tree.find(ravenrs_core::Role::List, "Receipt items").is_some(), "a list");
+    let total = tree.find(ravenrs_core::Role::Status, "TOTAL A RECEBER").expect("the total");
+    assert_eq!(total.value.as_deref(), Some("R$ 219,90"));
+    let second = tree.find(ravenrs_core::Role::ListItem, "ALBUM 20X30").expect("the second line").bounds;
+    assert!(first.bounds.max_y() <= second.y(), "one under the other");
+    assert!(second.max_y() <= total.bounds.y(), "and the total at the foot");
+}
+
+#[test]
+fn an_empty_receipt_says_where_the_lines_will_show_and_draws_them_monospaced() {
+    let mut receipt = ui(Receipt::new().total("TOTAL A RECEBER", "R$ 0,00"));
+    let tree = receipt.access_tree();
+    assert!(tree.nodes.iter().any(|n| n.name.as_deref() == Some("The receipt shows here.")));
+    assert!(tree.find(ravenrs_core::Role::List, "Receipt items").is_none(), "no list without lines");
+    assert_eq!(
+        tree.find(ravenrs_core::Role::Status, "TOTAL A RECEBER").and_then(|n| n.value.clone()).as_deref(),
+        Some("R$ 0,00")
+    );
+    let mut own = ui(Receipt::new().empty_text("Passe o primeiro produto."));
+    assert!(own.access_tree().nodes.iter().any(|n| n.name.as_deref() == Some("Passe o primeiro produto.")));
+}

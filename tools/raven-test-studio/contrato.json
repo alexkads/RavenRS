@@ -1695,6 +1695,14 @@
   },
   {
    "crate": "ravenrs-widgets-kit",
+   "tipo": "Receipt",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
    "tipo": "CodeBlock",
    "rts": {
     "ids": [],

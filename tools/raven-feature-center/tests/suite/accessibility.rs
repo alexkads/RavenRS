@@ -155,6 +155,7 @@ demonstrations! {
     menus => "Menus",
     paineis_divididos => "Painéis divididos",
     lista => "Lista",
+    cupom => "Cupom",
     abas => "Abas",
     agenda_por_recurso => "Agenda por recurso",
     ano => "Ano",

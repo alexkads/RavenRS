@@ -2265,6 +2265,8 @@ fn the_year_view_marks_days_opens_months_and_shows_a_season_without_its_header()
         .filter(|n| n.role == Role::Calendar && n.name.as_deref().is_some_and(|name| name.contains("2025")))
         .count();
     assert_eq!(crossing, 1, "December says its year: {:?}", c.texts());
+}
+
 #[test]
 fn tabs_switch_views_in_two_looks_and_three_sizes_and_send_what_does_not_fit_to_a_menu() {
     let mut c = Center::memory("ana");
@@ -2366,4 +2368,36 @@ fn monospaced_text_lines_up_the_lines_of_a_receipt() {
             .expect("the line")
     };
     assert_eq!(width(subtotal), width(total), "the same number of characters ends at the same place");
+}
+
+#[test]
+fn a_receipt_starts_empty_takes_lines_and_shows_the_total_in_its_band() {
+    let mut c = Center::memory("ana");
+    c.press("Cupom");
+    c.settle();
+    // new, title, subtitle, empty_text, summary and total: the sale starts empty.
+    assert!(c.says("Passe o primeiro produto."), "{:?}", c.texts());
+    assert!(c.says("Caixa 1 · venda 128"), "{:?}", c.texts());
+    let total = |c: &mut Center| {
+        let tree = c.ui.access_tree();
+        tree.nodes
+            .iter()
+            .filter(|n| n.role == Role::Status && n.name.as_deref() == Some("TOTAL A RECEBER"))
+            .filter_map(|n| n.value.clone())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(total(&mut c), ["R$ 0,00", "R$ 519,90"], "the sale and the one with a discount");
+    // line: each photo passed is a line, and the total follows.
+    c.activate("Passar foto 10x15");
+    c.activate("Passar foto 10x15");
+    assert!(!c.says("Passe o primeiro produto."), "{:?}", c.texts());
+    let line =
+        c.ui.access_tree()
+            .find(Role::ListItem, "FOTO 10X15 BRILHO")
+            .map(|n| (n.value.clone(), n.description.clone()));
+    assert_eq!(line, Some((Some("30,00".to_owned()), Some("2 UN x 15,00".to_owned()))));
+    assert_eq!(total(&mut c)[0], "R$ 30,00");
+    assert!(c.says("DESCONTO"), "{:?}", c.texts());
+    c.activate("Nova venda");
+    assert!(c.says("Passe o primeiro produto."), "{:?}", c.texts());
 }

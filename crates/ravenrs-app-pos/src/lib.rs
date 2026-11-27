@@ -4,6 +4,7 @@
 
 mod caixa;
 mod codigos;
+mod cupom;
 mod entrada;
 mod etiquetas;
 mod modelo;
@@ -16,6 +17,7 @@ mod telas;
 
 pub use caixa::{Caixa, Tela};
 pub use codigos::{Encontrado, cadastrar_codigo, codigos_do_produto, produto_por_codigo};
+pub use cupom::cupom_na_tela;
 pub use entrada::{Entradas, Previa, criar_codigo_de_barras};
 pub use modelo::{
     CLIENTE, CODIGO, CONFIGURACAO, MOVIMENTO, PRODUTO, SERVICO, VINCULO, cliente_entity, codigo_entity,

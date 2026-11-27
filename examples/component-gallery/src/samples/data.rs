@@ -8,7 +8,7 @@ samples! {
     "SankeyChart" => sankey_chart, "FlowCanvas" => flow_canvas, "PatchPanel" => patch_panel, "ChartCard" => chart_card, "BarChart" => bar_chart,
     "AreaChart" => area_chart, "Barcode" => barcode, "Timeline" => timeline, "PropertyRow" => property_row,
     "VirtualList" => virtual_list, "LogView" => log_view, "PagedDocumentView" => paged_document_view,
-    "FileBrowser" => file_browser, "SortableList" => sortable_list,
+    "FileBrowser" => file_browser, "SortableList" => sortable_list, "Receipt" => receipt,
 }
 
 // sample: TreeView, 260
@@ -447,5 +447,16 @@ fn data_inspector() -> impl View {
             { "order": 102, "customer": { "name": "Bia" } }]"#,
     )
     .label("Orders")
+}
+// end
+
+// sample: Receipt, 300
+fn receipt() -> impl View {
+    Receipt::new()
+        .title("Receipt")
+        .line(ReceiptLine::new("PHOTO 4X6 GLOSSY", "30.00").detail("2 x 15.00"))
+        .line(ReceiptLine::new("ALBUM 8X12 HARDCOVER", "189.90").detail("1 x 189.90"))
+        .summary("SUBTOTAL (2 ITEMS)", "219.90")
+        .total("TOTAL DUE", "$ 219.90")
 }
 // end

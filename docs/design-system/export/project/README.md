@@ -194,6 +194,7 @@ RavenComponentBook writes every file of this system from the RavenRS code, and t
 | Overlays | `Tooltip` | Short label shown on hover, with an optional key cap | 1 |
 | Data | `PatchPanel` | Jacks joined by cables that hang and swing: plug, refuse, take a plug elsewhere, pairs of cords, a front that turns around, all of it with the keys too | 2 |
 | Data | `Stat` | Headline number with a label and a change indicator | 11 |
+| Data | `Receipt` | The receipt of a sale on the screen: its lines, the subtotal and the total in a band | 3 |
 | Data | `CardView` | Records as cards, only those in sight are built | 3 |
 | Data | `List` | Bordered list with icons, titles and trailing text | 5 |
 | Data | `Table` | Simple table with a header, hover rows and numeric columns | 1 |

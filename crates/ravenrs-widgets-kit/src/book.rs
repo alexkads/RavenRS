@@ -2,6 +2,7 @@
 //! `ravenrs_widgets_base::book`.
 
 mod nav;
+mod receipt;
 
 use ravenrs_widgets_base::book::Meta;
 
@@ -9,7 +10,7 @@ use ravenrs_widgets_base::book::Meta;
 /// them.
 pub fn stories() -> Vec<Meta> {
     use ravenrs_widgets_base::book::ComponentBook;
-    let mut all = vec![crate::Tabs::book()];
+    let mut all = vec![crate::Tabs::book(), crate::Receipt::book()];
     all.extend(generated());
     all
 }
