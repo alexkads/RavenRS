@@ -329,6 +329,10 @@ pub struct Labels {
     /// What an option of a `TagBox` says when it adds what was typed, where `{0}`
     /// is what was typed. [`Labels::tag_add`] fills it in.
     pub tag_add: String,
+    /// A date outside the days a picker allows.
+    pub date_out_of_range: String,
+    /// A time outside the times a picker allows.
+    pub time_out_of_range: String,
     /// The button that opens the dialog of a `Ribbon` group; `{0}` is the group.
     pub ribbon_group_options: String,
     /// How many boxes an `InputOtp` has, for screen readers; `{0}` is the count.
@@ -1488,6 +1492,8 @@ impl Labels {
             grid_expand_row: texts.get("widgets.grid_expand_row"),
             grid_collapse_row: texts.get("widgets.grid_collapse_row"),
             tag_add: texts.get("widgets.tag_add"),
+            date_out_of_range: texts.get("widgets.date_out_of_range"),
+            time_out_of_range: texts.get("widgets.time_out_of_range"),
             ribbon_group_options: texts.get("widgets.ribbon_group_options"),
             verification_code_digits: texts.get("widgets.verification_code_digits"),
             pagination: texts.get("widgets.pagination"),

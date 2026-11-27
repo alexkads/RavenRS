@@ -243,6 +243,64 @@ fn time_picker_takes_typed_digits_and_the_list() {
 }
 
 #[test]
+fn a_time_picker_offers_and_takes_only_the_times_inside_its_limits() {
+    let at = State::new(None::<Time>);
+    let mut picker =
+        ui(TimePicker::new(at.binding()).step_minutes(60).range(Time::new(9, 0), Time::new(17, 0)));
+    focus_field(&mut picker);
+    typed(&mut picker, "0730");
+    assert_eq!(at.get(), None, "07:30 is before the first time: not taken");
+    assert_eq!(field_value(&mut picker), "07:30", "and it stays as typed");
+    let spot = {
+        let tree = picker.access_tree();
+        tree.nodes.iter().find(|n| n.role == Role::Button).expect("the list's button").bounds.center()
+    };
+    click(&mut picker, spot);
+    let names: Vec<String> = picker
+        .access_tree()
+        .nodes
+        .iter()
+        .filter(|n| n.role == Role::ListBoxOption)
+        .filter_map(|n| n.name.clone())
+        .collect();
+    assert_eq!(names.first().map(String::as_str), Some("09:00"), "{names:?}");
+    assert_eq!(names.last().map(String::as_str), Some("17:00"), "both limits included");
+    assert_eq!(names.len(), 9);
+
+    let late = State::new(Time::new(20, 0));
+    let mut shown = ui(TimePicker::new(late.binding()).range(None, Time::new(17, 0)).label("Fim"));
+    let said = shown
+        .access_tree()
+        .nodes
+        .iter()
+        .any(|n| n.description.as_deref() == Some("Outside the times allowed"));
+    assert!(said, "a time the app set past the limit is marked");
+    assert_eq!(late.get(), Time::new(20, 0), "and never corrected");
+}
+
+#[test]
+fn a_date_time_picker_starts_the_times_of_its_first_day_at_the_limit() {
+    let first = Date::new(2026, 11, 10).expect("a real date");
+    let min = DateTime { date: first, time: Time::new(14, 0).expect("a real time") };
+    let at = State::new(Some(DateTime { date: first, time: Time::new(15, 0).expect("a real time") }));
+    let mut ui = ui(DateTimePicker::new(at.binding(), first).step_minutes(60).range(Some(min), None));
+    let spot = {
+        let tree = ui.access_tree();
+        tree.nodes
+            .iter()
+            .filter(|n| n.role == Role::Button)
+            .find(|n| n.name.as_deref() == Some(&*Labels::default().pick_time))
+            .expect("the list's button")
+            .bounds
+            .center()
+    };
+    click(&mut ui, spot);
+    let first_time =
+        ui.access_tree().nodes.iter().find(|n| n.role == Role::ListBoxOption).and_then(|n| n.name.clone());
+    assert_eq!(first_time.as_deref(), Some("14:00"), "on the first day, from the limit");
+}
+
+#[test]
 fn date_time_picker_keeps_both_parts() {
     let month = Date::new(2026, 11, 1).expect("a real date");
     let at = State::new(Some(DateTime { date: month, time: Time::new(8, 15).expect("a real time") }));

@@ -6,6 +6,7 @@ pub mod caixas;
 pub mod cartoes;
 pub mod chaves;
 pub mod codigo;
+pub mod datas;
 pub mod dicas;
 pub mod escolhas;
 pub mod indicadores;
