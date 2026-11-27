@@ -55,6 +55,8 @@ pub struct Tooltip<V> {
     content: V,
     text: String,
     shortcut: Option<String>,
+    open_delay: f64,
+    close_delay: f64,
 }
 
 impl<V> fmt::Debug for Tooltip<V> {
@@ -65,9 +67,25 @@ impl<V> fmt::Debug for Tooltip<V> {
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<V: View> Tooltip<V> {
-    /// Shows `text` over `content` on hover.
+    /// Shows `text` over `content` while the pointer is over it, or while the keyboard's focus is
+    /// on it or inside it. Escape hides it, leaving the focus where it is, until the pointer or the
+    /// focus leaves and comes back.
     pub fn new(content: V, text: impl Into<String>) -> Self {
-        Self { content, text: text.into(), shortcut: None }
+        Self { content, text: text.into(), shortcut: None, open_delay: 0.0, close_delay: 0.0 }
+    }
+
+    /// Waits this many seconds of the pointer resting over the content before it shows (none by
+    /// default). The keyboard's focus shows it at once. Leaving before then shows nothing.
+    pub fn open_delay(mut self, seconds: f64) -> Self {
+        self.open_delay = seconds.max(0.0);
+        self
+    }
+
+    /// Stays this many seconds after the pointer and the focus leave (none by default), so it can
+    /// be read on the way to the next thing.
+    pub fn close_delay(mut self, seconds: f64) -> Self {
+        self.close_delay = seconds.max(0.0);
+        self
     }
 
     /// Shows this key as a key cap beside the text, such as `"⌘S"`.
@@ -131,9 +149,54 @@ impl<V: View> View for Tooltip<V> {
         );
         // Hoverable even when the content itself is not interactive.
         cx.cursor(node, CursorIcon::Default);
-        if cx.is_hover_within() {
+        let now = cx.now();
+        let (hover, focus) = (cx.is_hover_within(), cx.is_focus_visible_within());
+        // When the pointer came, when the pointer and the focus last were here, and whether
+        // Escape hid it for this visit.
+        let hovered_since = cx.use_state(|| None::<f64>);
+        let was_here = cx.use_state(|| false);
+        let left_at = cx.use_state(|| None::<f64>);
+        let dismissed = cx.use_state(|| false);
+        if hover {
+            if hovered_since.peek().is_none() {
+                hovered_since.set(Some(now));
+            }
+        } else if hovered_since.peek().is_some() {
+            hovered_since.set(None);
+        }
+        let here = hover || focus;
+        if here {
+            if !*was_here.peek() {
+                was_here.set(true);
+                left_at.set(None);
+            }
+        } else if *was_here.peek() {
+            was_here.set(false);
+            // Hidden by Escape, it does not linger; the next visit may show it again.
+            left_at.set((!*dismissed.peek()).then_some(now));
+            dismissed.set(false);
+        }
+        let rested = match *hovered_since.peek() {
+            Some(since) if now - since < self.open_delay => {
+                cx.wake_at(since + self.open_delay);
+                false
+            }
+            Some(_) => true,
+            None => false,
+        };
+        let lingering = match *left_at.peek() {
+            Some(left) if !here && now - left < self.close_delay => {
+                cx.wake_at(left + self.close_delay);
+                true
+            }
+            _ => false,
+        };
+        // Read so that Escape, which sets it from outside a build, builds the tooltip again.
+        let shown = !dismissed.get() && (focus || rested || lingering);
+        if shown {
             let bubble = KeyBubble { text: &self.text, keys: self.shortcut.as_deref() };
-            cx.overlay(node, Placement::AboveCenter, &bubble, None);
+            let hide = dismissed.clone();
+            cx.overlay(node, Placement::AboveCenter, &bubble, Some(Rc::new(move || hide.set(true))));
         }
         node
     }

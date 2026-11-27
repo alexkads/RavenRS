@@ -1164,6 +1164,11 @@ impl<'a> BuildCx<'a> {
         self.is_focused() && self.interaction.focus_visible
     }
 
+    /// Focus is on this view or inside it, and came from the keyboard.
+    pub fn is_focus_visible_within(&self) -> bool {
+        self.is_focus_within() && self.interaction.focus_visible
+    }
+
     /// Builds a child view; its identity comes from its position among this
     /// view's children.
     pub fn child(&mut self, view: &dyn View) -> NodeId {

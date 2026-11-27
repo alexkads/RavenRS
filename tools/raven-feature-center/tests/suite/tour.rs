@@ -2401,3 +2401,17 @@ fn a_receipt_starts_empty_takes_lines_and_shows_the_total_in_its_band() {
     c.activate("Nova venda");
     assert!(c.says("Passe o primeiro produto."), "{:?}", c.texts());
 }
+
+#[test]
+fn tooltips_explain_a_control_by_the_pointer_or_the_keyboard_and_escape_hides_them() {
+    let mut c = Center::memory("ana");
+    c.press("Dicas");
+    c.settle();
+    // new, shortcut, open_delay and close_delay: screen readers hear each button by its tip.
+    for name in ["Guarda o rascunho", "Espera meio segundo", "Preencha o endereço antes"] {
+        assert!(c.ui.access_tree().find(Role::Button, name).is_some(), "{name}: {:?}", c.texts());
+    }
+    assert!(c.says("⌘S"), "the key that does the same: {:?}", c.texts());
+    c.activate("Guarda o rascunho");
+    assert!(c.says("Salvo 1 vezes"), "{:?}", c.texts());
+}

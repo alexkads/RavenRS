@@ -535,7 +535,7 @@ impl Caixa {
 
     /// Takes `texto` (`20`, `R$ 1.234,56`) off the whole sale, or says why not; empty takes the
     /// discount away. A way to pay with no change follows the new total.
-    pub fn dar_desconto(&self, texto: &str) {
+    pub(crate) fn dar_desconto(&self, texto: &str) {
         let valor = if texto.trim().is_empty() { Some(Decimal::ZERO) } else { ravenrs_pos::ler_valor(texto) };
         let Some(valor) = valor else {
             return self
