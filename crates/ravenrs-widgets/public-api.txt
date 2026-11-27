@@ -768,6 +768,7 @@ field Labels::split_resize
 field Labels::step_down
 field Labels::step_up
 field Labels::swatches
+field Labels::tabs_more
 field Labels::tag_add
 field Labels::tag_remove
 field Labels::theme
