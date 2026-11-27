@@ -86,7 +86,8 @@ pub use receipt::{Receipt, ReceiptLine};
 pub use release_notes::{CodeBlock, ReleaseNote, ReleaseNotes};
 pub use shortcuts::{ShortcutHintBar, ShortcutSheet};
 pub use status::{
-    DaySeparator, Dot, EmptyState, HeroBanner, IconTile, MultiProgress, OverlayBadge, Rating, ShimmerText,
+    DateTile, DaySeparator, Dot, EmptyState, HeroBanner, IconTile, MultiProgress, OverlayBadge, Rating,
+    ShimmerText,
 };
 pub use tag_box::TagBox;
 pub use theme::{ThemeEditor, ThemePicker};
