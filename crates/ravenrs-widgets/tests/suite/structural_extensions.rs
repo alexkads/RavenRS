@@ -232,6 +232,82 @@ fn segmented_tabs_change_their_look_and_size_and_work_like_the_others() {
     assert_eq!(named(&tree, Role::Tab, "One").selected, Some(true));
 }
 
+/// The six channels of a chat, as tabs only, in a column `width` wide.
+fn channels(chosen: &State<usize>, variant: TabsVariant, width: f32) -> impl View + use<> {
+    let mut tabs = Tabs::new(chosen.binding()).variant(variant).size(ButtonSize::Small);
+    for name in ["All", "WhatsApp", "Instagram", "Messenger", "Telegram", "Site"] {
+        tabs = tabs.item(name);
+    }
+    VStack::new((tabs,)).width(width).align(ravenrs_layout::Align::Stretch)
+}
+
+fn tab_names(ui: &mut Ui) -> Vec<String> {
+    ui.access_tree().nodes.iter().filter(|n| n.role == Role::Tab).filter_map(|n| n.name.clone()).collect()
+}
+
+#[test]
+fn tabs_that_do_not_fit_go_to_a_menu_and_the_one_chosen_there_joins_the_bar() {
+    for variant in [TabsVariant::Underline, TabsVariant::Segmented] {
+        let chosen = State::new(0);
+        let mut ui = ui(channels(&chosen, variant, 360.0));
+        ui.update();
+        let shown = tab_names(&mut ui);
+        assert!((2..6).contains(&shown.len()), "{variant:?}: some fit, not all: {shown:?}");
+        assert!(!shown.iter().any(|n| n == "Site"), "{variant:?}: the last one is in the menu");
+        let tree = ui.access_tree();
+        for tab in tree.nodes.iter().filter(|n| n.role == Role::Tab) {
+            assert!(
+                tab.bounds.max_x() <= 360.5,
+                "{variant:?}: {:?} inside the bar: {:?}",
+                tab.name,
+                tab.bounds
+            );
+        }
+        let more = named(&tree, Role::Button, "More tabs").bounds;
+        assert!(more.max_x() <= 360.5, "{variant:?}: the button inside the bar: {more:?}");
+        click(&mut ui, more.center());
+        ui.update();
+        let tree = ui.access_tree();
+        let site = named(&tree, Role::MenuItem, "Site");
+        assert_eq!(site.toggled, Some(ravenrs_core::Toggled::False), "{variant:?}: listed, not the open one");
+        let at = site.bounds.center();
+        click(&mut ui, at);
+        ui.update();
+        assert_eq!(chosen.get(), 5, "{variant:?}: chosen in the menu");
+        let tree = ui.access_tree();
+        assert_eq!(named(&tree, Role::Tab, "Site").selected, Some(true), "{variant:?}: and shown in the bar");
+        assert!(tree.find(Role::Button, "More tabs").is_some(), "{variant:?}: the rest still in the menu");
+    }
+}
+
+#[test]
+fn tabs_with_room_to_spare_have_no_menu() {
+    let chosen = State::new(0);
+    let mut ui = ui(channels(&chosen, TabsVariant::Underline, 760.0));
+    ui.update();
+    assert_eq!(tab_names(&mut ui).len(), 6);
+    assert!(ui.access_tree().find(Role::Button, "More tabs").is_none());
+}
+
+#[test]
+fn the_arrows_reach_the_tabs_in_the_menu_and_bring_them_to_the_bar() {
+    let chosen = State::new(0);
+    let mut ui = ui(channels(&chosen, TabsVariant::Underline, 360.0));
+    ui.update();
+    key(&mut ui, Key::Tab);
+    key(&mut ui, Key::End);
+    ui.update();
+    assert_eq!(chosen.get(), 5, "End goes to the last tab, in the menu");
+    let tree = ui.access_tree();
+    let site = named(&tree, Role::Tab, "Site");
+    assert_eq!(tree.focus, Some(site.id), "the focus is on it, now in the bar");
+    key(&mut ui, Key::ArrowLeft);
+    ui.update();
+    assert_eq!(chosen.get(), 4);
+    let tree = ui.access_tree();
+    assert_eq!(tree.focus, Some(named(&tree, Role::Tab, "Telegram").id), "and back along the tabs");
+}
+
 #[test]
 fn tabs_without_content_are_only_the_bar_and_the_app_holds_the_selection() {
     let chosen = State::new(0);

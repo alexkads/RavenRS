@@ -122,6 +122,13 @@ pub const PAGES: &[Page] = &[
         make: || Box::new(basicos::texto::TextPage),
     },
     Page {
+        id: kit::abas::ID,
+        caption: kit::abas::PAGE,
+        group: "Kit",
+        icon: IconName::Layers,
+        make: || Box::new(kit::abas::TabsPage),
+    },
+    Page {
         id: kit::expressoes::ID,
         caption: kit::expressoes::PAGE,
         group: "Kit",

@@ -685,6 +685,7 @@
  "widgets.step_down": "Decrease",
  "widgets.step_up": "Increase",
  "widgets.swatches": "Swatches",
+ "widgets.tabs_more": "More tabs",
  "widgets.tag_add": "Add \"{0}\"",
  "widgets.tag_remove": "Remove",
  "widgets.theme": "Theme",

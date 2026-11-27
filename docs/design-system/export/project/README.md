@@ -171,7 +171,7 @@ RavenComponentBook writes every file of this system from the RavenRS code, and t
 | Forms | `SelectionBar` | How many are chosen, a way out and what to do with them, with Escape to leave | 1 |
 | Navigation | `Menubar` | Horizontal bar of menus such as File, Edit and View | 1 |
 | Navigation | `Pagination` | Previous, numbered pages with ellipses, and Next | 2 |
-| Navigation | `Tabs` | Switches between views of the same place; each tab builds when it is selected | 5 |
+| Navigation | `Tabs` | Switches between views of the same place; each tab builds when it is selected | 6 |
 | Navigation | `Accordion` | Disclosures separated by hairlines | 2 |
 | Navigation | `Breadcrumb` | Path of locations ending at the current page | 1 |
 | Navigation | `Disclosure` | Header that shows or hides its content | 2 |
