@@ -989,8 +989,17 @@ fn comparable(path: &str, bytes: Vec<u8>) -> Vec<u8> {
 pub fn verify(published: &Path) -> std::io::Result<Drift> {
     let fresh = std::env::temp_dir().join(format!("raven-component-book-verify-{}", std::process::id()));
     let written = write_claude_design(&fresh, "verify")?;
+    let drift = compare(published, &fresh, &written);
+    std::fs::remove_dir_all(&fresh).ok();
+    drift
+}
+
+/// Compares `published` with `fresh`, a folder [`write_claude_design`] wrote `written` into.
+/// [`verify`] is writing and then this; a test that already wrote the design system compares
+/// copies of it without measuring every component again.
+pub fn compare(published: &Path, fresh: &Path, written: &[String]) -> std::io::Result<Drift> {
     let mut drift = Drift::default();
-    for path in &written {
+    for path in written {
         match std::fs::read(published.join(path)) {
             Ok(bytes) => {
                 let new = std::fs::read(fresh.join(path))?;
@@ -1019,7 +1028,6 @@ pub fn verify(published: &Path) -> std::io::Result<Drift> {
             }
         }
     }
-    std::fs::remove_dir_all(&fresh).ok();
     drift.extra.sort();
     Ok(drift)
 }
