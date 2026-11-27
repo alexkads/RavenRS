@@ -87,6 +87,13 @@ pub const PAGES: &[Page] = &[
         make: || Box::new(basicos::dicas::TooltipsPage),
     },
     Page {
+        id: basicos::escolhas::ID,
+        caption: basicos::escolhas::PAGE,
+        group: "Básicos",
+        icon: IconName::SlidersHorizontal,
+        make: || Box::new(basicos::escolhas::ChoicesPage),
+    },
+    Page {
         id: basicos::indicadores::ID,
         caption: basicos::indicadores::PAGE,
         group: "Básicos",
