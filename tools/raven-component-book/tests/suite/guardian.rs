@@ -77,12 +77,29 @@ fn the_written_system_is_whole_and_locked_to_the_code() {
     assert_eq!(index["createdOnFiles"]["at"], "2026-10-31T22:28:36Z");
     // The cover is bare: no README beside it, so the design tool keeps it as the cover.
     assert!(!dir.join("project/components/Cover/README.md").exists());
-    // A copy of what was written verifies clean; one changed file and one stray file do not.
-    assert!(export::verify(&dir).unwrap().is_clean());
-    std::fs::write(dir.join("project/components/Button/README.md"), "changed by hand").unwrap();
-    std::fs::write(dir.join("project/stray.md"), "not the book's").unwrap();
-    let drift = export::verify(&dir).unwrap();
+    // A copy of what was written compares clean; one changed file and one stray file do not.
+    // Compared with the copy just written, not written again: measuring every component is what
+    // takes the time, and `verify` is writing and then comparing (scripts/check.sh runs it).
+    let copy = dir.with_extension("copy");
+    copy_folder(&dir, &copy);
+    assert!(export::compare(&copy, &dir, &written).unwrap().is_clean());
+    std::fs::write(copy.join("project/components/Button/README.md"), "changed by hand").unwrap();
+    std::fs::write(copy.join("project/stray.md"), "not the book's").unwrap();
+    let drift = export::compare(&copy, &dir, &written).unwrap();
     assert_eq!(drift.changed, vec!["project/components/Button/README.md".to_owned()]);
     assert_eq!(drift.extra, vec!["project/stray.md".to_owned()]);
     std::fs::remove_dir_all(&dir).ok();
+    std::fs::remove_dir_all(&copy).ok();
+}
+
+fn copy_folder(from: &std::path::Path, to: &std::path::Path) {
+    std::fs::create_dir_all(to).unwrap();
+    for item in std::fs::read_dir(from).unwrap().flatten() {
+        let target = to.join(item.file_name());
+        if item.path().is_dir() {
+            copy_folder(&item.path(), &target);
+        } else {
+            std::fs::copy(item.path(), target).unwrap();
+        }
+    }
 }
