@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use crate::ast::{AggregateCall, BinaryOp, Criteria, GroupOp, UnaryOp};
-use crate::format::{Culture, format_composite};
+use crate::format::{Culture, format_composite, format_value};
 use crate::functions::{Aggregate, Function};
 use crate::value::{DateTime, Value};
 
@@ -208,6 +208,7 @@ pub struct Scope<'a, R> {
     rows: &'a [&'a R],
     position: Option<usize>,
     page: Option<(usize, usize)>,
+    group: Option<usize>,
 }
 
 impl<R> std::fmt::Debug for Scope<'_, R> {
@@ -230,7 +231,7 @@ impl<R> Copy for Scope<'_, R> {}
 impl<'a, R: Record> Scope<'a, R> {
     /// A scope with no row.
     pub fn new(env: &'a Environment) -> Self {
-        Self { env, row: None, parent: None, rows: &[], position: None, page: None }
+        Self { env, row: None, parent: None, rows: &[], position: None, page: None, group: None }
     }
 
     /// The current row.
@@ -260,6 +261,13 @@ impl<'a, R: Record> Scope<'a, R> {
     /// The current row's index in [`Self::rows`], for running aggregates.
     pub fn position(mut self, position: Option<usize>) -> Self {
         self.position = position;
+        self
+    }
+
+    /// The group's position among the groups beside it (inside the same outer group), from 0,
+    /// for `GroupIndex()`.
+    pub fn group_index(mut self, index: Option<usize>) -> Self {
+        self.group = index;
         self
     }
 
@@ -680,6 +688,8 @@ impl<'a, R: Record> Scope<'a, R> {
             F::PageNumber => self.page.map_or(Value::Null, |(n, _)| Value::Number(n as f64)),
             F::PageCount => self.page.map_or(Value::Null, |(_, c)| Value::Number(c as f64)),
             F::CurrentRowIndexInGroup => self.position.map_or(Value::Null, |p| Value::Number(p as f64)),
+            F::GroupIndex => self.group.map_or(Value::Null, |g| Value::Number(g as f64)),
+            F::GetDisplayText => Value::Text(format_value(&a(0), "", &self.env.culture)),
             F::PrevRowColumnValue | F::NextRowColumnValue => {
                 let Some(p) = self.position else { return Value::Null };
                 let at = if f == F::PrevRowColumnValue { p.checked_sub(1) } else { p.checked_add(1) };
@@ -741,7 +751,8 @@ fn aggregate_over<R: Record>(
     page: Option<(usize, usize)>,
     key: usize,
 ) -> Value {
-    let scope_at = |i: usize| Scope { env, row: Some(rows[i]), parent, rows, position: Some(i), page };
+    let scope_at =
+        |i: usize| Scope { env, row: Some(rows[i]), parent, rows, position: Some(i), page, group: None };
     let arg = |i: usize, n: usize| -> Value {
         match call.args.get(n) {
             Some(a) => scope_at(i).node(a),
@@ -782,7 +793,11 @@ fn aggregate_over<R: Record>(
         A::Join => {
             let sep = call.args.get(1).map_or_else(
                 || ", ".to_owned(),
-                |c| Scope { env, row: None, parent, rows, position: None, page }.node(c).to_text(),
+                |c| {
+                    Scope { env, row: None, parent, rows, position: None, page, group: None }
+                        .node(c)
+                        .to_text()
+                },
             );
             Value::Text(
                 values().iter().filter(|v| !v.is_null()).map(Value::to_text).collect::<Vec<_>>().join(&sep),

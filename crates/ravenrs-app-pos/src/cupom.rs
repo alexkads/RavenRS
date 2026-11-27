@@ -28,10 +28,11 @@ pub fn cupom_na_tela(carrinho: &Carrinho) -> Receipt {
         1 => "1 ITEM".to_owned(),
         n => format!("{n} ITENS"),
     };
-    let total = valor_em_texto(carrinho.total());
-    cupom
-        .summary(format!("SUBTOTAL ({itens})"), total.clone())
-        .total("TOTAL A RECEBER", format!("R$ {total}"))
+    cupom = cupom.summary(format!("SUBTOTAL ({itens})"), valor_em_texto(carrinho.subtotal()));
+    if carrinho.desconto > Decimal::ZERO {
+        cupom = cupom.summary("DESCONTO", format!("-{}", valor_em_texto(carrinho.desconto)));
+    }
+    cupom.total("TOTAL A RECEBER", format!("R$ {}", valor_em_texto(carrinho.total())))
 }
 
 #[cfg(test)]
@@ -93,5 +94,29 @@ mod tests {
     fn an_empty_cart_shows_where_the_lines_go_and_a_zero_total() {
         let said = said(&Carrinho::default());
         assert_eq!(said, [(Some("TOTAL A RECEBER".to_owned()), Some("R$ 0,00".to_owned()), None)]);
+    }
+
+    #[test]
+    fn a_discount_shows_between_the_subtotal_and_the_total_of_the_cart() {
+        let mut carrinho = Carrinho::default();
+        assert!(carrinho.adicionar(linha("FOTO 10X15", "15", "2")).is_ok());
+        assert!(carrinho.adicionar(linha("ALBUM 20X30", "189.90", "1")).is_ok());
+        let some = |s: &str| Some(s.to_owned());
+        let names = |carrinho: &Carrinho| {
+            let mut ui = Ui::new(cupom_na_tela(carrinho), ravenrs_style::Theme::raven_dark());
+            ui.update();
+            ui.access_tree().nodes.iter().filter_map(|n| n.name.clone()).collect::<Vec<_>>()
+        };
+        assert!(!names(&carrinho).iter().any(|n| n == "DESCONTO"), "no discount, no line");
+        assert!(carrinho.dar_desconto(Decimal::from(20)).is_ok());
+        let shown = names(&carrinho);
+        let at = |text: &str| shown.iter().position(|n| n == text);
+        assert!(at("SUBTOTAL (2 ITENS)") < at("DESCONTO"), "{shown:?}");
+        assert!(shown.iter().any(|n| n == "-20,00"), "{shown:?}");
+        assert_eq!(
+            said(&carrinho).last().cloned(),
+            Some((some("TOTAL A RECEBER"), some("R$ 199,90"), None)),
+            "the band has the total of the cart"
+        );
     }
 }

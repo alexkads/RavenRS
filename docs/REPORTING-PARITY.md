@@ -58,7 +58,7 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 | String functions | Ascii, Char, CharIndex, Concat, Contains, EndsWith, Insert, Len, Lower, PadLeft/Right, Remove, Replace, Reverse, StartsWith, Substring, ToStr, Trim, Upper | ✅ |
 | Math functions | Abs, trig, Ceiling, Floor, Log, Power, Round, Sign, Sqr, conversions | ✅ |
 | Date functions | Add*, DateDiff*, Get*, Now/Today/UtcNow, FromParts, relative predicates (IsThisMonth, InDateRange…) | 🟡 Add*, DateDiff*, Get*, Now/Today, FromParts, LocalDateTime*, Is* and range predicates. Tick precision, time-of-day predicates (IsLunchTime…), DateOnly/TimeOnly ⬜ |
-| Reporting functions | FormatString, NewLine, Rgb, GetDisplayText, CurrentRowIndexInGroup, GroupIndex, Prev/NextRowColumnValue | 🟡 FormatString, NewLine, Rgb, Argb, PageNumber, PageCount, CurrentRowIndexInGroup, Prev/NextRowColumnValue. GetDisplayText, GroupIndex ⬜ [R2] |
+| Reporting functions | FormatString, NewLine, Rgb, GetDisplayText, CurrentRowIndexInGroup, GroupIndex, Prev/NextRowColumnValue | ✅ FormatString, NewLine, Rgb, Argb, PageNumber, PageCount, CurrentRowIndexInGroup, GroupIndex, GetDisplayText, Prev/NextRowColumnValue |
 | Custom functions | Registered by developers | ✅ `ReportEngine::register_function`, `Environment::register` |
 | Criteria as a library | Parse, print, tree operators, evaluate in memory, translate to SQL | ✅ `ravenrs-criteria`: public tree, printing that parses back, evaluation over any `Record`, schema validation, function catalog, parameterized SQL for 4 databases |
 
