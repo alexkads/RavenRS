@@ -1281,7 +1281,12 @@ pub struct NumberField {
     label: Option<String>,
     on_leave: Option<Rc<dyn Fn()>>,
     state: util::EditorState,
+    /// Read as money, with the framework's reading of cents, in place of a plain number.
+    money: bool,
 }
+
+/// The most cents a money field takes, so every amount goes through `f64` and back exactly.
+const MOST_CENTS: i64 = 1 << 50;
 
 impl std::fmt::Debug for NumberField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -1314,17 +1319,33 @@ impl NumberField {
             label: None,
             on_leave: None,
             state: util::EditorState::default(),
+            money: false,
         }
     }
 
     /// A field for money held as a whole number of cents: exact, two decimals,
-    /// showing `prefix`, such as `"R$ "`.
+    /// showing `prefix`, such as `"R$ "`. It reads what is typed as the rest of the framework
+    /// does (`ravenrs_criteria::Culture::parse_signed_cents`), so `1.000` is a thousand, and
+    /// text that is not an amount says what to fix to screen readers. Amounts past 2⁵⁰ cents
+    /// are refused, not cut.
+    #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
     pub fn money(cents: Binding<Option<i64>>, prefix: impl Into<String>) -> Self {
         let value = cents.map(
             |c| c.map(|c| c as f64 / 100.0),
-            |c, v: Option<f64>| *c = v.map(|v| (v * 100.0).round() as i64),
+            |c, v: Option<f64>| match v {
+                None => *c = None,
+                Some(v) => {
+                    let whole = (v * 100.0).round();
+                    if whole.abs() <= MOST_CENTS as f64 {
+                        *c = Some(whole as i64);
+                    }
+                }
+            },
         );
-        Self::new(value).decimals(2).step(1.0).prefix(prefix)
+        let most = MOST_CENTS as f64 / 100.0;
+        let mut field = Self::new(value).decimals(2).step(1.0).prefix(prefix).range(-most, most);
+        field.money = true;
+        field
     }
 
     /// Accepts only `min..=max`.
@@ -1434,17 +1455,53 @@ impl View for NumberField {
             }
             .format(n)
         });
-        let invalid = typed.as_ref().is_some_and(|(text, _)| {
-            !text.trim().is_empty()
-                && parse_number(text, decimal, group).is_none_or(|n| !(min..=max).contains(&n))
+        // Money is read in cents by the framework's one reading; anything else as a number.
+        let money = self.money.then(|| {
+            Rc::new(ravenrs_criteria::Culture {
+                decimal,
+                group,
+                ..ravenrs_criteria::Culture::named(&labels.culture)
+            })
         });
+        let prefix = self.prefix.trim().to_owned();
+        let culture = money.clone();
+        let reading = move |text: &str| -> Result<f64, Option<String>> {
+            match &culture {
+                Some(culture) => {
+                    let bare = text.trim().strip_prefix(prefix.as_str()).unwrap_or(text);
+                    let cents = culture.parse_signed_cents(bare).and_then(|cents| {
+                        if cents.abs() <= MOST_CENTS {
+                            Ok(cents)
+                        } else {
+                            Err(ravenrs_criteria::MoneyError::TooLarge)
+                        }
+                    });
+                    #[allow(clippy::cast_precision_loss)]
+                    cents.map(|cents| cents as f64 / 100.0).map_err(|error| Some(error.message(culture)))
+                }
+                None => parse_number(text, decimal, group).ok_or(None),
+            }
+        };
+        let reading = Rc::new(reading);
+        let problem = typed.as_ref().and_then(|(text, _)| {
+            if text.trim().is_empty() {
+                return None;
+            }
+            match reading(text) {
+                Ok(n) if (min..=max).contains(&n) => None,
+                Ok(_) => Some(None),
+                Err(message) => Some(message),
+            }
+        });
+        let invalid = problem.is_some();
 
         let (read, write, target) = (draft.clone(), draft.clone(), self.value.clone());
+        let parse = reading.clone();
         let current = self.value.clone();
         let text = Binding::new(
             move || read.get().map(|(text, _)| text).or_else(|| current.get().map(plain)).unwrap_or_default(),
             move |text: String| {
-                let parsed = parse_number(&text, decimal, group).filter(|n| (min..=max).contains(n));
+                let parsed = parse(&text).ok().filter(|n| (min..=max).contains(n));
                 let next = if text.trim().is_empty() { None } else { parsed.or(target.get()) };
                 write.set(Some((text, next)));
                 if next != target.get() {
@@ -1485,6 +1542,9 @@ impl View for NumberField {
         let node = cx.child(&field);
         if let Some(label) = &self.label {
             cx.update_semantics(node, |s| s.name = Some(label.clone()));
+        }
+        if let Some(Some(message)) = problem {
+            cx.update_semantics(node, |s| s.description = Some(message));
         }
         if !self.spin_buttons {
             return node;
@@ -1531,69 +1591,140 @@ enum MaskSlot {
     Letter,
     Any,
     Literal(char),
+    /// One of the field's own rules, by its place among them.
+    Rule(usize),
+}
+
+/// A character of a mask that the app gives a meaning, with [`MaskedField::rule`].
+#[derive(Clone)]
+struct MaskRule {
+    token: char,
+    accepts: Rc<dyn Fn(char) -> bool>,
+    optional: bool,
+}
+
+impl fmt::Debug for MaskRule {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MaskRule").field("token", &self.token).field("optional", &self.optional).finish()
+    }
+}
+
+/// A mask read: its slots and the rules some of them follow.
+struct Mask {
+    slots: Vec<MaskSlot>,
+    rules: Vec<MaskRule>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MaskSlot {
-    fn accepts(self, c: char) -> bool {
+    fn accepts(self, c: char, rules: &[MaskRule]) -> bool {
         match self {
             Self::Digit => c.is_ascii_digit(),
             Self::Letter => c.is_alphabetic(),
             Self::Any => c.is_alphanumeric(),
             Self::Literal(_) => false,
+            Self::Rule(i) => rules.get(i).is_some_and(|r| (r.accepts)(c)),
         }
+    }
+
+    fn optional(self, rules: &[MaskRule]) -> bool {
+        matches!(self, Self::Rule(i) if rules.get(i).is_some_and(|r| r.optional))
     }
 }
 
 /// `0` is a digit, `a` a letter and `*` a letter or digit. `\` makes the next
-/// character plain, and any other character is shown as it is.
-fn parse_mask(mask: &str) -> Vec<MaskSlot> {
+/// character plain, and any other character is shown as it is, unless the field
+/// gives it a meaning of its own with [`MaskedField::rule`].
+fn parse_mask(mask: &str, rules: &[MaskRule]) -> Mask {
     let mut chars = mask.chars();
     let mut slots = Vec::new();
     while let Some(c) = chars.next() {
-        slots.push(match c {
-            '0' => MaskSlot::Digit,
-            'a' => MaskSlot::Letter,
-            '*' => MaskSlot::Any,
-            '\\' => MaskSlot::Literal(chars.next().unwrap_or('\\')),
-            other => MaskSlot::Literal(other),
+        slots.push(if let Some(i) = rules.iter().position(|r| r.token == c) {
+            MaskSlot::Rule(i)
+        } else {
+            match c {
+                '0' => MaskSlot::Digit,
+                'a' => MaskSlot::Letter,
+                '*' => MaskSlot::Any,
+                '\\' => MaskSlot::Literal(chars.next().unwrap_or('\\')),
+                other => MaskSlot::Literal(other),
+            }
         });
     }
-    slots
+    Mask { slots, rules: rules.to_vec() }
+}
+
+impl Mask {
+    /// How many slots must be filled, and how many may be.
+    fn counts(&self) -> (usize, usize) {
+        let open = self.slots.iter().filter(|s| !matches!(s, MaskSlot::Literal(_)));
+        let optional = open.clone().filter(|s| s.optional(&self.rules)).count();
+        (open.count() - optional, optional)
+    }
+
+    /// The slots that take a character when `filled` were given, in order: every required one,
+    /// and the optional ones from the left, as many as the extra characters.
+    fn used(&self, filled: usize) -> Vec<bool> {
+        let (required, _) = self.counts();
+        let mut extra = filled.saturating_sub(required);
+        self.slots
+            .iter()
+            .map(|s| match s {
+                MaskSlot::Literal(_) => false,
+                s if s.optional(&self.rules) => {
+                    let take = extra > 0;
+                    extra = extra.saturating_sub(1);
+                    take
+                }
+                _ => true,
+            })
+            .collect()
+    }
+
+    /// Whether `raw` fills every required slot.
+    fn complete(&self, raw: &str) -> bool {
+        raw.chars().count() >= self.counts().0
+    }
 }
 
 /// Pulls what the slots accept out of text in the mask's format, or any text.
-fn mask_extract(slots: &[MaskSlot], text: &str) -> String {
-    let mut chars = text.chars().peekable();
+fn mask_extract(mask: &Mask, text: &str) -> String {
+    // Each character that some open slot takes, in order: a pasted text with or without the
+    // mask's own characters gives the same.
+    let open: Vec<MaskSlot> =
+        mask.slots.iter().copied().filter(|s| !matches!(s, MaskSlot::Literal(_))).collect();
     let mut raw = String::new();
-    for slot in slots {
-        match slot {
-            MaskSlot::Literal(l) => {
-                if chars.peek() == Some(l) {
-                    chars.next();
-                }
-            }
-            slot => {
-                for c in chars.by_ref() {
-                    if slot.accepts(c) {
-                        raw.push(c);
-                        break;
-                    }
-                }
-            }
+    let mut at = 0;
+    for c in text.chars() {
+        // A literal of the mask where a slot is expected is skipped, not taken.
+        if mask.slots.contains(&MaskSlot::Literal(c))
+            && !open.get(at).is_some_and(|s| s.accepts(c, &mask.rules))
+        {
+            continue;
+        }
+        // An optional slot that does not take the character is passed by.
+        while open.get(at).is_some_and(|s| s.optional(&mask.rules) && !s.accepts(c, &mask.rules)) {
+            at += 1;
+        }
+        let Some(slot) = open.get(at) else { break };
+        if slot.accepts(c, &mask.rules) {
+            raw.push(c);
+            at += 1;
         }
     }
     raw
 }
 
 /// Puts `raw` in the mask, stopping where it runs out.
-fn mask_fill(slots: &[MaskSlot], raw: &str) -> String {
+fn mask_fill(mask: &Mask, raw: &str) -> String {
+    let used = mask.used(raw.chars().count());
     let mut chars = raw.chars();
     let mut out = String::new();
     let mut pending = String::new();
-    for slot in slots {
+    for (slot, take) in mask.slots.iter().zip(used) {
         match slot {
             MaskSlot::Literal(l) => pending.push(*l),
+            _ if !take => {}
             _ => {
                 let Some(c) = chars.next() else { break };
                 out.push_str(&pending);
@@ -1608,7 +1739,9 @@ fn mask_fill(slots: &[MaskSlot], raw: &str) -> String {
 /// A text input that follows a pattern, such as `(00) 00000-0000`, in which `0`
 /// is a digit, `a` a letter and `*` either; `\` makes the next character plain.
 /// The binding holds only what was typed, without the pattern's own characters,
-/// unless [`Self::keep_literals`] asks for them.
+/// unless [`Self::keep_literals`] asks for them. [`Self::rule`] and [`Self::optional_rule`]
+/// give characters of the pattern a meaning of the field's own, such as a slot that may stay
+/// empty, and [`Self::complete`] says when every slot that must be filled is.
 ///
 /// ```
 /// use ravenrs_reactive::State;
@@ -1629,6 +1762,8 @@ pub struct MaskedField {
     width: Option<f32>,
     label: Option<String>,
     state: util::EditorState,
+    rules: Vec<MaskRule>,
+    complete: Option<Binding<bool>>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -1643,7 +1778,34 @@ impl MaskedField {
             width: None,
             label: None,
             state: util::EditorState::default(),
+            rules: Vec::new(),
+            complete: None,
         }
+    }
+
+    /// Makes `token` a slot of the pattern that takes the characters `accepts` lets through, in
+    /// place of what it means by default (a plain character, or `0`, `a` and `*`). Only this
+    /// field reads it so: other masks keep their meaning.
+    pub fn rule(mut self, token: char, accepts: impl Fn(char) -> bool + 'static) -> Self {
+        self.rules.retain(|r| r.token != token);
+        self.rules.push(MaskRule { token, accepts: Rc::new(accepts), optional: false });
+        self
+    }
+
+    /// Like [`Self::rule`], for a slot that may stay empty, as the ninth digit of a phone: the
+    /// optional slots take characters from the left, once every slot that must be filled has
+    /// one.
+    pub fn optional_rule(mut self, token: char, accepts: impl Fn(char) -> bool + 'static) -> Self {
+        self.rules.retain(|r| r.token != token);
+        self.rules.push(MaskRule { token, accepts: Rc::new(accepts), optional: true });
+        self
+    }
+
+    /// Keeps here whether every slot that must be filled is: `false` while typing is not wrong,
+    /// only not done yet.
+    pub fn complete(mut self, complete: Binding<bool>) -> Self {
+        self.complete = Some(complete);
+        self
     }
 
     /// The name screen readers announce. Inside a [`crate::FormField`], its label is used instead.
@@ -1685,13 +1847,27 @@ impl MaskedField {
 
 impl View for MaskedField {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let slots = Rc::new(parse_mask(&self.mask));
+        let slots = Rc::new(parse_mask(&self.mask, &self.rules));
         let hint = self.placeholder.clone().unwrap_or_else(|| {
-            slots.iter().map(|s| if let MaskSlot::Literal(l) = s { *l } else { '_' }).collect::<String>()
+            slots
+                .slots
+                .iter()
+                .filter(|s| !s.optional(&slots.rules))
+                .map(|s| if let MaskSlot::Literal(l) = s { *l } else { '_' })
+                .collect::<String>()
         });
         let (read, write) = (self.value.clone(), self.value.clone());
-        let (from_raw, to_raw) = (slots.clone(), slots);
         let keep = self.keep_literals;
+        if let Some(complete) = &self.complete {
+            let value = self.value.get();
+            let raw = if keep { mask_extract(&slots, &value) } else { value };
+            let done = slots.complete(&raw);
+            if complete.get() != done {
+                complete.set(done);
+            }
+        }
+        let (from_raw, to_raw) = (slots.clone(), slots);
+        let told = self.complete.clone();
         let shown = Binding::new(
             move || {
                 let value = read.get();
@@ -1700,6 +1876,12 @@ impl View for MaskedField {
             },
             move |text: String| {
                 let raw = mask_extract(&to_raw, &text);
+                if let Some(told) = &told {
+                    let done = to_raw.complete(&raw);
+                    if told.get() != done {
+                        told.set(done);
+                    }
+                }
                 let next = if keep { mask_fill(&to_raw, &raw) } else { raw };
                 if next != write.get() {
                     write.set(next);
@@ -2112,17 +2294,44 @@ mod tests {
 
     #[test]
     fn masks_fill_and_extract() {
-        let phone = parse_mask("(00) 00000-0000");
+        let phone = parse_mask("(00) 00000-0000", &[]);
         assert_eq!(mask_fill(&phone, "11987654321"), "(11) 98765-4321");
         assert_eq!(mask_fill(&phone, "119"), "(11) 9");
         assert_eq!(mask_fill(&phone, ""), "");
         assert_eq!(mask_extract(&phone, "(11) 98765-4321"), "11987654321");
         assert_eq!(mask_extract(&phone, "11x9"), "119", "what a slot refuses is skipped");
         assert_eq!(mask_extract(&phone, "(11) 98765-43219999"), "11987654321", "no more than it holds");
-        let plate = parse_mask("aaa-0*00");
+        let plate = parse_mask("aaa-0*00", &[]);
         assert_eq!(mask_extract(&plate, "ABC1D23"), "ABC1D23");
         assert_eq!(mask_fill(&plate, "ABC1D23"), "ABC-1D23");
-        assert_eq!(parse_mask(r"\0-0"), [MaskSlot::Literal('0'), MaskSlot::Literal('-'), MaskSlot::Digit]);
+        assert_eq!(
+            parse_mask(r"\0-0", &[]).slots,
+            [MaskSlot::Literal('0'), MaskSlot::Literal('-'), MaskSlot::Digit]
+        );
+    }
+
+    #[test]
+    fn masks_take_rules_of_their_own_and_optional_slots() {
+        let ninth = |c: char| c.is_ascii_digit();
+        let rules = [MaskRule { token: '9', accepts: Rc::new(ninth), optional: true }];
+        let phone = parse_mask("(00) 90000-0000", &rules);
+        assert_eq!(phone.counts(), (10, 1));
+        assert_eq!(mask_fill(&phone, "1198765432"), "(11) 9876-5432", "the optional slot stays empty");
+        assert_eq!(mask_fill(&phone, "11987654321"), "(11) 98765-4321", "and takes the extra digit");
+        assert!(!phone.complete("119876543"));
+        assert!(phone.complete("1198765432"));
+        assert_eq!(mask_extract(&phone, "(11) 98765-4321"), "11987654321");
+        let vowel =
+            [MaskRule { token: 'v', accepts: Rc::new(|c| "aeiouáéíóú".contains(c)), optional: false }];
+        let word = parse_mask("v-v", &vowel);
+        assert_eq!(mask_extract(&word, "xáyé"), "áé", "a rule takes Unicode it allows");
+        assert_eq!(mask_fill(&word, "áé"), "á-é");
+        assert_eq!(
+            parse_mask(r"\v", &vowel).slots,
+            [MaskSlot::Literal('v')],
+            "an escape keeps the token plain"
+        );
+        assert_eq!(parse_mask("aa", &[]).counts(), (2, 0), "a mask without rules means what it did");
     }
 
     #[test]

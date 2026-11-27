@@ -189,6 +189,40 @@ fn money_is_held_in_whole_cents() {
     assert_eq!(cents.get(), Some(129), "no rounding error in 1.29");
 }
 
+fn field_description(ui: &mut Ui) -> Option<String> {
+    let tree = ui.access_tree();
+    tree.nodes.iter().find(|n| n.role == Role::TextInput).and_then(|n| n.description.clone())
+}
+
+#[test]
+fn money_reads_as_the_framework_does_and_says_what_to_fix() {
+    let cents = State::new(None::<i64>);
+    let mut ui = ui(Localized::new(Labels::pt_br(), NumberField::money(cents.binding(), "R$ ")));
+    focus_field(&mut ui);
+    typed(&mut ui, "1.000");
+    assert_eq!(cents.get(), Some(100_000), "a thousand, as in an action's parameter and a report's");
+    assert_eq!(field_description(&mut ui), None);
+    for _ in 0..5 {
+        key(&mut ui, Key::Backspace);
+    }
+    typed(&mut ui, "1,2x");
+    assert_eq!(cents.get(), Some(120), "the x leaves alone what 1,2 gave");
+    assert_eq!(
+        field_description(&mut ui).as_deref(),
+        Some("\"1,2x\" não é um valor válido. Use, por exemplo, 1.234,56."),
+    );
+    for _ in 0..4 {
+        key(&mut ui, Key::Backspace);
+    }
+    typed(&mut ui, "99999999999999999999");
+    assert!(
+        cents.get().is_some_and(|c| c > 0 && c < 1 << 50),
+        "too large is refused, not cut: {:?}",
+        cents.get()
+    );
+    assert_eq!(field_description(&mut ui).as_deref(), Some("O valor é grande demais."));
+}
+
 #[test]
 fn masked_field_follows_the_pattern_while_typing() {
     let phone = State::new(String::new());
@@ -356,4 +390,61 @@ fn a_field_recalls_what_was_sent_with_the_arrows() {
     assert_eq!(value.get(), "two");
     key(&mut ui, Key::ArrowDown);
     assert_eq!(value.get(), "", "past the last, empty again");
+}
+
+fn field_id(ui: &mut Ui) -> u64 {
+    ui.access_tree().nodes.iter().find(|n| n.role == Role::TextInput).expect("a text input").id
+}
+
+#[test]
+fn masked_field_takes_an_optional_slot_and_says_when_it_is_complete() {
+    let phone = State::new(String::new());
+    let done = State::new(false);
+    let field = MaskedField::new(phone.binding(), "(00) 90000-0000")
+        .optional_rule('9', |c| c.is_ascii_digit())
+        .complete(done.binding());
+    let mut ui = ui(field);
+    focus_field(&mut ui);
+    typed(&mut ui, "119876543");
+    assert!(!done.get(), "not done while typing, and not wrong either");
+    typed(&mut ui, "2");
+    assert!(done.get(), "ten digits fill every slot that must be");
+    assert_eq!(field_value(&mut ui), "(11) 9876-5432", "the optional slot stays out");
+    typed(&mut ui, "1");
+    assert_eq!(field_value(&mut ui), "(11) 98765-4321", "and takes the eleventh digit");
+    key(&mut ui, Key::Backspace);
+    key(&mut ui, Key::Backspace);
+    assert_eq!(phone.get(), "119876543");
+    assert!(!done.get(), "Backspace makes it incomplete again");
+}
+
+#[test]
+fn masked_field_takes_pasted_text_with_or_without_the_pattern() {
+    let phone = State::new(String::new());
+    let mut ui =
+        ui(MaskedField::new(phone.binding(), "(00) 90000-0000").optional_rule('9', |c| c.is_ascii_digit()));
+    let id = field_id(&mut ui);
+    assert!(ui.set_access_value(id, "(11) 98765-4321"));
+    ui.update();
+    assert_eq!(phone.get(), "11987654321", "the pattern's own characters are left out");
+    assert!(ui.set_access_value(id, "11 9876 5432"));
+    ui.update();
+    assert_eq!(phone.get(), "1198765432", "plain digits with spaces give the same");
+    assert_eq!(field_value(&mut ui), "(11) 9876-5432");
+}
+
+#[test]
+fn masked_field_rules_take_unicode_and_follow_a_new_mask() {
+    let code = State::new(String::new());
+    let mask = State::new("v-v".to_owned());
+    let (c, m) = (code.clone(), mask.clone());
+    let mut ui =
+        ui(view_fn(move || MaskedField::new(c.binding(), m.get()).rule('v', |ch| "aeiouáéíóú".contains(ch))));
+    focus_field(&mut ui);
+    typed(&mut ui, "xáé");
+    assert_eq!(code.get(), "áé", "the rule takes accented vowels and nothing else");
+    assert_eq!(field_value(&mut ui), "á-é");
+    mask.set("v/v/v".to_owned());
+    ui.update();
+    assert_eq!(field_value(&mut ui), "á/é", "the same value follows the new mask");
 }

@@ -87,6 +87,13 @@ pub const PAGES: &[Page] = &[
         make: || Box::new(basicos::datas::DatesPage),
     },
     Page {
+        id: basicos::mascaras::ID,
+        caption: basicos::mascaras::PAGE,
+        group: "Básicos",
+        icon: IconName::Keyboard,
+        make: || Box::new(basicos::mascaras::MasksPage),
+    },
+    Page {
         id: basicos::dicas::ID,
         caption: basicos::dicas::PAGE,
         group: "Básicos",

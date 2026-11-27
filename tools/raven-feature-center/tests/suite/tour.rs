@@ -2501,3 +2501,69 @@ fn dates_and_times_offer_only_what_their_limits_allow_and_say_why_a_day_is_off()
     assert!(c.says("Entrega: 2026-11-19"), "{:?}", c.texts());
     assert!(c.says("Início: 09:00"), "{:?}", c.texts());
 }
+
+#[test]
+fn masks_follow_their_pattern_take_rules_of_their_own_and_say_when_they_are_complete() {
+    let mut c = Center::memory("ana");
+    c.press("Máscaras");
+    c.settle();
+    // new, label, optional_rule, complete and width.
+    c.type_into("Celular", "119876543");
+    assert!(c.says("Celular: 119876543 (incompleto)"), "{:?}", c.texts());
+    c.type_into("Celular", "2");
+    assert!(c.says("Celular: 1198765432 (completo)"), "{:?}", c.texts());
+    // keep_literals.
+    c.type_into("CPF", "12345678901");
+    assert!(c.says("CPF guardado com a pontuação: 123.456.789-01"), "{:?}", c.texts());
+    // rule and placeholder.
+    c.type_into("Cor", "1a2bzz3c");
+    assert!(c.says("Cor: 1a2b3c"), "{:?}", c.texts());
+    // read_only and disabled.
+    for name in ["Placa travada", "Placa desligada"] {
+        let node =
+            c.ui.access_tree()
+                .nodes
+                .iter()
+                .find(|n| n.name.as_deref() == Some(name))
+                .map(|n| (n.value.clone(), n.disabled));
+        assert!(node.is_some(), "{name}: {:?}", c.texts());
+    }
+}
+
+#[test]
+fn a_record_reads_each_field_in_its_type_and_changes_by_field() {
+    let mut c = Center::memory("ana");
+    c.press("Registro");
+    c.settle();
+    // from_values, entity, values, get and the typed reads.
+    for line in [
+        "Entidade: Bill",
+        "Descrição (text): Conta de luz",
+        "Valor (number): 18990.4",
+        "Valor em centavos (cents): 18990",
+        "Parcelas (integer): 3",
+        "Vencimento (date): 2026-12-10",
+        "Conta (key): 7",
+    ] {
+        assert!(c.says(line), "{line}: {:?}", c.texts());
+    }
+    assert!(c.texts().iter().any(|t| t.starts_with("Valor bruto (get): Number(")), "{:?}", c.texts());
+    assert!(
+        c.says("Campos: account_id, account_id.name, amount, description, due, installments"),
+        "{:?}",
+        c.texts()
+    );
+    // set.
+    c.press("Mudar o valor");
+    assert!(c.says("Valor em centavos (cents): 20000"), "{:?}", c.texts());
+    // without_paths.
+    c.press("Tirar os caminhos");
+    assert!(c.says("Campos: account_id, amount, description, due, installments"), "{:?}", c.texts());
+    // keep_only: what is left out reads empty, in every type.
+    c.press("Só descrição e valor");
+    assert!(c.says("Campos: amount, description"), "{:?}", c.texts());
+    assert!(c.says("Parcelas (integer): vazio"), "{:?}", c.texts());
+    assert!(c.says("Conta (key): vazio"), "{:?}", c.texts());
+    c.press("Recomeçar");
+    assert!(c.says("Parcelas (integer): 3"), "{:?}", c.texts());
+}

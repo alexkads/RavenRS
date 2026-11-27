@@ -226,6 +226,7 @@ field Labels::audio_stop
 field Labels::audio_transcribe
 field Labels::audio_transcribing
 field Labels::audio_transcript
+field Labels::breadcrumb
 field Labels::calendar_agenda_empty
 field Labels::calendar_all_day
 field Labels::calendar_events
@@ -289,7 +290,9 @@ field Labels::curve_input
 field Labels::curve_output
 field Labels::curve_point
 field Labels::curve_points
+field Labels::date_out_of_range
 field Labels::day_marked
+field Labels::days_ago
 field Labels::decimal_separator
 field Labels::decrease
 field Labels::diagnostics
@@ -534,6 +537,7 @@ field Labels::flow_unlock
 field Labels::folder_empty
 field Labels::folder_word
 field Labels::form_errors
+field Labels::full_date
 field Labels::grid_add_row
 field Labels::grid_all_values
 field Labels::grid_apply
@@ -616,6 +620,7 @@ field Labels::image_choose
 field Labels::image_invalid
 field Labels::image_none
 field Labels::image_replace
+field Labels::in_days
 field Labels::increase
 field Labels::inspector_absent
 field Labels::inspector_boolean
@@ -641,6 +646,7 @@ field Labels::inspector_schema
 field Labels::inspector_table
 field Labels::inspector_text
 field Labels::inspector_tree
+field Labels::invalid_email
 field Labels::lightbox
 field Labels::lightbox_counter
 field Labels::lightbox_next
@@ -658,6 +664,7 @@ field Labels::log_point_line
 field Labels::log_search
 field Labels::log_show_all
 field Labels::marquee
+field Labels::min_length
 field Labels::minimap
 field Labels::month_year
 field Labels::months
@@ -673,6 +680,9 @@ field Labels::no_commands
 field Labels::no_results
 field Labels::page_of
 field Labels::page_word
+field Labels::pagination
+field Labels::pagination_next
+field Labels::pagination_previous
 field Labels::panel_minimize
 field Labels::panel_move
 field Labels::panel_restore
@@ -689,6 +699,19 @@ field Labels::param_none
 field Labels::param_remove
 field Labels::param_required
 field Labels::param_retry
+field Labels::patch_connected_to
+field Labels::patch_flip
+field Labels::patch_free
+field Labels::patch_input
+field Labels::patch_of_signal
+field Labels::patch_other_panel
+field Labels::patch_output
+field Labels::patch_panel
+field Labels::patch_refuses
+field Labels::patch_show_back
+field Labels::patch_taken
+field Labels::patch_two_inputs
+field Labels::patch_two_outputs
 field Labels::pick_color
 field Labels::pick_date
 field Labels::pick_date_range
@@ -749,6 +772,7 @@ field Labels::rename_hint
 field Labels::required
 field Labels::ribbon
 field Labels::ribbon_collapse
+field Labels::ribbon_group_options
 field Labels::ribbon_pin
 field Labels::ribbon_search
 field Labels::rubber_band
@@ -802,13 +826,17 @@ field Labels::theme_system
 field Labels::theme_text
 field Labels::tile_move
 field Labels::tile_resize
+field Labels::time_out_of_range
 field Labels::today
 field Labels::toggle_sidebar
+field Labels::tomorrow
 field Labels::transform
 field Labels::tree_name
 field Labels::unsaved
 field Labels::value_adjust
 field Labels::verification_code
+field Labels::verification_code_digits
+field Labels::weekday_names
 field Labels::weekdays
 field Labels::window_maximize
 field Labels::window_minimize
@@ -820,6 +848,7 @@ field Labels::wizard_error
 field Labels::wizard_finish
 field Labels::wizard_next
 field Labels::wizard_progress
+field Labels::written_date
 field Labels::yesterday
 field Labels::zoom
 field Labels::zoom_actual
@@ -1039,6 +1068,7 @@ fn set_apple_keys
 fn validate::email
 fn validate::min_length
 fn validate::required
+fn validate::with_labels
 fn view_fn
 impl ClipboardProvider for MemoryClipboard
 impl Clone for Alert
@@ -2822,6 +2852,7 @@ method BuildCx::full_screen
 method BuildCx::held
 method BuildCx::hit_outline
 method BuildCx::is_focus_visible
+method BuildCx::is_focus_visible_within
 method BuildCx::is_focus_within
 method BuildCx::is_focused
 method BuildCx::is_hover_within
@@ -2941,6 +2972,7 @@ method Cables::ids
 method Cables::moving
 method Cables::on_gpu
 method Cables::shape
+method Calendar::blocked
 method Calendar::new
 method Calendar::range
 method Calendar::today
@@ -3276,17 +3308,20 @@ method Date::short
 method Date::to_days
 method Date::weekday
 method Date::year
+method DatePicker::blocked
 method DatePicker::disabled
 method DatePicker::fill
 method DatePicker::label
 method DatePicker::new
 method DatePicker::placeholder
+method DatePicker::range
 method DatePicker::read_only
 method DatePicker::today
 method DatePicker::width
 method DateRange::contains
 method DateRange::days
 method DateRange::new
+method DateRangePicker::blocked
 method DateRangePicker::disabled
 method DateRangePicker::label
 method DateRangePicker::new
@@ -3299,6 +3334,7 @@ method DateRangePicker::width
 method DateTimePicker::disabled
 method DateTimePicker::label
 method DateTimePicker::new
+method DateTimePicker::range
 method DateTimePicker::read_only
 method DateTimePicker::step_minutes
 method DayMark::label
@@ -3868,10 +3904,13 @@ method Labels::dock_with_name
 method Labels::expression_error
 method Labels::expression_function
 method Labels::expression_signature
+method Labels::fill
 method Labels::flow_count
 method Labels::from_texts
+method Labels::full_date
 method Labels::lightbox_counter
 method Labels::long_date
+method Labels::month_abbr
 method Labels::month_title
 method Labels::moved_to_position
 method Labels::page_name
@@ -3879,6 +3918,7 @@ method Labels::pt_br
 method Labels::rating_value
 method Labels::recurrence_summary
 method Labels::recurrence_unit
+method Labels::relative_day
 method Labels::season_title
 method Labels::short_date
 method Labels::split_collapse
@@ -3887,7 +3927,9 @@ method Labels::summary
 method Labels::tag_add
 method Labels::theme_changed
 method Labels::theme_contrast
+method Labels::weekday_name
 method Labels::wizard_progress
+method Labels::written_date
 method LightboxItem::caption
 method LightboxItem::new
 method Link::icon
@@ -3956,12 +3998,15 @@ method Marquee::segments
 method Marquee::size
 method Marquee::space
 method Marquee::stage
+method MaskedField::complete
 method MaskedField::disabled
 method MaskedField::keep_literals
 method MaskedField::label
 method MaskedField::new
+method MaskedField::optional_rule
 method MaskedField::placeholder
 method MaskedField::read_only
+method MaskedField::rule
 method MaskedField::width
 method MenuItem::checked
 method MenuItem::destructive
@@ -4120,8 +4165,11 @@ method QuadField::new
 method QuadField::range
 method QuadPaint::new
 method QuarterTurn::new
+method RadioGroup::disable_option
+method RadioGroup::disabled
 method RadioGroup::label
 method RadioGroup::new
+method RadioGroup::read_only
 method Rating::clearable
 method Rating::color
 method Rating::label
@@ -4308,8 +4356,11 @@ method ScrollView::spacing
 method Section::action
 method Section::description
 method Section::new
+method SegmentedControl::disable_option
+method SegmentedControl::disabled
 method SegmentedControl::label
 method SegmentedControl::new
+method SegmentedControl::read_only
 method SegmentedControl::with_icons
 method Select::disabled
 method Select::fill
@@ -4404,11 +4455,13 @@ method SidebarTrigger::new
 method Skeleton::block
 method Skeleton::circle
 method Skeleton::line
+method Slider::disabled
 method Slider::label
 method Slider::marks
 method Slider::neutral
 method Slider::new
 method Slider::range
+method Slider::read_only
 method Slider::show_value
 method Slider::step
 method Slider::track_colors
@@ -4630,6 +4683,7 @@ method TimeLink::new
 method TimePicker::disabled
 method TimePicker::label
 method TimePicker::new
+method TimePicker::range
 method TimePicker::read_only
 method TimePicker::step_minutes
 method TimePicker::width
@@ -4718,7 +4772,9 @@ method ToolbarAction::icon_only
 method ToolbarAction::new
 method ToolbarAction::on_click
 method ToolbarAction::style
+method Tooltip::close_delay
 method Tooltip::new
+method Tooltip::open_delay
 method Tooltip::shortcut
 method TransformHandles::aspect
 method TransformHandles::confined

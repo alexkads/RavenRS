@@ -85,8 +85,18 @@ fn parse_date(value: &Json) -> Option<Date> {
 /// What a person typed as a number, with either decimal separator; `None` while it is not one.
 pub(crate) fn parse_number(text: &str) -> Option<f64> {
     let text = text.trim();
-    // "1.234,50" is thousands and decimals; "1,5" and "1.5" are decimals.
-    let plain = if text.contains(',') { text.replace('.', "").replace(',', ".") } else { text.to_owned() };
+    // "1.234,50" is thousands and decimals; "1,5" and "1.5" are decimals. A lone separator with
+    // three digits after it separates thousands, as in a form's field: "1.000" is a thousand.
+    let lone =
+        |sep: char| text.matches(sep).count() == 1 && !text.contains(if sep == '.' { ',' } else { '.' });
+    let thousands = |sep: char| lone(sep) && text.split_once(sep).is_some_and(|(_, after)| after.len() == 3);
+    let plain = if thousands('.') || thousands(',') {
+        text.replace(['.', ','], "")
+    } else if text.contains(',') {
+        text.replace('.', "").replace(',', ".")
+    } else {
+        text.to_owned()
+    };
     plain.parse().ok().filter(|n: &f64| n.is_finite())
 }
 
@@ -224,6 +234,9 @@ mod tests {
         assert_eq!(parse_number("1.5"), Some(1.5));
         assert_eq!(parse_number("1.234,50"), Some(1234.5));
         assert_eq!(parse_number(" 10 "), Some(10.0));
+        assert_eq!(parse_number("1.000"), Some(1000.0), "a thousand, as in a form's field");
+        assert_eq!(parse_number("1,000"), Some(1000.0));
+        assert_eq!(parse_number("1.5000"), Some(1.5));
         assert_eq!(parse_number("abc"), None);
         assert_eq!(parse_number(""), None);
         assert_eq!(parse_number("inf"), None);
