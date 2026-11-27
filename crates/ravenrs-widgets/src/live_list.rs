@@ -926,6 +926,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::CalendarEvent::__live_expose_fields(registry);
     crate::CalendarEvent::__live_expose(registry);
     crate::CalendarView::__live_expose_variants(registry);
+    crate::Hemisphere::__live_expose_variants(registry);
     crate::CalendarView::__live_expose(registry);
     crate::EventCalendar::__live_expose_fields(registry);
     crate::EventCalendar::__live_expose(registry);
@@ -954,6 +955,10 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::TimelineEdit::__live_expose_variants(registry);
     crate::Timeline::__live_expose_fields(registry);
     crate::Timeline::__live_expose(registry);
+    crate::DayMark::__live_expose_fields(registry);
+    crate::DayMark::__live_expose(registry);
+    crate::YearView::__live_expose_fields(registry);
+    crate::YearView::__live_expose(registry);
     crate::PathStep::__live_expose_variants(registry);
     crate::DataInspector::__live_expose_fields(registry);
     crate::DataInspector::__live_expose(registry);
@@ -980,10 +985,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::SortableList::__live_expose(registry);
     crate::VirtualList::__live_expose_fields(registry);
     crate::VirtualList::__live_expose(registry);
-    crate::DayMark::__live_expose_fields(registry);
-    crate::DayMark::__live_expose(registry);
-    crate::YearView::__live_expose_fields(registry);
-    crate::YearView::__live_expose(registry);
     crate::TreeNode::__live_expose_fields(registry);
     crate::TreeNode::__live_expose(registry);
     crate::TreeView::__live_expose_fields(registry);

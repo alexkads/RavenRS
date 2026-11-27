@@ -157,7 +157,7 @@ RavenComponentBook writes every file of this system from the RavenRS code, and t
 | Forms | `ModelPicker` | Local AI models to download, try, use and remove | 1 |
 | Forms | `ReleaseNotes` | An app's versions and what each one brought | 1 |
 | Forms | `ScanField` | Field for a barcode scanner: keeps the focus, tells a scanner from fingers and empties after each code | 2 |
-| Forms | `EventCalendar` | A month with its events inside each day | 3 |
+| Forms | `EventCalendar` | A month with its events inside each day | 6 |
 | Forms | `RecurrenceEditor` | Edits how something repeats: how often, on which days, until when | 1 |
 | Forms | `Scheduler` | Timeline of resources: drag, resize and draw events, zoom the time axis | 4 |
 | Forms | `Timeline` | Blocks along time on named tracks | 1 |
@@ -179,7 +179,7 @@ RavenComponentBook writes every file of this system from the RavenRS code, and t
 | Navigation | `SidebarBrand` | The name of an app at the top of a sidebar | 1 |
 | Navigation | `DocumentTabs` | Tabs for open documents that close, move, rename and say what was not saved | 1 |
 | Navigation | `FileBrowser` | Folders and files from the app, with a breadcrumb, sorting and selection | 3 |
-| Navigation | `YearView` | The twelve months of a year, with marks on the days | 1 |
+| Navigation | `YearView` | The twelve months of a year, with marks on the days | 2 |
 | Navigation | `Ribbon` | Office-style command bar with tabs, groups and quick access | 1 |
 | Overlays | `CommandPalette` | Searchable list of commands, opened with Cmd/Ctrl+K | 2 |
 | Overlays | `ContextMenu` | Menu opened at the pointer on right click | 1 |

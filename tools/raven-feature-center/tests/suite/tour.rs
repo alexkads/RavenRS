@@ -2203,6 +2203,68 @@ fn menus_open_from_a_button_or_any_view_with_a_header_titled_sections_and_every_
     assert!(c.says("Tema: Escuro"), "{:?}", c.texts());
 }
 
+/// Picks a view in the switch of the calendar: "Ano" is also the name of a page.
+fn pick_view(c: &mut Center, view: &str) {
+    let id =
+        c.ui.access_tree()
+            .nodes
+            .iter()
+            .find(|n| n.role == Role::RadioButton && n.name.as_deref() == Some(view))
+            .map(|n| n.id)
+            .unwrap_or_else(|| panic!("no view {view}: {:?}", c.texts()));
+    c.ui.perform_action(id, AccessAction::Click);
+    c.settle();
+}
+
+#[test]
+fn the_event_calendar_shows_six_views_and_names_the_seasons_from_the_hemisphere() {
+    let mut c = Center::memory("ana");
+    c.press("Calendário de eventos");
+    c.settle();
+    // views, view and hemisphere: the season of the 15th of November is spring in the south.
+    assert!(c.says("Primavera de 2026"), "{:?}", c.texts());
+    c.activate("Estações do sul");
+    assert!(c.says("Outono de 2026"), "{:?}", c.texts());
+    // the agenda: the events from the 15th on, in order.
+    pick_view(&mut c, "Agenda");
+    assert!(c.says("Café com cliente"), "{:?}", c.texts());
+    // on_event: an event opens.
+    c.activate("Café com cliente");
+    assert!(c.says("Aberto o evento 2"), "{:?}", c.texts());
+    // the year, then a day of it opens the month with events, events_per_day and today.
+    pick_view(&mut c, "Ano");
+    assert!(c.says("2026"), "{:?}", c.texts());
+    // the month, with two events a day before the rest are counted, and the week and the day.
+    pick_view(&mut c, "Mês");
+    assert!(c.says("Ensaio de gestante"), "{:?}", c.texts());
+    pick_view(&mut c, "Semana");
+    assert!(c.says("Entrega de álbum"), "{:?}", c.texts());
+    // the day chosen in the agenda goes along: the 18th.
+    pick_view(&mut c, "Dia");
+    assert!(c.says("Café com cliente"), "{:?}", c.texts());
+}
+
+#[test]
+fn the_year_view_marks_days_opens_months_and_shows_a_season_without_its_header() {
+    let mut c = Center::memory("ana");
+    c.press("Ano");
+    c.settle();
+    // new, today, marks, columns and selected: a marked day says what it has.
+    let tree = c.ui.access_tree();
+    assert!(tree.nodes.iter().any(|n| n.description.as_deref() == Some("Ensaio")), "{:?}", c.texts());
+    // on_month: the name of a month is a button.
+    c.activate("março");
+    assert!(c.says("Mês aberto: 3/2026"), "{:?}", c.texts());
+    // months and header: three months from December, the year before, without arrows of their own.
+    let tree = c.ui.access_tree();
+    let calendars = tree.nodes.iter().filter(|n| n.role == Role::Calendar).count();
+    assert_eq!(calendars, 12 + 3, "{:?}", c.texts());
+    let crossing = tree
+        .nodes
+        .iter()
+        .filter(|n| n.role == Role::Calendar && n.name.as_deref().is_some_and(|name| name.contains("2025")))
+        .count();
+    assert_eq!(crossing, 1, "December says its year: {:?}", c.texts());
 #[test]
 fn tabs_switch_views_in_two_looks_and_three_sizes_and_send_what_does_not_fit_to_a_menu() {
     let mut c = Center::memory("ana");

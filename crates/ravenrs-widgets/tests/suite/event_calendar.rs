@@ -8,8 +8,8 @@ use ravenrs_core::{AccessAction, Event, Key, Modifiers, Point, PointerButton, Re
 use ravenrs_reactive::State;
 use ravenrs_style::Theme;
 use ravenrs_widgets::{
-    CalendarEvent, CalendarView, Date, EventCalendar, Frequency, Labels, Localized, RecurrenceEditor,
-    RecurrenceEnd, RecurrenceRule, TimePoint, Tone, Ui, View,
+    CalendarEvent, CalendarView, Date, EventCalendar, Frequency, Hemisphere, Labels, Localized,
+    RecurrenceEditor, RecurrenceEnd, RecurrenceRule, TimePoint, Tone, Ui, View,
 };
 
 fn date(y: i32, m: u8, d: u8) -> Date {
@@ -402,4 +402,137 @@ fn a_month_still_shows_timed_events_on_their_days_in_order() {
     ui.update();
     let day = node_description(&mut ui, "19 November 2026").expect("a description");
     assert_eq!(day, "Culto, Ensaio");
+}
+
+#[test]
+fn a_season_starts_on_the_first_of_december_march_june_or_september_for_every_month() {
+    for month in 1..=12_u8 {
+        let (first, last) = CalendarView::Season.range(date(2026, month, 15));
+        let start = match month {
+            1 | 2 => date(2025, 12, 1),
+            12 => date(2026, 12, 1),
+            3..=5 => date(2026, 3, 1),
+            6..=8 => date(2026, 6, 1),
+            _ => date(2026, 9, 1),
+        };
+        assert_eq!(first, start, "the season of {month}/2026");
+        assert_eq!(last, start.add_months(3).add_days(-1), "three whole months");
+    }
+}
+
+struct Six {
+    month: State<Date>,
+    day: State<Option<Date>>,
+    view: State<CalendarView>,
+}
+
+fn six(view: CalendarView) -> (Ui, Six) {
+    let today = date(2026, 11, 15);
+    let f = Six { month: State::new(today), day: State::new(None), view: State::new(view) };
+    let at = |d: u8, hour: u32| TimePoint::at(date(2026, 11, d), hour, 0);
+    let calendar = EventCalendar::new(f.month.binding(), f.day.binding())
+        .today(today)
+        .views(CalendarView::ALL)
+        .view(f.view.binding())
+        .events([
+            CalendarEvent::new(1, date(2026, 11, 10), "Earlier"),
+            CalendarEvent::timed(2, at(20, 14), at(20, 15), "Meeting"),
+            CalendarEvent::timed(3, at(20, 9), at(20, 10), "Coffee"),
+            CalendarEvent::new(4, date(2026, 11, 18), "Review").tone(Tone::Warning),
+            CalendarEvent::new(5, date(2026, 12, 20), "Later"),
+            CalendarEvent::new(6, date(2026, 3, 8), "Wedding"),
+            CalendarEvent::new(7, date(2026, 3, 8), "Party"),
+        ]);
+    (ui_of(calendar), f)
+}
+
+#[test]
+fn the_arrows_move_a_whole_period_in_each_new_view_and_the_title_follows() {
+    let labels = Labels::default();
+    for (view, next, to, before, after) in [
+        (CalendarView::Agenda, labels.calendar_next.clone(), date(2026, 12, 15), "", ""),
+        (CalendarView::Year, labels.next_year.clone(), date(2027, 1, 1), "2026", "2027"),
+        (CalendarView::Season, labels.calendar_next.clone(), date(2026, 12, 1), "Spring 2026", "Summer 2027"),
+    ] {
+        let (mut ui, f) = six(view);
+        assert!(says(&mut ui, before), "{view:?}: {before}");
+        press(&mut ui, Role::Button, &next);
+        assert_eq!(f.month.get(), to, "{view:?}: one period on");
+        assert!(says(&mut ui, after), "{view:?}: {after}");
+    }
+}
+
+#[test]
+fn the_seasons_are_named_from_the_hemisphere() {
+    let month = State::new(date(2026, 7, 1));
+    let view = State::new(CalendarView::Season);
+    let north = EventCalendar::new(month.binding(), State::new(None).binding())
+        .views(CalendarView::ALL)
+        .view(view.binding())
+        .hemisphere(Hemisphere::Northern);
+    let mut ui = ui_of(north);
+    assert!(says(&mut ui, "Summer 2026"), "July is summer up north");
+    let mut south = ui_of(
+        EventCalendar::new(month.binding(), State::new(None).binding())
+            .views(CalendarView::ALL)
+            .view(view.binding()),
+    );
+    assert!(says(&mut south, "Winter 2026"), "and winter down south");
+}
+
+#[test]
+fn the_agenda_lists_the_events_from_the_day_on_by_date_and_time() {
+    let (mut ui, _f) = six(CalendarView::Agenda);
+    let tree = ui.access_tree();
+    let mut shown: Vec<(f32, String)> = tree
+        .nodes
+        .iter()
+        .filter(|n| n.role == Role::Button)
+        .filter_map(|n| n.name.clone().map(|name| (n.bounds.y(), name)))
+        .filter(|(_, name)| ["Earlier", "Meeting", "Coffee", "Review", "Later"].contains(&name.as_str()))
+        .collect();
+    shown.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let names: Vec<&str> = shown.iter().map(|(_, name)| name.as_str()).collect();
+    assert_eq!(names, ["Review", "Coffee", "Meeting"], "from the 15th for a month, by day and hour");
+    let empty = State::new(date(2027, 5, 1));
+    let mut nothing = ui_of(
+        EventCalendar::new(empty.binding(), State::new(None).binding())
+            .views(CalendarView::ALL)
+            .view(State::new(CalendarView::Agenda).binding()),
+    );
+    assert!(says(&mut nothing, &Labels::default().calendar_agenda_empty));
+}
+
+#[test]
+fn a_day_of_the_year_says_how_many_events_it_has_and_opens_its_month() {
+    let (mut ui, f) = six(CalendarView::Year);
+    let labels = Labels::default();
+    let wedding = labels.long_date(date(2026, 3, 8));
+    assert_eq!(node_description(&mut ui, &wedding).as_deref(), Some("2 events"));
+    assert_eq!(
+        node_description(&mut ui, &labels.long_date(date(2026, 11, 18))).as_deref(),
+        Some("1 event"),
+        "one is said as one"
+    );
+    press(&mut ui, Role::Button, &wedding);
+    assert_eq!(f.view.get(), CalendarView::Month, "the month opens");
+    assert_eq!(f.month.get(), date(2026, 3, 1));
+    assert_eq!(f.day.get(), Some(date(2026, 3, 8)), "with the day chosen");
+}
+
+#[test]
+fn a_calendar_without_the_new_views_offers_the_month_the_week_and_the_day() {
+    let (mut ui, _f) = calendar();
+    let names: Vec<String> = ui.access_tree().nodes.iter().filter_map(|n| n.name.clone()).collect();
+    assert!(!names.iter().any(|n| n == "Agenda" || n == "Year" || n == "Season"), "{names:?}");
+    let view = State::new(CalendarView::Month);
+    let mut offered = ui_of(
+        EventCalendar::new(State::new(date(2026, 11, 1)).binding(), State::new(None).binding())
+            .view(view.binding()),
+    );
+    let names: Vec<String> = offered.access_tree().nodes.iter().filter_map(|n| n.name.clone()).collect();
+    for name in ["Month", "Week", "Day"] {
+        assert!(names.iter().any(|n| n == name), "{name}: {names:?}");
+    }
+    assert!(!names.iter().any(|n| n == "Season"), "{names:?}");
 }

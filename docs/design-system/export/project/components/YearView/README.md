@@ -9,10 +9,13 @@ The twelve months of a year, with marks on the days.
 | Setting | Control | Default | What it does |
 |---|---|---|---|
 | `year` | number 2000–2050 by 1 | `2026` | How the example starts. |
+| `months` | number 0–12 by 1 | `0` | How many months from December 2025; 0 shows the year. |
+| `header` | on/off | `true` | The year and its arrows above the months. |
 
 ## Stories
 
-- **Example**: 622 × 888 pt, settings `{"year":2026.0}`
+- **Example**: 622 × 888 pt, settings `{"header":true,"months":0.0,"year":2026.0}`
+- **A season, no header**: 622 × 182 pt, settings `{"header":false,"months":3.0,"year":2026.0}`
 
 ## Sizing
 
@@ -53,7 +56,7 @@ Measured from what RavenRS paints, in points. Colors are tokens; `token@N` is th
 
 ## API
 
-Builder methods: `columns`, `marks`, `new`, `on_month`, `on_pick`, `selected`, `today`.
+Builder methods: `columns`, `header`, `marks`, `months`, `new`, `on_month`, `on_pick`, `selected`, `today`.
 
 ## Example
 

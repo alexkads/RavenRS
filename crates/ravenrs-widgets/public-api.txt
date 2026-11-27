@@ -44,6 +44,7 @@ enum FlowChange
 enum Frequency
 enum GridExportFormat
 enum GridTableKind
+enum Hemisphere
 enum HistogramScale
 enum IconName
 enum JackFlow
@@ -225,10 +226,13 @@ field Labels::audio_stop
 field Labels::audio_transcribe
 field Labels::audio_transcribing
 field Labels::audio_transcript
+field Labels::calendar_agenda_empty
 field Labels::calendar_all_day
+field Labels::calendar_events
 field Labels::calendar_more
 field Labels::calendar_new_event
 field Labels::calendar_next
+field Labels::calendar_one_event
 field Labels::calendar_previous
 field Labels::calendar_view_name
 field Labels::calendar_views
@@ -753,6 +757,8 @@ field Labels::scroll_back
 field Labels::scroll_forward
 field Labels::search
 field Labels::search_commands
+field Labels::season_title
+field Labels::seasons
 field Labels::select
 field Labels::selection_bar
 field Labels::selection_exit
@@ -1143,6 +1149,7 @@ impl Clone for GridTable
 impl Clone for GridTableColumn
 impl Clone for GridTableKind
 impl Clone for HelpTip
+impl Clone for Hemisphere
 impl Clone for Histogram
 impl Clone for HistogramChannel
 impl Clone for HistogramScale
@@ -1523,6 +1530,7 @@ impl Copy for FlowViewport
 impl Copy for Frequency
 impl Copy for GridCellStyle
 impl Copy for GridExportFormat
+impl Copy for Hemisphere
 impl Copy for HistogramScale
 impl Copy for HueSaturation
 impl Copy for Icon
@@ -1752,6 +1760,7 @@ impl Debug for GridTableColumn
 impl Debug for GridTableKind
 impl Debug for HStack
 impl Debug for HelpTip
+impl Debug for Hemisphere
 impl Debug for HeroBanner
 impl Debug for Histogram
 impl Debug for HistogramChannel
@@ -2074,6 +2083,7 @@ impl Default for GridCellStyle
 impl Default for GridCurrent
 impl Default for GridLayout
 impl Default for GridPage
+impl Default for Hemisphere
 impl Default for HistogramScale
 impl Default for HueSaturation
 impl Default for KeyBar
@@ -2217,6 +2227,7 @@ impl Eq for FlowSelection
 impl Eq for Frequency
 impl Eq for GridCellStyle
 impl Eq for GridExportFormat
+impl Eq for Hemisphere
 impl Eq for HistogramScale
 impl Eq for Hotkey
 impl Eq for IconName
@@ -2284,6 +2295,7 @@ impl Hash for DockEdge
 impl Hash for DockSide
 impl Hash for Frequency
 impl Hash for GridExportFormat
+impl Hash for Hemisphere
 impl Hash for Hotkey
 impl Hash for IconName
 impl Hash for NodeId
@@ -2378,6 +2390,7 @@ impl PartialEq for GridScenario
 impl PartialEq for GridTable
 impl PartialEq for GridTableColumn
 impl PartialEq for GridTableKind
+impl PartialEq for Hemisphere
 impl PartialEq for HistogramChannel
 impl PartialEq for HistogramScale
 impl PartialEq for Hotkey
@@ -3429,6 +3442,7 @@ method EmptyState::icon
 method EmptyState::new
 method EventCalendar::events
 method EventCalendar::events_per_day
+method EventCalendar::hemisphere
 method EventCalendar::hours
 method EventCalendar::new
 method EventCalendar::on_create
@@ -3436,6 +3450,7 @@ method EventCalendar::on_event
 method EventCalendar::on_move
 method EventCalendar::today
 method EventCalendar::view
+method EventCalendar::views
 method ExpressionEditor::field
 method ExpressionEditor::fields
 method ExpressionEditor::new
@@ -3820,6 +3835,7 @@ method Label::ink
 method Label::new
 method Label::required
 method Label::text
+method Labels::calendar_events
 method Labels::dock_auto_hide_name
 method Labels::dock_close_name
 method Labels::dock_closed_name
@@ -3852,6 +3868,7 @@ method Labels::pt_br
 method Labels::rating_value
 method Labels::recurrence_summary
 method Labels::recurrence_unit
+method Labels::season_title
 method Labels::short_date
 method Labels::split_collapse
 method Labels::split_expand
@@ -4819,7 +4836,9 @@ method WizardStep::check
 method WizardStep::failed
 method WizardStep::new
 method YearView::columns
+method YearView::header
 method YearView::marks
+method YearView::months
 method YearView::new
 method YearView::on_month
 method YearView::on_pick
@@ -5511,9 +5530,12 @@ variant CableSide::Center
 variant CableSide::Left
 variant CableSide::Right
 variant CableSide::Top
+variant CalendarView::Agenda
 variant CalendarView::Day
 variant CalendarView::Month
+variant CalendarView::Season
 variant CalendarView::Week
+variant CalendarView::Year
 variant CellAlign::Center
 variant CellAlign::End
 variant CellAlign::Start
@@ -5630,6 +5652,8 @@ variant GridTableKind::Boolean
 variant GridTableKind::Date
 variant GridTableKind::Number
 variant GridTableKind::Text
+variant Hemisphere::Northern
+variant Hemisphere::Southern
 variant HistogramScale::Linear
 variant HistogramScale::Logarithmic
 variant IconName::Activity

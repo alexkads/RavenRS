@@ -11,7 +11,6 @@ mod paged;
 mod selection;
 mod sortable;
 mod virtual_list;
-mod year_view;
 
 pub use document_tabs::{DocumentTab, DocumentTabs};
 pub use file_browser::{FileBrowser, FileEntry, FileSort, FileSortColumn};
@@ -20,4 +19,3 @@ pub use log_view::{LogBuffer, LogView};
 pub use paged::PagedDocumentView;
 pub use sortable::SortableList;
 pub use virtual_list::VirtualList;
-pub use year_view::{DayMark, YearView};

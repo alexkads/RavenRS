@@ -157,6 +157,8 @@ demonstrations! {
     lista => "Lista",
     abas => "Abas",
     agenda_por_recurso => "Agenda por recurso",
+    ano => "Ano",
+    calendario_de_eventos => "Calendário de eventos",
 }
 
 #[test]

@@ -587,7 +587,19 @@ pub struct Labels {
     /// After the count of events an `EventCalendar` day has no room for.
     pub calendar_more: String,
     /// Month, week and day, as an `EventCalendar` offers its views.
-    pub calendar_views: [String; 3],
+    pub calendar_views: [String; 6],
+    /// The seasons, from the one that starts in December as the south calls it: summer,
+    /// autumn, winter, spring.
+    pub seasons: [String; 4],
+    /// A season with its year; `{0}` is the season, `{1}` the year. [`Labels::season_title`]
+    /// fills it in.
+    pub season_title: String,
+    /// What the agenda of an `EventCalendar` says when nothing falls in it.
+    pub calendar_agenda_empty: String,
+    /// A day with one event, for screen readers.
+    pub calendar_one_event: String,
+    /// A day with more events; `{0}` is how many. [`Labels::calendar_events`] picks.
+    pub calendar_events: String,
     /// The name of an `EventCalendar`'s choice of view.
     pub calendar_view_name: String,
     /// An `EventCalendar`'s back button, by week or by day.
@@ -1557,6 +1569,11 @@ impl Labels {
             step_down: texts.get("widgets.step_down"),
             calendar_more: texts.get("widgets.calendar_more"),
             calendar_views: texts.array("widgets.calendar_views"),
+            seasons: texts.array("widgets.seasons"),
+            season_title: texts.get("widgets.season_title"),
+            calendar_agenda_empty: texts.get("widgets.calendar_agenda_empty"),
+            calendar_one_event: texts.get("widgets.calendar_one_event"),
+            calendar_events: texts.get("widgets.calendar_events"),
             calendar_view_name: texts.get("widgets.calendar_view_name"),
             calendar_previous: texts.get("widgets.calendar_previous"),
             calendar_next: texts.get("widgets.calendar_next"),
@@ -1962,6 +1979,20 @@ impl Labels {
     /// What a `TagBox` option says when it adds `typed`.
     pub fn tag_add(&self, typed: &str) -> String {
         ravenrs_app_i18n::format(&self.tag_add, &[typed])
+    }
+
+    /// A season with the year most of it is in.
+    pub fn season_title(&self, season: &str, year: i32) -> String {
+        ravenrs_app_i18n::format(&self.season_title, &[season, &year.to_string()])
+    }
+
+    /// How many events a day has, for screen readers: "1 event", "3 events".
+    pub fn calendar_events(&self, count: usize) -> String {
+        if count == 1 {
+            self.calendar_one_event.clone()
+        } else {
+            ravenrs_app_i18n::format(&self.calendar_events, &[&count.to_string()])
+        }
     }
 
     /// The arrow that folds the pane called `pane`.
