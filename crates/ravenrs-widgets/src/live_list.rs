@@ -987,6 +987,10 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::LogView::__live_expose(registry);
     crate::PagedDocumentView::__live_expose_fields(registry);
     crate::PagedDocumentView::__live_expose(registry);
+    crate::Chronology::__live_expose_fields(registry);
+    crate::Chronology::__live_expose(registry);
+    crate::ChronologyItem::__live_expose_fields(registry);
+    crate::ChronologyItem::__live_expose(registry);
     crate::SortableList::__live_expose_fields(registry);
     crate::SortableList::__live_expose(registry);
     crate::VirtualList::__live_expose_fields(registry);
@@ -1232,6 +1236,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::SidebarTrigger>(registry);
     crate::live::view::<crate::Skeleton>(registry);
     crate::live::view::<crate::Slider>(registry);
+    crate::live::view::<crate::Chronology>(registry);
     crate::live::view::<crate::SortableList>(registry);
     crate::live::view::<crate::Spacer>(registry);
     crate::live::view::<crate::Spinner>(registry);

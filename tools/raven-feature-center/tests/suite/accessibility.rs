@@ -102,6 +102,7 @@ demonstrations! {
     faixa_de_opcoes => "Faixa de opções",
     formulario_de_parametros => "Formulário de parâmetros",
     editor_de_expressoes => "Editor de expressões",
+    cronologia => "Cronologia",
     inspetor_de_dados => "Inspetor de dados",
     log_de_build => "Log de build",
     regras => "Regras",

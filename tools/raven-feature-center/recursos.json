@@ -248,5 +248,6 @@
 {"crate": "ravenrs-widgets-scheduler", "tipo": "Scheduler", "pagina": "Agenda por recurso", "recursos": ["avatars", "can_drop", "card", "compact", "event_detail", "event_menu", "events", "fill_rows", "lane_menu", "legend", "new", "now", "on_change", "on_create", "on_delete", "on_open", "ranges", "read_only", "resource_width", "resources", "resources_title", "selection", "toolbar"]},
 {"crate": "ravenrs-widgets-scheduler", "tipo": "Timeline", "pendente": true, "issue": 579, "conhecidos": ["heads_width", "markers", "new", "on_edit", "on_seek", "on_select", "pixels_per_second", "position_ms", "total_height"]},
 {"crate": "ravenrs-widgets-kit", "tipo": "ParameterForm", "pagina": "Formulário de parâmetros", "recursos": ["live", "new", "on_apply", "on_discard", "on_load", "options"]},
+{"crate": "ravenrs-widgets-lists", "tipo": "Chronology", "pagina": "Cronologia", "recursos": ["label", "new", "on_open"]},
 {"crate": "ravenrs-widgets-lists", "tipo": "DataInspector", "pagina": "Inspetor de dados", "recursos": ["item", "label", "limit", "mode", "new", "of", "on_pick", "selected"]}
 ]}

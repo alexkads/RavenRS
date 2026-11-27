@@ -2576,3 +2576,30 @@ fn a_record_reads_each_field_in_its_type_and_changes_by_field() {
     c.press("Recomeçar");
     assert!(c.says("Parcelas (integer): 3"), "{:?}", c.texts());
 }
+
+#[test]
+fn a_chronology_shows_the_milestones_in_order_and_opens_one() {
+    let mut c = Center::memory("ana");
+    c.press("Cronologia");
+    c.settle();
+    // Chronology::new, label; ChronologyItem::new, detail, badge and tone.
+    let tree = c.ui.access_tree();
+    assert!(tree.find(Role::List, "Marcos de Lucas Oliveira").is_some(), "{:?}", c.texts());
+    let items: Vec<(String, String)> = tree
+        .nodes
+        .iter()
+        .filter(|n| n.role == Role::ListItem)
+        .filter_map(|n| Some((n.name.clone()?, n.description.clone().unwrap_or_default())))
+        .collect();
+    let titles: Vec<&str> = items.iter().map(|(t, _)| t.as_str()).collect();
+    assert_eq!(
+        titles,
+        ["Batismo", "Membro ativo", "Afastamento", "Transferência recusada", "Visita marcada"]
+    );
+    assert_eq!(items[1].1, "10/08/2025 · Aprovado pela assembleia · Aprovado");
+    // on_open, by a click.
+    let id = c.ui.access_tree().find(Role::ListItem, "Afastamento").map(|n| n.id).expect("there");
+    c.ui.perform_action(id, AccessAction::Click);
+    c.settle();
+    assert!(c.says("Aberto: Afastamento"), "{:?}", c.texts());
+}
