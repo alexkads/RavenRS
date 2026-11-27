@@ -69,6 +69,44 @@ fn nested_groups_close_inner_levels_first() {
 }
 
 #[test]
+fn group_index_counts_the_groups_beside_each_other_and_starts_again_inside_each_outer_one() {
+    let report = Report::new("r")
+        .culture("pt-BR")
+        .group(
+            Group::new("[Region]")
+                .header(Band::new(20.0).control(field("'R' + ToStr(GroupIndex()) + ' ' + [Region]"))),
+        )
+        .group(
+            Group::new("[City]")
+                .header(Band::new(20.0).control(field("'  C' + ToStr(GroupIndex()) + ' ' + [City]")))
+                .footer(Band::new(20.0).control(field("'  /C' + ToStr(GroupIndex())"))),
+        )
+        .detail(
+            Band::new(20.0)
+                .control(field("'    ' + ToStr(GroupIndex()) + ' ' + GetDisplayText([Amount] * 1000.5)")),
+        );
+    let doc = render(&report, &sales());
+    assert_eq!(
+        doc.page_text(0),
+        [
+            "R0 Norte",
+            "  C0 Manaus",
+            "    0 5002,5",
+            "  /C0",
+            "R1 Sul",
+            "  C0 Curitiba",
+            "    0 10005",
+            "    0 1000,5",
+            "  /C0",
+            "  C1 Porto Alegre",
+            "    1 20010",
+            "  /C1",
+        ]
+    );
+    assert!(doc.errors.is_empty(), "{:?}", doc.errors);
+}
+
+#[test]
 fn descending_groups_and_filters_with_parameters() {
     let report = Report::new("r")
         .parameter("Min", ParameterKind::Number, json!(5))

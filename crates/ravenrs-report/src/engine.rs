@@ -366,6 +366,8 @@ impl<'r> Run<'r> {
         };
         let mut ends = vec![0usize; levels];
         let mut first_group = vec![true; levels];
+        // For each level, the position of the open group among those inside the same outer one.
+        let mut index: Vec<Option<usize>> = vec![None; levels];
         for (i, row) in rows.iter().enumerate() {
             // Open groups that start at this row, outermost first.
             for level in 0..levels {
@@ -375,10 +377,14 @@ impl<'r> Run<'r> {
                 }
                 starts[level] = i;
                 ends[level] = group_end(level, i);
+                index[level] = Some(index[level].map_or(0, |n| n + 1));
+                for inner in index.iter_mut().skip(level + 1) {
+                    *inner = None;
+                }
                 let g = &report.groups[level];
                 if let Some(header) = &g.header {
                     let scope = &rows[i..ends[level]];
-                    let ctx = self.ctx(Some(row), scope, Some(0));
+                    let ctx = self.ctx(Some(row), scope, Some(0)).group_index(index[level]);
                     if let Some(mut b) = self.band(engine, header, &ctx, width, None) {
                         b.header_level = Some(level);
                         b.break_before |= g.page_break_before && !first_group[level];
@@ -404,7 +410,7 @@ impl<'r> Run<'r> {
                 0 => (rows, i),
                 n => (&rows[starts[n - 1]..ends[n - 1]], i - starts[n - 1]),
             };
-            let ctx = self.ctx(Some(row), scope, Some(position));
+            let ctx = self.ctx(Some(row), scope, Some(position)).group_index(index.last().copied().flatten());
             let detail_width = report.columns.map_or(width, |columns| columns.width_in(width));
             if let Some(mut b) = self.band(engine, &report.detail, &ctx, detail_width, Some(i % 2 == 0)) {
                 b.row = Some(i);
@@ -420,7 +426,7 @@ impl<'r> Run<'r> {
                 }
                 if let Some(footer) = &report.groups[level].footer {
                     let scope = &rows[starts[level]..ends[level]];
-                    let ctx = self.ctx(Some(row), scope, None);
+                    let ctx = self.ctx(Some(row), scope, None).group_index(index[level]);
                     if let Some(b) = self.band(engine, footer, &ctx, width, None) {
                         out.push(b);
                     }

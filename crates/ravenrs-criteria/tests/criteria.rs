@@ -216,6 +216,7 @@ fn aggregates_over_the_scope() {
     assert_eq!(at(0, "PrevRowColumnValue([Region])"), Value::Null);
     assert_eq!(at(3, "NextRowColumnValue([Region])"), Value::Null);
     assert_eq!(at(2, "CurrentRowIndexInGroup()"), n(2.0));
+    assert_eq!(at(2, "GroupIndex()"), Value::Null, "no group around a plain list");
 }
 
 #[test]
