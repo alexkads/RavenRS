@@ -9,10 +9,14 @@ Any number of panes with a bar between each two, and limits.
 | Setting | Control | Default | What it does |
 |---|---|---|---|
 | `height` | number 0–760 by 1 | `190` |  |
+| `collapsible` | on/off | `false` | Sessions and Activity fold to their edge with an arrow on the bar. |
+| `collapsed` | on/off | `false` | Sessions folded, a strip with the arrow back. |
 
 ## Stories
 
-- **Example**: 728 × 190 pt, settings `{"height":190.0}`
+- **Example**: 728 × 190 pt, settings `{"collapsed":false,"collapsible":false,"height":190.0}`
+- **Collapsible sides**: 728 × 190 pt, settings `{"collapsed":false,"collapsible":true,"height":190.0}`
+- **Collapsed**: 728 × 190 pt, settings `{"collapsed":true,"collapsible":false,"height":190.0}`
 
 ## Sizing
 
@@ -41,6 +45,8 @@ Measured from what RavenRS paints, in points. Colors are tokens; `token@N` is th
 |---|---|---|---|---|---|---|---|---|
 | Example | Label "Sessions" | 148.0 × 22.0 | — | — | — | Inter 400 15.0px ink | — | 0.0 |
 | Example | Slider "Resize" | 10.0 × 190.0 | — | — | — | — | — | — |
+| Collapsible sides | Button "Collapse Sessions" | 16.0 × 32.0 | radius-sm | bg-100 | 1.0 border | — | chevron-left 12.0px ink-muted | 2.0 |
+| Collapsible sides | Button "Collapse Activity" | 16.0 × 32.0 | radius-sm | bg-100 | 1.0 border | — | chevron-right 12.0px ink-muted | 2.0 |
 
 ## API
 

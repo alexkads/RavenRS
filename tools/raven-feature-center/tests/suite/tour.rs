@@ -2204,6 +2204,49 @@ fn menus_open_from_a_button_or_any_view_with_a_header_titled_sections_and_every_
 }
 
 #[test]
+fn split_panes_fold_a_side_keep_their_sizes_and_hide_a_pane() {
+    let mut c = Center::memory("ana");
+    c.press("Painéis divididos");
+    c.settle();
+    // horizontal, pane, size, range, label and collapsed: the first column folds by its arrow.
+    assert!(c.says("Sessões: aberta"), "{:?}", c.texts());
+    assert!(c.says("Larguras guardadas: 220, o resto, 220"), "{:?}", c.texts());
+    c.activate("Recolher Sessões");
+    c.settle();
+    assert!(c.says("Sessões: recolhida"), "{:?}", c.texts());
+    assert!(c.ui.access_tree().find(Role::Button, "Mostrar Sessões").is_some(), "{:?}", c.texts());
+    c.activate("Mostrar Sessões");
+    c.settle();
+    assert!(c.says("Sessões: aberta"), "{:?}", c.texts());
+    // collapsible: the last column folds with its own arrow, kept by the pane.
+    c.activate("Recolher Movimento");
+    c.settle();
+    assert!(c.ui.access_tree().find(Role::Button, "Mostrar Movimento").is_some(), "{:?}", c.texts());
+    c.activate("Mostrar Movimento");
+    c.settle();
+    // sizes and on_end: a key on the first bar writes the width the app keeps, and asks to save.
+    let bar =
+        c.ui.access_tree()
+            .nodes
+            .iter()
+            .find(|n| n.role == Role::Slider && n.name.as_deref() == Some("Redimensionar"))
+            .map(|n| n.id)
+            .expect("the first bar");
+    c.ui.perform_action(bar, AccessAction::Increment);
+    c.settle();
+    assert!(c.says("Tamanhos salvos: 1"), "{:?}", c.texts());
+    assert!(!c.says("Larguras guardadas: 220, o resto, 220"), "{:?}", c.texts());
+    // vertical, height and visible: the lower pane goes and comes back.
+    assert!(c.says("Detalhes"), "{:?}", c.texts());
+    c.activate("Esconder detalhes");
+    c.settle();
+    assert!(!c.says("Detalhes"), "{:?}", c.texts());
+    c.activate("Mostrar detalhes");
+    c.settle();
+    assert!(c.says("Detalhes"), "{:?}", c.texts());
+}
+
+#[test]
 fn monospaced_text_lines_up_the_lines_of_a_receipt() {
     let mut c = Center::memory("ana");
     c.press("Texto");
