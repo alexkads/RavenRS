@@ -2773,6 +2773,9 @@ impl View for ZStack
 impl View for ZoomControl
 impl View for ZoomPanView
 impl View for grid::DataGrid
+impl ViewSeq for HStack
+impl ViewSeq for VStack
+impl ViewSeq for ZStack
 item AnchorPoint::ALL
 item BoxHandle::ALL
 item CalendarView::ALL

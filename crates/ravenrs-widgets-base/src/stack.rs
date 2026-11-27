@@ -100,6 +100,14 @@ macro_rules! stack {
                 cx.container(self.style, &children, Paint::None)
             }
         }
+
+        /// A stack on its own is a sequence of one, so it can be the only child of a container:
+        /// `ScrollView::new(VStack::new(…))`.
+        impl<C: ViewSeq> ViewSeq for $name<C> {
+            fn build_each(&self, cx: &mut BuildCx<'_>, out: &mut Vec<NodeId>) {
+                out.push(cx.child(self));
+            }
+        }
     };
 }
 
@@ -172,6 +180,13 @@ impl View for ZLayer<'_> {
             &[inner],
             Paint::None,
         )
+    }
+}
+
+/// A stack on its own is a sequence of one, as [`VStack`] and [`HStack`] are.
+impl<C: ViewSeq> ViewSeq for ZStack<C> {
+    fn build_each(&self, cx: &mut BuildCx<'_>, out: &mut Vec<NodeId>) {
+        out.push(cx.child(self));
     }
 }
 

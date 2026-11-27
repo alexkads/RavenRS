@@ -315,6 +315,26 @@ impl<C> LayoutTree<C> {
                 }
             }
         }
+        // A stack in a column takes no more than the column's width, as a block does in a browser:
+        // a row's children shrink and its text wraps, where Taffy would let the row run as wide as
+        // all its content (it sums the children's widths and does not hold to the space it has).
+        // Only an ordinary column does this; a grid or a scroll keeps its own rules, a box with a
+        // width of its own keeps it, and a column of no definite width leaves the percentage
+        // unresolved, so nothing changes there.
+        if style.axis == Some(Axis::Vertical) && style.grid_columns.is_none() && !style.overflow_hidden {
+            for &child in children {
+                let own = self.taffy.style(child)?;
+                let stack = own.display == taffy::Display::Flex
+                    && own.position != taffy::Position::Absolute
+                    && own.size.width == Dimension::auto()
+                    && own.max_size.width == LengthPercentageAuto::auto();
+                if stack {
+                    let mut own = own.clone();
+                    own.max_size.width = LengthPercentageAuto::percent(1.0);
+                    self.taffy.set_style(child, own)?;
+                }
+            }
+        }
         let id = self.taffy.new_with_children(style.to_taffy(), children)?;
         if style.align_self == Some(Align::Fit) {
             self.fit.insert(id);
@@ -531,5 +551,39 @@ mod tests {
         .unwrap();
         assert_eq!(tree.frame(text).unwrap().size, Size::new(120.0, 30.0));
         assert_eq!(*tree.context_mut(text).unwrap(), 300.0);
+    }
+
+    #[test]
+    fn a_row_in_a_column_holds_to_its_width_and_its_text_wraps() {
+        // A 2000px "text" that wraps to the width it gets, beside a 20px icon, in a row inside a
+        // column of 600: the text ends inside the column.
+        let mut tree = LayoutTree::<f32>::new();
+        let icon = tree
+            .measured_leaf(LayoutStyle { width: Some(20.0), height: Some(20.0), ..LayoutStyle::leaf() }, 20.0)
+            .unwrap();
+        let text = tree.measured_leaf(LayoutStyle::leaf(), 2000.0).unwrap();
+        let body = tree
+            .node(
+                LayoutStyle { grow: 1.0, min_width: Some(0.0), ..LayoutStyle::stack(Axis::Vertical) },
+                &[text],
+            )
+            .unwrap();
+        let row = tree
+            .node(LayoutStyle { spacing: 8.0, ..LayoutStyle::stack(Axis::Horizontal) }, &[icon, body])
+            .unwrap();
+        let column = tree
+            .node(LayoutStyle { width: Some(600.0), ..LayoutStyle::stack(Axis::Vertical) }, &[row])
+            .unwrap();
+        tree.compute(column, Size::new(800.0, 800.0), |natural, input| {
+            let limit = input.known_width.or(input.available_width.limit()).unwrap_or(*natural);
+            let width = natural.min(limit.max(1.0));
+            Size::new(width, (*natural / width.max(1.0)).ceil() * 10.0)
+        })
+        .unwrap();
+        let row_frame = tree.frame(row).unwrap();
+        assert_eq!(row_frame.width(), 600.0, "the row holds to the column: {row_frame:?}");
+        let text_frame = tree.frame(text).unwrap();
+        assert_eq!(text_frame.width(), 572.0, "the text takes what is left beside the icon");
+        assert!(text_frame.height() > 10.0, "and wraps: {text_frame:?}");
     }
 }

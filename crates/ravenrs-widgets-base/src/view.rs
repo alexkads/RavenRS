@@ -174,8 +174,14 @@ where
     }
 }
 
-/// An ordered collection of child views: tuples of up to 12 views, `Vec<V>`
-/// and `Vec<AnyView>`.
+/// An ordered collection of child views: tuples of up to 12 views, `Vec<V>`, `Vec<AnyView>`, and a
+/// stack on its own (`VStack`, `HStack`, `ZStack`), so `ScrollView::new(VStack::new(…))` works as
+/// `ScrollView::new((VStack::new(…),))` does.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a view nor a sequence of views",
+    label = "a container takes a tuple of views such as `(a, b)`, a `Vec` of them, or a stack",
+    note = "a single child goes in a tuple of one, `ScrollView::new((child,))`; a `VStack`, `HStack` or `ZStack` can also go as it is"
+)]
 pub trait ViewSeq {
     /// Builds each child in order and appends its node to `out`.
     fn build_each(&self, cx: &mut BuildCx<'_>, out: &mut Vec<NodeId>);

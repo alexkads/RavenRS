@@ -254,6 +254,12 @@ impl View for Pill {
 
 `cx.use_state` gives a view instance its own state (open/closed, scroll position), `cx.overlay` opens a floating layer, `cx.wake_at` schedules a rebuild (animations, timers) and `cx.shortcut` registers app-wide keys.
 
+### Three layout habits
+
+- A container takes a tuple of views, `(a, b)`, a `Vec` of them, or one stack on its own: `ScrollView::new(VStack::new(…))` works. Any other single child goes in a tuple of one: `ScrollView::new((Text::new("…"),))`. The compiler's message says so when it is missing.
+- A stack in a column holds to the column's width, as a block does in a browser: a paragraph beside an icon, `HStack::new((Icon::new(IconName::Info), VStack::new((Text::new(long),)).grow(1.0)))`, wraps inside its `Card`.
+- A `FlowCanvas` with no height of its own keeps at least 240 points, even in a column that gives it none. For more, give it `.height()` or `.size()`, or put it in a parent with a height and `.grow()`.
+
 ## 5. Themes
 
 Pick a theme when you start the app, or switch at runtime:
