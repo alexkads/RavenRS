@@ -56,7 +56,7 @@ fn main() -> Result<(), ravenrs::native::PlatformError> {
 }
 ```
 
-That is the whole application: navigation, a list with search, filters and export to Excel, PDF and CSV, a form, and New, Save, Save and close, Save and new, Cancel, Delete, Refresh, Back, Previous and Next. [`examples/quick-app`](../examples/quick-app) is this with a second record and a reference between them, in under 100 lines, in a window with `cargo run -p quick-app` and in the browser with `scripts/build-web.sh quick-app`.
+That is the whole application: navigation, a list with search, filters and export to Excel, PDF and CSV, a form, and New, Save, Save and close, Save and new, Cancel, Delete, Refresh, Back, Previous and Next. [`examples/quick-app`](../examples/quick-app) is this with a second record and a reference between them, in under 100 lines, in a window with `cargo run -p quick-app` and in the browser with `cargo xtask web quick-app`.
 
 Records live in memory for now, so they are gone when the application closes. `seed` puts some in when it opens. A wrong attribute is a compile error that points at it.
 
@@ -504,7 +504,7 @@ Limits to know:
 - `TIMESTAMPTZ` comes in UTC, with no time zone of its own, since `DateTime` has none.
 - Reading entities from a schema, and keeping the model and attachments in the database, are only in SQLite for now.
 
-Its tests run when `RAVENRS_POSTGRES_URL` says where a database is, and otherwise have nothing to run against: `scripts/check.sh` does not start one. `RAVENRS_POSTGRES_STATEMENTS=unprepared` runs them all with statements as they go to a pooler. `tests/managed.rs` takes `RAVENRS_POSTGRES_TLS_URL` with `RAVENRS_POSTGRES_CA` (a server whose certificate an authority of its own signed) and `RAVENRS_POSTGRES_POOLER_URL` (PgBouncer in transaction mode with `max_prepared_statements = 0`).
+Its tests run when `RAVENRS_POSTGRES_URL` says where a database is, and otherwise have nothing to run against: `cargo xtask pr` does not start one. `RAVENRS_POSTGRES_STATEMENTS=unprepared` runs them all with statements as they go to a pooler. `tests/managed.rs` takes `RAVENRS_POSTGRES_TLS_URL` with `RAVENRS_POSTGRES_CA` (a server whose certificate an authority of its own signed) and `RAVENRS_POSTGRES_POOLER_URL` (PgBouncer in transaction mode with `max_prepared_statements = 0`).
 
 ## PostgREST, Supabase and Neon's Data API
 
@@ -639,7 +639,7 @@ Limits to know:
 - A record that refers to another one created in the same commit does not work, since the server gives the key. Keep them in two commits.
 - An address comes from the build (`RAVEN_API_URL` in the center), and never from the page's own address, so a link cannot make a page send a password somewhere else.
 
-Try it: `RAVEN_API_ORIGIN=http://localhost:8099 cargo run -p raven-feature-center --bin api`, and `RAVEN_API_URL=http://127.0.0.1:8090 scripts/build-web.sh raven-feature-center`, served on that port.
+Try it: `RAVEN_API_ORIGIN=http://localhost:8099 cargo run -p raven-feature-center --bin api`, and `RAVEN_API_URL=http://127.0.0.1:8090 cargo xtask web raven-feature-center`, served on that port.
 
 ## Known gaps
 

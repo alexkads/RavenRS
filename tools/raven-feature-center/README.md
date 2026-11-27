@@ -7,7 +7,7 @@ cargo run -p raven-feature-center
 ```
 
 ```bash
-./scripts/build-web.sh raven-feature-center && python3 -m http.server -d tools/raven-feature-center/web 8099
+cargo xtask web raven-feature-center && python3 -m http.server -d tools/raven-feature-center/web 8099
 ```
 
 On the desktop it keeps its records in SQLite, in `RAVEN_CENTRO` or a file in the temporary folder, so delete that file to start over. In the browser it keeps them in memory and starts over when the page reloads.
@@ -81,7 +81,7 @@ On the web, `index.html?modo=componentes&pagina=CablePlugDemo&incorporado`. A wr
 What goes in the build is chosen by Cargo features: `app`, the center, its storage and its web API; `widgets`, the pages of the components; `playground`, the examples. All three are on by default. The pages of the site take less:
 
 ```bash
-./scripts/build-web.sh raven-feature-center --no-default-features --features widgets,playground
+cargo xtask web raven-feature-center --no-default-features --features widgets,playground
 ```
 
 ## Over a web API
@@ -98,7 +98,7 @@ The center can also be the window of that server: build it with `RAVEN_API_URL=h
 
 `tests/suite/tour.rs` goes through all of this, as each of the three people, in memory and in SQLite.
 
-Every component of the library is shown here, with every feature (#579). A component that is new or changes gets its page in the same pull request: the skill `ravenrs-feature-center` says how. `recursos.json` lists each component, the page that shows it and the features it calls. `scripts/feature-center-coverage.py` checks that list against the code, and `scripts/check.sh` runs it. In `tests/suite/accessibility.rs`, `every_demonstration_has_a_step_in_the_tour` checks that every page of the navigation has a step in the tour.
+Every component of the library is shown here, with every feature (#579). A component that is new or changes gets its page in the same pull request: the skill `ravenrs-feature-center` says how. `recursos.json` lists each component, the page that shows it and the features it calls. `scripts/feature-center-coverage.py` checks that list against the code, and `cargo xtask pr` runs it. In `tests/suite/accessibility.rs`, `every_demonstration_has_a_step_in_the_tour` checks that every page of the navigation has a step in the tour.
 
 ## End-to-end tests (Raven Test Studio)
 

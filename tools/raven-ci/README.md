@@ -319,7 +319,7 @@ screens" in the guide of plugins).
 
 ```sh
 cargo run -p raven-ci-painel -- --servidor http://127.0.0.1:8080   # on the desktop
-scripts/build-web.sh raven-ci                                        # for the browser
+cargo xtask web raven-ci                                        # for the browser
 raven-ci servir --painel tools/raven-ci/web                          # then open /painel/
 ```
 

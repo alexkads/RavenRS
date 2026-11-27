@@ -445,7 +445,7 @@ With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug
 
 | Area | Implemented | Experimental | Planned |
 |---|---|---|---|
-| Workspace, local checks (`scripts/check.sh`: desktop + wasm) | ✓ | | Hosted CI (intentionally not used for now) |
+| Workspace, local checks (`cargo xtask pr`: desktop + wasm) | ✓ | | Hosted CI (intentionally not used for now) |
 | `State`, `Binding`, `Derived`, dependency tracking | ✓ | | |
 | Full rebuild on tracked change | ✓ | | Incremental reconciliation, per-component observers |
 | `View`, `Component`, `BuildCx`, `view_fn`, `responsive`, `Option<V>`, `Keyed`, `ViewExt` modifiers, `use_state` widget-local state | ✓ | | Environment values, `#[component]` macro (`ravenrs-macros`) |

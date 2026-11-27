@@ -1,11 +1,20 @@
 ---
 name: ravenrs-check
-description: Como rodar, ler e manter o scripts/check.sh, o gate oficial do RavenRS (não há CI hospedado) - modo rápido por PR, --full antes de publicar, cargo-nextest obrigatório, um CARGO_TARGET_DIR por worktree, o que o seletor de pacotes testa e o que deixa para o --full. Use sempre que for validar um PR ou branch, rodar ou interpretar o check.sh, investigar teste que falha só no check, um check lento ou "can't find crate", instalar o ambiente de quem contribui, ou mexer no check.sh, no changed-packages.py ou nos perfis do Cargo.toml, mesmo que o pedido não cite esta skill.
+description: Como rodar, ler e manter as checagens do RavenRS (não há CI hospedado), feitas pelo cargo xtask - dev enquanto se trabalha, pr como gate do PR no Raven CI, release antes de publicar, cargo-nextest obrigatório, um CARGO_TARGET_DIR por worktree, o que o seletor de pacotes testa e o que deixa para o release. Use sempre que for validar um PR ou branch, rodar ou interpretar o cargo xtask dev, pr ou release, investigar teste que falha só no check, um check lento ou "can't find crate", instalar o ambiente de quem contribui, ou mexer no xtask/, no changed-packages.py ou nos perfis do Cargo.toml, mesmo que o pedido não cite esta skill.
 ---
 
-# O check.sh do RavenRS
+# As checagens do RavenRS (`cargo xtask`)
 
-O projeto não tem CI hospedado: `scripts/check.sh` é o gate. Todo PR registra em "How it was tested" que ele passou, o tempo total, as três etapas mais lentas da tabela final e se o diretório de build começou vazio.
+O projeto não tem CI hospedado. As checagens são subcomandos do `cargo xtask` (crate `xtask/`, só biblioteca padrão), cada um com nome e finalidade fixos e sem argumentos (#1034). Decisão do Alex em 27/11/2026: nada de um script só com parâmetros, e nada de `.sh`, para rodar igual no Mac, no Linux e no Windows. O `scripts/check.sh` foi apagado.
+
+| Subcomando | Quando | O que roda |
+|---|---|---|
+| `cargo xtask dev` | enquanto se trabalha, antes do commit | rustfmt, conferências baratas, clippy e testes **só dos pacotes alterados** |
+| `cargo xtask pr` | o gate do PR; vai rodar no Raven CI da macpro (o job espera a chave do servidor) | clippy em tudo o que a mudança alcança, testes dos alterados e dos dependentes diretos, design system e API pública quando alcançados |
+| `cargo xtask release` | antes de publicar | o workspace inteiro, wasm32, features opcionais, MSRV, `cargo deny`, docs e builds web |
+| `cargo xtask web <nome>` | build para o navegador | o que o `scripts/build-web.sh` fazia |
+
+Todo PR registra em "How it was tested" que o `cargo xtask pr` passou, o tempo total, as três etapas mais lentas da tabela final e se o diretório de build começou vazio. Rode na macpro, nunca no Mac do Alex: é a máquina de trabalho dele.
 
 ## Antes da primeira vez
 
@@ -20,16 +29,24 @@ Vale para todas as máquinas: a do Alex, a do Matheus, as de Linux e Windows, e 
 ## Rodar
 
 ```bash
-./scripts/check.sh
+cargo xtask dev
 ```
 
-Esse é o modo rápido, para todo PR. Ele compara com `origin/master`; para mudar a base, use `CHECK_BASE=<ref>`.
+Enquanto se trabalha. Só os pacotes cujos arquivos mudaram: clippy `--all-targets`, testes e doctests. Os dependentes, o design system e a API pública ficam para o `pr`. Quando a mudança alcança o workspace inteiro (`ALL`: perfis, lints, toolchain, `.cargo/`), ele roda só o clippy do workspace, para provar que compila.
 
 ```bash
-./scripts/check.sh --full
+cargo xtask pr
 ```
 
-O `--full` roda tudo: o workspace inteiro, wasm32, as features opcionais, o MSRV, o `cargo deny`, a documentação e os builds web. Ele vai antes de publicar uma versão ou quando o Alex pedir. Os benchmarks e o gate de desempenho só entram quando ele pedir, com `RAVENRS_GATE=1` (skill `ravenrs-desempenho`).
+O gate do PR, com a mesma cobertura do antigo `check.sh` rápido. Compara com `origin/master`; para mudar a base, use `CHECK_BASE=<ref>`.
+
+```bash
+cargo xtask release
+```
+
+Tudo: o workspace inteiro, wasm32, as features opcionais, o MSRV, o `cargo deny`, a documentação e os builds web, com a mesma cobertura do antigo `--full`. Vai antes de publicar uma versão ou quando o Alex pedir. Os benchmarks e o gate de desempenho só entram quando ele pedir, com `RAVENRS_GATE=1` (skill `ravenrs-desempenho`).
+
+Nenhum dos três aceita argumentos: `cargo xtask pr --full` é recusado e diz qual usar.
 
 ## Onde o tempo vai
 
@@ -42,12 +59,12 @@ Ao terminar, passando ou falhando, o script imprime uma tabela com o tempo de ca
 - **Compilação por crate:** com `RAVENRS_CHECK_TIMINGS=1`, o clippy e a compilação dos testes recebem `--timings`, e o script lista os `cargo-timing-*.html` desta rodada. Eles mostram quais crates demoram e quanto o build ficou em série, esperando um crate só.
 
 ```bash
-RAVENRS_CHECK_TIMINGS=1 ./scripts/check.sh
+RAVENRS_CHECK_TIMINGS=1 cargo xtask pr
 ```
 
 Para investigar um check lento, leia a tabela antes de mexer em qualquer coisa: a etapa no topo é onde está o ganho.
 
-## O que o modo rápido escolhe
+## O que o `pr` escolhe (e o `dev`)
 
 Quem escolhe é o `scripts/changed-packages.py`. Os passos, em ordem:
 
@@ -58,7 +75,7 @@ Quem escolhe é o `scripts/changed-packages.py`. Os passos, em ordem:
 5. **API pública do `ravenrs-widgets`** (`public-api.py --check`, rustdoc no nightly), só quando a mudança alcança a fachada `ravenrs-widgets`.
 6. **Design system versionado** (`gen-design-system.py --check`, que roda o `--verify` do RCB, #1000), só quando a mudança alcança o `raven-component-book` ou mexe em `docs/design-system/export/`, no script ou num arquivo que o RCB embute de fora de qualquer pacote: o guia `docs/design-system/README.md` e o catálogo `site/components/index.html`. Leva uns 3 minutos, porque o RCB mede todas as histórias de novo. Para corrigir: `scripts/gen-design-system.py`.
 7. **clippy `--all-targets`** em tudo o que a mudança alcança, em qualquer profundidade. Isso também prova que esses pacotes compilam.
-8. **testes** (nextest e doctests) só dos pacotes alterados e dos dependentes diretos. Os dependentes mais distantes ficam para o `--full`. Também fica para o `--full` o dependente direto que não foi alterado e puxa um crate pesado (`HEAVY` no `changed-packages.py`: o `ravenrs-ai`, com o `candle` e o `tokenizers`, e o `ravenrs-movie-video`, com o `openh264`) que a mudança não alcança. Na prática, uma mudança só no `ravenrs-app` não testa o `family-finance`, mas o clippy do passo 7 continua provando que ele compila. A saída mostra esses pacotes na linha `tested in --full:` (#348).
+8. **testes** (nextest e doctests) só dos pacotes alterados e dos dependentes diretos. Os dependentes mais distantes ficam para o `release`. Também fica para o `release` o dependente direto que não foi alterado e puxa um crate pesado (`HEAVY` no `changed-packages.py`: o `ravenrs-ai`, com o `candle` e o `tokenizers`, e o `ravenrs-movie-video`, com o `openh264`) que a mudança não alcança. Na prática, uma mudança só no `ravenrs-app` não testa o `family-finance`, mas o clippy do passo 7 continua provando que ele compila. A saída mostra esses pacotes na linha `tested in --full:` (#348).
 
 | Mudança | Alcança |
 |---|---|
@@ -69,7 +86,7 @@ Quem escolhe é o `scripts/changed-packages.py`. Os passos, em ordem:
 | Crate externo atualizado no `Cargo.lock` | os membros que chegam nele pelo grafo do lock |
 | `[workspace.metadata]` | só o lint |
 | `[profile.*]`, `[workspace.lints]`, edition, resolver, `[patch]`, `.cargo/`, toolchain, `clippy.toml` | `ALL`: workspace inteiro |
-| `rustfmt.toml`, `deny.toml` | nada a mais (o rustfmt já cobre tudo, e o deny é do `--full`) |
+| `rustfmt.toml`, `deny.toml` | nada a mais (o rustfmt já cobre tudo, e o deny é do `release`) |
 
 Para ver a escolha sem compilar nada:
 
@@ -87,14 +104,14 @@ O Cargo não põe o caminho de um crate local no hash dos artefatos. Por isso, d
 Na worktree, use um diretório próprio no scratchpad da sessão, sempre por caminho absoluto, e apague-o ao terminar:
 
 ```bash
-CARGO_TARGET_DIR=/private/tmp/claude-501/<projeto>/<sessão>/scratchpad/target ./scripts/check.sh
+CARGO_TARGET_DIR=/private/tmp/claude-501/<projeto>/<sessão>/scratchpad/target cargo xtask pr
 ```
 
 O script grava a pasta da checkout em `<target>/.ravenrs-checkout` e avisa em amarelo quando o diretório foi usado por outra. Diante desse aviso, ou de um dos sintomas acima, troque o diretório antes de culpar o código. Um diretório de build passa fácil de 20 GB: confira o disco antes (`df -h /System/Volumes/Data`).
 
 ## Cache do compilador entre worktrees (xcache por padrão, Kache como alternativa)
 
-Cada worktree tem o seu diretório de build, então uma worktree nova compilava tudo de novo. Desde a #358, o `check.sh` põe o `ravenrs-xcache` na frente do `rustc` (seção abaixo). Com `RAVENRS_XCACHE=0` e o [Kache](https://github.com/kunobi-ninja/kache) instalado, o script usa o Kache como `RUSTC_WRAPPER`, e o que outra worktree já compilou volta do cache. A instalação é uma vez por máquina:
+Cada worktree tem o seu diretório de build, então uma worktree nova compilava tudo de novo. Desde a #358, o `cargo xtask pr` põe o `ravenrs-xcache` na frente do `rustc` (seção abaixo). Com `RAVENRS_XCACHE=0` e o [Kache](https://github.com/kunobi-ninja/kache) instalado, o script usa o Kache como `RUSTC_WRAPPER`, e o que outra worktree já compilou volta do cache. A instalação é uma vez por máquina:
 
 ```bash
 cargo install kache --locked --version 2.1.1
@@ -106,7 +123,7 @@ cargo install kache --locked --version 2.1.1
 - Ao final, o check imprime a taxa de acertos (`kache stats --last-build`). Para saber por que um crate não veio do cache: `kache explain <crate>`.
 - O Kache passa `--remap-path-prefix` ao `rustc`, então os caminhos gravados nos artefatos são marcadores (`/kache/workspace`, `/kache/target`). No depurador, mapeie de volta: `settings set target.source-map /kache/workspace <checkout>` no lldb.
 
-**Medido em 14/11/2026** (Mac de 10 núcleos e 16 GB, `check.sh --full`, uma rodada de cada):
+**Medido em 14/11/2026** (Mac de 10 núcleos e 16 GB, `cargo xtask release`, uma rodada de cada):
 
 | Cenário | Tempo |
 |---|---|
@@ -117,11 +134,11 @@ cargo install kache --locked --version 2.1.1
 
 Os 5m58s são o piso: rodar os testes, os doctests, o `wasm-bindgen` e o `wasm-opt`, que não são compilação. Na worktree nova, 1.264 de 2.024 compilações vieram do cache, 91,5% do tempo de compilação; o que ainda compila são sobretudo os projetos que a CLI gera em pastas temporárias (2m26s) e os builds web (1m59s).
 
-**O cache próprio (`ravenrs-xcache`), ligado por padrão (#358).** `./scripts/check.sh` usa o cache de compilação deste repositório (`crates/ravenrs-xcache`, issue #352) sem precisar de variável. `RAVENRS_XCACHE=0` desliga, e aí o Kache entra se estiver instalado. Ao fim de cada rodada, o script reduz o cache a 20 GB (`RAVENRS_XCACHE_MAX` muda o limite), apagando primeiro o que foi usado há mais tempo, porque todas as worktrees enchem a mesma pasta, `~/.cache/ravenrs/xcache`. É a primeira versão e guarda só bibliotecas. O que passa direto, e quanto custou, aparece nas estatísticas ao fim do check. Medido na mesma data: 14m15s numa worktree em caminho novo, com o cache cheio. O modo também desliga a compilação incremental, o que sozinho levou a rodada de cache vazio de 31m04s para 23m01s. Para saber por que um crate não veio do cache: `ravenrs-xcache explain <crate>`; para comparar do que duas chaves foram feitas: `RAVENRS_XCACHE_TRACE=<pasta>`. O README do crate tem o desenho, os limites e o plano.
+**O cache próprio (`ravenrs-xcache`), ligado por padrão (#358).** `cargo xtask pr` usa o cache de compilação deste repositório (`crates/ravenrs-xcache`, issue #352) sem precisar de variável. `RAVENRS_XCACHE=0` desliga, e aí o Kache entra se estiver instalado. Ao fim de cada rodada, o script reduz o cache a 20 GB (`RAVENRS_XCACHE_MAX` muda o limite), apagando primeiro o que foi usado há mais tempo, porque todas as worktrees enchem a mesma pasta, `~/.cache/ravenrs/xcache`. É a primeira versão e guarda só bibliotecas. O que passa direto, e quanto custou, aparece nas estatísticas ao fim do check. Medido na mesma data: 14m15s numa worktree em caminho novo, com o cache cheio. O modo também desliga a compilação incremental, o que sozinho levou a rodada de cache vazio de 31m04s para 23m01s. Para saber por que um crate não veio do cache: `ravenrs-xcache explain <crate>`; para comparar do que duas chaves foram feitas: `RAVENRS_XCACHE_TRACE=<pasta>`. O README do crate tem o desenho, os limites e o plano.
 
 **No Linux também (#1023).** Medido em 27/11/2026 na macpro-i7 (Fedora, 8 threads, `CARGO_BUILD_JOBS=6`), num check rápido depois de uma mudança no `ravenrs-widgets-base`: 32m38s com o cache vazio e **17m04s** com o diretório de build vazio e o cache cheio (1.018 de 1.018 bibliotecas do cache). Com `RAVENRS_XCACHE=0`, a mesma situação levava de 42 a 60 minutos. Não desligue o xcache nos roteiros. Os membros do workspace que o `cargo clippy` não analisa (não estão na linha de comando) vão ao `rustc` e vêm do cache; os analisados e os proc macros ainda compilam toda vez.
 
-**Onde rodar.** O Mac do Alex é a máquina de trabalho dele: o check.sh, os builds e as medições rodam na macpro, sob a trava da oficina. Um cache remoto na macpro não serve ao Mac, porque ela está só no Wi-Fi, a 4 MB/s.
+**Onde rodar.** O Mac do Alex é a máquina de trabalho dele: o cargo xtask pr, os builds e as medições rodam na macpro, sob a trava da oficina. Um cache remoto na macpro não serve ao Mac, porque ela está só no Wi-Fi, a 4 MB/s.
 
 **Por que não o sccache.** Medido na mesma data: ele põe toda variável `CARGO_*` na chave, e cada worktree usa um `CARGO_TARGET_DIR` diferente. O mesmo código num segundo diretório teve 0 acertos em 34, e no uso real a taxa em Rust era de 0,26%. Passando o diretório por `--target-dir`, o `cargo check --workspace` teve 382 acertos, 150 perdas e 218 não cacheáveis, e caiu só de 81 s para 67 s. Sem `--remap-path-prefix`, o `rustc` grava o caminho no artefato e recusa misturar artefatos de diretórios diferentes (`E0460`). Ele foi desligado em `~/.cargo/config.toml`.
 
@@ -138,12 +155,12 @@ Os 5m58s são o piso: rodar os testes, os doctests, o `wasm-bindgen` e o `wasm-o
   Para confirmar que é concorrência, rode de novo com `--test-threads=1`.
 - **Teste lento (`SLOW` na saída do nextest):** um `#[test]` que percorre uma lista inteira num laço não se paraleliza. Divida em um teste por item, como foi feito com os filmes em `examples/family-finance/tests/suite/training.rs`, e mantenha um teste que garante que nenhum item ficou sem o seu.
 - **Doctest "can't find crate", ou derive com código de outro branch:** é diretório de build compartilhado (seção acima).
-- **`rts-coverage` (contrato do RTS, #736):** um tipo novo do `recursos.json` precisa de entrada em `tools/raven-test-studio/contrato.json` (completa, `sem_tela` ou `pendente` com a issue da família). A guarda também recusa `test_id` feito com `format!` fora de `parte:chave`, ou numerado pela posição, e ação listada que o código não nomeia (ou declarada com `on_access` e não listada). O checklist está em `CONTRIBUTING.md`, "Testability (RTS)". `scripts/rts-coverage.py --issues` também confere, pelo `gh`, se alguma issue de pendente já fechou; o `check.sh` não usa essa opção, porque roda sem rede.
+- **`rts-coverage` (contrato do RTS, #736):** um tipo novo do `recursos.json` precisa de entrada em `tools/raven-test-studio/contrato.json` (completa, `sem_tela` ou `pendente` com a issue da família). A guarda também recusa `test_id` feito com `format!` fora de `parte:chave`, ou numerado pela posição, e ação listada que o código não nomeia (ou declarada com `on_access` e não listada). O checklist está em `CONTRIBUTING.md`, "Testability (RTS)". `scripts/rts-coverage.py --issues` também confere, pelo `gh`, se alguma issue de pendente já fechou; o `cargo xtask pr` não usa essa opção, porque roda sem rede.
 
-## Mexer no check.sh
+## Mexer nas checagens
 
-- O `--full` não perde cobertura. O que sai do modo rápido tem que continuar no `--full`.
+- O `release` não perde cobertura. O que sai do `pr` tem que continuar no `release`, e o que sai do `dev` continua no `pr`.
 - Mudou o `changed-packages.py`? Acrescente o caso em `scripts/changed_packages_test.py` e rode `python3 scripts/changed_packages_test.py`. O Python do macOS é o 3.9, sem `tomllib`, então o leitor de TOML é próprio e mínimo.
 - Meça antes e depois no mesmo PR de exemplo, com o mesmo diretório de build aquecido, e registre as duas tabelas de tempo (`last.txt`) no PR.
-- Atualize junto o cabeçalho do script, o `CONTRIBUTING.md`, o `docs/QUALITY.md`, o `.github/PULL_REQUEST_TEMPLATE.md`, a seção 3 da skill `ravenrs-github` e esta skill.
+- Atualize junto o `xtask/src/main.rs` (a ajuda), o `CONTRIBUTING.md`, o `docs/QUALITY.md`, o `.github/PULL_REQUEST_TEMPLATE.md`, a seção 3 da skill `ravenrs-github` e esta skill.
 - As dependências de terceiros compilam com `opt-level = 1` no perfil dev (`[profile.dev.package."*"]`). Os crates do workspace ficam sem otimização. Não tire isso sem medir os testes de UI e de banco.

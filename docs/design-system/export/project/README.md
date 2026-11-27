@@ -2,7 +2,7 @@
 
 Beautiful native interfaces, powered by Rust. RavenRS draws every pixel itself on the GPU (wgpu), on the desktop and in the browser (WebAssembly + WebGPU), so this system is the single source of truth for how a RavenRS app looks everywhere. The Rust crate `ravenrs-style` mirrors these tokens value for value; when a token changes here, it changes there.
 
-This system, as RavenComponentBook measures it (the index, the tokens, the fonts and, per component, its card, its preview and the anatomy of every story), is kept in the RavenRS repository in `docs/design-system/export/project/`, current with the code: `scripts/gen-design-system.py` rewrites it when a component changes, and `scripts/check.sh` refuses it out of date.
+This system, as RavenComponentBook measures it (the index, the tokens, the fonts and, per component, its card, its preview and the anatomy of every story), is kept in the RavenRS repository in `docs/design-system/export/project/`, current with the code: `scripts/gen-design-system.py` rewrites it when a component changes, and `cargo xtask pr` refuses it out of date.
 
 ## Principles
 

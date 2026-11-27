@@ -26,7 +26,7 @@ ports of the left half to face it.
 In the browser, the diagrams are kept in the browser's own storage:
 
 ```bash
-scripts/build-web.sh flow-whiteboard
+cargo xtask web flow-whiteboard
 python3 -m http.server -d examples/flow-whiteboard/web 8080
 ```
 

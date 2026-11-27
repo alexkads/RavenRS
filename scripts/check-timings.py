@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Prints how long each step of scripts/check.sh took, and the slowest tests.
+"""Prints how long each step of a check took (cargo xtask dev, pr or release), and the slowest tests.
 
-check.sh writes one line per step (and per substep) to <target>/check-timings/current.tsv:
+The check writes one line per step (and per substep) to <target>/check-timings/current.tsv:
 
     <seconds> TAB <step|sub|failed> TAB <title>
 
@@ -121,7 +121,7 @@ def report(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--steps", required=True, help="the TSV check.sh wrote")
+    parser.add_argument("--steps", required=True, help="the TSV the check wrote")
     parser.add_argument("--save", required=True, help="where to save the table")
     parser.add_argument("--total", type=int, required=True, help="seconds since the check started")
     parser.add_argument("--since", type=float, default=0, help="epoch when the check started")
