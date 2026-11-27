@@ -232,6 +232,7 @@ pub fn tokens(sha: &str) -> Value {
     ];
     let mut fonts = notes.doc["type"]["fonts"].as_array().cloned().unwrap_or_default();
     fonts.push(json!({"family": "RavenIcons", "file": "fonts/RavenIcons.ttf", "weight": "400"}));
+    fonts.push(json!({"family": "Fira Mono", "file": "fonts/FiraMono-Medium.ttf", "weight": "500"}));
     json!({
         "name": "RavenRS",
         "version": 1,

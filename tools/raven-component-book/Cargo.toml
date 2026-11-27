@@ -15,7 +15,7 @@ app = "RavenComponentBook"
 binary = "raven-component-book"
 
 [dependencies]
-ravenrs = { workspace = true, features = ["tray", "book"] }
+ravenrs = { workspace = true, features = ["tray", "book", "mono"] }
 ravenrs-app-update = { workspace = true, features = ["ui"] }
 # The components that do not give their stories yet are shown by their example in the gallery,
 # marked as pending, until each gives its own `ComponentBook`.

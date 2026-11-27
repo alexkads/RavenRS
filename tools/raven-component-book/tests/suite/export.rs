@@ -86,11 +86,11 @@ fn the_design_system_has_a_card_a_preview_and_a_json_for_every_component() {
     let tokens: Value =
         serde_json::from_str(&std::fs::read_to_string(project.join("tokens.json")).unwrap()).unwrap();
     assert!(tokens["type"]["fonts"].as_array().unwrap().iter().any(|f| f["family"] == "RavenIcons"));
-    // The index, the guide, the tokens and their CSS, three fonts and the cover, then three
+    // The index, the guide, the tokens and their CSS, four fonts and the cover, then three
     // files per component.
     // … and three per pattern.
     let patterns = raven_component_book::patterns::entries();
-    assert_eq!(written.len(), 8 + (index::entries().len() + patterns.len()) * 3);
+    assert_eq!(written.len(), 9 + (index::entries().len() + patterns.len()) * 3);
     assert_eq!(patterns.len(), 5);
     for p in &patterns {
         let folder = project.join("patterns").join(p.name());

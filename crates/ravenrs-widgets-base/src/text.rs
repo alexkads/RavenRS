@@ -24,6 +24,7 @@ pub struct Text {
     foreground: Fill,
     truncate: bool,
     align: TextAlign,
+    mono: bool,
     #[cfg(feature = "e2e-source")]
     source: &'static std::panic::Location<'static>,
 }
@@ -69,9 +70,18 @@ impl Text {
             foreground: Semantic::Ink.into(),
             truncate: false,
             align: TextAlign::Start,
+            mono: false,
             #[cfg(feature = "e2e-source")]
             source: std::panic::Location::caller(),
         }
+    }
+
+    /// Draws in the monospaced family, for what lines up by columns: code, a log, the lines of a
+    /// receipt. It is Fira Mono with the `mono` feature (or `code`), and the default font without
+    /// it; the size and the weight still come from the style.
+    pub fn mono(mut self) -> Self {
+        self.mono = true;
+        self
     }
 
     /// A step of the type scale (`Body` by default).
@@ -125,7 +135,7 @@ impl View for Text {
             line_height: base.line_height * size / base.size,
             weight: self.weight.unwrap_or(base.weight).0,
             letter_spacing: base.letter_spacing,
-            family: None,
+            family: self.mono.then(|| "monospace".to_owned()),
         };
         let color = self.foreground.resolve(theme);
         let content = match &self.content {

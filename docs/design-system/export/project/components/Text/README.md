@@ -9,12 +9,14 @@ Text in the theme's type scale, with truncation.
 | Setting | Control | Default | What it does |
 |---|---|---|---|
 | `truncate` | on/off | `false` |  |
+| `mono` | on/off | `false` | The monospaced family, Fira Mono, for code or the lines of a receipt. |
 
 ## Stories
 
-- **Example**: 361 × 160 pt, settings `{"truncate":false}`
-- **Truncated**: 361 × 160 pt, settings `{"truncate":true}`
-- **Type scale**: 192 × 242 pt, settings `{"truncate":false}`
+- **Example**: 361 × 160 pt, settings `{"mono":false,"truncate":false}`
+- **Truncated**: 361 × 160 pt, settings `{"mono":false,"truncate":true}`
+- **Monospaced**: 361 × 160 pt, settings `{"mono":true,"truncate":false}`
+- **Type scale**: 192 × 242 pt, settings `{"mono":false,"truncate":false}`
 
 ## Sizing
 
@@ -35,6 +37,11 @@ Measured from what RavenRS paints, in points. Colors are tokens; `token@N` is th
 | Example | Label "Muted body text" | 360.0 × 22.0 | — | — | — | Inter 400 15.0px ink-muted | — | 0.0 |
 | Example | Label "In the middle" | 360.0 × 22.0 | — | — | — | Inter 400 15.0px ink | — | 135.0 |
 | Example | Label "At the end" | 360.0 × 22.0 | — | — | — | Inter 400 15.0px ink | — | 288.0 |
+| Monospaced | Heading "Display" | 360.0 × 38.0 | — | — | — | Fira 500 32.0px ink | — | 0.0 |
+| Monospaced | Heading "Headline" | 360.0 × 24.0 | — | — | — | Fira 500 17.0px ink | — | 0.0 |
+| Monospaced | Label "Muted body text" | 360.0 × 22.0 | — | — | — | Fira 500 15.0px ink-muted | — | 0.0 |
+| Monospaced | Label "In the middle" | 360.0 × 22.0 | — | — | — | Fira 500 15.0px ink | — | 122.0 |
+| Monospaced | Label "At the end" | 360.0 × 22.0 | — | — | — | Fira 500 15.0px ink | — | 271.0 |
 | Type scale | Label "Metric 42" | 192.0 × 48.0 | — | — | — | Inter 600 42.0px ink | — | 0.0 |
 | Type scale | Heading "Title 22" | 80.0 × 28.0 | — | — | — | Inter 600 22.0px ink | — | 0.0 |
 | Type scale | Label "Body 15" | 56.0 × 22.0 | — | — | — | Inter 400 15.0px ink | — | 0.0 |
@@ -43,7 +50,7 @@ Measured from what RavenRS paints, in points. Colors are tokens; `token@N` is th
 
 ## API
 
-Builder methods: `align`, `bound`, `dynamic`, `font_size`, `font_weight`, `foreground`, `new`, `style`, `truncate`.
+Builder methods: `align`, `bound`, `dynamic`, `font_size`, `font_weight`, `foreground`, `mono`, `new`, `style`, `truncate`.
 
 ## Example
 
