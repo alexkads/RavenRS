@@ -1053,7 +1053,7 @@ impl<'r> Run<'r> {
         what: &str,
     ) -> (String, Option<Value>) {
         let Some(src) = label.expression.as_deref().filter(|s| !s.trim().is_empty()) else {
-            return (label.text.clone(), None);
+            return (self.merge_fields(ctx, &label.text, what), None);
         };
         match self.eval(ctx, src, what) {
             Ok(v) => {
@@ -1068,6 +1068,41 @@ impl<'r> Run<'r> {
             }
             Err(_) => ("#ERRO".to_owned(), None),
         }
+    }
+
+    /// Fixed text with fields inside it: each `[Field]` (or `[Lines.Qty]`, `[^.Field]`) shows the
+    /// field's value as a field with no format shows it; `[[` and `]]` are a bracket; a `[` that
+    /// never closes stays as it is.
+    fn merge_fields(&self, ctx: &Scope<'_, Json>, text: &str, what: &str) -> String {
+        if !text.contains('[') && !text.contains("]]") {
+            return text.to_owned();
+        }
+        let mut out = String::with_capacity(text.len());
+        let mut rest = text;
+        while let Some(at) = rest.find(['[', ']']) {
+            out.push_str(&rest[..at]);
+            let tail = &rest[at..];
+            if let Some(after) = tail.strip_prefix("[[").or_else(|| tail.strip_prefix("]]")) {
+                out.push_str(&tail[..1]);
+                rest = after;
+            } else if let Some(after) = tail.strip_prefix(']') {
+                out.push(']');
+                rest = after;
+            } else if let Some(end) = tail.find(']') {
+                let field = &tail[..=end];
+                let shown = match self.eval(ctx, field, what) {
+                    Ok(v) => format_value(&v, "", self.env.formats()),
+                    Err(_) => "#ERRO".to_owned(),
+                };
+                out.push_str(&shown);
+                rest = &tail[end + 1..];
+            } else {
+                out.push_str(tail);
+                rest = "";
+            }
+        }
+        out.push_str(rest);
+        out
     }
 
     fn text_height(&self, engine: &mut ReportEngine, text: &str, look: &Look, width: f32) -> f32 {
