@@ -4460,6 +4460,7 @@ method SidebarGroup::open_binding
 method SidebarInset::new
 method SidebarItem::action
 method SidebarItem::badge
+method SidebarItem::badge_spoken
 method SidebarItem::compact
 method SidebarItem::count
 method SidebarItem::count_spoken

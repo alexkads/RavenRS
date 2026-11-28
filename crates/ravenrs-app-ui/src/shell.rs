@@ -662,6 +662,9 @@ impl AppShell {
             count(&self.session)
         });
         let row = match count {
+            Some(crate::NavigationCount { shown, tone: Some(tone), spoken: Some(spoken) }) => {
+                row.badge_spoken(ravenrs_widgets::Badge::new(shown).tone(tone), spoken)
+            }
             Some(crate::NavigationCount { shown, tone: Some(tone), .. }) => {
                 row.badge(ravenrs_widgets::Badge::new(shown).tone(tone))
             }

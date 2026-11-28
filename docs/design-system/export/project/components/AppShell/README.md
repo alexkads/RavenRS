@@ -12,13 +12,18 @@ The window of an application made from its model: navigation by module, lists, f
 | `subtitle` | text | `` | A line under the name; empty, none. |
 | `theme_menu` | on/off | `true` | The theme menu at the foot of the navigation. |
 | `section` | text | `` | The section that gathers the group Cadastros, which then is one item with its lists in a submenu; empty, none. |
+| `compact` | on/off | `false` | Denser items, 32 high with callout text, as in Raven Finanças. |
+| `search` | on/off | `false` | A first item, Procurar comando, that opens the command palette (⌘K). |
+| `collapse` | on/off | `false` | An item at the foot, Recolher menu, that folds the menu to its icons (⌘B). |
 
 ## Stories
 
-- **Lists**: 728 × 441 pt, settings `{"name":"Raven Contas","section":"","subtitle":"","theme_menu":true}`
-- **With subtitle**: 728 × 441 pt, settings `{"name":"Raven Contas","section":"","subtitle":"Finanças da família","theme_menu":true}`
-- **No theme menu**: 728 × 441 pt, settings `{"name":"Raven Contas","section":"","subtitle":"","theme_menu":false}`
-- **In sections**: 728 × 441 pt, settings `{"name":"Raven Contas","section":"Finanças","subtitle":"","theme_menu":true}`
+- **Lists**: 728 × 441 pt, settings `{"collapse":false,"compact":false,"name":"Raven Contas","search":false,"section":"","subtitle":"","theme_menu":true}`
+- **With subtitle**: 728 × 441 pt, settings `{"collapse":false,"compact":false,"name":"Raven Contas","search":false,"section":"","subtitle":"Finanças da família","theme_menu":true}`
+- **No theme menu**: 728 × 441 pt, settings `{"collapse":false,"compact":false,"name":"Raven Contas","search":false,"section":"","subtitle":"","theme_menu":false}`
+- **In sections**: 728 × 441 pt, settings `{"collapse":false,"compact":false,"name":"Raven Contas","search":false,"section":"Finanças","subtitle":"","theme_menu":true}`
+- **Compact**: 728 × 441 pt, settings `{"collapse":false,"compact":true,"name":"Raven Contas","search":false,"section":"","subtitle":"","theme_menu":true}`
+- **Compact, with search and collapse**: 728 × 441 pt, settings `{"collapse":true,"compact":true,"name":"Raven Contas","search":true,"section":"Finanças","subtitle":"","theme_menu":true}`
 
 ## Sizing
 
@@ -72,6 +77,12 @@ Measured from what RavenRS paints, in points. Colors are tokens; `token@N` is th
 | Lists | Status "Mostrando Contas" | 0.0 × 0.0 | — | — | — | — | — | — |
 | In sections | Navigation "Navegação" | 248.0 × 441.0 | 0.0 | bg-100 | — | Inter 600 17.0px ink | folder 16.0px ink-muted | space-3 |
 | In sections | Button "Cadastros" | 224.0 × 36.0 | radius-md | transparent | — | Inter 400 15.0px ink-muted | folder 16.0px ink-muted | 10.0 |
+| Compact | Button "Contas" | 224.0 × 32.0 | radius-md | bg-300 | — | Inter 600 13.0px ink | wallet 16.0px mix(ink, accent, 35) | space-2 |
+| Compact | Button "Bancos" | 224.0 × 32.0 | radius-md | transparent | — | Inter 400 13.0px ink-muted | file 16.0px ink-muted | space-2 |
+| Compact, with search and collapse | Navigation "Navegação" | 248.0 × 441.0 | 0.0 | bg-100 | — | Inter 600 17.0px ink | search 16.0px ink-muted | space-3 |
+| Compact, with search and collapse | Button "Procurar comando" | 224.0 × 32.0 | radius-md | transparent | — | Inter 400 13.0px ink-muted | search 16.0px ink-muted | space-2 |
+| Compact, with search and collapse | Button "Cadastros" | 224.0 × 32.0 | radius-md | transparent | — | Inter 400 13.0px ink-muted | folder 16.0px ink-muted | space-2 |
+| Compact, with search and collapse | Button "Recolher menu" | 224.0 × 32.0 | radius-md | transparent | — | Inter 400 13.0px ink-muted | panel-left 16.0px ink-muted | space-2 |
 
 ## Example
 
