@@ -192,7 +192,7 @@ On opening, a session shows a message per entity with a `DueDigest`, by the pers
 
 The button of the notice opens the list on the records it is about (`Session::open_view_filtered`, by their keys); opening the list another way shows it all. The words come from the catalog (`DigestWords::from_texts`, keys `ui.due_*` and the money of `format.*`).
 
-What waits (#860): the choice in `AppShell`.
+Beside the account, a bell opens "Due date notices": each entity with a `DueDigest` and the choice of off, on the day, or one, three or seven days before, kept by `set_digest_preference` for that person only. It shows when someone is signed in and the application keeps settings.
 
 ### Bills, settlements and installments
 
