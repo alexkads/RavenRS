@@ -60,6 +60,12 @@ pub fn cheap(check: &mut Check) -> Done {
     check.run("cargo", &["fmt", "--all", "--check"])?;
 
     check.step(
+        "the shell check does not come back: not the old scripts, no new *.sh, no citation of them (#1068)",
+    );
+    let listed = check.output("git", &["ls-files", "-z", "--cached", "--others", "--exclude-standard"])?;
+    crate::guard::shell_check_stays_gone(&check.root, &listed)?;
+
+    check.step(
         "modules do not use each other in loops longer than each crate allows (ravenrs-lint module_cycle)",
     );
     check

@@ -5,6 +5,7 @@
 
 mod cache;
 mod checks;
+mod guard;
 mod run;
 mod web;
 
