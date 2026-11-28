@@ -30,7 +30,7 @@ and distances shown while dragging.
 In the browser, the diagrams are kept in the browser's own storage:
 
 ```bash
-scripts/build-web.sh flow-design-board
+cargo xtask web flow-design-board
 python3 -m http.server -d examples/flow-design-board/web 8080
 ```
 

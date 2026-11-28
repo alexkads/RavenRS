@@ -25,13 +25,13 @@ if [ -n "${RAVENRS_SITE_ASSETS_FROM:-}" ]; then
     rsync -a --exclude=.git --exclude=.vercel --exclude=vercel.json "$assets/" "$site/"
     RAVENRS_API_DOCS_DIR="$site/api" ./scripts/check-component-list.py
 else
-    ./scripts/build-web.sh hello-world
-    ./scripts/build-web.sh quick-app
-    ./scripts/build-web.sh quick-plan
-    ./scripts/build-web.sh raven-feature-center
-    ./scripts/build-web.sh component-gallery
-    ./scripts/build-web.sh raven-report-designer
-    ./scripts/build-web.sh site-home
+    cargo xtask web hello-world
+    cargo xtask web quick-app
+    cargo xtask web quick-plan
+    cargo xtask web raven-feature-center
+    cargo xtask web component-gallery
+    cargo xtask web raven-report-designer
+    cargo xtask web site-home
     cargo doc --no-deps --workspace --features ravenrs-widgets/code --exclude hello-world --exclude quick-app --exclude quick-plan --exclude raven-feature-center --exclude component-gallery --exclude raven-report-designer --exclude site-home --exclude family-finance --quiet
     ./scripts/check-component-list.py
 fi

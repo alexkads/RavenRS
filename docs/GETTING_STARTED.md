@@ -198,7 +198,7 @@ pub fn start() {
 }
 ```
 
-A page with a `<canvas id="raven-canvas">` sized by CSS hosts it; [`examples/hello-world/web/index.html`](../examples/hello-world/web/index.html) is a complete one, and [`scripts/build-web.sh`](../scripts/build-web.sh) shows the build (`cargo build --target wasm32-unknown-unknown` followed by `wasm-bindgen --target web`).
+A page with a `<canvas id="raven-canvas">` sized by CSS hosts it; [`examples/hello-world/web/index.html`](../examples/hello-world/web/index.html) is a complete one, and [`cargo xtask web`](.cargo xtask web) shows the build (`cargo build --target wasm32-unknown-unknown` followed by `wasm-bindgen --target web`).
 
 ## 3. State
 

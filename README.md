@@ -276,7 +276,7 @@ cargo install wasm-bindgen-cli --version 0.2.130 --locked
 ```
 
 ```bash
-./scripts/build-web.sh component-gallery && python3 -m http.server -d examples/component-gallery/web 8080
+cargo xtask web component-gallery && python3 -m http.server -d examples/component-gallery/web 8080
 ```
 
 Then open http://localhost:8080 in a current browser. RavenRS draws with WebGPU where the browser has it and with WebGL2 otherwise, so it also opens on phones and browsers without WebGPU; `WebOptions::backend` can ask for one of them.

@@ -2,7 +2,7 @@
 //! of one that does not (ImagePullBackOff, OOMKilled, Pending with no resource, 403).
 //!
 //! They run only when asked, with `RAVEN_CI_TESTES_KUBERNETES=1` and the cluster's context in
-//! `RAVEN_CI_TESTE_CONTEXTO`, so a `check.sh` never reaches a cluster on its own. Each test
+//! `RAVEN_CI_TESTE_CONTEXTO`, so a `cargo xtask pr` never reaches a cluster on its own. Each test
 //! works in a namespace of its own, `raven-ci-teste-<id>`, deleted when it ends, and touches no
 //! other.
 #![allow(clippy::expect_used, clippy::print_stderr, reason = "tests fail loudly and say why they skip")]

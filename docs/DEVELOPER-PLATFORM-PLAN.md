@@ -81,10 +81,10 @@ Os 11 exemplos inventariados são `hello-world`, `calculator`, `component-galler
 | SDK que reúna UI, estado, dados e serviços | Fachada `ravenrs`, crates especializados e providers existentes | Adicionar apenas capacidades ausentes e adaptações de host |
 | Outro sistema de navegação de negócio | `Frame`, `Session`, `AppShell`, `SystemModule` e `FrameTemplate` | Adaptar apresentação e ação de voltar; evitar nova máquina de navegação concorrente |
 | Devtools e captura próprios | `Diagnostics`, `DiagnosticsHost`, `FrameSample`, `RecentErrors`, `FlightRecorder`, `BugReporter` | Acrescentar transporte e controles de desenvolvimento aos mecanismos atuais |
-| Build web do zero | `scripts/build-web.sh`, profile `wasm-release` e exemplos com entradas web | Preservar resultado e semântica; generalizar para projetos externos ao monorepo |
+| Build web do zero | `cargo xtask web`, profile `wasm-release` e exemplos com entradas web | Preservar resultado e semântica; generalizar para projetos externos ao monorepo |
 | Novo atualizador genérico desde o começo | `family-finance/install.cmd`, `src/update.rs` e `src/paths.rs` | Aproveitar requisitos e experiência; manter atualização atual até existir substituição testada |
 | Novo backend/API de dados | F12 já prevê API com permissões e cliente remoto | Tratar como frente própria; mobile local não depende de terminar F12 |
-| Publicação automática em CI hospedada | `CONTRIBUTING.md`, `scripts/check.sh` e arquitetura adotam checks locais | Primeiro builds locais reproduzíveis; CI hospedada/nuvem exige decisão posterior |
+| Publicação automática em CI hospedada | `CONTRIBUTING.md`, `cargo xtask pr` e arquitetura adotam checks locais | Primeiro builds locais reproduzíveis; CI hospedada/nuvem exige decisão posterior |
 
 F15 e F16 são itens planejados na documentação, não ferramentas já encontradas no workspace. Não foi encontrado pacote de CLI de projetos, cliente mobile, projeto Gradle/Xcode ou runtime de carregamento de apps.
 
@@ -198,7 +198,7 @@ Não estimar prazo fechado antes da prova Android: entrada/IME, acessibilidade, 
 - Não renomear APIs, formatos `.ravenmovie`/`.ravenbug`/relatórios, tokens ou modelo de aplicação para viabilizar a CLI.
 - Separar templates mínimo, negócio e recursos opcionais. IA, relatórios e SQLite não devem entrar por obrigação em todo projeto.
 - Se uma fronteira compartilhada exigir `unsafe`/FFI, justificar e isolar a exceção: o workspace usa `unsafe_code = "forbid"` e hoje só a ponte Wayland registra uma exceção. Não relaxar a regra global por conveniência.
-- Mudanças de core, eventos, providers ou resolução de targets precisam preservar builds desktop e wasm e respeitar `docs/QUALITY.md`, `docs/VERSIONING.md` e `scripts/check.sh`.
+- Mudanças de core, eventos, providers ou resolução de targets precisam preservar builds desktop e wasm e respeitar `docs/QUALITY.md`, `docs/VERSIONING.md` e `cargo xtask pr`.
 - Medir mobile separadamente, com dispositivo e condições declarados; manter os budgets e cenários existentes como referência de regressão.
 - Acrescentar testes de integração para templates externos, resolução de targets, erro de compilação e recuperação. Testar em aparelho o que testes headless não cobrem.
 - Consolidar README, arquitetura, paridades, documentação do plugin e guias de instalação ao promover a proposta a implementação. Evitar publicar capacidade como pronta a partir deste documento.
