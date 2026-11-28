@@ -190,7 +190,9 @@ impl View for ActionContainer {
         let actions = self.session.frame().actions();
         let shown = actions.iter().filter(|action| {
             // What goes inside a form's layout does not show above it as well.
-            let in_form = matches!(action.action_category(), ActionCategory::InForm(_));
+            // Nor what goes on each row of a list.
+            let in_form =
+                matches!(action.action_category(), ActionCategory::InForm(_) | ActionCategory::InRow);
             action.is_active()
                 && (if self.categories.is_empty() {
                     !in_form

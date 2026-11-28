@@ -14,6 +14,7 @@ mod e2e;
 mod empty;
 mod jobs;
 mod kept;
+mod list_cells;
 mod list_editors;
 mod list_strip;
 mod narrow;

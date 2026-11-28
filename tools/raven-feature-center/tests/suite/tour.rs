@@ -2794,6 +2794,32 @@ fn a_chronology_shows_the_milestones_in_order_and_opens_one() {
 }
 
 #[test]
+fn an_action_in_row_closes_only_its_row_and_stays_off_on_the_closed_ones() {
+    let mut c = Center::memory("ana");
+    c.press("Tipos de Action");
+    c.settle();
+    // ActionCategory::InRow and Action::fits: one button a row, on only where the row is open.
+    let rows = |c: &mut Center| -> Vec<(u64, bool)> {
+        c.settle();
+        c.ui.access_tree()
+            .nodes
+            .iter()
+            .filter(|n| {
+                n.role == Role::Button && n.name.as_deref().is_some_and(|name| name.starts_with("Fechar "))
+            })
+            .map(|n| (n.id, !n.disabled))
+            .collect()
+    };
+    let before = rows(&mut c);
+    assert!(!before.is_empty(), "{:?}", c.texts());
+    let open = before.iter().filter(|(_, on)| *on).count();
+    let (id, _) = before.iter().copied().find(|(_, on)| *on).expect("an open row");
+    c.ui.perform_action(id, ravenrs_core::AccessAction::Click);
+    c.settle();
+    assert_eq!(rows(&mut c).iter().filter(|(_, on)| *on).count(), open - 1, "{:?}", c.texts());
+}
+
+#[test]
 fn a_term_is_approved_with_its_document_and_reopened_by_the_generated_actions() {
     let mut c = Center::memory("ana");
     c.press("Semestres aprovados");
