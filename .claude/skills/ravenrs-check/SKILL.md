@@ -9,6 +9,7 @@ O projeto não tem CI hospedado. As checagens são subcomandos do `cargo xtask` 
 
 | Subcomando | Quando | O que roda |
 |---|---|---|
+| `cargo xtask lint` | para iterar rápido, **sem nenhum teste** | rustfmt, conferências baratas e clippy **só dos pacotes alterados**. Nunca vale como gate: antes do commit vem o `dev`, antes do merge o `pr` |
 | `cargo xtask dev` | enquanto se trabalha, antes do commit | rustfmt, conferências baratas, clippy e testes **só dos pacotes alterados** |
 | `cargo xtask pr` | o gate do PR, na máquina de quem desenvolve | clippy em tudo o que a mudança alcança, testes dos alterados e dos dependentes diretos, design system e API pública quando alcançados |
 | `cargo xtask release` | antes de publicar | o workspace inteiro, wasm32, features opcionais, MSRV, `cargo deny`, docs e builds web |
@@ -46,7 +47,7 @@ cargo xtask release
 
 Tudo: o workspace inteiro, wasm32, as features opcionais, o MSRV, o `cargo deny`, a documentação e os builds web, com a mesma cobertura do antigo `--full`. Vai antes de publicar uma versão ou quando o Alex pedir. Os benchmarks e o gate de desempenho só entram quando ele pedir, com `RAVENRS_GATE=1` (skill `ravenrs-desempenho`).
 
-Nenhum dos três aceita argumentos: `cargo xtask pr --full` é recusado e diz qual usar.
+Nenhum deles aceita argumentos: `cargo xtask pr --full` é recusado e diz qual usar.
 
 ## Onde o tempo vai
 

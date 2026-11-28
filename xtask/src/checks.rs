@@ -206,6 +206,31 @@ fn design_reached(check: &Check, selection: &Selection) -> bool {
     changed || untracked
 }
 
+/// `cargo xtask lint`: the fastest loop, with no tests at all. Formatting, the cheap checks and
+/// clippy on the packages changed, the same as `dev` up to its tests. It never stands in for a
+/// gate: the tests are `dev`'s while working and `pr`'s before a merge.
+pub fn lint(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
+    cheap(check)?;
+    let selection = select(check)?;
+    if selection.all {
+        println!("something every package builds with changed: clippy on the whole workspace");
+        check.mode = "lint, ALL".to_owned();
+        check.step("clippy (native), the whole workspace");
+        clippy(check, &["--workspace".to_owned()])?;
+        return Ok("Lint passed, no tests run (before the pull request: cargo xtask pr)");
+    }
+    if selection.touched.is_empty() {
+        println!("no package changed against {}: nothing to lint", base_name());
+        return Ok("Lint passed");
+    }
+    println!("changed: {}", selection.touched.join(" "));
+    check.step("clippy (native), on the packages changed");
+    clippy(check, &packages(&selection.touched))?;
+    Ok(
+        "Lint passed, no tests run (before a commit: cargo xtask dev; before the pull request: cargo xtask pr)",
+    )
+}
+
 /// `cargo xtask dev`: while working, before a commit. Formatting, the cheap checks, then clippy,
 /// the tests and the doctests of the packages changed only. Their dependents, the design system
 /// and the public API are the pull request's.

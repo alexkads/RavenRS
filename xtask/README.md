@@ -6,6 +6,7 @@ in seconds. How to run and read the checks is in the skill `.claude/skills/raven
 
 | Task | When |
 |---|---|
+| `cargo xtask lint` | the fastest loop, with no tests at all: formatting, the cheap checks and clippy on the packages changed. Never a gate: `dev` before a commit, `pr` before a merge |
 | `cargo xtask dev` | while working, before a commit: formatting, the cheap checks, clippy and the tests of the packages changed |
 | `cargo xtask pr` | the pull request's gate, on the developer's machine |
 | `cargo xtask release` | before a release: the whole workspace and everything else |

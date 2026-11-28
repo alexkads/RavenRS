@@ -14,6 +14,8 @@ use std::path::PathBuf;
 const HELP: &str = "\
 cargo xtask <task>: the project's checks and builds, one task per purpose.
 
+  lint      the fastest loop, with NO tests: formatting, the cheap checks of the workspace and
+            clippy on the packages changed. Never a gate: run dev before a commit, pr before a merge
   dev       while working, before a commit (minutes): formatting, the cheap checks of the
             workspace, then clippy and the tests of the packages changed only
   pr        the pull request's gate, on the developer's machine: clippy on every package the
@@ -42,6 +44,7 @@ fn dispatch(args: &[String]) -> i32 {
         None => ("help", &[][..]),
     };
     let check: fn(&mut run::Check) -> Result<&'static str, run::Failed> = match task {
+        "lint" => checks::lint,
         "dev" => checks::dev,
         "pr" => checks::pr,
         "release" => checks::release,
@@ -58,7 +61,7 @@ fn dispatch(args: &[String]) -> i32 {
     if !rest.is_empty() {
         eprintln!("error: cargo xtask {task} takes no arguments, and got: {}", rest.join(" "));
         eprintln!(
-            "Each check does one thing: dev while working, pr for a pull request, release before a release."
+            "Each check does one thing: lint with no tests, dev while working, pr for a pull request, release before a release."
         );
         return 2;
     }
@@ -69,7 +72,9 @@ fn dispatch(args: &[String]) -> i32 {
             return failed.code.max(1);
         }
     };
-    if let Err(failed) = nextest_installed(&state) {
+    if task != "lint"
+        && let Err(failed) = nextest_installed(&state)
+    {
         eprintln!("error: {failed}");
         return 1;
     }
