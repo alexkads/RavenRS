@@ -259,6 +259,13 @@ pub enum ActionResult {
     RecordsChanged,
     /// Its work started away from the screen, as the job with this id.
     Started(u64),
+    /// Open a new record of this entity on its form, with these fields filled in.
+    OpenNew {
+        /// The entity of the record.
+        entity: String,
+        /// The fields filled in, by name.
+        values: Vec<(String, Value)>,
+    },
 }
 
 /// Something to tell people, which goes away by itself.
@@ -360,6 +367,12 @@ impl ActionContext {
         *self.next.borrow_mut() = Some(ActionResult::ShowView(id.into()));
     }
 
+    /// Asks whoever shows the application to open a new record of `entity` on its form, with
+    /// these fields filled in, when the action ends.
+    pub fn open_new(&self, entity: impl Into<String>, values: Vec<(String, Value)>) {
+        *self.next.borrow_mut() = Some(ActionResult::OpenNew { entity: entity.into(), values });
+    }
+
     /// Tells whoever shows the application that records changed, so what shows them reads again.
     pub fn records_changed(&self) {
         *self.next.borrow_mut() = Some(ActionResult::RecordsChanged);
@@ -427,6 +440,7 @@ struct ActionInner {
     accessible_name: Option<String>,
     accessible_description: Option<String>,
     requires: Option<crate::Operation>,
+    requires_on: Option<(String, crate::Operation)>,
     on_execute: Option<Handler>,
     on_cancel: Option<Notice>,
     on_executing: Option<Guard>,
@@ -486,6 +500,7 @@ impl Action {
             prepare: None,
             hotkey: None,
             requires: None,
+            requires_on: None,
             icon: None,
             accessible_name: None,
             accessible_description: None,
@@ -650,6 +665,12 @@ impl Action {
         self.change(|a| a.requires = Some(operation))
     }
 
+    /// What it does to another entity, as creating its records: whoever cannot does not see it.
+    /// The secured space refuses it anyway.
+    pub fn requires_on(self, entity: impl Into<String>, operation: crate::Operation) -> Self {
+        self.change(|a| a.requires_on = Some((entity.into(), operation)))
+    }
+
     /// The keys that run it, in the words of whoever shows it.
     pub fn hotkey(self, keys: impl Into<String>) -> Self {
         self.change(|a| a.hotkey = Some(keys.into()))
@@ -762,6 +783,11 @@ impl Action {
     /// What it does to the records of its view, if it said.
     pub fn required_operation(&self) -> Option<crate::Operation> {
         self.0.requires
+    }
+
+    /// What it does to another entity, as [`Action::requires_on`] says.
+    pub fn required_on(&self) -> Option<(&str, crate::Operation)> {
+        self.0.requires_on.as_ref().map(|(entity, operation)| (entity.as_str(), *operation))
     }
 
     /// The keys that run it.

@@ -2729,6 +2729,9 @@ fn a_bill_is_settled_in_part_reversed_and_split_to_the_cent() {
     assert!(c.says("Luz (3/3): open, R$ 33,34, saldo R$ 33,34"), "{:?}", c.texts());
     c.press("Cancelar a conta");
     assert!(c.says("Luz (1/3): cancelled, R$ 33,33, saldo R$ 33,33"), "{:?}", c.texts());
+    // statement_document and position_document: the reports print as documents.
+    c.press("Imprimir extrato e posição");
+    assert!(c.texts().iter().any(|t| t.starts_with("Impresso: extrato com ")), "{:?}", c.texts());
 }
 
 #[test]
@@ -2814,4 +2817,65 @@ fn an_action_in_row_closes_only_its_row_and_stays_off_on_the_closed_ones() {
     c.ui.perform_action(id, ravenrs_core::AccessAction::Click);
     c.settle();
     assert_eq!(rows(&mut c).iter().filter(|(_, on)| *on).count(), open - 1, "{:?}", c.texts());
+}
+
+#[test]
+fn a_term_is_approved_with_its_document_and_reopened_by_the_generated_actions() {
+    let mut c = Center::memory("ana");
+    c.press("Semestres aprovados");
+    c.settle();
+    // ClosingModule::new and action_ids: the actions come on the term, with Write.
+    c.select("ClosingTerm", 1.0);
+    let approving = |c: &mut Center| {
+        c.select("ClosingTerm", 1.0);
+        c.run("ClosingTerm.ApproveClosing", ActionInput::None);
+        c.press("Aprovar fechamento");
+    };
+    approving(&mut c);
+    assert!(c.says("still has Aulas do semestre that keep it open"), "{:?}", c.texts());
+    assert_eq!(c.count("ClosingTermVersion"), 0);
+    let mut space = (c.space)();
+    let mut lesson = space.find("ClosingLesson", &Value::Number(2.0)).expect("reads").expect("there");
+    lesson.set("status", "Lançada");
+    space.save(lesson).expect("saved");
+    space.commit().expect("committed");
+    // approver and words: the version keeps who approved, the message is in Portuguese.
+    approving(&mut c);
+    assert!(c.says("Aprovado, versão 1."), "{:?}", c.texts());
+    // The lessons of an approved term are frozen: the commit refuses a change.
+    c.press("Aulas do semestre");
+    assert!(c.says("Aula 2"), "{:?}", c.texts());
+    let mut space = (c.space)();
+    let mut lesson = space.find("ClosingLesson", &Value::Number(2.0)).expect("reads").expect("there");
+    lesson.set("status", "Rascunho");
+    assert!(space.save(lesson).and_then(|()| space.commit()).is_err(), "a frozen lesson changed");
+    c.press("Semestres aprovados");
+    c.select("ClosingTerm", 1.0);
+    c.run("ClosingTerm.ReopenClosing", ActionInput::Parameter(Value::Text("faltou uma presença".into())));
+    assert!(c.says("Reaberto."), "{:?}", c.texts());
+    c.select("ClosingTerm", 1.0);
+    c.run("ClosingTerm.ClosingVersions", ActionInput::None);
+    assert!(c.says("Versão 1") && c.says("Reaberta"), "{:?}", c.texts());
+}
+
+#[test]
+fn a_closed_lesson_is_corrected_by_the_generated_action_and_an_open_one_does_not_offer_it() {
+    let mut c = Center::memory("ana");
+    c.press("Aulas encerradas");
+    c.settle();
+    // Action::requires_on and the generated action: on only for a closed lesson.
+    c.select("SealedLesson", 2.0);
+    let action = c.session().frame().action("SealedLessonCorrection.Amend").expect("generated");
+    assert!(!action.is_enabled(), "an open lesson offers a correction");
+    c.select("SealedLesson", 1.0);
+    // ActionContext::open_new: the correction opens on its form, pointing to the lesson.
+    c.run("SealedLessonCorrection.Amend", ActionInput::None);
+    let form = c.session().form_record().expect("the correction is on its form");
+    assert_eq!(form.get("lesson_id"), Value::Number(1.0));
+    c.set("present", 5.0);
+    c.set("reason", "duas chegaram atrasadas");
+    c.save();
+    assert_eq!(c.stored("SealedLesson", 1.0).get("present"), Value::Number(5.0));
+    c.press("Correções de aula");
+    assert_eq!(c.count("SealedLessonCorrection"), 1);
 }

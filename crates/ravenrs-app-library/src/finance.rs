@@ -44,6 +44,8 @@ pub const LEDGER_ENTRY: &str = "LedgerEntry";
 pub const COMMITMENT: &str = "Commitment";
 /// The entity of the settlements of bills.
 pub const SETTLEMENT: &str = "Settlement";
+/// The review of a settlement before it is kept: no storage keeps it.
+pub const SETTLE_REVIEW: &str = "SettleReview";
 
 /// The most installments a bill is split in.
 pub const MOST_INSTALLMENTS: u32 = 120;
@@ -184,9 +186,29 @@ pub fn settlement() -> EntityInfo {
         .sealed(Seal::when("Not IsNull([reversed_on])"))
 }
 
-/// Every entity of the finances, for a database to know.
+/// What the person checks before settling: the date, how much of the bill, interest, fine and
+/// discount, and the total that goes to the cash book. No storage keeps it; Settle opens it on a
+/// window, filled with today and what is open, and settles what it says on OK.
+pub fn settle_review() -> EntityInfo {
+    EntityInfo::new(SETTLE_REVIEW)
+        .caption("Settle")
+        .transient()
+        .field(key())
+        .field(FieldInfo::new("on", FieldKind::Date).caption("Paid on"))
+        .field(money("principal").caption("Of the bill"))
+        .field(money("interest").caption("Interest"))
+        .field(money("fine").caption("Fine"))
+        .field(money("discount").caption("Discount"))
+        .field(
+            money("total")
+                .caption("To the cash book")
+                .calculated("[principal] + [interest] + [fine] - [discount]"),
+        )
+}
+
+/// Every entity of the finances, for a database to know. The review of a settlement is not kept.
 pub fn entities() -> Vec<EntityInfo> {
-    vec![finance_category(), ledger_entry(), commitment(), settlement()]
+    vec![finance_category(), ledger_entry(), commitment(), settlement(), settle_review()]
 }
 
 /// What a settlement takes: the date, how much of the bill, and what is added or taken off, in
@@ -728,18 +750,38 @@ impl ravenrs_app::ViewController for FinanceActions {
             DateTime { days: now.days, seconds: 0 }
         };
         vec![
-            Action::simple(SETTLE_BILL, "Settle")
+            // A window to check the date and what is added or taken off, then OK settles it.
+            Action::popup(SETTLE_BILL, "Settle", format!("{SETTLE_REVIEW}_DetailView"))
                 .category(ActionCategory::Edit)
                 .target_entity(COMMITMENT)
                 .selection(Selection::RequireSingle)
                 .requires(Operation::Write)
                 .target_criteria(open, CriteriaMode::TrueForAll)
                 .icon("check")
+                .on_prepare(move |cx, review| {
+                    let Some(bill) = cx.selected.first() else { return };
+                    let left = cents(bill, "amount") - cents(bill, "settled");
+                    review.set("on", Value::Date(today()));
+                    review.set("principal", left as f64);
+                    for field in ["interest", "fine", "discount"] {
+                        review.set(field, 0.0);
+                    }
+                })
                 .on_execute(move |cx| {
                     let bill = cx.selected.first().ok_or("this action needs a bill")?;
-                    let left = cents(bill, "amount") - cents(bill, "settled");
+                    let ActionInput::Record(review) = &cx.input else {
+                        return Err("check the settlement first".to_owned());
+                    };
+                    let on = match review.get("on") {
+                        Value::Date(on) => on,
+                        _ => today(),
+                    };
+                    let input = SettleInput::new(on, cents(review, "principal"))
+                        .interest(cents(review, "interest"))
+                        .fine(cents(review, "fine"))
+                        .discount(cents(review, "discount"));
                     let mut space = cx.space.borrow_mut();
-                    settle(&mut *space, &bill.get("id"), SettleInput::new(today(), left), today())
+                    settle(&mut *space, &bill.get("id"), input, today())
                         .map(|_| ())
                         .map_err(|e| e.to_string())
                 }),

@@ -37,6 +37,6 @@
   ],
   "limits": [
     "The data of the demonstrations is made up and lives in memory or in a local SQLite file.",
-    "The web build is made with scripts/build-web.sh raven-feature-center."
+    "The web build is made with cargo xtask web raven-feature-center."
   ]
 }

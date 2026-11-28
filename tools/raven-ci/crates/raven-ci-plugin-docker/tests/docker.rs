@@ -3,7 +3,7 @@
 //! build that fails or is cancelled, the files of the folder owned by the agent, and compose
 //! waiting for health.
 //!
-//! They run only when asked, with `RAVEN_CI_TESTES_DOCKER=1`, so a `check.sh` never reaches an
+//! They run only when asked, with `RAVEN_CI_TESTES_DOCKER=1`, so a `cargo xtask pr` never reaches an
 //! engine on its own. Asked, each test is still skipped, saying so, when the machine has no
 //! engine, or when the engine is another machine's (a context over `ssh://` or `tcp://`): a
 //! remote engine does not see this machine's folders, so these run on the machine of the engine.

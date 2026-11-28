@@ -68,13 +68,13 @@ pub use appearance::Appearance;
 pub use controller::{ViewController, WindowController};
 pub use entity::{
     Amendment, AmendmentApply, AmendmentKind, AppearanceContext, AppearanceRule, AppearanceTarget,
-    CLOSING_CURRENT, CLOSING_REOPENED, ClosingError, Comparison, DataAccess, EXACT_DIGITS, EntityInfo,
-    EnumOption, FieldInfo, FieldKind, ListFilter, ListIndicator, ModelError, ModelNode, Object, Operand,
-    PeriodClosing, RecordAction, Reminder, Rule, RuleKind, Seal, Selection, Severity, StateMachine,
-    StoredLookup, TextComparison, Tint, Transition, ViewVariant, apply_amendment, approve, archived_document,
-    check_amendment_model, check_amendments, check_closing, check_closing_model, check_transitions,
-    closing_digest, closing_key, closing_versions, exact_decimal, exact_decimals, local_now, local_today,
-    missing_closing_entities, reopen,
+    CLOSING_CURRENT, CLOSING_REOPENED, ClosingError, Comparison, DataAccess, DueDigest, EXACT_DIGITS,
+    EntityInfo, EnumOption, FieldInfo, FieldKind, ListFilter, ListIndicator, ModelError, ModelNode, Object,
+    Operand, PeriodClosing, RecordAction, Reminder, Rule, RuleKind, Seal, Selection, Severity, StateMachine,
+    StoredList, StoredLookup, TextComparison, Tint, Transition, ViewVariant, apply_amendment, approve,
+    archived_document, check_amendment_model, check_amendments, check_closing, check_closing_model,
+    check_transitions, closing_digest, closing_key, closing_versions, closing_versions_entity, exact_decimal,
+    exact_decimals, local_now, local_today, missing_closing_entities, reopen,
 };
 pub use files::{AttachmentStore, MemoryAttachmentStore};
 pub use frame::{Frame, FrameContext, FrameEvent, ViewInfo, ViewKind};
@@ -103,8 +103,8 @@ pub use ravenrs_core::{MemoryStorage, Storage};
 pub use ravenrs_criteria::{Criteria, Culture, MoneyError, Remainder, Value, allocate, allocate_by};
 
 pub use due_digest::{
-    DIGEST_ADVANCE_DAYS, Digest, DigestPreference, DigestWords, DueDigest, digest_of, digest_preference,
-    due_digest_for, set_digest_preference,
+    DIGEST_ADVANCE_DAYS, Digest, DigestPreference, DigestWords, digest_of, digest_preference, due_digest_for,
+    set_digest_preference,
 };
 pub use records::{
     AppRecordsModule, DRAFT_ENTITY, Draft, SEQUENCE_ENTITY, draft_entity, drafts, next_number, save_draft,

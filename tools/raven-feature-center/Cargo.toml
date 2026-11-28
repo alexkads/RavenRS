@@ -23,6 +23,7 @@ app = [
     "dep:ravenrs-app-report",
     "dep:ravenrs-app-ui",
     "dep:ravenrs-report",
+    "dep:ravenrs-grid-export",
     "dep:rust_decimal",
     "dep:ravenrs-app-server",
     "dep:tokio",
@@ -54,6 +55,8 @@ ravenrs-app-i18n.workspace = true
 # The expressions of the Editor de expressões page, worked out for its preview.
 ravenrs-criteria = { workspace = true, features = ["json"] }
 ravenrs-report = { workspace = true, optional = true }
+# The document a term of the closing demonstration is approved with, as a table.
+ravenrs-grid-export = { workspace = true, optional = true }
 rust_decimal = { version = "1", default-features = false, features = ["std"], optional = true }
 component-gallery = { path = "../../examples/component-gallery", default-features = false, optional = true }
 

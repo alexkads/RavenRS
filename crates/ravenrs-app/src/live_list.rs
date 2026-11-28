@@ -31,8 +31,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::AppearanceRule::__live_expose(registry);
     crate::Appearance::__live_expose_fields(registry);
     crate::EntityInfo::__live_expose(registry);
-    crate::DueDigest::__live_expose_fields(registry);
-    crate::DueDigest::__live_expose(registry);
     crate::DigestWords::__live_expose_fields(registry);
     crate::DigestWords::__live_expose(registry);
     crate::Digest::__live_expose_fields(registry);
@@ -50,6 +48,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::PeriodClosing::__live_expose_fields(registry);
     crate::PeriodClosing::__live_expose(registry);
     crate::ClosingError::__live_expose_variants(registry);
+    crate::DueDigest::__live_expose_fields(registry);
+    crate::DueDigest::__live_expose(registry);
     crate::Selection::__live_expose_variants(registry);
     crate::RecordAction::__live_expose_fields(registry);
     crate::TextComparison::__live_expose_variants(registry);

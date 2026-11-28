@@ -68,7 +68,7 @@ Rodar o conversor no commit do `NOTICE` reproduz `src/`, `tests/` e `assets/`, e
 - `build.rs` (o de `crates/fonts`, com o caminho do módulo), `Cargo.toml`, `NOTICE`, `LICENSES/`,
   `README.md`, `clippy.toml` (o deles sem as regras do egui), `rustfmt.toml`.
 - Links de documentação que a conversão deixa sem alcance, corrigidos à mão porque o `cargo doc
-  -D warnings` do `--full` os recusa: `fonts/plan.rs` (`CRAFT_FONTS`), `render/inspect/model.rs`
+  -D warnings` do `cargo xtask release` os recusa: `fonts/plan.rs` (`CRAFT_FONTS`), `render/inspect/model.rs`
   (`DocInfo::layers` e `DocInfo::layer_order`), `render/inspect/navigation.rs` (`inspect`), com o
   caminho `super::`; e `third_party/vello_cpu/mod.rs`, onde o `glyph_run` virou texto, porque a
   feature `text` sai como `cfg(any())`.
@@ -110,7 +110,7 @@ CARGO_TARGET_DIR=<scratchpad>/target cargo test -p ravenrs-pdf --no-fail-fast
 cargo clippy -p ravenrs-pdf --all-targets -- -D warnings
 cargo check -p ravenrs-pdf --target wasm32-unknown-unknown
 cargo tree -p ravenrs-pdf | grep -c 'git+'   # tem de dar 0
-scripts/check.sh
+cargo xtask pr
 ```
 
 Os testes que o PdfCraft roda nesses crates têm de passar todos: 1.750 no `175992b`, contra 1.781
@@ -120,4 +120,4 @@ mesmo workspace de rascunho do passo 4. Não há corpus: os testes que leem `cor
 dispensam sozinhos quando ele falta.
 
 No wasm32 o crate compila com avisos de código que só o desktop usa (o pool de threads do render),
-como na origem. Por isso ele não está na lista de clippy wasm32 do `check.sh --full`.
+como na origem. Por isso ele não está na lista de clippy wasm32 do `cargo xtask release`.
