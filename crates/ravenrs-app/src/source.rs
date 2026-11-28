@@ -367,6 +367,12 @@ fn field_info(
     if attrs.secret {
         info = info.secret();
     }
+    if attrs.badge {
+        info = info.badge();
+    }
+    if let Some(field) = &attrs.list_detail {
+        info = info.list_detail(field.value());
+    }
     if attrs.non_cloneable {
         info = info.non_cloneable();
     }

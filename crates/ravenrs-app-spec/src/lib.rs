@@ -183,6 +183,10 @@ pub struct FieldSettings {
     pub non_cloneable: bool,
     /// `secret` in the attribute.
     pub secret: bool,
+    /// `badge` in the attribute: a list shows the value as a badge.
+    pub badge: bool,
+    /// `list_detail = "..."`: the field a list shows under the value.
+    pub list_detail: Option<LitStr>,
     /// `aggregated` in the attribute.
     pub aggregated: bool,
     /// `group` in the attribute.
@@ -617,6 +621,10 @@ pub fn field_settings(field: &syn::Field) -> Result<FieldSettings> {
                 attrs.non_cloneable = true;
             } else if named("secret") {
                 attrs.secret = true;
+            } else if named("badge") {
+                attrs.badge = true;
+            } else if named("list_detail") {
+                attrs.list_detail = Some(meta.value()?.parse()?);
             } else if named("aggregated") {
                 attrs.aggregated = true;
             } else if named("group") {
@@ -636,7 +644,7 @@ pub fn field_settings(field: &syn::Field) -> Result<FieldSettings> {
                      no_detail, lookup, money, long, color, date, guid, tags, decimals, reference, collection, \
                      calculated, default, required, unique, min, max, matches, message, editor, placeholder, \
                      hint, accessible_name, accessible_description, lookup_filter, none_caption, back_reference, most_bytes, wide, autofocus, \
-                     non_cloneable, secret, aggregated, group, display_format, edit_mask, predefined or criteria_of",
+                     non_cloneable, secret, badge, list_detail, aggregated, group, display_format, edit_mask, predefined or criteria_of",
                 ));
             }
             Ok(())
