@@ -79,3 +79,37 @@ fn an_application_can_turn_the_notice_off() {
     let said = texts(&mut ui);
     assert!(!said.contains("conta vencida"), "{said}");
 }
+
+#[test]
+fn each_person_chooses_the_notices_beside_their_account_and_it_is_kept() {
+    use ravenrs_app::{MemorySettings, digest_preference};
+    let store = MemorySettings::default();
+    let app = App::new("Casa")
+        .language(Language::BrazilianPortuguese)
+        .entity_info(invoice())
+        .due_digest_notice(false)
+        .settings(store.clone())
+        .signed_in_remotely("ana".to_owned(), || {});
+    let mut ui = Ui::new(app.build().expect("valid"), Theme::raven_dark());
+    ui.set_viewport(Size::new(1200.0, 800.0), 1.0);
+    let click = |ui: &mut Ui, name: &str| {
+        let said = texts(ui);
+        let id = ui
+            .access_tree()
+            .nodes
+            .iter()
+            .find(|n| n.name.as_deref() == Some(name))
+            .unwrap_or_else(|| panic!("no {name} in {said}"))
+            .id;
+        ui.perform_action(id, AccessAction::Click);
+    };
+    click(&mut ui, "Avisos de vencimento");
+    let said = texts(&mut ui);
+    assert!(said.contains("Contas") && said.contains("3 dias antes"), "the choice of each entity: {said}");
+    click(&mut ui, "7 dias antes");
+    texts(&mut ui);
+    assert_eq!(digest_preference(&store, "ana", "Invoice").advance_days, 7);
+    click(&mut ui, "Desligado");
+    texts(&mut ui);
+    assert!(!digest_preference(&store, "ana", "Invoice").enabled, "kept for ana");
+}

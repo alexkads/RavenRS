@@ -177,7 +177,9 @@ EntityInfo::new("Invoice").due_digest(
 
 On opening, a session shows a message per entity with a `DueDigest`, by the person's preference and permissions, with a button that opens its list; `App::due_digest_notice(false)` turns it off, and `show_due_digests(session)` shows it where an application wants.
 
-What waits (#860): the list filtered by what is pending and the days, the choice in `AppShell`, and the texts in `ravenrs-app-i18n`.
+Beside the account, a bell opens "Due date notices": each entity with a `DueDigest` and the choice of off, on the day, or one, three or seven days before, kept by `set_digest_preference` for that person only. It shows when someone is signed in and the application keeps settings.
+
+What waits (#860): the list filtered by what is pending and the days, and the texts in `ravenrs-app-i18n`.
 
 ### Bills, settlements and installments
 

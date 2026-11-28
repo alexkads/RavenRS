@@ -49,3 +49,78 @@ pub fn show_due_digests(session: &Session) {
         session.show_message(message);
     }
 }
+
+/// The button, beside the account, that lets each person choose the notices of what falls due:
+/// off, on the day, or one, three or seven days before, for each entity with a `DueDigest`. It
+/// keeps the choice in the settings, for that person only. `None` when there is no entity with a
+/// summary, no one signed in or nowhere to keep it.
+pub(crate) fn choice_button(session: &Session) -> Option<ravenrs_widgets::IconButton> {
+    let entities: Vec<ravenrs_app::EntityInfo> =
+        session.every_entity().into_iter().filter(|entity| entity.due_digest.is_some()).collect();
+    if entities.is_empty() || session.settings().is_none() || session.account().is_none() {
+        return None;
+    }
+    let texts = session.texts();
+    let title = texts.get("ui.due_choice");
+    let opener = session.clone();
+    Some(
+        ravenrs_widgets::IconButton::new(ravenrs_widgets::IconName::Bell)
+            .label(title.clone())
+            .size(ravenrs_widgets::ButtonSize::Small)
+            .on_click(move || {
+                let (session, entities) = (opener.clone(), entities.clone());
+                opener.present(title.clone(), move || choices(&session, &entities));
+            }),
+    )
+}
+
+/// One row for each entity: its name and the choice, read and kept in the person's settings.
+fn choices(session: &Session, entities: &[ravenrs_app::EntityInfo]) -> ravenrs_widgets::AnyView {
+    use ravenrs_app::{DIGEST_ADVANCE_DAYS, DigestPreference, set_digest_preference};
+    use ravenrs_widgets::{HStack, SegmentedControl, Text, VStack, ViewExt};
+    let texts = session.texts();
+    let labels: Vec<String> = std::iter::once(texts.get("ui.due_off"))
+        .chain(DIGEST_ADVANCE_DAYS.iter().map(|days| match days {
+            0 => texts.get("ui.due_on_the_day"),
+            1 => texts.get("ui.due_day_before"),
+            n => format!("{n} {}", texts.get("ui.due_days_before")),
+        }))
+        .collect();
+    let rows: Vec<ravenrs_widgets::AnyView> = entities
+        .iter()
+        .map(|entity| {
+            let (reader, writer) = (session.clone(), session.clone());
+            let (read_name, write_name) = (entity.name.clone(), entity.name.clone());
+            let chosen = ravenrs_reactive::Binding::new(
+                move || {
+                    let (Some(store), Some(user)) = (reader.settings(), reader.account()) else { return 0 };
+                    let kept = digest_preference(&*store, &user.name, &read_name);
+                    if !kept.enabled {
+                        return 0;
+                    }
+                    1 + DIGEST_ADVANCE_DAYS.iter().position(|days| *days == kept.advance_days).unwrap_or(2)
+                },
+                move |at: usize| {
+                    let (Some(store), Some(user)) = (writer.settings(), writer.account()) else { return };
+                    let kept = digest_preference(&*store, &user.name, &write_name);
+                    let wanted = match at.checked_sub(1).and_then(|at| DIGEST_ADVANCE_DAYS.get(at)) {
+                        Some(days) => DigestPreference::new(true, *days),
+                        None => DigestPreference::new(false, kept.advance_days),
+                    };
+                    match set_digest_preference(&*store, &user.name, &user.name, &write_name, wanted) {
+                        Ok(()) => writer.touch(),
+                        Err(why) => writer.show_message(Message::new(why, MessageKind::Error)),
+                    }
+                },
+            );
+            Box::new(
+                HStack::new((
+                    Text::new(entity.caption.clone()).grow(1.0),
+                    SegmentedControl::new(chosen, labels.clone()).label(entity.caption.clone()),
+                ))
+                .spacing(12.0),
+            ) as ravenrs_widgets::AnyView
+        })
+        .collect();
+    Box::new(VStack::new(rows).spacing(8.0).padding(16.0))
+}

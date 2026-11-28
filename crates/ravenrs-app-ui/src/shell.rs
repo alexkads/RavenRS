@@ -523,6 +523,8 @@ impl AppShell {
         Box::new(
             ravenrs_widgets::HStack::new((
                 Text::new(account.name).style(TextStyle::Callout).grow(1.0),
+                // What falls due, as each person chooses to be told.
+                crate::due::choice_button(&self.session),
                 self.theme_picker(),
                 // Only where passwords are kept here: on a server, its own way in does this.
                 self.session.frame().security().map(|_| {
