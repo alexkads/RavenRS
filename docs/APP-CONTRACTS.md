@@ -174,7 +174,9 @@ EntityInfo::new("Invoice").due_digest(
 - `due_digest_for(space, entity, permissions, today, preference, words)` gives nothing to whom cannot read the entity or turned it off, reads through their space (only records they read), and shows amounts only if `permissions.can_field(Read, entity, amount, None)`.
 - `digest_preference` and `set_digest_preference` keep `{ enabled, advance_days }` under `due-digest/<Entity>` for the person (`SettingScope::User`): on, three days ahead, by default; 0, 1, 3 or 7 days; nobody keeps someone else's.
 
-What waits (#860): the notice on signing in with the action to open the filtered list, the choice in `AppShell`, and the texts in `ravenrs-app-i18n`.
+On opening, a session shows a message per entity with a `DueDigest`, by the person's preference and permissions, with a button that opens its list; `App::due_digest_notice(false)` turns it off, and `show_due_digests(session)` shows it where an application wants.
+
+What waits (#860): the list filtered by what is pending and the days, the choice in `AppShell`, and the texts in `ravenrs-app-i18n`.
 
 ## Scenarios
 

@@ -8,6 +8,7 @@ mod center;
 mod counter;
 mod dates;
 mod door;
+mod due_digest;
 mod e2e;
 mod empty;
 mod jobs;
