@@ -175,6 +175,12 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::SecuredObjectSpace::__live_expose_fields(registry);
     crate::SecuredObjectSpace::__live_expose(registry);
     crate::SecuredObjectSpace::__live_expose_objectspace(registry);
+    crate::TemporaryAccessPolicy::__live_expose_fields(registry);
+    crate::TemporaryAccessPolicy::__live_expose(registry);
+    crate::TemporaryAccess::__live_expose_fields(registry);
+    crate::AccessError::__live_expose_variants(registry);
+    crate::UserDirectory::__live_expose_part2(registry);
+    crate::SecurityContext::__live_expose_part1(registry);
     crate::SettingScope::__live_expose_variants(registry);
     crate::SettingScope::__live_expose(registry);
     crate::MemorySettings::__live_expose_fields(registry);
@@ -202,4 +208,5 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::StateMachine::__live_expose_part1(registry);
     crate::Reminder::__live_expose(registry);
     registry.conversion::<crate::SpaceError, crate::ClosingError>("SpaceError", crate::ClosingError::from);
+    registry.conversion::<crate::SpaceError, crate::AccessError>("SpaceError", crate::AccessError::from);
 }

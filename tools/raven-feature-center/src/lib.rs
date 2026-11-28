@@ -45,6 +45,8 @@ pub fn self_test() -> Result<String, String> {
 }
 
 #[cfg(feature = "app")]
+pub mod acesso;
+#[cfg(feature = "app")]
 pub mod actions;
 #[cfg(feature = "app")]
 mod centro;

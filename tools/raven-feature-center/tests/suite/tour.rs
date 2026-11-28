@@ -2628,6 +2628,30 @@ fn a_closed_lesson_changes_by_correction_and_an_approved_term_freezes_it() {
     assert!(c.says("Semestre aprovado: versão 2."), "{:?}", c.texts());
     c.press("Recomeçar");
     assert!(c.says("Versões: nenhuma"), "{:?}", c.texts());
+fn a_temporary_access_ends_by_itself_and_revoking_never_takes_oneself() {
+    c.press("Acesso temporário");
+    assert!(c.says("Usuário ana: ativo"), "{:?}", c.texts());
+    // min_reason.
+    c.press("Conceder sem motivo");
+    assert!(c.says("Recusado: the reason needs at least 10 characters"), "{:?}", c.texts());
+    // new, max_hours, name_prefix, check_every and clock.
+    c.press("Conceder 2 horas");
+    assert!(says_start(&mut c, "Concedido a suporte-"), "{:?}", c.texts());
+    assert!(c.says("Acesso de ana: suporte do caixa, por 2 h, em aberto"), "{:?}", c.texts());
+    c.press("Entrar como suporte");
+        says_start(&mut c, "suporte-") && c.texts().iter().any(|t| t.ends_with(" entrou.")),
+    // now: the clock moves past the deadline.
+    c.press("Passar 3 horas");
+    assert!(c.says("Passaram 3 horas: 1 acesso(s) vencido(s)."), "{:?}", c.texts());
+    assert!(c.says("Acesso de ana: suporte do caixa, por 2 h, encerrado: Expired"), "{:?}", c.texts());
+    assert!(c.texts().iter().any(|t| t.ends_with(" não entrou.")), "{:?}", c.texts());
+    c.press("Revogar a si mesma");
+    assert!(c.says("Recusado: nobody revokes their own user"), "{:?}", c.texts());
+    c.press("Revogar o suporte");
+    assert!(c.says("Acesso de ana: suporte do caixa, por 2 h, encerrado: Revoked by ana"), "{:?}", c.texts());
+    // The list of the center's own temporary accesses, in Administração.
+    c.press("Acessos temporários");
+    assert!(c.says("Motivo") && c.says("Vence em") && c.says("Autorizado por"), "{:?}", c.texts());
 }
 
 #[test]

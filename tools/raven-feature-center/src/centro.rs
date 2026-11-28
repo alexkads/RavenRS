@@ -150,6 +150,9 @@ fn application() -> App {
             .navigation("Aplicação")
             .icon("lock")
             .control(crate::fechamento::PAGE, crate::fechamento::ID),
+        DashboardInfo::new(crate::acesso::ID, crate::acesso::PAGE)
+            .icon("clock")
+            .control(crate::acesso::PAGE, crate::acesso::ID),
     );
     // The server does not run in a browser, so neither does its page.
     #[cfg(not(target_arch = "wasm32"))]
@@ -182,6 +185,7 @@ fn register_controls(session: &Session) {
     session.register_control(model::COUNTER_WINDOW, actions::counter_control());
     session.register_control(crate::registro::ID, || Box::new(crate::registro::RecordPage) as AnyView);
     session.register_control(crate::fechamento::ID, || Box::new(crate::fechamento::ClosingPage) as AnyView);
+    session.register_control(crate::acesso::ID, || Box::new(crate::acesso::TemporaryAccessPage) as AnyView);
     #[cfg(not(target_arch = "wasm32"))]
     session.register_control(crate::servidor::ID, || Box::new(crate::servidor::ApiOptionsPage) as AnyView);
     #[cfg(not(target_arch = "wasm32"))]

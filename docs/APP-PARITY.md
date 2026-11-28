@@ -60,6 +60,7 @@ replace the API statuses and adapter guarantees below.
 | Policy changed while running, by administrators on generated screens | ✅ `security_entities`; losing a role takes effect at once | |
 | Permissions that follow associations | 🟡 aggregated collections go with their owner; everything else asks for permission on both sides, as the documented manual mode does | |
 | Signing in with passwords, lockout, password changes, other ways in | ✅ `SecuredApp`, `UserDirectory`, `Authenticator`. No OpenID Connect, LDAP or second factor built in: `Authenticator` and `IdentityProvider` are where they go | #615 |
+| Access for a while with a reason and a deadline, and revoking a user | 🟡 `TemporaryAccessPolicy`, `SecurityContext::grant_temporary_access` and `revoke_user`, `UserDirectory::end_expired`, `expires_at` on the user and the `SecurityTemporaryAccess` record. The actions and screens of `SecurityModule`, the check of `SecuredApp` every `check_every` and the web API are not there yet | #857 |
 | Audit trail: author, old and new values, modes, settings, collections, custom data | ✅ `AuditedObjectSpace`, `AuditSettings`, `AuditTrail::custom`. Only what goes through it is seen | |
 | A list as a chart | 🟡 `Chart` editor: bars, lines, areas and pies, summed by argument, money in whole units. Not exported or printed with the list | |
 | A list on a calendar, and on a timeline of resources | 🟡 `Calendar` shows a month, and `Scheduler` a row per resource where records move, resize and get created. No recurring events or day and week views of hours | #227, #568 |
