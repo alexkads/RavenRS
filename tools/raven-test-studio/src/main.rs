@@ -1,6 +1,6 @@
-//! `cargo run -p raven-test-studio` opens the Studio.
+//! `cargo run --manifest-path tools/raven-test-studio/Cargo.toml` opens the Studio.
 //!
-//! `cargo run -p raven-test-studio -- --self-test` runs the Studio's own test with no window
+//! `cargo run --manifest-path tools/raven-test-studio/Cargo.toml -- --self-test` runs the Studio's own test with no window
 //! and prints a report; `--run financas` runs the scenarios Raven Finanças brings in its
 //! `tests/e2e/`, and `--run <file.raventest|folder>` scenario files kept anywhere, such as a QA
 //! team's folder. A Studio installed from scratch brings no test scenarios of its own.

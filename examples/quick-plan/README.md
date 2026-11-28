@@ -1,6 +1,6 @@
 # quick-plan
 
-`cargo run -p quick-plan`.
+`cargo run --manifest-path examples/quick-plan/Cargo.toml`.
 
 ## End-to-end tests (Raven Test Studio)
 

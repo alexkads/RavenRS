@@ -50,7 +50,7 @@ fn ledger(take: &mut Recorder) -> Result<(), RecordError> {
 ## Gravar
 
 ```bash
-FF_RECORD_TRAINING=1 cargo test -p family-finance --test suite training::
+FF_RECORD_TRAINING=1 cargo test --manifest-path examples/family-finance/Cargo.toml --test suite training::
 ```
 
 Sem a variável, o mesmo teste só confere os filmes que estão no app. Depois de gravar:

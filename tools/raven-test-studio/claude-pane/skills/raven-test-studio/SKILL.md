@@ -24,7 +24,7 @@ raven-test-studio --run autoteste --format json
 From a RavenRS checkout with no install:
 
 ```bash
-cargo run -q -p raven-test-studio -- --run autoteste --format json
+cargo run -q --manifest-path tools/raven-test-studio/Cargo.toml -- --run autoteste --format json
 ```
 
 The exit code is 0 when it passed, 1 when it failed and 2 when there is no such scenario or the `--format` is not one of `text`, `json`, `jsonl`, `junit`, `html`, or a window option is wrong (such as `--slow-mo` without `--headed`).

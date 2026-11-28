@@ -161,7 +161,7 @@ fn gate(bench: &Bench, bless: bool, filter: Option<&str>) -> Result<(), String> 
         return Ok(());
     }
     Err(format!(
-        "{}\n\nIf this change is meant: cargo run --release -p ravenrs-perf -- gate --bless, and review the diff.",
+        "{}\n\nIf this change is meant: cargo run --release --manifest-path crates/ravenrs-perf/Cargo.toml -- gate --bless, and review the diff.",
         problems.join("\n")
     ))
 }

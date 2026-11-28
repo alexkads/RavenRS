@@ -105,11 +105,11 @@ Os esquemas não ficam no repositório. Em `tests/externos.rs`, se `xmllint` ou 
 ## Caixa e etiquetas
 
 ```bash
-cargo test -p mini-pdv
+cargo test --manifest-path examples/mini-pdv/Cargo.toml
 ```
 
 ```bash
-RAVEN_PDV_TELAS=pasta cargo test -p mini-pdv --test telas -- --ignored
+RAVEN_PDV_TELAS=pasta cargo test --manifest-path examples/mini-pdv/Cargo.toml --test telas -- --ignored
 ```
 
 ```bash

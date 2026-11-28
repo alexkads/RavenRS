@@ -2,7 +2,7 @@
 //! disk, edits and saves its files, and builds and runs it with cargo, with the compiler's errors
 //! marked in the code and listed under Problems. It is the start of an IDE for RavenRS.
 //!
-//! `cargo run -p raven-code -- <folder>` opens a project; with no folder it opens a copy of a small
+//! `cargo run --manifest-path tools/raven-code/Cargo.toml -- <folder>` opens a project; with no folder it opens a copy of a small
 //! sample project in a temporary folder, so the repository is never edited.
 //!
 //! * [`project`]: the project on disk: its files, making, renaming and deleting them, and

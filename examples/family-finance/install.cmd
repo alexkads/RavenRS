@@ -96,7 +96,7 @@ Write-Host "> compilando (a primeira vez demora; as seguintes aproveitam o que j
 $env:CARGO_TARGET_DIR = $Alvo
 $env:FAMILY_FINANCE_INSTALLED = "1"
 Push-Location $codigo
-try { Correr { cargo build --release -p family-finance } } finally { Pop-Location }
+try { Correr { cargo build --release --manifest-path examples/family-finance/Cargo.toml -p family-finance } } finally { Pop-Location }
 
 $novo = Join-Path $Alvo "release\family-finance.exe"
 $resposta = & $novo --versao
@@ -205,7 +205,7 @@ tar -xzmf "$PACOTE" -C "$CODIGO" --strip-components=1
 diga "compilando (a primeira vez demora; as seguintes aproveitam o que já existe)"
 CARGO_TARGET_DIR="${FF_TARGET:-$CASA/target}"
 export CARGO_TARGET_DIR
-( cd "$CODIGO" && FAMILY_FINANCE_INSTALLED=1 cargo build --release -p family-finance )
+( cd "$CODIGO" && FAMILY_FINANCE_INSTALLED=1 cargo build --release --manifest-path examples/family-finance/Cargo.toml -p family-finance )
 
 BINARIO="$CARGO_TARGET_DIR/release/family-finance"
 RESPOSTA="$("$BINARIO" --versao 2>/dev/null | head -1 || true)"

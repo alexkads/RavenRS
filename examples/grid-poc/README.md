@@ -1,6 +1,6 @@
 # grid-poc
 
-`cargo run -p grid-poc`.
+`cargo run --manifest-path examples/grid-poc/Cargo.toml`.
 
 ## End-to-end tests (Raven Test Studio)
 

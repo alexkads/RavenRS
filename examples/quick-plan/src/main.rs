@@ -1,4 +1,4 @@
-//! `cargo run -p quick-plan`. The web build starts from `lib.rs`.
+//! `cargo run --manifest-path examples/quick-plan/Cargo.toml`. The web build starts from `lib.rs`.
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<(), ravenrs::native::PlatformError> {

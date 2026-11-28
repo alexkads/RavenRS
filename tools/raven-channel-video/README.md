@@ -32,7 +32,7 @@ On Windows, in PowerShell:
 irm https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven-channel-video/install.cmd -OutFile "$env:TEMP\install.cmd"; & "$env:TEMP\install.cmd"
 ```
 
-From a checkout: `cargo run -p raven-channel-video`.
+From a checkout: `cargo run --manifest-path tools/raven-channel-video/Cargo.toml`.
 
 ## Limits
 

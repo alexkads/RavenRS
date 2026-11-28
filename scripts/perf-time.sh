@@ -12,7 +12,7 @@ if command -v pmset >/dev/null && ! pmset -g batt | grep -q "AC Power"; then
     exit 2
 fi
 
-cargo build --release -q -p ravenrs-perf
+cargo build --release -q --manifest-path crates/ravenrs-perf/Cargo.toml
 binary="${CARGO_TARGET_DIR:-target}/release/ravenrs-perf"
 folder="$(mktemp -d)"
 trap 'rm -rf "$folder"' EXIT

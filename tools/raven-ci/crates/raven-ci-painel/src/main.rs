@@ -1,4 +1,4 @@
-//! `cargo run -p raven-ci-painel -- --servidor http://127.0.0.1:8080`: the panel on the desktop,
+//! `cargo run --manifest-path tools/raven-ci/Cargo.toml -p raven-ci-painel -- --servidor http://127.0.0.1:8080`: the panel on the desktop,
 //! over a Raven CI that `raven-ci servir` answers.
 //!
 //! `--abrir build/<job>/<número>` opens on that page (#969); the whole address of the panel, as a

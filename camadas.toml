@@ -6,8 +6,9 @@
 # Todo pacote do repositório aparece em exatamente uma camada. O passo
 # `scripts/check-camadas.py` confere as duas coisas, e o `cargo xtask` o roda em toda checagem.
 #
-# `pasta` é onde o workspace vai morar quando sair da raiz (fases F1 a F4 da #1080). Na camada
-# `apps`, cada pacote é um workspace próprio, na pasta dele.
+# `separada = true`: a camada já é um workspace Cargo fora do da raiz. Com `pasta`, um workspace
+# naquela pasta; com `um_workspace_por_pacote`, cada pacote é um workspace na pasta dele. O
+# `scripts/camadas.py deps --write` escreve neles a cópia do Cargo.toml da raiz (F1, #1084).
 
 [nucleo]
 rotulo = "W1"
@@ -90,6 +91,7 @@ pacotes = ["raven-feature-center", "component-gallery", "raven-component-book"]
 
 [raven-ci]
 rotulo = "W12"
+separada = true
 pasta = "tools/raven-ci"
 pacotes = [
     "raven-ci", "raven-ci-agent", "raven-ci-core", "raven-ci-explicador", "raven-ci-painel",
@@ -105,6 +107,7 @@ pacotes = [
 
 [apps]
 rotulo = "A"
+separada = true
 um_workspace_por_pacote = true
 pacotes = [
     "bpmn-editor", "calculator", "dock-workbench", "family-finance", "flow-chat-bot", "flow-design-board",

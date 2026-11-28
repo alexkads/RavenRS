@@ -6,6 +6,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Breaking
 
+- The applications in `examples/` and `tools/` (all but the showcase) and Raven CI are Cargo workspaces of their own, each with its own `Cargo.lock`, so work on the library never builds them. From the root, `cargo run -p family-finance` becomes `cargo run --manifest-path examples/family-finance/Cargo.toml` (or `cargo run` in its folder). `camadas.toml` lists the layers of the repository, and `scripts/camadas.py` checks that none depends on a layer above and keeps each workspace's copy of the root's dependencies current (`deps --write`). The installers build through the app's manifest ([#1083](https://github.com/alexkads/RavenRS/issues/1083), [#1084](https://github.com/alexkads/RavenRS/issues/1084)).
+
 - `ravenrs-core`: `AccessNode` has the field `visible`, the part of its `bounds` that what holds it lets show (a cell a grid scrolled sideways, a row past the end of a list); `AccessNode::new` gives it the whole `bounds`, and field-by-field literals need it. `raven-component-book`: `Divergence` has `points`, in how many points a piece diverges. ([#921](https://github.com/alexkads/RavenRS/issues/921))
 
 - `ravenrs-e2e-wire`: `Command` has `DoubleClick` and `Kind` has `DoubleClick` (the step `double-click`, or `duplo-clique`, that opens a row of a grid); an exhaustive `match` on either needs the new arm ([#921](https://github.com/alexkads/RavenRS/issues/921)).

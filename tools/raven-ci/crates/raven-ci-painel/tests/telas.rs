@@ -1,6 +1,6 @@
 //! Pictures of the screens, drawn with no window over the server of the tests, to look at them
 //! next to the design (#803, D-01). It only runs when asked:
-//! `RAVEN_CI_TELAS=pasta cargo test -p raven-ci-painel --test telas -- --ignored`.
+//! `RAVEN_CI_TELAS=pasta cargo test --manifest-path tools/raven-ci/Cargo.toml -p raven-ci-painel --test telas -- --ignored`.
 #![allow(clippy::expect_used, reason = "tests fail loudly")]
 #![cfg(not(target_arch = "wasm32"))]
 

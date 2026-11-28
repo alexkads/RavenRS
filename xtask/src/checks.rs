@@ -77,8 +77,13 @@ pub fn cheap(check: &mut Check) -> Done {
     check.step(
         "every package is in one layer of camadas.toml, and none depends on a layer above its own (#1080)",
     );
-    check.run(PYTHON, &["scripts/check-camadas.py", "--self-test"])?;
-    check.run(PYTHON, &["scripts/check-camadas.py"])?;
+    check.run(PYTHON, &["scripts/camadas.py", "--self-test"])?;
+    check.run(PYTHON, &["scripts/camadas.py", "check"])?;
+
+    check.step(
+        "the workspaces apart from the root carry its versions, dependencies, lints and profiles, and no lock diverges (#1084)",
+    );
+    check.run(PYTHON, &["scripts/camadas.py", "deps"])?;
 
     check.step("every test file runs: tests/suite/ modules are declared");
     check.run(PYTHON, &["scripts/check-test-suites.py"])?;
@@ -183,10 +188,26 @@ fn design_system(check: &mut Check) -> Done {
 fn lint_examples(check: &mut Check) -> Done {
     // The examples are the showcase, and the house follows its own rules.
     check.step("ravenrs-lint on the examples");
-    for example in ["family-finance", "component-gallery"] {
-        check.run("cargo", &["run", "-q", "-p", "ravenrs-lint", "--", "-p", example])?;
-    }
-    Ok(())
+    check.run("cargo", &["run", "-q", "-p", "ravenrs-lint", "--", "-p", "component-gallery"])?;
+    lint_family_finance(check)
+}
+
+/// family-finance is a workspace of its own (#1084): the lint reads it through its manifest.
+fn lint_family_finance(check: &mut Check) -> Done {
+    check.run(
+        "cargo",
+        &[
+            "run",
+            "-q",
+            "-p",
+            "ravenrs-lint",
+            "--",
+            "--manifest-path",
+            "examples/family-finance/Cargo.toml",
+            "-p",
+            "family-finance",
+        ],
+    )
 }
 
 /// The design system needs checking when the change reaches RCB, or touches the copy, its script
@@ -212,11 +233,47 @@ fn design_reached(check: &Check, selection: &Selection) -> bool {
     changed || untracked
 }
 
+/// The workspaces apart from the root's (camadas.toml, #1084): the applications and Raven CI. With
+/// `all`, every one, in the order of the layers; otherwise only those the change touches. A change
+/// in the library does not build them: `cargo xtask release` does.
+fn apart(check: &mut Check, all: bool) -> Result<Vec<String>, crate::run::Failed> {
+    let args: &[&str] = if all {
+        &["scripts/camadas.py", "workspaces"]
+    } else {
+        &["scripts/camadas.py", "workspaces", "--mudados"]
+    };
+    let listed = check.output(PYTHON, args)?;
+    Ok(listed.lines().map(str::trim).filter(|line| !line.is_empty()).map(str::to_owned).collect())
+}
+
+/// rustfmt, clippy and, unless `lint`, the tests of each workspace apart that `folders` names.
+fn check_apart(check: &mut Check, folders: &[String], with_tests: bool) -> Done {
+    for folder in folders {
+        let manifest = format!("{folder}/Cargo.toml");
+        let on = ["--manifest-path".to_owned(), manifest.clone(), "--workspace".to_owned()];
+        check.step(&format!(
+            "{folder}, a workspace of its own: rustfmt, clippy{}",
+            if with_tests { ", tests" } else { "" }
+        ));
+        check.run("cargo", &["fmt", "--all", "--check", "--manifest-path", &manifest])?;
+        clippy(check, &on)?;
+        if folder == "examples/family-finance" {
+            lint_family_finance(check)?;
+        }
+        if with_tests {
+            tests(check, &on, Some(&[]))?;
+        }
+    }
+    Ok(())
+}
+
 /// `cargo xtask lint`: the fastest loop, with no tests at all. Formatting, the cheap checks and
 /// clippy on the packages changed, the same as `dev` up to its tests. It never stands in for a
 /// gate: the tests are `dev`'s while working and `pr`'s before a merge.
 pub fn lint(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
     cheap(check)?;
+    let touched_apart = apart(check, false)?;
+    check_apart(check, &touched_apart, false)?;
     let selection = select(check)?;
     if selection.all {
         println!("something every package builds with changed: clippy on the whole workspace");
@@ -242,6 +299,8 @@ pub fn lint(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
 /// and the public API are the pull request's.
 pub fn dev(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
     cheap(check)?;
+    let touched_apart = apart(check, false)?;
+    check_apart(check, &touched_apart, true)?;
     let selection = select(check)?;
     if selection.all {
         println!("something every package builds with changed: clippy proves the whole workspace compiles;");
@@ -279,6 +338,8 @@ fn base_name() -> String {
 /// the public API when the change reaches them.
 pub fn pr(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
     cheap(check)?;
+    let touched_apart = apart(check, false)?;
+    check_apart(check, &touched_apart, true)?;
     let selection = select(check)?;
     if selection.all {
         println!("something every package builds with changed: the whole workspace");
@@ -347,21 +408,25 @@ const WASM: &[&str] = &[
     "ravenrs-app-library",
     "ravenrs-app-report",
     "ravenrs-report-designer",
-    "quick-app",
-    "quick-plan",
     "raven-feature-center",
-    "calculator",
-    "hello-world",
     "component-gallery",
-    "raven-report-designer",
     "ravenrs-sheet",
     "ravenrs-spreadsheet",
-    "spreadsheet",
-    "tutorial-tasks",
-    "tasks-sqlite",
     "ravenrs-barcode",
     "ravenrs-pos",
     "ravenrs-report-label",
+];
+
+/// The applications built for the browser, each in its own workspace (#1084).
+const WASM_APPS: &[&str] = &[
+    "examples/quick-app",
+    "examples/quick-plan",
+    "examples/calculator",
+    "examples/hello-world",
+    "tools/raven-report-designer",
+    "examples/spreadsheet",
+    "examples/tutorial-tasks",
+    "examples/tasks-sqlite",
 ];
 
 /// On their own: together with the rest, Cargo unifies features and rand_core asks for getrandom.
@@ -370,47 +435,38 @@ const WASM_ALONE: &[&str] = &["ravenrs-dfe", "ravenrs-nfe", "ravenrs-nfse", "rav
 /// What the minimum Rust version does not build.
 const NOT_ON_MSRV: &[&str] = &[
     "ravenrs-movie-video",
-    "raven-channel-video",
-    "tasks-sqlite",
     "ravenrs-sheet",
     "ravenrs-pdf",
     "ravenrs-word",
     "ravenrs-deck",
     "ravenrs-app-testkit",
     "ravenrs-spreadsheet",
-    "spreadsheet",
     "ravenrs-app-sqlite",
     "ravenrs-flows-runtime",
-    "raven-flows",
-    "mini-pdv",
-    "calculator",
-    "hello-world",
-    "quick-app",
-    "quick-plan",
     "raven-feature-center",
     "component-gallery",
-    "raven-report-designer",
-    "grid-poc",
-    "family-finance",
-    "ravenrs-perf",
+];
+
+/// The workspaces apart that the minimum Rust version does not build. Raven CI asks for 1.89.
+const NOT_ON_MSRV_APART: &[&str] = &[
+    "tools/raven-channel-video",
+    "examples/tasks-sqlite",
+    "examples/spreadsheet",
+    "examples/raven-flows",
+    "examples/mini-pdv",
+    "examples/calculator",
+    "examples/hello-world",
+    "examples/quick-app",
+    "examples/quick-plan",
+    "tools/raven-report-designer",
+    "examples/grid-poc",
+    "examples/family-finance",
+    "crates/ravenrs-perf",
+    "tools/raven-ci",
 ];
 
 /// What the API docs leave out: applications, whose docs nobody reads.
-const NOT_DOCUMENTED: &[&str] = &[
-    "raven-channel-video",
-    "mini-pdv",
-    "calculator",
-    "hello-world",
-    "quick-app",
-    "quick-plan",
-    "raven-feature-center",
-    "component-gallery",
-    "raven-report-designer",
-    "grid-poc",
-    "family-finance",
-    "ravenrs-perf",
-    "xtask",
-];
+const NOT_DOCUMENTED: &[&str] = &["raven-feature-center", "component-gallery", "xtask"];
 
 /// The examples whose web build the site publishes.
 const WEB: &[&str] = &[
@@ -438,6 +494,8 @@ pub fn release(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
 
     check.step("clippy (native)");
     clippy(check, &["--workspace".to_owned()])?;
+    let every_apart = apart(check, true)?;
+    check_apart(check, &every_apart, true)?;
 
     check.step("CLI templates: every model and target compiles");
     check.run("cargo", &["test", "-p", "cargo-ravenrs", "--test", "cli", "--", "--ignored"])?;
@@ -448,6 +506,22 @@ pub fn release(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
         args.extend(with_flag("-p", list));
         args.extend(["--target", "wasm32-unknown-unknown", "--", "-D", "warnings"].map(str::to_owned));
         check.run("cargo", &strs(&args))?;
+    }
+    for folder in WASM_APPS {
+        let manifest = format!("{folder}/Cargo.toml");
+        check.run(
+            "cargo",
+            &[
+                "clippy",
+                "--manifest-path",
+                &manifest,
+                "--target",
+                "wasm32-unknown-unknown",
+                "--",
+                "-D",
+                "warnings",
+            ],
+        )?;
     }
 
     check.step("tests: unit, behavior, property, doc, GPU pixel and golden-image (GPU tests skip without an adapter)");
@@ -485,6 +559,14 @@ pub fn release(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
         let mut args = vec!["+1.88".to_owned(), "check".to_owned(), "--workspace".to_owned()];
         args.extend(with_flag("--exclude", NOT_ON_MSRV));
         check.run("cargo", &strs(&args))?;
+        for folder in
+            every_apart.iter().filter(|folder| !NOT_ON_MSRV_APART.iter().any(|not| folder.ends_with(not)))
+        {
+            check.run(
+                "cargo",
+                &["+1.88", "check", "--workspace", "--manifest-path", &format!("{folder}/Cargo.toml")],
+            )?;
+        }
     } else {
         println!("skipped: install it with 'rustup toolchain install 1.88'");
     }
@@ -506,7 +588,10 @@ pub fn release(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
         check.step("benchmarks compile");
         check.run("cargo", &["bench", "--workspace", "--no-run", "--quiet"])?;
         check.step("performance gate: exact counters against perf/baseline.json");
-        check.run("cargo", &["run", "--release", "-q", "-p", "ravenrs-perf", "--", "gate"])?;
+        check.run(
+            "cargo",
+            &["run", "--release", "-q", "--manifest-path", "crates/ravenrs-perf/Cargo.toml", "--", "gate"],
+        )?;
     }
 
     check.step("API docs (broken links fail)");

@@ -1,5 +1,5 @@
 //! The local model drafting a real process. It needs a model on disk, so it runs only when
-//! asked: `RAVENRS_MODELS=<folder> RAVENRS_MODEL=lfm3-1.7b-q4 cargo test -p bpmn-editor --test
+//! asked: `RAVENRS_MODELS=<folder> RAVENRS_MODEL=lfm3-1.7b-q4 cargo test --manifest-path examples/bpmn-editor/Cargo.toml --test
 //! local_ai -- --ignored --nocapture`.
 #![allow(clippy::expect_used, reason = "tests fail loudly")]
 

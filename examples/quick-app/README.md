@@ -1,6 +1,6 @@
 # quick-app
 
-`cargo run -p quick-app`.
+`cargo run --manifest-path examples/quick-app/Cargo.toml`.
 
 ## End-to-end tests (Raven Test Studio)
 

@@ -1,5 +1,5 @@
 //! Gera o filme nativo e quadros reais para a edição do tutorial.
-//! `cargo run -p tutorial-tasks --example record -- <pasta-de-saida>`
+//! `cargo run --manifest-path examples/tutorial-tasks/Cargo.toml --example record -- <pasta-de-saida>`
 
 use std::path::Path;
 

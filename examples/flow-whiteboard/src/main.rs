@@ -1,4 +1,4 @@
-//! `cargo run -p flow-whiteboard`
+//! `cargo run --manifest-path examples/flow-whiteboard/Cargo.toml`
 fn main() -> Result<(), ravenrs::native::PlatformError> {
     // A test tool such as Raven Test Studio drives the app with no window (`--e2e-serve`), on
     // data in memory: nothing on disk is opened.

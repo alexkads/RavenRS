@@ -102,6 +102,15 @@ Para ver a escolha sem compilar nada:
 ./scripts/changed-packages.py --shell
 ```
 
+## Workspaces separados (#1080, F1 #1084)
+
+Os apps (`examples/*` e `tools/*`, menos a vitrine) e o Raven CI são workspaces Cargo próprios, com `Cargo.lock` próprio. A raiz tem a biblioteca, a vitrine e a infra. Quem diz qual é qual é o `camadas.toml` (`separada = true`), e tudo passa por `scripts/camadas.py`:
+
+- `camadas.py workspaces` lista as pastas; `--mudados` dá só as que a mudança toca. O `lint`, o `dev` e o `pr` rodam rustfmt, clippy e (menos no `lint`) os testes só nos workspaces tocados. Uma mudança na biblioteca não compila app nenhum; o `release` percorre todos.
+- `camadas.py deps` confere que cada workspace separado tem a cópia em dia do `Cargo.toml` da raiz: versão, `[workspace.dependencies]` com os `path` reescritos, lints e perfis, entre as marcas `>>> camadas.py` e `<<< camadas.py`. Confere também que dois `Cargo.lock` não resolvem versões diferentes da mesma série de um crate externo. Depois de mudar a raiz (versão nova, dependência nova), rode `python3 scripts/camadas.py deps --write`. Ele também cria o `Cargo.lock` que faltar, copiando o da raiz para as versões serem as mesmas.
+- Todos compilam no `target/` da raiz (`[build] target-dir` em `.cargo/config.toml`), o do slot.
+- Um app se roda pela raiz com `cargo run --manifest-path examples/<app>/Cargo.toml`, ou de dentro da pasta dele. `cargo run -p <app>` na raiz não acha mais o app.
+
 ## Slots fixos e aquecidos (slot-a e slot-b)
 
 Desde 28/11/2026, por regra permanente do Alex (*"não tem como seguir nessa lentidão"*), tudo o que compila no RavenRS roda num de dois slots fixos (#1075):

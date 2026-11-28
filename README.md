@@ -95,7 +95,7 @@ On Windows 11, in PowerShell:
 irm https://raw.githubusercontent.com/alexkads/RavenRS/master/examples/family-finance/install.cmd -OutFile "$env:TEMP\install.cmd"; & "$env:TEMP\install.cmd"
 ```
 
-Already have the repository? `cargo run -p family-finance` runs it without installing. The [app's README](https://github.com/alexkads/RavenRS/blob/master/examples/family-finance) shows which component each screen uses.
+Already have the repository? `cargo run --manifest-path examples/family-finance/Cargo.toml` runs it without installing. The [app's README](https://github.com/alexkads/RavenRS/blob/master/examples/family-finance) shows which component each screen uses.
 
 ## Why RavenRS
 

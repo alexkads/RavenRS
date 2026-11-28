@@ -3,7 +3,7 @@
 A diagramming whiteboard made only with library components (`FlowCanvas`, `FlowToolbox`, `FlowInspector`, `FlowLibrary`, `SegmentedControl`): a flowchart and a mind map, each on a board of its own. It is here to check that the diagram component is enough for this kind of product.
 
 ```bash
-cargo run -p flow-whiteboard
+cargo run --manifest-path examples/flow-whiteboard/Cargo.toml
 ```
 
 ## What it shows
@@ -30,7 +30,7 @@ cargo xtask web flow-whiteboard
 python3 -m http.server -d examples/flow-whiteboard/web 8080
 ```
 
-On Linux and Windows, run `cargo run -p flow-whiteboard --release` and check that you can switch between Fluxograma and Mapa mental; Cmd/Ctrl+Enter on an idea makes the next one; drag a bend point of the loop; Salvar, close and open again.
+On Linux and Windows, run `cargo run --manifest-path examples/flow-whiteboard/Cargo.toml --release` and check that you can switch between Fluxograma and Mapa mental; Cmd/Ctrl+Enter on an idea makes the next one; drag a bend point of the loop; Salvar, close and open again.
 
 ## End-to-end tests (Raven Test Studio)
 

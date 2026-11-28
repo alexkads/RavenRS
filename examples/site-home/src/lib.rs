@@ -1,7 +1,7 @@
 //! The RavenRS home page, built only from RavenRS components and drawn by RavenRS.
 //!
 //! On the web it starts from `web_entry` with WebGL2, so it opens in every browser
-//! and phone; `cargo run -p site-home` shows the same page in a window.
+//! and phone; `cargo run --manifest-path examples/site-home/Cargo.toml` shows the same page in a window.
 
 /// The scenarios of Raven Test Studio the app brings, one per file of `tests/e2e/`: the tool
 /// gets them when it opens the app with `--e2e-serve`, and the tests play them.

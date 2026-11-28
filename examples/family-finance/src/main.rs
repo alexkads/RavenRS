@@ -1,4 +1,4 @@
-//! Native entry point: `cargo run -p family-finance`.
+//! Native entry point: `cargo run --manifest-path examples/family-finance/Cargo.toml`.
 
 use std::path::PathBuf;
 

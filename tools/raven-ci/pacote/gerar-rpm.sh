@@ -28,7 +28,7 @@ mkdir -p "$(dirname "$TRAVA")"
   flock 9
   cd "$RAIZ"
   compilar=(env CARGO_TARGET_DIR="$ALVO" CARGO_BUILD_JOBS=2 CARGO_INCREMENTAL=0
-    nice -n 10 cargo build --release -q -p raven-ci -p raven-ci-agent -p raven-ci-explicador)
+    nice -n 10 cargo build --release -q --manifest-path tools/raven-ci/Cargo.toml -p raven-ci -p raven-ci-agent -p raven-ci-explicador)
   # Inside a unit of systemd (INVOCATION_ID), the unit already has its limit of memory.
   if [ -n "${INVOCATION_ID:-}" ]; then
     "${compilar[@]}" 9>&-
