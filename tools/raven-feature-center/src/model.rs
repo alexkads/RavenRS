@@ -509,6 +509,33 @@ fn accessibility() -> EntityInfo {
     .focus_order(["name", "amount"])
 }
 
+/// The period of the closing demonstration, which `ClosingModule` approves and reopens.
+pub const CLOSING_TERM: &str = "ClosingTerm";
+
+/// A term approved with its document, and the lessons it freezes, for `ClosingModule`.
+fn closing_demo() -> Vec<EntityInfo> {
+    let closing = ravenrs_app::PeriodClosing::new("ClosingTermVersion")
+        .freezes("ClosingLesson", "[term_id]")
+        .requires_none("ClosingLesson", "[status] = 'Rascunho'")
+        .reopen_reason(10);
+    let term = demo(
+        CLOSING_TERM,
+        "Semestres aprovados",
+        PROCESSES,
+        "Escolha um semestre e use Aprovar fechamento: com aula em rascunho, a gravação recusa. Com tudo lançado, a versão 1 guarda o PDF e o hash, \
+         e as aulas do semestre ficam congeladas. Reabrir fechamento pede a justificativa; Versões arquivadas mostra cada versão e abre o documento conferido.",
+    )
+    .field(title())
+    .period_closing(closing.clone());
+    let lesson =
+        demo("ClosingLesson", "Aulas do semestre", PROCESSES, "As aulas que o semestre aprovado congela.")
+            .field(title())
+            .field(FieldInfo::new("term_id", FieldKind::Reference(CLOSING_TERM.into())).caption("Semestre"))
+            .field(text("status", "Situação").predefined(["Rascunho", "Lançada"]));
+    let versions = closing.versions_entity(&term).caption("Versões do semestre");
+    vec![term, lesson, versions]
+}
+
 /// Every entity of the center that is not from a module.
 pub fn entities() -> Vec<EntityInfo> {
     let mut all = vec![
@@ -534,5 +561,6 @@ pub fn entities() -> Vec<EntityInfo> {
     all.extend(audits());
     all.push(store_settings());
     all.push(accessibility());
+    all.extend(closing_demo());
     all
 }

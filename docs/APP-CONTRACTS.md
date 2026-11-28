@@ -127,7 +127,16 @@ EntityInfo::new("Term").period_closing(
 
 The commit checks it all with `check_closing`, in every space here (memory, SQL and PostgREST), reading what storage has inside the transaction: a record of a period whose last version is current is not added, changed or deleted, by its new values or by those stored; a new version comes next in sequence, current, with its hash and document, while the period has none current; a version kept changes only from current to reopened, with the reason, and is never deleted. `check_closing_model` refuses, when the model is made, a path that does not lead to the period by references.
 
-What waits: the precondition runs in `approve`, not in the commit, so a record written as the period is approved can slip through it; the generated actions and screen (`ClosingModule`) come next (#855). In PostgreSQL the documents go to `PostgresAttachmentStore`, as `BYTEA` in a table apart from the records.
+`check_closing` also reads, with the `StoredList` each space gives it, what keeps the period open: a new version is refused while a record of the period meets a `requires_none`, as storage has it inside the transaction or as the same commit leaves it. `approve` asks first, so a refusal keeps no document. Before deciding about a period, the commit reads its row; in PostgreSQL and MySQL that read is `FOR UPDATE`, so approving a term and writing one of its lessons at the same time wait for each other. In PostgreSQL the documents go to `PostgresAttachmentStore`, as `BYTEA` in a table apart from the records.
+
+`ClosingModule` (in `ravenrs-app-report`) gives the period its actions: Approve closing renders the document, keeps it as PDF and writes the version; Reopen closing asks for the reason; Archived versions lists each version (current, reopened, replaced) with its short hash and opens the document through the space, checked against the hash. Approving and reopening need `Write` on the period, and `action_ids` names them for an `action_permission`:
+
+```rust
+let module = ClosingModule::new("Term", files, |space, term| Ok(term_document(space, term)))
+    .approver(move || who_is_signed_in())
+    .words(ReportWords::pt_br());
+let sales = Role::new("Sales").action_permission(module.action_ids()[0].clone(), Access::Deny);
+```
 
 ### Access for a while and revoking a user
 
