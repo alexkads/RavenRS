@@ -132,7 +132,12 @@ fn clippy(check: &mut Check, selection: &[String]) -> Done {
 
 /// The tests of a selection on nextest, compiling and running apart so the table says where the
 /// time went, then the doctests, which nextest does not run, through `cargo test --doc`.
+///
+/// `pr` and `release` run every test even after one fails (`--no-fail-fast`), so a red run lists
+/// all that broke at once instead of the first; `dev` stops at the first, to answer fast while
+/// one works.
 fn tests(check: &mut Check, selection: &[String], documented: Option<&[String]>) -> Done {
+    let whole_report = !check.mode.starts_with("dev");
     let mut compile = vec!["nextest".to_owned(), "run".to_owned()];
     compile.extend(selection.iter().cloned());
     let mut run = compile.clone();
@@ -141,13 +146,19 @@ fn tests(check: &mut Check, selection: &[String], documented: Option<&[String]>)
         compile.push("--timings".to_owned());
     }
     run.push("--no-tests=pass".to_owned());
+    if whole_report {
+        run.push("--no-fail-fast".to_owned());
+    }
     check.substep("compile the tests", "cargo", &strs(&compile))?;
     check.substep("run the tests", "cargo", &strs(&run))?;
-    let doc = match documented {
+    let mut doc = match documented {
         None => vec!["test".to_owned(), "--doc".to_owned(), "--workspace".to_owned()],
         Some([]) => return Ok(()),
         Some(names) => [vec!["test".to_owned(), "--doc".to_owned()], packages(names)].concat(),
     };
+    if whole_report {
+        doc.push("--no-fail-fast".to_owned());
+    }
     check.substep("doctests (compile and run)", "cargo", &strs(&doc))
 }
 
