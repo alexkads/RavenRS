@@ -63,6 +63,8 @@ pub mod servico;
 #[cfg(all(feature = "app", not(target_arch = "wasm32")))]
 pub mod servidor;
 #[cfg(feature = "app")]
+pub mod vencimentos;
+#[cfg(feature = "app")]
 pub use centro::*;
 
 #[cfg(feature = "widgets")]

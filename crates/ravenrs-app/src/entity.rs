@@ -644,6 +644,8 @@ pub struct EntityInfo {
     pub state_machines: Vec<crate::StateMachine>,
     /// When to remind people of a record.
     pub reminder: Option<crate::Reminder>,
+    /// How what falls due in its records is summed up for each person.
+    pub due_digest: Option<crate::DueDigest>,
     /// Actions that set fields of the records selected.
     pub actions: Vec<crate::RecordAction>,
     /// What the list editors are told about this list: an editor's settings node, and in it names and values.
@@ -698,6 +700,7 @@ impl EntityInfo {
             state_machines: Vec::new(),
             actions: Vec::new(),
             reminder: None,
+            due_digest: None,
             editor_settings: Vec::new(),
             form_columns: None,
             filters: Vec::new(),
@@ -886,6 +889,13 @@ impl EntityInfo {
         self
     }
 
+    /// Its records fall due: each person gets, as they choose, a summary of what is overdue and
+    /// what falls due in the next days, with the amounts only if they may read them.
+    pub fn due_digest(mut self, digest: crate::DueDigest) -> Self {
+        self.due_digest = Some(digest);
+        self
+    }
+
     /// Tells a list editor something about its list, as `ChartSettings`, `Kind` and `Line`. It goes
     /// in the model under the list's view, so a person can change it like any other setting.
     pub fn editor_setting(
@@ -979,6 +989,9 @@ impl EntityInfo {
             if let Some(problem) = machine.problem() {
                 return wrong(problem);
             }
+        }
+        if let Some(problem) = self.due_digest.as_ref().and_then(|digest| digest.problem(self)) {
+            return wrong(problem);
         }
         if let Some(reminder) = &self.reminder
             && !self

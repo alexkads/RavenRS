@@ -2669,6 +2669,34 @@ fn a_temporary_access_ends_by_itself_and_revoking_never_takes_oneself() {
 }
 
 #[test]
+fn the_due_digest_follows_the_profile_and_the_days_ahead() {
+    let mut c = Center::memory("ana");
+    c.press("Resumo de vencimentos");
+    c.settle();
+    // new, pending, label, amount, words and named: Gás is paid and stays out.
+    assert!(c.says("Aviso: 2 contas vencidas e 2 a vencer"), "{:?}", c.texts());
+    assert!(
+        c.says(
+            "Texto: Aluguel (R$ 1.500,00), Luz (R$ 480,00), Seguro (R$ 300,00), mais 1. Total: R$ 2.370,00."
+        ),
+        "{:?}",
+        c.texts()
+    );
+    c.press("7 dias antes");
+    assert!(c.says("Aviso: 2 contas vencidas e 3 a vencer"), "{:?}", c.texts());
+    c.press("No dia");
+    assert!(c.says("Aviso: 2 contas vencidas"), "{:?}", c.texts());
+    // hidden_amounts: a role that does not read the amount.
+    c.press("Secretaria");
+    assert!(c.says("Texto: Aluguel, Luz. Os valores ficam com a Tesouraria."), "{:?}", c.texts());
+    c.press("Visitante");
+    assert!(c.says("Aviso: nenhum"), "{:?}", c.texts());
+    c.press("Tesouraria");
+    c.press("Desligar");
+    assert!(c.says("Aviso: nenhum"), "{:?}", c.texts());
+}
+
+#[test]
 fn a_chronology_shows_the_milestones_in_order_and_opens_one() {
     let mut c = Center::memory("ana");
     c.press("Cronologia");

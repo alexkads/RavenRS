@@ -25,6 +25,7 @@ pub mod book;
 mod container;
 mod dashboard;
 mod detail_view;
+mod due;
 mod editors;
 mod form;
 mod hotkeys;
@@ -58,6 +59,7 @@ pub use app::App;
 pub use container::{ActionButton, ActionContainer};
 pub use dashboard::DashboardView;
 pub use detail_view::DetailView;
+pub use due::show_due_digests;
 pub use form::{EntityForm, FormText};
 pub use list_editors::{
     CALENDAR_EDITOR, CHART_EDITOR, HISTORY_EDITOR, SCHEDULER_EDITOR, TREE_EDITOR, chart_view, summary_text,

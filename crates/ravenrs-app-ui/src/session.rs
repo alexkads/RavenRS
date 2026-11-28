@@ -926,6 +926,11 @@ impl Session {
         self.0.application.borrow().title().to_owned()
     }
 
+    /// Every entity of the application.
+    pub(crate) fn every_entity(&self) -> Vec<EntityInfo> {
+        self.0.application.borrow().entities().to_vec()
+    }
+
     /// An entity by name.
     pub fn entity(&self, name: &str) -> Option<EntityInfo> {
         self.0.application.borrow().entities().iter().find(|e| e.name == name).cloned()

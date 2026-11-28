@@ -154,6 +154,29 @@ In one commit, written to the audit trail when the context has one, it creates t
 With a policy, the list of users has Grant temporary access, which asks the reason and the hours and shows the user, the deadline and the password once, and Revoke access, which asks first.
 
 The web API reads who a session is on each call, so a user expired or revoked gets 401 on the next one.
+### Due dates summed up for each person
+
+An entity with a due date declares how it is summed up, apart from `Reminder`, whose field is put off and dismissed: a `DueDigest` never writes to its field.
+
+```rust
+EntityInfo::new("Invoice").due_digest(
+    DueDigest::new("due_on")            // a Date or DateTime field
+        .pending("[status] = 'open'")   // only what is still pending
+        .label("description")           // what names a record; the default property otherwise
+        .amount("amount")               // a Money field, added up for whom reads it
+        .words("conta", "contas")       // the word for one and for several
+        .named(3)                       // how many it names; the rest it counts
+        .hidden_amounts("Os valores ficam com a Tesouraria."),
+)
+```
+
+- `digest_of(entity, records, today, advance_days, show_amounts, words)` is the plain calculation: overdue is before `today`, coming is up to `advance_days` after it, in due order, naming `named` and "more N". Without `show_amounts` no amount is in the text, and the `hidden_amounts` sentence goes in its place. A record whose amount came empty, as a record permission leaves it, takes the total out instead of adding nothing. `DigestWords::portuguese()` and `english()` give the words around the entity's own and how money is written.
+- `due_digest_for(space, entity, permissions, today, preference, words)` gives nothing to whom cannot read the entity or turned it off, reads through their space (only records they read), and shows amounts only if `permissions.can_field(Read, entity, amount, None)`.
+- `digest_preference` and `set_digest_preference` keep `{ enabled, advance_days }` under `due-digest/<Entity>` for the person (`SettingScope::User`): on, three days ahead, by default; 0, 1, 3 or 7 days; nobody keeps someone else's.
+
+On opening, a session shows a message per entity with a `DueDigest`, by the person's preference and permissions, with a button that opens its list; `App::due_digest_notice(false)` turns it off, and `show_due_digests(session)` shows it where an application wants.
+
+What waits (#860): the list filtered by what is pending and the days, the choice in `AppShell`, and the texts in `ravenrs-app-i18n`.
 
 ## Scenarios
 

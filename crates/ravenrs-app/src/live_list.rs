@@ -31,6 +31,13 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::AppearanceRule::__live_expose(registry);
     crate::Appearance::__live_expose_fields(registry);
     crate::EntityInfo::__live_expose(registry);
+    crate::DueDigest::__live_expose_fields(registry);
+    crate::DueDigest::__live_expose(registry);
+    crate::DigestWords::__live_expose_fields(registry);
+    crate::DigestWords::__live_expose(registry);
+    crate::Digest::__live_expose_fields(registry);
+    crate::DigestPreference::__live_expose_fields(registry);
+    crate::DigestPreference::__live_expose(registry);
     crate::Seal::__live_expose_fields(registry);
     crate::Seal::__live_expose(registry);
     crate::AmendmentKind::__live_expose_variants(registry);

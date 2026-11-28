@@ -70,6 +70,7 @@ pub struct App {
     attachment_store: Option<Rc<dyn AttachmentStore>>,
     model_store: Option<Rc<dyn ModelStore>>,
     steps: Vec<SessionStep>,
+    due_notice: bool,
     administrator: Option<String>,
     security: Option<(Rc<ravenrs_app::SecurityContext>, ravenrs_app::SpaceMaker)>,
     theme: Option<ravenrs_style::Theme>,
@@ -131,6 +132,7 @@ impl App {
             attachment_store: None,
             model_store: None,
             steps: Vec::new(),
+            due_notice: true,
             administrator: None,
             security: None,
             theme: None,
@@ -376,6 +378,14 @@ impl App {
         }
     }
 
+    /// Whether the session opens with a message per entity with a `DueDigest`, what is overdue
+    /// and what falls due as each person chose; on unless turned off, for an application that
+    /// shows the summary elsewhere with [`show_due_digests`](crate::show_due_digests).
+    pub fn due_digest_notice(mut self, on: bool) -> Self {
+        self.due_notice = on;
+        self
+    }
+
     /// Runs this with its session, once it is put together, for what needs a session from outside.
     pub fn with_session(mut self, then: impl FnOnce(&crate::Session) + 'static) -> Self {
         self.steps.push(Box::new(then));
@@ -511,6 +521,9 @@ impl App {
         }
         for step in self.steps {
             step(&session);
+        }
+        if self.due_notice {
+            crate::due::show_due_digests(&session);
         }
         if let Some(store) = self.model_store {
             session.use_model_store(store).map_err(ModelError)?;

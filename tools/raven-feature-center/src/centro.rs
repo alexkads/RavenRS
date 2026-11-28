@@ -157,6 +157,12 @@ fn application() -> App {
             .icon("clock")
             .control(crate::acesso::PAGE, crate::acesso::ID),
     );
+    app = app.dashboard(
+        DashboardInfo::new(crate::vencimentos::ID, crate::vencimentos::PAGE)
+            .navigation("Aplicação")
+            .icon("calendar")
+            .control(crate::vencimentos::PAGE, crate::vencimentos::ID),
+    );
     // The server does not run in a browser, so neither does its page.
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -189,6 +195,8 @@ fn register_controls(session: &Session) {
     session.register_control(crate::registro::ID, || Box::new(crate::registro::RecordPage) as AnyView);
     session.register_control(crate::fechamento::ID, || Box::new(crate::fechamento::ClosingPage) as AnyView);
     session.register_control(crate::acesso::ID, || Box::new(crate::acesso::TemporaryAccessPage) as AnyView);
+    session
+        .register_control(crate::vencimentos::ID, || Box::new(crate::vencimentos::DueDigestPage) as AnyView);
     #[cfg(not(target_arch = "wasm32"))]
     session.register_control(crate::servidor::ID, || Box::new(crate::servidor::ApiOptionsPage) as AnyView);
     #[cfg(not(target_arch = "wasm32"))]
