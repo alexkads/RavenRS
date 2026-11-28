@@ -70,7 +70,9 @@ fn the_session_opens_with_what_falls_due_and_its_button_opens_the_list() {
     let open = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Abrir")).expect("the button").id;
     ui.perform_action(open, AccessAction::Click);
     let said = texts(&mut ui);
-    assert!(said.contains("Luz") && said.contains("Água") && said.contains("Gás"), "the list: {said}");
+    // The list opens on what the notice is about: Gás falls due later and stays out.
+    assert!(said.contains("Luz") && said.contains("Água"), "the list: {said}");
+    assert!(!said.contains("Gás"), "the list shows what the notice is not about: {said}");
 }
 
 #[test]

@@ -536,6 +536,36 @@ fn closing_demo() -> Vec<EntityInfo> {
     vec![term, lesson, versions]
 }
 
+/// A sealed lesson and its correction, which the action generated for the correction amends.
+fn amend_demo() -> Vec<EntityInfo> {
+    let lesson = demo(
+        "SealedLesson",
+        "Aulas encerradas",
+        PROCESSES,
+        "Uma aula encerrada não muda direto. Escolha a Aula 1 e use Correções de aula: o formulário da correção já vem ligado a ela e pede a \
+         justificativa. Ao salvar, a gravação copia as presenças para a aula, na mesma transação. Na Aula 2, ainda aberta, a ação fica apagada.",
+    )
+    .field(title())
+    .field(text("status", "Situação").predefined(["Aberta", "Encerrada"]))
+    .field(FieldInfo::new("present", FieldKind::Integer).caption("Presentes"))
+    .sealed(ravenrs_app::Seal::when("[status] = 'Encerrada'"));
+    let correction = demo(
+        "SealedLessonCorrection",
+        "Correções de aula",
+        PROCESSES,
+        "As correções feitas nas aulas encerradas.",
+    )
+    .field(FieldInfo::new("lesson_id", FieldKind::Reference("SealedLesson".into())).caption("Aula"))
+    .field(FieldInfo::new("present", FieldKind::Integer).caption("Presentes"))
+    .field(FieldInfo::new("reason", FieldKind::LongText).caption("Justificativa"))
+    .amends(
+        ravenrs_app::Amendment::correction("SealedLesson", "lesson_id")
+            .copies(["present"])
+            .reason("reason", 10),
+    );
+    vec![lesson, correction]
+}
+
 /// Every entity of the center that is not from a module.
 pub fn entities() -> Vec<EntityInfo> {
     let mut all = vec![
@@ -562,5 +592,6 @@ pub fn entities() -> Vec<EntityInfo> {
     all.push(store_settings());
     all.push(accessibility());
     all.extend(closing_demo());
+    all.extend(amend_demo());
     all
 }

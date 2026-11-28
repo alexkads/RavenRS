@@ -135,6 +135,8 @@ demonstrations! {
     acesso_temporario => "Acesso temporário",
     semestres_aprovados => "Semestres aprovados",
     aulas_do_semestre => "Aulas do semestre",
+    aulas_encerradas => "Aulas encerradas",
+    correcoes_de_aula => "Correções de aula",
     resumo_de_vencimentos => "Resumo de vencimentos",
     contas_a_pagar_e_receber => "Contas a pagar e receber",
     painel_com_niveis => "Painel com níveis",

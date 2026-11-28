@@ -349,9 +349,19 @@ fn the_actions_settle_split_and_reverse_from_a_form() {
         frame.set_selected(vec![record]);
         frame
     };
+    // Settle opens the review, filled with today and what is open; OK settles what it says.
     let frame = frame_on(COMMITMENT, read(&maker, COMMITMENT, &first));
-    frame.execute(SETTLE_BILL, ActionInput::None).expect("settled");
+    frame.execute(SETTLE_BILL, ActionInput::None).expect("the review opens");
+    let mut review = finance::settle_review().new_object();
+    frame.prepare_popup(&mut review);
+    assert_eq!(review.cents("principal"), Some(10_000), "what is open");
+    assert!(matches!(review.get("on"), Value::Date(_)), "today");
+    review.set("interest", 150.0);
+    review.set("discount", 50.0);
+    frame.accept_popup(ActionInput::Record(review)).expect("settled");
     assert_eq!(read(&maker, COMMITMENT, &first).text("status"), "paid");
+    let entry = all(&maker, finance::LEDGER_ENTRY).into_iter().last().expect("the cash book entry");
+    assert_eq!(entry.cents("amount").map(i64::abs), Some(10_100), "principal, interest and discount");
     let frame = frame_on(COMMITMENT, read(&maker, COMMITMENT, &first));
     assert!(!frame.action(SETTLE_BILL).expect("there").is_enabled(), "a paid bill is not settled again");
     let frame = frame_on(COMMITMENT, read(&maker, COMMITMENT, &second));

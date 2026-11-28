@@ -105,6 +105,8 @@ The amendment is written on its target as it is inserted (`apply_amendment`, cal
 
 Permissions: creating an amendment needs `Create` on the amendment entity and `Read` on the target, not `Write` on the target. An `object_permission` that denies `Write` on closed records still holds for direct edits.
 
+Each amendment gets an action on its target, by itself: `<Amendment>.Amend`, with the caption of the amendment entity, as "Correct the lesson". It is on for one record that can take it (sealed, for a correction; not sealed yet, for a closing), and only whoever can create the amendment sees it (`Action::requires_on`). It opens a new amendment on its form already pointing to the record (`ActionContext::open_new`), for the reason and the new values; saving it is what applies it.
+
 ### Period closing
 
 A period entity, such as a month, a term or a payroll, declares with `EntityInfo::period_closing` how it is approved:
@@ -186,7 +188,9 @@ EntityInfo::new("Invoice").due_digest(
 
 On opening, a session shows a message per entity with a `DueDigest`, by the person's preference and permissions, with a button that opens its list; `App::due_digest_notice(false)` turns it off, and `show_due_digests(session)` shows it where an application wants.
 
-What waits (#860): the list filtered by what is pending and the days, the choice in `AppShell`, and the texts in `ravenrs-app-i18n`.
+The button of the notice opens the list on the records it is about (`Session::open_view_filtered`, by their keys); opening the list another way shows it all. The words come from the catalog (`DigestWords::from_texts`, keys `ui.due_*` and the money of `format.*`).
+
+What waits (#860): the choice in `AppShell`.
 
 ### Bills, settlements and installments
 
@@ -206,7 +210,9 @@ The rules hold wherever records are kept: the status moves only by the declared 
 
 `LibraryModule::finance()` brings `FinanceActions`: Settle (what is left, today), Split (in the installments typed) and Reverse (with the reason typed), each with its id and needing `Write`, enabled only on the records they fit.
 
-What waits (#859): the printed documents of the reports and the review screen of a settlement with interest, fine and discount. The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
+Settle opens a window to review the settlement (`settle_review`, an entity no storage keeps), filled with today and what is open; the person changes the date, interest, fine and discount, sees the total that goes to the cash book, and OK settles what it says.
+
+What waits (#859): the printed documents of the reports. The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
 
 ## Scenarios
 

@@ -375,6 +375,7 @@ pub fn seed(space: &mut dyn ObjectSpace) -> Result<(), String> {
     people(space)?;
     demos(space)?;
     closing(space)?;
+    sealed(space)?;
     reports(space)
 }
 
@@ -387,6 +388,18 @@ fn closing(space: &mut dyn ObjectSpace) -> Result<(), String> {
             space,
             "ClosingLesson",
             &[("id", n(id)), ("name", t(name)), ("term_id", n(1.0)), ("status", t(status))],
+        )?;
+    }
+    Ok(())
+}
+
+/// A closed lesson, which only a correction changes, and one still open.
+fn sealed(space: &mut dyn ObjectSpace) -> Result<(), String> {
+    for (id, name, status) in [(1.0, "Aula 1", "Encerrada"), (2.0, "Aula 2", "Aberta")] {
+        add(
+            space,
+            "SealedLesson",
+            &[("id", n(id)), ("name", t(name)), ("status", t(status)), ("present", n(3.0))],
         )?;
     }
     Ok(())
