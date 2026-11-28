@@ -60,6 +60,12 @@ pub fn cheap(check: &mut Check) -> Done {
     check.run("cargo", &["fmt", "--all", "--check"])?;
 
     check.step(
+        "the shell check does not come back: not the old scripts, no new *.sh, no citation of them (#1068)",
+    );
+    let listed = check.output("git", &["ls-files", "-z", "--cached", "--others", "--exclude-standard"])?;
+    crate::guard::shell_check_stays_gone(&check.root, &listed)?;
+
+    check.step(
         "modules do not use each other in loops longer than each crate allows (ravenrs-lint module_cycle)",
     );
     check
@@ -126,7 +132,12 @@ fn clippy(check: &mut Check, selection: &[String]) -> Done {
 
 /// The tests of a selection on nextest, compiling and running apart so the table says where the
 /// time went, then the doctests, which nextest does not run, through `cargo test --doc`.
+///
+/// `pr` and `release` run every test even after one fails (`--no-fail-fast`), so a red run lists
+/// all that broke at once instead of the first; `dev` stops at the first, to answer fast while
+/// one works.
 fn tests(check: &mut Check, selection: &[String], documented: Option<&[String]>) -> Done {
+    let whole_report = !check.mode.starts_with("dev");
     let mut compile = vec!["nextest".to_owned(), "run".to_owned()];
     compile.extend(selection.iter().cloned());
     let mut run = compile.clone();
@@ -135,13 +146,19 @@ fn tests(check: &mut Check, selection: &[String], documented: Option<&[String]>)
         compile.push("--timings".to_owned());
     }
     run.push("--no-tests=pass".to_owned());
+    if whole_report {
+        run.push("--no-fail-fast".to_owned());
+    }
     check.substep("compile the tests", "cargo", &strs(&compile))?;
     check.substep("run the tests", "cargo", &strs(&run))?;
-    let doc = match documented {
+    let mut doc = match documented {
         None => vec!["test".to_owned(), "--doc".to_owned(), "--workspace".to_owned()],
         Some([]) => return Ok(()),
         Some(names) => [vec!["test".to_owned(), "--doc".to_owned()], packages(names)].concat(),
     };
+    if whole_report {
+        doc.push("--no-fail-fast".to_owned());
+    }
     check.substep("doctests (compile and run)", "cargo", &strs(&doc))
 }
 
@@ -187,6 +204,31 @@ fn design_reached(check: &Check, selection: &Selection) -> bool {
         .output("git", &["ls-files", "--others", "--exclude-standard", "--", "docs/design-system/export"])
         .is_ok_and(|out| !out.trim().is_empty());
     changed || untracked
+}
+
+/// `cargo xtask lint`: the fastest loop, with no tests at all. Formatting, the cheap checks and
+/// clippy on the packages changed, the same as `dev` up to its tests. It never stands in for a
+/// gate: the tests are `dev`'s while working and `pr`'s before a merge.
+pub fn lint(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
+    cheap(check)?;
+    let selection = select(check)?;
+    if selection.all {
+        println!("something every package builds with changed: clippy on the whole workspace");
+        check.mode = "lint, ALL".to_owned();
+        check.step("clippy (native), the whole workspace");
+        clippy(check, &["--workspace".to_owned()])?;
+        return Ok("Lint passed, no tests run (before the pull request: cargo xtask pr)");
+    }
+    if selection.touched.is_empty() {
+        println!("no package changed against {}: nothing to lint", base_name());
+        return Ok("Lint passed");
+    }
+    println!("changed: {}", selection.touched.join(" "));
+    check.step("clippy (native), on the packages changed");
+    clippy(check, &packages(&selection.touched))?;
+    Ok(
+        "Lint passed, no tests run (before a commit: cargo xtask dev; before the pull request: cargo xtask pr)",
+    )
 }
 
 /// `cargo xtask dev`: while working, before a commit. Formatting, the cheap checks, then clippy,

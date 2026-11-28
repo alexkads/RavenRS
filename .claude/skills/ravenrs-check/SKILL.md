@@ -1,6 +1,6 @@
 ---
 name: ravenrs-check
-description: Como rodar, ler e manter as checagens do RavenRS (não há CI hospedado), feitas pelo cargo xtask - dev enquanto se trabalha, pr como gate do PR na máquina de quem desenvolve, release antes de publicar, cargo-nextest obrigatório, um CARGO_TARGET_DIR por worktree, o que o seletor de pacotes testa e o que deixa para o release. Use sempre que for validar um PR ou branch, rodar ou interpretar o cargo xtask dev, pr ou release, investigar teste que falha só no check, um check lento ou "can't find crate", instalar o ambiente de quem contribui, ou mexer no xtask/, no changed-packages.py ou nos perfis do Cargo.toml, mesmo que o pedido não cite esta skill.
+description: Como rodar, ler e manter as checagens do RavenRS (não há CI hospedado), feitas pelo cargo xtask - lint para iterar rápido sem testes, dev enquanto se trabalha, pr como gate do PR na máquina de quem desenvolve, release antes de publicar, cargo-nextest obrigatório, um CARGO_TARGET_DIR por worktree, o que o seletor de pacotes testa e o que deixa para o release. Use sempre que for validar um PR ou branch, rodar ou interpretar o cargo xtask lint, dev, pr ou release, investigar teste que falha só no check, um check lento ou "can't find crate", instalar o ambiente de quem contribui, ou mexer no xtask/, no changed-packages.py ou nos perfis do Cargo.toml, mesmo que o pedido não cite esta skill.
 ---
 
 # As checagens do RavenRS (`cargo xtask`)
@@ -9,6 +9,7 @@ O projeto não tem CI hospedado. As checagens são subcomandos do `cargo xtask` 
 
 | Subcomando | Quando | O que roda |
 |---|---|---|
+| `cargo xtask lint` | para iterar rápido, **sem nenhum teste** | rustfmt, conferências baratas e clippy **só dos pacotes alterados**. Nunca vale como gate: antes do commit vem o `dev`, antes do merge o `pr` |
 | `cargo xtask dev` | enquanto se trabalha, antes do commit | rustfmt, conferências baratas, clippy e testes **só dos pacotes alterados** |
 | `cargo xtask pr` | o gate do PR, na máquina de quem desenvolve | clippy em tudo o que a mudança alcança, testes dos alterados e dos dependentes diretos, design system e API pública quando alcançados |
 | `cargo xtask release` | antes de publicar | o workspace inteiro, wasm32, features opcionais, MSRV, `cargo deny`, docs e builds web |
@@ -29,6 +30,12 @@ Vale para todas as máquinas: a do Alex, a do Matheus, as de Linux e Windows, e 
 ## Rodar
 
 ```bash
+cargo xtask lint
+```
+
+Para iterar rápido entre uma edição e outra, **sem nenhum teste**: rustfmt, as conferências baratas e o clippy dos pacotes alterados. Não exige o `cargo-nextest`. Nunca vale como prova: antes do commit vem o `dev` e antes do merge o `pr`, e a mensagem final lembra isso.
+
+```bash
 cargo xtask dev
 ```
 
@@ -46,7 +53,7 @@ cargo xtask release
 
 Tudo: o workspace inteiro, wasm32, as features opcionais, o MSRV, o `cargo deny`, a documentação e os builds web, com a mesma cobertura do antigo `--full`. Vai antes de publicar uma versão ou quando o Alex pedir. Os benchmarks e o gate de desempenho só entram quando ele pedir, com `RAVENRS_GATE=1` (skill `ravenrs-desempenho`).
 
-Nenhum dos três aceita argumentos: `cargo xtask pr --full` é recusado e diz qual usar.
+Nenhum deles aceita argumentos: `cargo xtask pr --full` é recusado e diz qual usar.
 
 ## Onde o tempo vai
 
@@ -69,13 +76,14 @@ Para investigar um check lento, leia a tabela antes de mexer em qualquer coisa: 
 Quem escolhe é o `scripts/changed-packages.py`. Os passos, em ordem:
 
 1. **rustfmt** no workspace inteiro.
-2. **Conferências baratas do workspace inteiro**, sempre: ciclos de módulos (`ravenrs-lint --only module_cycle`), camadas dos crates de widgets (`check-widget-layers.py`) arquivos de teste declarados em `tests/suite/main.rs` (`check-test-suites.py`) e as listas do playground em dia (`gen-live.py --check`, #828).
-3. **O teste do seletor** (`scripts/changed_packages_test.py`). O que o seletor deixa de fora não é conferido, por isso ele tem testes próprios.
-4. **ravenrs-lint** nos exemplos, só quando muda o crate do lint, o `family-finance`, o `component-gallery` ou a configuração no `Cargo.toml`.
-5. **API pública do `ravenrs-widgets`** (`public-api.py --check`, rustdoc no nightly), só quando a mudança alcança a fachada `ravenrs-widgets`.
-6. **Design system versionado** (`gen-design-system.py --check`, que roda o `--verify` do RCB, #1000), só quando a mudança alcança o `raven-component-book` ou mexe em `docs/design-system/export/`, no script ou num arquivo que o RCB embute de fora de qualquer pacote: o guia `docs/design-system/README.md` e o catálogo `site/components/index.html`. Leva uns 3 minutos, porque o RCB mede todas as histórias de novo. Para corrigir: `scripts/gen-design-system.py`.
-7. **clippy `--all-targets`** em tudo o que a mudança alcança, em qualquer profundidade. Isso também prova que esses pacotes compilam.
-8. **testes** (nextest e doctests) só dos pacotes alterados e dos dependentes diretos. Os dependentes mais distantes ficam para o `release`. Também fica para o `release` o dependente direto que não foi alterado e puxa um crate pesado (`HEAVY` no `changed-packages.py`: o `ravenrs-ai`, com o `candle` e o `tokenizers`, e o `ravenrs-movie-video`, com o `openh264`) que a mudança não alcança. Na prática, uma mudança só no `ravenrs-app` não testa o `family-finance`, mas o clippy do passo 7 continua provando que ele compila. A saída mostra esses pacotes na linha `tested in --full:` (#348).
+2. **O check.sh não volta** (#1068), em Rust, no `xtask/src/guard.rs`: reprova o `scripts/check.sh` ou o `scripts/build-web.sh` de volta, qualquer `*.sh` novo em `scripts/` (os cinco de hoje estão em `KNOWN_SCRIPTS`) e qualquer citação de um dos dois num arquivo do `git ls-files`, versionado ou novo. A mensagem traz `arquivo:linha` e o comando do xtask que substitui. Passam o histórico (`CHANGELOG.md`, `novidades*.json`, `historico-de-novidades.json`) e as linhas da lista `ALLOWED`, curta e comentada, que só contam o que aconteceu com os scripts. Toda citação conta, não só a que manda rodar: prosa nova fala do `cargo xtask`.
+3. **Conferências baratas do workspace inteiro**, sempre: ciclos de módulos (`ravenrs-lint --only module_cycle`), camadas dos crates de widgets (`check-widget-layers.py`) arquivos de teste declarados em `tests/suite/main.rs` (`check-test-suites.py`) e as listas do playground em dia (`gen-live.py --check`, #828).
+4. **O teste do seletor** (`scripts/changed_packages_test.py`). O que o seletor deixa de fora não é conferido, por isso ele tem testes próprios.
+5. **ravenrs-lint** nos exemplos, só quando muda o crate do lint, o `family-finance`, o `component-gallery` ou a configuração no `Cargo.toml`.
+6. **API pública do `ravenrs-widgets`** (`public-api.py --check`, rustdoc no nightly), só quando a mudança alcança a fachada `ravenrs-widgets`.
+7. **Design system versionado** (`gen-design-system.py --check`, que roda o `--verify` do RCB, #1000), só quando a mudança alcança o `raven-component-book` ou mexe em `docs/design-system/export/`, no script ou num arquivo que o RCB embute de fora de qualquer pacote: o guia `docs/design-system/README.md` e o catálogo `site/components/index.html`. Leva uns 3 minutos, porque o RCB mede todas as histórias de novo. Para corrigir: `scripts/gen-design-system.py`.
+8. **clippy `--all-targets`** em tudo o que a mudança alcança, em qualquer profundidade. Isso também prova que esses pacotes compilam.
+9. **testes** (nextest e doctests) só dos pacotes alterados e dos dependentes diretos. Os dependentes mais distantes ficam para o `release`. Também fica para o `release` o dependente direto que não foi alterado e puxa um crate pesado (`HEAVY` no `changed-packages.py`: o `ravenrs-ai`, com o `candle` e o `tokenizers`, e o `ravenrs-movie-video`, com o `openh264`) que a mudança não alcança. Na prática, uma mudança só no `ravenrs-app` não testa o `family-finance`, mas o clippy do passo 8 continua provando que ele compila. A saída mostra esses pacotes na linha `tested in --full:` (#348). No `pr` e no `release`, os testes e os doctests rodam com `--no-fail-fast`: uma falha não interrompe os outros, e a rodada vermelha lista tudo o que quebrou de uma vez. O `dev` para na primeira falha, para responder rápido.
 
 | Mudança | Alcança |
 |---|---|

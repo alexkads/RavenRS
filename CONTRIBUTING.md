@@ -35,6 +35,12 @@ rustc-wrapper = "sccache"
 The checks are tasks of `cargo xtask` (the `xtask/` crate), one per purpose, each taking no arguments. They are Rust, so they run the same on macOS, Linux and Windows. The project has no hosted CI.
 
 ```bash
+cargo xtask lint
+```
+
+The fastest loop, between one edit and the next, with no tests at all: rustfmt, the cheap checks and clippy on the packages that changed. It does not need `cargo-nextest`. It never stands in for a check: run `dev` before a commit and `pr` before a merge.
+
+```bash
 cargo xtask dev
 ```
 
