@@ -523,7 +523,68 @@ def autoteste():
     assert alcance({"a": {"b"}, "b": {"c"}, "x": set()}, ["a"]) == {"a", "b", "c"}
     com_extra = bloco(raiz, "camadas/x", [], ["[profile.dev.package.c]\nopt-level = 1\n"])
     assert com_extra.index("[profile.dev.package.c]") > com_extra.index("[profile.dev]"), com_extra
+    # Um pacote leve e solto numa camada cara gera aviso; um que usa a camada ou é usado nela
+    # (pesado, usa), ou numa camada barata, não (F5, #1096).
+    pesadas = ler_camadas('[base]\npacotes = ["a"]\n[cara]\npacotes = ["leve", "pesado", "usa"]\n')
+    deps_pesadas = {"a": [], "leve": [("a", "normal")], "pesado": [], "usa": [("pesado", "normal")]}
+    avisos = leves_em_camada_cara(pesadas, deps_pesadas, {"cara": ({"leve": 50, "pesado": 300, "usa": 20}, 320), "base": ({"a": 5}, 5)})
+    assert len(avisos) == 1 and avisos[0].startswith("aviso: leve compila 50 crates, está solto em cara, que compila 320"), avisos
+    assert leves_em_camada_cara(pesadas, deps_pesadas, {"cara": ({"leve": 50}, 150)}) == []
     print("camadas.py: autoteste passou")
+
+
+# --- pesos ---------------------------------------------------------------------------------------
+
+# Uma camada é cara a partir deste total de crates, e um pacote é leve nela quando usa no máximo
+# um terço disso (F5, #1096).
+CAMADA_CARA = 250
+
+
+def pesos_do_workspace(pasta):
+    """{membro: crates que ele compila (dependências normais e de build)} e o total do workspace,
+    com as de teste, tirados do `cargo metadata` com o Cargo.lock."""
+    dados = json.loads(subprocess.run(
+        ["cargo", "metadata", "--format-version", "1", "--offline", "--all-features"],
+        cwd=pasta, check=True, capture_output=True, text=True,
+    ).stdout)
+    nomes = {p["id"]: p["name"] for p in dados["packages"]}
+    sem_teste, com_teste = {}, {}
+    for no in dados["resolve"]["nodes"]:
+        sem_teste[no["id"]] = {d["pkg"] for d in no["deps"] if any(k["kind"] in (None, "build") for k in d["dep_kinds"])}
+        com_teste[no["id"]] = {d["pkg"] for d in no["deps"]}
+
+    def fecho(grafo, inicio):
+        vistos, pilha = set(), list(inicio)
+        while pilha:
+            atual = pilha.pop()
+            if atual not in vistos:
+                vistos.add(atual)
+                pilha.extend(grafo.get(atual, ()))
+        return vistos
+
+    membros = dados["workspace_members"]
+    por_membro = {nomes[m]: len(fecho(sem_teste, [m])) for m in membros}
+    total = len(fecho(sem_teste, membros) | {d for m in membros for d in fecho(sem_teste, com_teste[m])})
+    return por_membro, total
+
+
+def leves_em_camada_cara(camadas, pacotes, pesos):
+    """Avisos: numa camada cara, um pacote solto nela (não usa nada da camada, e nada dela o usa) que
+    compila no máximo um terço dela. Ele desce para uma camada perto do que usa. `pesos`: {camada: ({pacote: crates}, total)}."""
+    nivel = {pacote: camada for camada, campos in camadas for pacote in campos.get("pacotes", [])}
+    avisos = []
+    for camada, (por_pacote, total) in pesos.items():
+        if total < CAMADA_CARA:
+            continue
+        for pacote, crates in sorted(por_pacote.items()):
+            usa = [d for d, _ in pacotes.get(pacote, []) if nivel.get(d) == camada]
+            usado = [p for p, deps in pacotes.items() if nivel.get(p) == camada and pacote in {d for d, _ in deps}]
+            if not usa and not usado and crates * 3 <= total:
+                avisos.append(
+                    f"aviso: {pacote} compila {crates} crates, está solto em {camada}, que compila "
+                    f"{total}; uma camada perto do que ele usa deixa o PR dele mais barato (#1096)"
+                )
+    return avisos
 
 
 # --- comando -------------------------------------------------------------------------------------
@@ -555,8 +616,17 @@ def main():
         pastas = pastas_dos_pacotes()
         for linha in publicacao(camadas, pastas, publicaveis(pastas)):
             print(linha)
+    elif comando == "pesos":
+        pacotes = pacotes_do_repositorio(camadas)
+        pesos = {}
+        for camada, campos in camadas:
+            if str(campos.get("pasta", "")).startswith("camadas/"):
+                pesos[camada] = pesos_do_workspace(root / campos["pasta"])
+                print(f"{campos.get('rotulo', '')} {camada}: {pesos[camada][1]} crates")
+        for aviso in leves_em_camada_cara(camadas, pacotes, pesos):
+            print(aviso)
     else:
-        sys.exit(f"camadas.py: comando desconhecido {comando}; use check, deps, workspaces ou publicacao")
+        sys.exit(f"camadas.py: comando desconhecido {comando}; use check, deps, workspaces, publicacao ou pesos")
 
 
 main()

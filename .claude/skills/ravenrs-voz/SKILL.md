@@ -34,7 +34,7 @@ A IA não ouve. Quem ouve é ele, e o primeiro suspeito é sempre o fonema, não
 1. **Compare os fonemas da mesma frase** com o que o espeak-ng escreve. Gere o gabarito no scratchpad, nunca no repositório: um JSON `[{"text": "...", "phonemes": "..."}]` com a saída do `espeak-ng -v pt-br -q --ipa` (instalado só para isso, no scratchpad) e rode:
 
    ```bash
-   RAVENRS_PHONEMES=<scratchpad>/gabarito.json cargo test --manifest-path camadas/automacao/Cargo.toml -p ravenrs-ai phonemes_close -- --ignored --nocapture
+   RAVENRS_PHONEMES=<scratchpad>/gabarito.json cargo test --manifest-path camadas/ia-video/Cargo.toml -p ravenrs-ai phonemes_close -- --ignored --nocapture
    ```
 
    O teste lista as palavras diferentes (`esperado ≠ nosso`). A correção entra em `phonemes.rs`, com um caso novo no teste de palavras do mesmo arquivo.

@@ -1,6 +1,6 @@
 [package]
 name = "ravenrs-pos"
-workspace = "../../camadas/fiscal"
+workspace = "../../camadas/fiscal-motores"
 description = "The rules of a point of sale with nothing about screens: a cart, what a scanner reads, totals, payments and change."
 version.workspace = true
 edition.workspace = true
