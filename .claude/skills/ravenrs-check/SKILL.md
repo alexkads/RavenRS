@@ -1,6 +1,6 @@
 ---
 name: ravenrs-check
-description: Como rodar, ler e manter as checagens do RavenRS (não há CI hospedado), feitas pelo cargo xtask - dev enquanto se trabalha, pr como gate do PR no Raven CI, release antes de publicar, cargo-nextest obrigatório, um CARGO_TARGET_DIR por worktree, o que o seletor de pacotes testa e o que deixa para o release. Use sempre que for validar um PR ou branch, rodar ou interpretar o cargo xtask dev, pr ou release, investigar teste que falha só no check, um check lento ou "can't find crate", instalar o ambiente de quem contribui, ou mexer no xtask/, no changed-packages.py ou nos perfis do Cargo.toml, mesmo que o pedido não cite esta skill.
+description: Como rodar, ler e manter as checagens do RavenRS (não há CI hospedado), feitas pelo cargo xtask - dev enquanto se trabalha, pr como gate do PR na máquina de quem desenvolve, release antes de publicar, cargo-nextest obrigatório, um CARGO_TARGET_DIR por worktree, o que o seletor de pacotes testa e o que deixa para o release. Use sempre que for validar um PR ou branch, rodar ou interpretar o cargo xtask dev, pr ou release, investigar teste que falha só no check, um check lento ou "can't find crate", instalar o ambiente de quem contribui, ou mexer no xtask/, no changed-packages.py ou nos perfis do Cargo.toml, mesmo que o pedido não cite esta skill.
 ---
 
 # As checagens do RavenRS (`cargo xtask`)
@@ -10,11 +10,11 @@ O projeto não tem CI hospedado. As checagens são subcomandos do `cargo xtask` 
 | Subcomando | Quando | O que roda |
 |---|---|---|
 | `cargo xtask dev` | enquanto se trabalha, antes do commit | rustfmt, conferências baratas, clippy e testes **só dos pacotes alterados** |
-| `cargo xtask pr` | o gate do PR; vai rodar no Raven CI da macpro (o job espera a chave do servidor) | clippy em tudo o que a mudança alcança, testes dos alterados e dos dependentes diretos, design system e API pública quando alcançados |
+| `cargo xtask pr` | o gate do PR, na máquina de quem desenvolve | clippy em tudo o que a mudança alcança, testes dos alterados e dos dependentes diretos, design system e API pública quando alcançados |
 | `cargo xtask release` | antes de publicar | o workspace inteiro, wasm32, features opcionais, MSRV, `cargo deny`, docs e builds web |
 | `cargo xtask web <nome>` | build para o navegador | o que o `scripts/build-web.sh` fazia |
 
-Todo PR registra em "How it was tested" que o `cargo xtask pr` passou, o tempo total, as três etapas mais lentas da tabela final e se o diretório de build começou vazio. Rode na macpro, nunca no Mac do Alex: é a máquina de trabalho dele.
+Todo PR registra em "How it was tested" que o `cargo xtask pr` passou, o tempo total, as três etapas mais lentas da tabela final e se o diretório de build começou vazio.
 
 ## Antes da primeira vez
 
@@ -138,7 +138,7 @@ Os 5m58s são o piso: rodar os testes, os doctests, o `wasm-bindgen` e o `wasm-o
 
 **No Linux também (#1023).** Medido em 27/11/2026 na macpro-i7 (Fedora, 8 threads, `CARGO_BUILD_JOBS=6`), num check rápido depois de uma mudança no `ravenrs-widgets-base`: 32m38s com o cache vazio e **17m04s** com o diretório de build vazio e o cache cheio (1.018 de 1.018 bibliotecas do cache). Com `RAVENRS_XCACHE=0`, a mesma situação levava de 42 a 60 minutos. Não desligue o xcache nos roteiros. Os membros do workspace que o `cargo clippy` não analisa (não estão na linha de comando) vão ao `rustc` e vêm do cache; os analisados e os proc macros ainda compilam toda vez.
 
-**Onde rodar.** O Mac do Alex é a máquina de trabalho dele: o cargo xtask pr, os builds e as medições rodam na macpro, sob a trava da oficina. Um cache remoto na macpro não serve ao Mac, porque ela está só no Wi-Fi, a 4 MB/s.
+**Onde rodar.** O `cargo xtask pr` roda na máquina de quem desenvolve, a mesma em que o PR foi feito. Não há CI hospedado nem servidor de checagens.
 
 **Por que não o sccache.** Medido na mesma data: ele põe toda variável `CARGO_*` na chave, e cada worktree usa um `CARGO_TARGET_DIR` diferente. O mesmo código num segundo diretório teve 0 acertos em 34, e no uso real a taxa em Rust era de 0,26%. Passando o diretório por `--target-dir`, o `cargo check --workspace` teve 382 acertos, 150 perdas e 218 não cacheáveis, e caiu só de 81 s para 67 s. Sem `--remap-path-prefix`, o `rustc` grava o caminho no artefato e recusa misturar artefatos de diretórios diferentes (`E0460`). Ele foi desligado em `~/.cargo/config.toml`.
 

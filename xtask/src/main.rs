@@ -15,9 +15,9 @@ cargo xtask <task>: the project's checks and builds, one task per purpose.
 
   dev       while working, before a commit (minutes): formatting, the cheap checks of the
             workspace, then clippy and the tests of the packages changed only
-  pr        the pull request's gate, on the Raven CI: clippy on every package the change reaches,
-            the tests of those changed and of their direct dependents, the design system and the
-            public API when the change reaches them
+  pr        the pull request's gate, on the developer's machine: clippy on every package the
+            change reaches, the tests of those changed and of their direct dependents, the design
+            system and the public API when the change reaches them
   release   before a release: the whole workspace and all its tests, wasm32, optional features,
             the minimum Rust version, dependencies, API docs and the web builds
             (RAVENRS_GATE=1 adds the benchmarks and the performance gate)
