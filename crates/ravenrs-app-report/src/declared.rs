@@ -33,7 +33,7 @@ use ravenrs_app::{BusinessObject, DashboardInfo};
 use ravenrs_app_ui::{App, Session};
 use ravenrs_widgets::AnyView;
 
-use crate::analytics::{TileSpec, tile_content};
+use crate::analytics::{Thresholds, TileSpec, tile_content};
 
 /// A chart a tile of an [`AnalyticsPanel`] can draw.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -182,6 +182,16 @@ impl AnalyticsPanel {
     pub fn filtered(mut self, criteria: impl Into<String>) -> Self {
         if let Some(tile) = self.tiles.last_mut() {
             tile.filter = criteria.into();
+        }
+        self
+    }
+
+    /// The number of the last tile shows its level by these thresholds: in good standing,
+    /// attention or critical, with the tone of each. A tile whose reader may not see the number
+    /// says it is restricted instead, with no level.
+    pub fn level(mut self, thresholds: Thresholds) -> Self {
+        if let Some(tile) = self.tiles.last_mut() {
+            tile.thresholds = Some(thresholds);
         }
         self
     }

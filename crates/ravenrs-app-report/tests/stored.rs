@@ -9,8 +9,8 @@ use ravenrs_app::{
     SecurityContext, SpaceMaker, UserDirectory, Value, security_entities,
 };
 use ravenrs_app_report::{
-    ANALYTICS_DASHBOARD, ANALYTICS_TILE, AnalyticsModule, AnalyticsPanel, PanelChart, REPORT_DEFINITION,
-    ReportWords, StoredReportsModule, analytics_entities, report_entity,
+    ANALYTICS_DASHBOARD, ANALYTICS_TILE, AnalyticsModule, AnalyticsPanel, IndicatorLevel, PanelChart,
+    REPORT_DEFINITION, ReportWords, StoredReportsModule, Thresholds, analytics_entities, report_entity,
 };
 use ravenrs_app_ui::{AppShell, Session, SystemModule};
 use ravenrs_core::{AccessAction, Role as AccessRole, Size};
@@ -456,4 +456,84 @@ fn a_panel_names_one_control_per_tile_from_the_struct_of_the_record() {
     let captions: Vec<_> = info.items.iter().map(|item| (item.caption.as_str(), item.id.as_str())).collect();
     assert_eq!(captions, [("Total", "Shop.tile0"), ("Divisão", "Shop.tile1")]);
     assert_eq!(info.icon.as_deref(), Some("layout-dashboard"));
+}
+
+/// The records `order` holds sum 150 in whole units and count two.
+fn levels_panel() -> AnalyticsPanel {
+    AnalyticsPanel::new("Levels", "Gestão")
+        .number_in("Order", "Total", "cost:Sum")
+        .level(Thresholds::at_least(120.0, 60.0))
+        .number_in("Order", "Média", "cost:Average")
+        .level(Thresholds::at_least(100.0, 60.0))
+        .number_in("Order", "Pedidos", "")
+        .level(Thresholds::at_most(0.0, 0.0))
+        .number_in("Order", "Só a cadeira", "cost:Sum")
+        .filtered("[name] = 'Cadeira'")
+        .level(Thresholds::at_least(75.0, 50.0))
+}
+
+fn open_levels(world: &mut World) -> String {
+    levels_panel().register(&world.session);
+    world.settle();
+    world.session.open_view("Levels_DashboardView");
+    world.texts().join(" | ")
+}
+
+#[test]
+fn a_number_shows_its_level_by_the_thresholds() {
+    assert_eq!(Thresholds::at_least(75.0, 50.0).level(80.0), Some(IndicatorLevel::Good));
+    assert_eq!(Thresholds::at_least(75.0, 50.0).level(60.0), Some(IndicatorLevel::Attention));
+    assert_eq!(Thresholds::at_least(75.0, 50.0).level(40.0), Some(IndicatorLevel::Critical));
+    assert_eq!(Thresholds::at_most(0.0, 0.0).level(0.0), Some(IndicatorLevel::Good));
+    assert_eq!(Thresholds::at_most(0.0, 0.0).level(1.0), Some(IndicatorLevel::Critical));
+    assert_eq!(Thresholds::level_with(|_| None).level(1.0), None);
+    assert_eq!(
+        IndicatorLevel::worst([IndicatorLevel::Good, IndicatorLevel::Critical, IndicatorLevel::Attention]),
+        Some(IndicatorLevel::Critical)
+    );
+    let database = database();
+    let info = levels_panel().info();
+    let source = database.clone();
+    let mut world = World::over(move || source.space(), move |builder| builder.dashboard(info), None);
+    let said = open_levels(&mut world);
+    // 150 total, 75 on average, two orders, 50 for the chair.
+    assert!(said.contains("On track"), "the total: {said}");
+    assert!(said.contains("Attention"), "the average: {said}");
+    assert!(said.contains("Critical"), "the count above zero, and the chair at 50: {said}");
+    let tree = world.ui.access_tree();
+    let badges = tree
+        .nodes
+        .iter()
+        .filter(|node| matches!(node.name.as_deref(), Some("On track" | "Attention" | "Critical")))
+        .count();
+    assert_eq!(badges, 4, "{said}");
+}
+
+#[test]
+fn a_number_its_reader_may_not_see_is_restricted_never_zero() {
+    let database = database();
+    let info = levels_panel().info();
+    let no_cost = Role::new("Secretaria").policy(PermissionPolicy::ReadOnlyAll).member_permission(
+        "Order",
+        ["cost"],
+        None,
+        [Operation::Read],
+        Access::Deny,
+    );
+    let mut world = secured_with(&database, no_cost, move |builder| builder.dashboard(info.clone()));
+    let said = open_levels(&mut world);
+    assert!(said.contains("Restricted to your role"), "{said}");
+    assert!(
+        !said.contains("Attention") && !said.contains("On track"),
+        "a restricted tile has no level: {said}"
+    );
+    assert!(said.contains("Pedidos") && said.contains("Critical"), "the count needs no cost: {said}");
+
+    let info = levels_panel().info();
+    let nothing = Role::new("Visitante")
+        .policy(PermissionPolicy::DenyAll)
+        .navigation_permission("Levels_DashboardView", Access::Allow);
+    let mut world = secured_with(&database, nothing, move |builder| builder.dashboard(info.clone()));
+    let said = open_levels(&mut world);
+    assert!(!said.contains(" 0 ") && !said.contains("R$ 0") && !said.contains("Critical"), "{said}");
 }

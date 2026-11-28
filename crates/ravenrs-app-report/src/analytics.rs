@@ -5,16 +5,16 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use ravenrs_app::{
-    Action, ActionCategory, Criteria, EntityInfo, EnumOption, FieldInfo, FieldKind, Module, Object, Query,
-    Selection, Value, ViewController,
+    Action, ActionCategory, Criteria, EntityInfo, EnumOption, FieldInfo, FieldKind, Module, Object,
+    Operation, Query, Selection, Value, ViewController,
 };
 use ravenrs_app_ui::{Session, chart_view, summary_text};
 use ravenrs_layout::Align;
 use ravenrs_reactive::State;
-use ravenrs_style::{TextStyle, Weight};
+use ravenrs_style::{Semantic, TextStyle, Weight};
 use ravenrs_widgets::{
-    AnyView, BuildCx, Button, ButtonSize, ButtonStyle, HStack, NodeId, ScrollView, Text, Tile, TileLayout,
-    TileSpot, VStack, View, ViewExt,
+    AnyView, Badge, BuildCx, Button, ButtonSize, ButtonStyle, HStack, NodeId, ScrollView, Text, Tile,
+    TileLayout, TileSpot, Tone, VStack, View, ViewExt,
 };
 
 use crate::stored::{ReportWords, problem};
@@ -74,6 +74,152 @@ pub fn analytics_entities() -> Vec<EntityInfo> {
     ]
 }
 
+/// Where a number stands, from the best to the worst.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[non_exhaustive]
+pub enum IndicatorLevel {
+    /// In good standing.
+    Good,
+    /// Needs attention.
+    Attention,
+    /// Critical.
+    Critical,
+}
+
+impl IndicatorLevel {
+    /// What it says, in these words.
+    pub fn caption(self, words: &ReportWords) -> &str {
+        match self {
+            Self::Good => &words.level_good,
+            Self::Attention => &words.level_attention,
+            Self::Critical => &words.level_critical,
+        }
+    }
+
+    /// The tone it shows in.
+    pub fn tone(self) -> Tone {
+        match self {
+            Self::Good => Tone::Success,
+            Self::Attention => Tone::Warning,
+            Self::Critical => Tone::Danger,
+        }
+    }
+
+    /// The worst of these, if any.
+    pub fn worst(levels: impl IntoIterator<Item = Self>) -> Option<Self> {
+        levels.into_iter().max()
+    }
+}
+
+/// How a number becomes a level: by limits, higher or lower being better, or by a rule of its own.
+#[derive(Clone)]
+pub struct Thresholds(Rc<dyn Fn(f64) -> Option<IndicatorLevel>>);
+
+impl std::fmt::Debug for Thresholds {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Thresholds(..)")
+    }
+}
+
+impl PartialEq for Thresholds {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl Eq for Thresholds {}
+
+impl Thresholds {
+    /// Higher is better: from `good` up it is in good standing, from `attention` up it needs
+    /// attention, below it is critical.
+    pub fn at_least(good: f64, attention: f64) -> Self {
+        Self(Rc::new(move |value| {
+            Some(if value >= good {
+                IndicatorLevel::Good
+            } else if value >= attention {
+                IndicatorLevel::Attention
+            } else {
+                IndicatorLevel::Critical
+            })
+        }))
+    }
+
+    /// Lower is better: up to `good` it is in good standing, up to `attention` it needs attention,
+    /// above it is critical. `at_most(0.0, 0.0)` makes anything above zero critical.
+    pub fn at_most(good: f64, attention: f64) -> Self {
+        Self(Rc::new(move |value| {
+            Some(if value <= good {
+                IndicatorLevel::Good
+            } else if value <= attention {
+                IndicatorLevel::Attention
+            } else {
+                IndicatorLevel::Critical
+            })
+        }))
+    }
+
+    /// By a rule of its own, for what limits do not say; nothing means no level.
+    pub fn level_with(rule: impl Fn(f64) -> Option<IndicatorLevel> + 'static) -> Self {
+        Self(Rc::new(rule))
+    }
+
+    /// The level of this number.
+    pub fn level(&self, value: f64) -> Option<IndicatorLevel> {
+        (self.0)(value)
+    }
+}
+
+/// The number a series gives over these records, in whole units: money comes in cents.
+pub(crate) fn series_number(entity: &EntityInfo, objects: &[Object], series: &str) -> Option<f64> {
+    let series = series.trim();
+    if series.is_empty() {
+        return Some(objects.len() as f64);
+    }
+    let (field, how) = series.split_once(':').unwrap_or((series, "Sum"));
+    let money = entity.field_named(field).is_some_and(|field| matches!(field.kind, FieldKind::Money));
+    let values: Vec<f64> = objects
+        .iter()
+        .filter_map(|object| object.number(field))
+        .map(|number| if money { number / 100.0 } else { number })
+        .collect();
+    match how {
+        "Count" => Some(values.len() as f64),
+        "Sum" => Some(values.iter().sum()),
+        "Average" if !values.is_empty() => Some(values.iter().sum::<f64>() / values.len() as f64),
+        "Min" => values.iter().copied().reduce(f64::min),
+        "Max" => values.iter().copied().reduce(f64::max),
+        _ => None,
+    }
+}
+
+/// The fields a tile reads: its series, what is along the axis and what its filter names.
+fn fields_read(tile: &TileSpec) -> Vec<String> {
+    let mut fields = Vec::new();
+    if let Some(field) = tile.series.split(':').next().map(str::trim).filter(|field| !field.is_empty()) {
+        fields.push(field.to_owned());
+    }
+    if !tile.argument.trim().is_empty() {
+        fields.push(tile.argument.trim().to_owned());
+    }
+    if let Ok(criteria) = Criteria::parse(&tile.filter) {
+        // The field of the record itself, the first step of a path.
+        fields.extend(
+            criteria.properties().into_iter().filter_map(|path| path.split('.').next().map(str::to_owned)),
+        );
+    }
+    fields
+}
+
+/// Whether the person signed in may read all a tile needs: the entity and each field it reads.
+pub(crate) fn readable(session: &Session, tile: &TileSpec) -> bool {
+    let Some(security) = session.frame().security() else { return true };
+    let fields = fields_read(tile);
+    security.with(|permissions| {
+        permissions.can(Operation::Read, &tile.target, None)
+            && fields.iter().all(|field| permissions.can_field(Operation::Read, &tile.target, field, None))
+    })
+}
+
 /// What a tile is asked to show: the same fields a kept tile has, from a record or from code.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct TileSpec {
@@ -86,6 +232,8 @@ pub(crate) struct TileSpec {
     pub(crate) series: String,
     pub(crate) interval: String,
     pub(crate) filter: String,
+    /// How its number becomes a level, if it does.
+    pub(crate) thresholds: Option<Thresholds>,
 }
 
 impl TileSpec {
@@ -98,6 +246,7 @@ impl TileSpec {
             series: tile.text("series"),
             interval: tile.text("interval"),
             filter: tile.text("filter"),
+            thresholds: None,
         }
     }
 }
@@ -109,6 +258,11 @@ pub(crate) fn tile_content(session: &Session, tile: &TileSpec) -> AnyView {
     let Some(entity) = session.entity(target) else {
         return problem(title, format!("{} {target}", session.words().list_editor_needs));
     };
+    let words = ReportWords::from_texts(&session.texts());
+    // A number its reader may not see is not shown as zero.
+    if !readable(session, tile) {
+        return Box::new(Text::new(words.restricted.clone()).foreground(Semantic::InkMuted));
+    }
     let mut query = Query::all();
     if !tile.filter.trim().is_empty() {
         match Criteria::parse(&tile.filter) {
@@ -121,9 +275,22 @@ pub(crate) fn tile_content(session: &Session, tile: &TileSpec) -> AnyView {
         Err(error) => return problem(title, error.to_string()),
     };
     if tile.kind == "number" {
-        return match summary_text(session, &entity, &objects, &tile.series) {
-            Ok(value) => Box::new(Text::new(value).style(TextStyle::Metric)),
-            Err(why) => problem(title, why),
+        let value = match summary_text(session, &entity, &objects, &tile.series) {
+            Ok(value) => value,
+            Err(why) => return problem(title, why),
+        };
+        let level = tile
+            .thresholds
+            .as_ref()
+            .and_then(|thresholds| thresholds.level(series_number(&entity, &objects, &tile.series)?));
+        let number = Text::new(value).style(TextStyle::Metric);
+        return match level {
+            Some(level) => Box::new(
+                HStack::new((number, Badge::new(level.caption(&words)).tone(level.tone())))
+                    .spacing(8.0)
+                    .align(Align::Center),
+            ),
+            None => Box::new(number),
         };
     }
     let mut settings = BTreeMap::new();

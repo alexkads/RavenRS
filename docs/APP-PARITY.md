@@ -56,6 +56,7 @@ replace the API statuses and adapter guarantees below.
 | Mail merge templates | ⬜ `ravenrs-word` already keeps `MERGEFIELD` codes, and nothing fills them; editing the template in the app takes the `DocumentEditor` (#405) | #618 |
 | Analytical panels people create, kept as records | 🟡 `AnalyticsModule`: tiles of numbers and charts, edited on generated forms. No canvas designer, and tile sizes are not kept | |
 | Analytical panels declared in code | ✅ `AnalyticsPanel` with `AnalyticsApp::analytics_panel`: numbers, bars, lines, pies and doughnuts over a struct, with filter and date interval per tile, read under the person's permissions | |
+| Numbers with a level, and restricted instead of zero | 🟡 `AnalyticsPanel::level(Thresholds::at_least / at_most / level_with)` shows in good standing, attention or critical with its tone; a tile whose reader may not read the entity or a field it uses says "Restricted to your role", in every panel, declared or kept. Groups with the worst level, `number_with` and the printed panel are not there yet | #864 |
 | Roles, policies and permissions on entities, records, fields, navigation and actions; several roles in any or in all | ✅ `Role`, `Permissions`, enforced in `SecuredObjectSpace`, also with no screen | |
 | Policy changed while running, by administrators on generated screens | ✅ `security_entities`; losing a role takes effect at once | |
 | Permissions that follow associations | 🟡 aggregated collections go with their owner; everything else asks for permission on both sides, as the documented manual mode does | |

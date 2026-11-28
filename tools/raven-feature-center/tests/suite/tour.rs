@@ -2728,6 +2728,21 @@ fn a_bill_is_settled_in_part_reversed_and_split_to_the_cent() {
 }
 
 #[test]
+fn a_panel_shows_each_number_with_its_level() {
+    let mut c = Center::memory("ana");
+    c.press("Painel com níveis");
+    c.settle();
+    let said = c.texts().join(" | ");
+    // number_in, filtered and level: 410 needs attention, one late is critical, four records are fine.
+    for caption in
+        ["Valor em aberto", "Atrasados", "Registros", "Produtos do caixa", "Valor por situação", "Por mês"]
+    {
+        assert!(said.contains(caption), "{caption}: {said}");
+    }
+    assert!(said.contains("Atenção") && said.contains("Crítico") && said.contains("Em dia"), "{said}");
+}
+
+#[test]
 fn a_chronology_shows_the_milestones_in_order_and_opens_one() {
     let mut c = Center::memory("ana");
     c.press("Cronologia");
