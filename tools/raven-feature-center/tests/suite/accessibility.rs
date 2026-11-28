@@ -131,6 +131,7 @@ demonstrations! {
     caixa_de_exemplo => "Caixa de exemplo",
     api_web => "API web",
     registro => "Registro",
+    fechamento => "Fechamento de período",
     api_service => "Serviço da API",
     leitores_de_tela_e_teclado => "Leitores de tela e teclado",
     pessoas => "Pessoas",

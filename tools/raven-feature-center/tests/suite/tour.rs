@@ -2578,6 +2578,59 @@ fn a_record_reads_each_field_in_its_type_and_changes_by_field() {
 }
 
 #[test]
+fn a_closed_lesson_changes_by_correction_and_an_approved_term_freezes_it() {
+    let mut c = Center::memory("ana");
+    c.press("Fechamento de período");
+    c.settle();
+    let says_start = |c: &mut Center, start: &str| c.texts().iter().any(|t| t.starts_with(start));
+    assert!(c.says("Aula: draft, 3 presentes"), "{:?}", c.texts());
+    // PeriodClosing::versions_entity.
+    assert!(
+        c.says("Campos das versões: id, period, version, approved_at, approved_by, digest, document, status, reopen_reason"),
+        "{:?}",
+        c.texts()
+    );
+    // requires_none: a draft lesson keeps the term open.
+    c.press("Aprovar o semestre");
+    assert!(says_start(&mut c, "Recusado: Semestre: 1 still has Aula"), "{:?}", c.texts());
+    // Seal: a closed lesson does not change directly.
+    c.press("Fechar a aula");
+    c.press("Mudar a aula direto");
+    assert!(says_start(&mut c, "Recusado: Aula: it is closed: use Correção de aula"), "{:?}", c.texts());
+    // Amendment::correction, reason, copies, marks and before.
+    c.press("Corrigir sem motivo");
+    assert!(
+        says_start(&mut c, "Recusado: Correção de aula: the reason needs at least 10"),
+        "{:?}",
+        c.texts()
+    );
+    c.press("Corrigir a aula");
+    assert!(c.says("Aula: closed, 5 presentes, corrigida"), "{:?}", c.texts());
+    // Amendment::closing and apply.
+    c.press("Transferir");
+    assert!(c.says("Matrículas encerradas: 1"), "{:?}", c.texts());
+    // PeriodClosing::new and freezes: approving freezes the lesson, even for a correction.
+    c.press("Aprovar o semestre");
+    assert!(c.says("Semestre aprovado: versão 1."), "{:?}", c.texts());
+    assert!(says_start(&mut c, "Versão 1: vigente, hash "), "{:?}", c.texts());
+    c.press("Corrigir a aula");
+    assert!(says_start(&mut c, "Recusado: Semestre: 1 is approved"), "{:?}", c.texts());
+    // reopen_reason.
+    c.press("Reabrir sem motivo");
+    assert!(
+        says_start(&mut c, "Recusado: Semestre approval: the reason to reopen needs at least 10"),
+        "{:?}",
+        c.texts()
+    );
+    c.press("Reabrir o semestre");
+    assert!(says_start(&mut c, "Versão 1: reaberta"), "{:?}", c.texts());
+    c.press("Aprovar o semestre");
+    assert!(c.says("Semestre aprovado: versão 2."), "{:?}", c.texts());
+    c.press("Recomeçar");
+    assert!(c.says("Versões: nenhuma"), "{:?}", c.texts());
+}
+
+#[test]
 fn a_chronology_shows_the_milestones_in_order_and_opens_one() {
     let mut c = Center::memory("ana");
     c.press("Cronologia");
