@@ -23,8 +23,10 @@ fn settle_opens_the_review_and_ok_settles_what_it_says() {
     space.insert(bill).expect("waits");
     space.commit().expect("kept");
 
-    let application =
-        Application::builder("Casa").module(SystemModule::new()).module(LibraryModule::new().finance()).build();
+    let application = Application::builder("Casa")
+        .module(SystemModule::new())
+        .module(LibraryModule::new().finance())
+        .build();
     let source = database.clone();
     let shell = AppShell::new(application.expect("valid"), move || source.space());
     let session: Session = shell.session();
@@ -40,9 +42,10 @@ fn settle_opens_the_review_and_ok_settles_what_it_says() {
     session.run_action(&action, ravenrs_app::ActionInput::None);
     settle(&mut ui);
     let said = |ui: &mut Ui, text: &str| {
-        ui.access_tree().nodes.iter().any(|n| {
-            [&n.name, &n.value].iter().any(|t| t.as_deref().is_some_and(|t| t.contains(text)))
-        })
+        ui.access_tree()
+            .nodes
+            .iter()
+            .any(|n| [&n.name, &n.value].iter().any(|t| t.as_deref().is_some_and(|t| t.contains(text))))
     };
     for field in ["Of the bill", "Interest", "Fine", "Discount", "To the cash book"] {
         assert!(said(&mut ui, field), "the review shows {field}");
