@@ -197,7 +197,9 @@ The rules hold wherever records are kept: the status moves only by the declared 
 
 `LibraryModule::finance()` brings `FinanceActions`: Settle (what is left, today), Split (in the installments typed) and Reverse (with the reason typed), each with its id and needing `Write`, enabled only on the records they fit.
 
-What waits (#859): the printed documents of the reports and the review screen of a settlement with interest, fine and discount. The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
+The reports print as documents, in `ravenrs-app-report`: `statement_document`, `annual_document`, `position_document` and `forecast_document` take what the services read through the person's space and write money and dates in a `Culture`, with the heads of the columns from the catalog (`report.finance_*`). Each gives a `Document` to show, print or keep as PDF.
+
+What waits (#859): the review screen of a settlement with interest, fine and discount. The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
 
 ## Scenarios
 
