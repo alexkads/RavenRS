@@ -105,6 +105,8 @@ The amendment is written on its target as it is inserted (`apply_amendment`, cal
 
 Permissions: creating an amendment needs `Create` on the amendment entity and `Read` on the target, not `Write` on the target. An `object_permission` that denies `Write` on closed records still holds for direct edits.
 
+In SQLite and PostgreSQL the database itself can refuse a sealed record written by other ways than the framework: `SqlBuilder::sealed_guards()`, called after the entities, writes once, as a migration, a trigger on each sealed table that refuses an update or a delete of a row whose stored values meet the seal. The commit of an amendment writes down, in its own transaction, the records it changes (in `raven_amending`), so the triggers let only those through, and takes them away before it ends. SQLite refuses with `RAISE(ABORT, ...)`, PostgreSQL with `ERRCODE '23514'`. A database with no way to say it holds only to the rules of the framework.
+
 ### Period closing
 
 A period entity, such as a month, a term or a payroll, declares with `EntityInfo::period_closing` how it is approved:
