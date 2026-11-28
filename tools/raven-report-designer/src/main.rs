@@ -1,4 +1,4 @@
-//! Native entry point: `cargo run -p raven-report-designer`.
+//! Native entry point: `cargo run --manifest-path tools/raven-report-designer/Cargo.toml`.
 
 #[cfg(not(target_arch = "wasm32"))]
 mod versao;

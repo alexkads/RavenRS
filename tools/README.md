@@ -9,7 +9,8 @@ The tools of RavenRS: apps that people install and use to build with RavenRS, ma
 | Its own version, not the workspace's | `version = "x.y.z"` in its `Cargo.toml`, with `publish = false` | raising it is what announces an update to the copies people installed |
 | The news of the version and the history of every version | `novidades.json` and `historico-de-novidades.json`, with `contribuidores` and `issues` | the app shows them, and the test `the_three_release_files_agree` keeps them and the version together |
 | Who it is to the installer and the updater | `src/versao.rs` with an `InstalledApp` of `ravenrs-app-update` | the same installer and updater as Raven Finanças and Raven Flows |
-| The installer | `install.cmd`, made from the shared template (`RAVENRS_WRITE_INSTALLER=1 cargo test -p <tool> versao`) and checked by `the_installer_is_the_one_the_template_makes` | one file that installs by compiling on Windows, macOS and Linux |
+| The installer | `install.cmd`, made from the shared template (`RAVENRS_WRITE_INSTALLER=1 cargo test --manifest-path tools/<tool>/Cargo.toml versao`) and checked by `the_installer_is_the_one_the_template_makes` | one file that installs by compiling on Windows, macOS and Linux |
+| A workspace of its own, unless it is the showcase | a section of `camadas.toml`, and the copy of the root's dependencies that `python3 scripts/camadas.py deps --write` puts in its `Cargo.toml`, with its own `Cargo.lock` | work on the library never builds a tool (#1080, #1084) |
 | Its icons | `assets/icon.svg`, `icon.png`, `icon.ico`, `icon.icns` | the installer puts them on the app bundle, the Start menu and the desktop entry |
 | `--versao` | in `src/main.rs`, before any window | the installer proves a new binary opens before it replaces the old one |
 | `--self-test` | in `src/main.rs`, with no window, exit code 0 when it passed | a tool tests itself, before anyone trusts it; its window does the same when it opens |

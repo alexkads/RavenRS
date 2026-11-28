@@ -96,7 +96,7 @@ Everything is in `raven-ci.sqlite` in the folder of data.
 ## How to use it
 
 ```bash
-cargo run -p raven-ci -- --plugins tools/raven-ci/plugins plugins listar
+cargo run --manifest-path tools/raven-ci/Cargo.toml -p raven-ci -- --plugins tools/raven-ci/plugins plugins listar
 ```
 
 | Command | What it does |
@@ -318,13 +318,13 @@ how), leaves when switched off, and brings the scenarios that test its screens (
 screens" in the guide of plugins).
 
 ```sh
-cargo run -p raven-ci-painel -- --servidor http://127.0.0.1:8080   # on the desktop
+cargo run --manifest-path tools/raven-ci/Cargo.toml -p raven-ci-painel -- --servidor http://127.0.0.1:8080   # on the desktop
 cargo xtask web raven-ci                                        # for the browser
 raven-ci servir --painel tools/raven-ci/web                          # then open /painel/
 ```
 
 Pictures of each page are in `docs/painel/`, drawn by
-`RAVEN_CI_TELAS=pasta cargo test -p raven-ci-painel --test telas -- --ignored` over the server of the
+`RAVEN_CI_TELAS=pasta cargo test --manifest-path tools/raven-ci/Cargo.toml -p raven-ci-painel --test telas -- --ignored` over the server of the
 tests: Jobs, a build (wide, narrow and on a phone), the queue, the plugins, the pipeline, a page of a
 plugin, people, the history and Disparar.
 

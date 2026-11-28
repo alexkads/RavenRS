@@ -81,7 +81,7 @@ fn a_report_gathers_the_output_and_counts_what_was_found() {
     assert!(report.output.contains("aborting due to 1 previous error"));
 }
 
-/// With cargo on the machine: the sample builds and runs. `cargo test -p raven-code -- --ignored`.
+/// With cargo on the machine: the sample builds and runs. `cargo test --manifest-path tools/raven-code/Cargo.toml -- --ignored`.
 #[test]
 #[ignore = "runs cargo, which takes a while"]
 fn the_sample_builds_and_runs_with_cargo() {
@@ -215,7 +215,7 @@ fn test_results_and_binaries_are_read_from_what_cargo_says() {
 }
 
 /// With cargo on the machine: a program that waits is stopped, and one that reads gets what
-/// is sent. `cargo test -p raven-code -- --ignored`.
+/// is sent. `cargo test --manifest-path tools/raven-code/Cargo.toml -- --ignored`.
 #[test]
 #[ignore = "runs cargo, which takes a while"]
 fn a_running_program_is_stopped_and_reads_what_is_sent() {

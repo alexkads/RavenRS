@@ -1,4 +1,4 @@
-//! Native entry point: `cargo run -p hello-world`.
+//! Native entry point: `cargo run --manifest-path examples/hello-world/Cargo.toml`.
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<(), ravenrs::native::PlatformError> {

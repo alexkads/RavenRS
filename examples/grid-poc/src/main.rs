@@ -1,4 +1,4 @@
-//! A proof of concept of the data grid: `cargo run -p grid-poc --release`.
+//! A proof of concept of the data grid: `cargo run --manifest-path examples/grid-poc/Cargo.toml --release`.
 //!
 //! The rows are made up, and so is the server, which counts what it is asked: the
 //! numbers on the screen are the point of it.

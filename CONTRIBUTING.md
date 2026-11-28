@@ -19,6 +19,8 @@ You need Rust stable 1.88+. For the web build, also `rustup target add wasm32-un
 cargo run -p component-gallery --release
 ```
 
+The applications in `examples/` and `tools/`, and Raven CI, are Cargo workspaces of their own (`camadas.toml`, #1080): the root workspace holds the library, the showcase and the tooling, so work on the library never builds an application. Run an application through its manifest, from the root (`cargo run --manifest-path examples/family-finance/Cargo.toml`), or from its folder. Every workspace builds into the root's `target/` (`.cargo/config.toml`). Each one carries a copy of the root's versions, dependencies, lints and profiles, which `python3 scripts/camadas.py deps --write` writes after a change to the root `Cargo.toml`; `cargo xtask` fails while a copy is stale. A new package goes into a section of `camadas.toml` in the same pull request.
+
 Each worktree builds the ~780 external dependencies once. A compiler cache shares them between checkouts, so a new branch starts from the workspace crates only:
 
 ```bash

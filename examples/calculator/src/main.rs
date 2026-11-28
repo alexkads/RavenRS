@@ -1,4 +1,4 @@
-//! Native entry point: `cargo run -p calculator`.
+//! Native entry point: `cargo run --manifest-path examples/calculator/Cargo.toml`.
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<(), ravenrs::native::PlatformError> {

@@ -1,4 +1,4 @@
-//! Native entry point: `cargo run -p dock-workbench -- editor` (or `ide`, or `chat`).
+//! Native entry point: `cargo run --manifest-path examples/dock-workbench/Cargo.toml -- editor` (or `ide`, or `chat`).
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<(), ravenrs::native::PlatformError> {

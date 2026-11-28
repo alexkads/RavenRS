@@ -1,4 +1,4 @@
-//! Native entry point: `cargo run -p spreadsheet`.
+//! Native entry point: `cargo run --manifest-path examples/spreadsheet/Cargo.toml`.
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<(), ravenrs::native::PlatformError> {

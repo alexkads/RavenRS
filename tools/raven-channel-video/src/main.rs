@@ -1,9 +1,9 @@
 //! The videos of the project's channel, recorded from the real apps.
 //!
 //! ```text
-//! cargo run --release -p raven-channel-video -- record OUT
-//! FF_AI_MODELS=~/.raven-financas/modelos cargo run --release -p raven-channel-video -- narrate OUT --voz pm_santa
-//! cargo run --release -p raven-channel-video -- export OUT
+//! cargo run --release --manifest-path tools/raven-channel-video/Cargo.toml -- record OUT
+//! FF_AI_MODELS=~/.raven-financas/modelos cargo run --release --manifest-path tools/raven-channel-video/Cargo.toml -- narrate OUT --voz pm_santa
+//! cargo run --release --manifest-path tools/raven-channel-video/Cargo.toml -- export OUT
 //! ```
 //!
 //! `record` writes the films, `narrate` records what their boxes say with the local

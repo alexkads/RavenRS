@@ -1,4 +1,4 @@
-//! Native entry point: `cargo run -p raven-code -- <folder>`, or with no folder for the sample.
+//! Native entry point: `cargo run --manifest-path tools/raven-code/Cargo.toml -- <folder>`, or with no folder for the sample.
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<(), Box<dyn std::error::Error>> {

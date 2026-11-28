@@ -92,7 +92,7 @@ fn the_installer_is_the_one_the_template_makes() {
 ```
 
 ```bash
-RAVENRS_WRITE_INSTALLER=1 cargo test -p raven-flows the_installer_is_the_one
+RAVENRS_WRITE_INSTALLER=1 cargo test --manifest-path examples/raven-flows/Cargo.toml the_installer_is_the_one
 ```
 
 From then on the test fails if the copy and [`install.cmd.in`](install.cmd.in) part ways. Change the template, never the copy, and write the copies again. A field that would change what the script does (a quote, a `$`, a `%`) is refused before anything is written.

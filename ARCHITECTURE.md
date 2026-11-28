@@ -33,7 +33,7 @@ The survey was done against the official repositories and docs (October 2026). N
 
 ## 3. Crate graph
 
-The packages are grouped in layers, listed bottom-up in `camadas.toml` (#1080): core, widgets, platform, document engines, application framework, services, screens, fiscal, automation, tooling, the showcase, Raven CI and the applications. A package uses only its own layer and the ones below it, `[dev-dependencies]` included; `scripts/check-camadas.py`, run by every `cargo xtask` check, refuses a package outside the map and an edge that goes up. Each layer becomes a Cargo workspace of its own, so work on one layer never builds the ones above.
+The packages are grouped in layers, listed bottom-up in `camadas.toml` (#1080): core, widgets, platform, document engines, application framework, services, screens, fiscal, automation, tooling, the showcase, Raven CI and the applications. A package uses only its own layer and the ones below it, `[dev-dependencies]` included; `scripts/check-camadas.py`, run by every `cargo xtask` check, refuses a package outside the map and an edge that goes up. Each layer becomes a Cargo workspace of its own, so work on one layer never builds the ones above. The applications and Raven CI already are (#1084): `scripts/camadas.py` lists them and keeps the copy of the root's dependencies in each one current.
 
 ```
 ravenrs-core ─────────────┬──────────────┬──────────────┬─────────────┐

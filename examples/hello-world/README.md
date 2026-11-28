@@ -1,6 +1,6 @@
 # hello-world
 
-`cargo run -p hello-world`.
+`cargo run --manifest-path examples/hello-world/Cargo.toml`.
 
 ## End-to-end tests (Raven Test Studio)
 

@@ -50,7 +50,7 @@ web-sys = { workspace = true, features = ["console", "EventTarget", "Window", "L
 image.workspace = true
 pollster.workspace = true
 
-# The house follows its own rules: `cargo run -p ravenrs-lint -- -p raven-ci-painel` (cargo xtask pr runs it).
+# The house follows its own rules: `cargo run -p ravenrs-lint -- --manifest-path tools/raven-ci/Cargo.toml -p raven-ci-painel` (cargo xtask pr runs it).
 [package.metadata.ravenrs-lint]
 language = "pt-BR"
 

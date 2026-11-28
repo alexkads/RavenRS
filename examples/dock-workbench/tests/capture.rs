@@ -1,5 +1,5 @@
 //! Pictures of the three workbenches, drawn on the GPU the way the visual tests of `ravenrs` are.
-//! It writes nothing unless asked: `RAVENRS_CAPTURE_DIR=<folder> cargo test -p dock-workbench
+//! It writes nothing unless asked: `RAVENRS_CAPTURE_DIR=<folder> cargo test --manifest-path examples/dock-workbench/Cargo.toml
 //! --test capture`. A machine without a GPU adapter skips it.
 #![allow(clippy::expect_used, reason = "tests fail loudly")]
 

@@ -49,12 +49,12 @@ A narração é gravada antes, para quem assiste não baixar modelo nenhum. Um t
 
 ```bash
 # Tudo, com pm_santa (em release):
-FF_AI_MODELS=<pasta dos modelos> cargo test --release -p family-finance --test suite training::record_narration -- --ignored --nocapture
+FF_AI_MODELS=<pasta dos modelos> cargo test --release --manifest-path examples/family-finance/Cargo.toml --test suite training::record_narration -- --ignored --nocapture
 # Só o que o narracao.voz ainda não diz, acrescentado a ele:
-FF_NARRATION_ADD=1 FF_AI_MODELS=<pasta> cargo test --release -p family-finance --test suite training::record_narration -- --ignored --nocapture
+FF_NARRATION_ADD=1 FF_AI_MODELS=<pasta> cargo test --release --manifest-path examples/family-finance/Cargo.toml --test suite training::record_narration -- --ignored --nocapture
 # Seis tomadas das falas 12 e 40 em WAV, para o Alex escolher de ouvido, e depois empacotar:
-FF_NARRATION_TAKES=12,40 FF_NARRATION_WAVS=<scratchpad>/wavs FF_AI_MODELS=<pasta> cargo test --release -p family-finance --test suite training::record_narration -- --ignored
-FF_NARRATION_WAVS=<scratchpad>/wavs cargo test --release -p family-finance --test suite training::pack_narration -- --ignored
+FF_NARRATION_TAKES=12,40 FF_NARRATION_WAVS=<scratchpad>/wavs FF_AI_MODELS=<pasta> cargo test --release --manifest-path examples/family-finance/Cargo.toml --test suite training::record_narration -- --ignored
+FF_NARRATION_WAVS=<scratchpad>/wavs cargo test --release --manifest-path examples/family-finance/Cargo.toml --test suite training::pack_narration -- --ignored
 ```
 
 - Frase curta como "Clique em…" sai mal: grave tomadas extras dessas e deixe o Alex escolher.

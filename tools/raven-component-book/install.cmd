@@ -96,7 +96,7 @@ Write-Host "> compilando (a primeira vez demora; as seguintes aproveitam o que j
 $env:CARGO_TARGET_DIR = $Alvo
 $env:RAVEN_COMPONENT_BOOK_INSTALLED = "1"
 Push-Location $codigo
-try { Correr { cargo build --release -p raven-component-book } } finally { Pop-Location }
+try { Correr { cargo build --release --manifest-path tools/raven-component-book/Cargo.toml -p raven-component-book } } finally { Pop-Location }
 
 $novo = Join-Path $Alvo "release\raven-component-book.exe"
 $resposta = & $novo --versao
@@ -205,7 +205,7 @@ tar -xzmf "$PACOTE" -C "$CODIGO" --strip-components=1
 diga "compilando (a primeira vez demora; as seguintes aproveitam o que já existe)"
 CARGO_TARGET_DIR="${RCB_TARGET:-$CASA/target}"
 export CARGO_TARGET_DIR
-( cd "$CODIGO" && RAVEN_COMPONENT_BOOK_INSTALLED=1 cargo build --release -p raven-component-book )
+( cd "$CODIGO" && RAVEN_COMPONENT_BOOK_INSTALLED=1 cargo build --release --manifest-path tools/raven-component-book/Cargo.toml -p raven-component-book )
 
 BINARIO="$CARGO_TARGET_DIR/release/raven-component-book"
 RESPOSTA="$("$BINARIO" --versao 2>/dev/null | head -1 || true)"

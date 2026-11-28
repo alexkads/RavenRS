@@ -78,7 +78,7 @@ fn the_client_hears_problems_suggestions_tips_and_definitions() {
 
 /// With rust-analyzer installed for stable (`rustup component add rust-analyzer --toolchain
 /// stable`): the real server finds
-/// the error in the sample. `cargo test -p raven-code --test lsp -- --ignored`.
+/// the error in the sample. `cargo test --manifest-path tools/raven-code/Cargo.toml --test lsp -- --ignored`.
 #[test]
 #[ignore = "needs rust-analyzer, which takes a while to read a project"]
 fn rust_analyzer_finds_the_error_in_the_sample() {

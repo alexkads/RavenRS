@@ -1,6 +1,6 @@
 # dock-workbench
 
-`cargo run -p dock-workbench`.
+`cargo run --manifest-path examples/dock-workbench/Cargo.toml`.
 
 ## End-to-end tests (Raven Test Studio)
 

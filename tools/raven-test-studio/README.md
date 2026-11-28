@@ -27,7 +27,7 @@ The version is its own (`version` in `Cargo.toml`), with its news in `novidades.
 **The window**
 
 ```bash
-cargo run -p raven-test-studio
+cargo run --manifest-path tools/raven-test-studio/Cargo.toml
 ```
 
 "Rodar" runs the scenario from the start; "Próximo passo" runs one block at a time; "Parar" puts every block back; "Rodar sem cache" runs again even when nothing changed. Each block turns done, failed with the error, or "Não rodou" after a failure, and the log on the right says how each went.
@@ -57,8 +57,8 @@ The blocks are those of a `.raventest` file. Every step waits up to 2 s for its 
 **With the app's real window, to watch it run (`--headed`)**
 
 ```bash
-cargo run -p raven-test-studio -- --run financas --headed --slow-mo 500
-cargo run -p raven-test-studio -- --run financas --headed --step --keep-open on-failure
+cargo run --manifest-path tools/raven-test-studio/Cargo.toml -- --run financas --headed --slow-mo 500
+cargo run --manifest-path tools/raven-test-studio/Cargo.toml -- --run financas --headed --step --keep-open on-failure
 ```
 
 `--headed` opens the app with `--e2e-serve --e2e-window`: it shows its real window on its own test data (Raven Finanças: the sample family in memory, never the person's database) and every block acts on the interface the window shows, with the same targets, waits, checks and codes. A scenario that passes with no window passes with it, unchanged, and a wrong expectation fails on the same step with the same code. While the test drives the window, the person's mouse and keyboard do not reach it.
@@ -75,10 +75,10 @@ The buttons for these controls in the Studio's window wait for their design (#72
 **With no window, for a person or a tool**
 
 ```bash
-cargo run -p raven-test-studio -- --self-test
-cargo run -p raven-test-studio -- --run financas
-cargo run -p raven-test-studio -- --run tools/raven-test-studio/tests/e2e/amostras/quebrado.raventest --format json
-cargo run -p raven-test-studio -- --run tools/raven-test-studio/tests/e2e/amostras/quebrado.raventest --format junit --out target/e2e
+cargo run --manifest-path tools/raven-test-studio/Cargo.toml -- --self-test
+cargo run --manifest-path tools/raven-test-studio/Cargo.toml -- --run financas
+cargo run --manifest-path tools/raven-test-studio/Cargo.toml -- --run tools/raven-test-studio/tests/e2e/amostras/quebrado.raventest --format json
+cargo run --manifest-path tools/raven-test-studio/Cargo.toml -- --run tools/raven-test-studio/tests/e2e/amostras/quebrado.raventest --format junit --out target/e2e
 ```
 
 `--format` is `text` (the default), `json`, `jsonl`, `junit` or `html`; any other value is refused with exit code 2:
@@ -194,7 +194,7 @@ claude --plugin-dir tools/raven-test-studio/claude-pane
 
 ## Limits for now
 
-- The channel provides vector frames through `Client::frame()` (a single-frame `.ravenmovie`); displaying the live preview in the Studio is F9. With `e2e-source` in the app, `Client::source("#id")` returns where its test id was declared. Build the Studio itself with `cargo build -p raven-test-studio --features e2e-source` to query its origins. Untagged views, `attach` to an app already open with permission on screen, and `cargo ravenrs e2e install` are the rest of phase F6 of #627.
+- The channel provides vector frames through `Client::frame()` (a single-frame `.ravenmovie`); displaying the live preview in the Studio is F9. With `e2e-source` in the app, `Client::source("#id")` returns where its test id was declared. Build the Studio itself with `cargo build --manifest-path tools/raven-test-studio/Cargo.toml --features e2e-source` to query its origins. Untagged views, `attach` to an app already open with permission on screen, and `cargo ravenrs e2e install` are the rest of phase F6 of #627.
 - The window delegates to Codex only. Claude and another model are chosen on the command line and in the pane, not yet in the window.
 - Linux and Windows have not been run.
 - The comparison of each screen with its design board is phase F14.

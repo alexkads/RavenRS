@@ -29,7 +29,7 @@ On Windows, in PowerShell:
 irm https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven-movie-editor/install.cmd -OutFile "$env:TEMP\install.cmd"; & "$env:TEMP\install.cmd"
 ```
 
-From a checkout: `cargo run -p raven-movie-editor`.
+From a checkout: `cargo run --manifest-path tools/raven-movie-editor/Cargo.toml`.
 
 ## Limits
 

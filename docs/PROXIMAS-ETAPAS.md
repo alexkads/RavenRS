@@ -7,9 +7,9 @@ O plano aprovado no início está em `~/.claude/plans/eu-quero-criar-um-jolly-wh
 ## Como retomar
 
 ```bash
-cargo run -p mini-pdv
-cargo test -p mini-pdv
-RAVEN_PDV_TELAS=/tmp/telas cargo test -p mini-pdv --test telas -- --ignored
+cargo run --manifest-path examples/mini-pdv/Cargo.toml
+cargo test --manifest-path examples/mini-pdv/Cargo.toml
+RAVEN_PDV_TELAS=/tmp/telas cargo test --manifest-path examples/mini-pdv/Cargo.toml --test telas -- --ignored
 ```
 
 Leia antes: a skill `ravenrs-fiscal`, `crates/ravenrs-nfe/REGRAS.md`, `crates/ravenrs-dfe/README.md`, `crates/ravenrs-nfse/README.md`, `docs/AUTOMACAO-COMERCIAL.md`, `docs/PAGAMENTOS.md`, `docs/TEF-COMPARATIVO.md`, `docs/NFSE.md` e `docs/PERIFERICOS.md`.

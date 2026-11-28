@@ -1,5 +1,5 @@
 //! Pictures of the screens, drawn with no window, to look at them next to the design. It only runs
-//! when asked: `RAVEN_PDV_TELAS=pasta cargo test -p mini-pdv --test telas -- --ignored`.
+//! when asked: `RAVEN_PDV_TELAS=pasta cargo test --manifest-path examples/mini-pdv/Cargo.toml --test telas -- --ignored`.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
 use mini_pdv::app_com_pos;

@@ -1,4 +1,4 @@
-//! `cargo run -p bpmn-editor --release` (the local model is slow in a debug build).
+//! `cargo run --manifest-path examples/bpmn-editor/Cargo.toml --release` (the local model is slow in a debug build).
 fn main() -> Result<(), ravenrs::native::PlatformError> {
     // A test tool such as Raven Test Studio drives the app with no window (`--e2e-serve`), on
     // data in memory: nothing on disk is opened.

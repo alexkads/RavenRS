@@ -2,10 +2,10 @@
 //! README's pictures current. It only runs when asked:
 //!
 //! ```text
-//! FF_SCREENSHOTS=target/screens cargo test -p family-finance --test suite screens::
-//! FF_SCREENSHOTS_SIZES=target/sizes cargo test -p family-finance --test suite screens::draw_at_other_sizes
-//! FF_SCREENSHOTS_STATES=target/states cargo test -p family-finance --test suite screens::draw_the_states
-//! FF_SCREENSHOTS_FILM=target/film cargo test -p family-finance --test suite screens::draw_the_film
+//! FF_SCREENSHOTS=target/screens cargo test --manifest-path examples/family-finance/Cargo.toml --test suite screens::
+//! FF_SCREENSHOTS_SIZES=target/sizes cargo test --manifest-path examples/family-finance/Cargo.toml --test suite screens::draw_at_other_sizes
+//! FF_SCREENSHOTS_STATES=target/states cargo test --manifest-path examples/family-finance/Cargo.toml --test suite screens::draw_the_states
+//! FF_SCREENSHOTS_FILM=target/film cargo test --manifest-path examples/family-finance/Cargo.toml --test suite screens::draw_the_film
 //! ```
 #![allow(clippy::expect_used, reason = "test helpers fail loudly")]
 

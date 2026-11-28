@@ -3,7 +3,7 @@
 A desktop app for a family's expenses and bills to pay, with its data in one SQLite file on the computer. It has two jobs: to show what RavenRS can do in a real app, and to find what RavenRS is still missing. When a component falls short, the fix goes into the framework, not here.
 
 ```bash
-cargo run -p family-finance
+cargo run --manifest-path examples/family-finance/Cargo.toml
 ```
 
 The first run opens on a sample family, so there is something to explore. **Ajustes → Começar do zero** clears it for real use. The database is `~/.raven-financas/financas.db`, or the path given as the first argument.
@@ -44,7 +44,7 @@ The filter on Lançamentos is the part to read first. What the user types, such 
 | `tests/screens.rs` | Draws every screen to a PNG file |
 
 ```bash
-FF_SCREENSHOTS=$PWD/target/screens cargo test -p family-finance --test suite screens::
+FF_SCREENSHOTS=$PWD/target/screens cargo test --manifest-path examples/family-finance/Cargo.toml --test suite screens::
 ```
 
 ## Telegram bot (optional)
@@ -63,14 +63,14 @@ To answer by voice, download and use a model under **Entender áudios** on the s
 Without the window, the `raven-telegram` binary serves the same database. Telegram answers only one reader per bot, so run it **instead of** the app, never beside it:
 
 ```bash
-cargo run -p family-finance --bin raven-telegram -- ~/.raven-financas/financas.db
+cargo run --manifest-path examples/family-finance/Cargo.toml --bin raven-telegram -- ~/.raven-financas/financas.db
 ```
 
 It uses the token saved in Ajustes, or `TELEGRAM_BOT_TOKEN`, and the account chosen in Ajustes, or `RAVEN_ACCOUNT_ID`.
 
 ## Installing and updating
 
-The app is not packaged. It installs and updates by compiling the master branch on the user's machine, the way VintageLightbox does, using `install.cmd`, one file that runs on all three systems. How it works, and how another app adopts it, is in [`ravenrs-app-update`](../../crates/ravenrs-app-update/README.md): `src/update.rs` says who Raven Finanças is to it, and `install.cmd` is made from the crate's template (`RAVENRS_WRITE_INSTALLER=1 cargo test -p family-finance update::` writes it again after the template changes). It gets what it needs first, Rust and a C compiler, so the first run can take a while; updates reuse what was compiled. It asks for an administrator's permission only to install those tools.
+The app is not packaged. It installs and updates by compiling the master branch on the user's machine, the way VintageLightbox does, using `install.cmd`, one file that runs on all three systems. How it works, and how another app adopts it, is in [`ravenrs-app-update`](../../crates/ravenrs-app-update/README.md): `src/update.rs` says who Raven Finanças is to it, and `install.cmd` is made from the crate's template (`RAVENRS_WRITE_INSTALLER=1 cargo test --manifest-path examples/family-finance/Cargo.toml update::` writes it again after the template changes). It gets what it needs first, Rust and a C compiler, so the first run can take a while; updates reuse what was compiled. It asks for an administrator's permission only to install those tools.
 
 **Windows 11**, in PowerShell, or download [install.cmd](install.cmd) and double-click it:
 
@@ -94,7 +94,7 @@ When it opens and every hour after that, the app reads `novidades.json` from mas
 
 **If the app is slow**, open Ajustes and press **Testar desempenho**: in 5 seconds it says how the app runs on this computer and why. For the details, press Ctrl+Shift+D (Cmd+Shift+D on a Mac) to see which GPU it is on and what its frames cost, or run `family-finance --diagnostico` for the GPU report in the terminal, which also works when the window will not open. Both give text to paste into a bug report, and the panel's **Relatar bug** button opens a new GitHub issue with that text in the browser, for you to review and send.
 
-The training films are in `assets/treinamentos/`, recorded from the app itself: six films, about 16 minutes and 700 KB in all, since a film stores no pixels and no sound. After screens change, a test fails if a script no longer fits, and `FF_RECORD_TRAINING=1 cargo test -p family-finance --test suite training::` records them again.
+The training films are in `assets/treinamentos/`, recorded from the app itself: six films, about 16 minutes and 700 KB in all, since a film stores no pixels and no sound. After screens change, a test fails if a script no longer fits, and `FF_RECORD_TRAINING=1 cargo test --manifest-path examples/family-finance/Cargo.toml --test suite training::` records them again.
 
 **To release**, make one commit with three changes: `version` in `Cargo.toml`, `novidades.json`, and the same entry with its `data` on top of `historico-de-novidades.json`. Each entry names who made the version in `contribuidores`, one name per person, as in the git log since the previous version; the news shows them under **Quem contribuiu**. From 0.1.32 on, `issues` lists the numbers of the GitHub issues the version closes, and the news links each one under **Issues resolvidas**. A test holds them together (`assert_release_files_agree`, from the crate). Make it the last commit of the release: anyone who compiled 0.1.N will not compile another 0.1.N.
 

@@ -47,6 +47,12 @@ pub fn build(check: &Check, name: &str, flags: &[&str]) -> Done {
         "--profile",
         "wasm-release",
     ];
+    // An application is a workspace of its own (#1084): cargo reaches it through its manifest.
+    let manifest = check.root.join(folder).join(name).join("Cargo.toml");
+    let manifest_arg = format!("{folder}/{name}/Cargo.toml");
+    if fs::read_to_string(&manifest).is_ok_and(|text| text.contains("\n[workspace]\n")) {
+        args.extend(["--manifest-path", manifest_arg.as_str()]);
+    }
     args.extend_from_slice(flags);
     check.run("cargo", &args)?;
 
