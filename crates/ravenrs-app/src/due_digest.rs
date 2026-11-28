@@ -185,6 +185,23 @@ impl DigestWords {
         }
     }
 
+    /// The words of a catalog, in its language, with its money format. What it does not have
+    /// comes from English. The adjective agrees with a feminine word in Portuguese, as "conta":
+    /// a masculine one changes `overdue`.
+    pub fn from_texts(texts: &ravenrs_app_i18n::Texts) -> Self {
+        let char_of = |key: &str, or: char| texts.get(key).chars().next().unwrap_or(or);
+        Self {
+            overdue: (texts.get("ui.due_overdue_one"), texts.get("ui.due_overdue_many")),
+            coming: texts.get("ui.due_coming"),
+            and: texts.get("ui.due_and"),
+            more: texts.get("ui.due_more"),
+            total: texts.get("ui.due_total"),
+            money_prefix: texts.get("format.money_prefix"),
+            decimal: char_of("format.decimal", '.'),
+            thousands: char_of("format.thousands", ','),
+        }
+    }
+
     /// An amount in cents, as people read it: "R$ 1.480,00".
     pub fn money(&self, cents: i64) -> String {
         let sign = if cents < 0 { "-" } else { "" };
