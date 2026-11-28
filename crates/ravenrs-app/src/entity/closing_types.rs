@@ -43,6 +43,7 @@ pub const CLOSING_REOPENED: &str = "reopened";
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct PeriodClosing {
     /// The entity of the versions, which [`PeriodClosing::versions_entity`] makes.
     pub versions: String,
@@ -55,6 +56,7 @@ pub struct PeriodClosing {
     pub reopen_reason: usize,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl PeriodClosing {
     /// Versions kept in an entity of this name.
     pub fn new(versions: impl Into<String>) -> Self {
@@ -421,6 +423,7 @@ fn check_version(
 /// What went wrong approving or reading an approved document.
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ClosingError {
     /// The space refused or failed.
     Space(SpaceError),

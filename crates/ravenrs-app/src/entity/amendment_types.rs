@@ -27,11 +27,13 @@ use crate::{Change, EntityInfo, FieldKind, ModelError, Object, ObjectSpace, Spac
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Seal {
     /// The expression a stored record meets when it is closed.
     pub when: String,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Seal {
     /// Closed when the stored record meets this expression.
     pub fn when(expression: impl Into<String>) -> Self {
@@ -52,6 +54,7 @@ impl Seal {
 /// What an amendment does to the record it points to.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum AmendmentKind {
     /// It corrects a closed record, which stays closed.
     Correction,
@@ -85,6 +88,7 @@ pub type AmendmentApply = Rc<dyn Fn(&Object, &mut Object, &mut dyn ObjectSpace) 
 /// ```
 #[derive(Clone)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Amendment {
     /// What it does to its target.
     pub kind: AmendmentKind,
@@ -136,6 +140,7 @@ impl PartialEq for Amendment {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Amendment {
     fn of(kind: AmendmentKind, target: impl Into<String>, reference: impl Into<String>) -> Self {
         Self {
