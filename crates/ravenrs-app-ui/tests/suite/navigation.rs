@@ -274,3 +274,18 @@ fn search_opens_the_commands_and_collapse_folds_the_menu_and_says_so() {
     world.key(Key::Character("b".into()), true);
     assert!(world.named("Collapse menu").is_some(), "⌘B opens it again");
 }
+
+#[test]
+fn a_count_with_a_tone_shows_as_a_badge() {
+    let database = MemoryDatabase::new(vec![lessons(), offerings()]).expect("valid");
+    let view = App::new("Comunhão")
+        .entity_info(lessons())
+        .entity_info(offerings())
+        .storage(move || database.space())
+        .navigation_count("Offering", |_| Some(NavigationCount::new("2").tone(ravenrs_widgets::Tone::Danger)))
+        .build()
+        .expect("it puts together");
+    let mut world = World::over(view);
+    let offerings = world.named("Offerings").expect("the item");
+    assert_eq!(offerings.description.as_deref(), Some("2"), "screen readers hear the count");
+}

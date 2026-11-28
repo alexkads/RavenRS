@@ -612,8 +612,13 @@ impl AppShell {
             count(&self.session)
         });
         Box::new(match count {
-            Some(crate::NavigationCount { shown, spoken: Some(spoken) }) => row.count_spoken(shown, spoken),
-            Some(crate::NavigationCount { shown, spoken: None }) => row.count(shown),
+            Some(crate::NavigationCount { shown, tone: Some(tone), .. }) => {
+                row.badge(ravenrs_widgets::Badge::new(shown).tone(tone))
+            }
+            Some(crate::NavigationCount { shown, spoken: Some(spoken), .. }) => {
+                row.count_spoken(shown, spoken)
+            }
+            Some(crate::NavigationCount { shown, spoken: None, .. }) => row.count(shown),
             None => row,
         })
     }

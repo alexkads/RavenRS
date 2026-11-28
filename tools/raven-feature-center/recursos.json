@@ -61,7 +61,7 @@
 {"crate": "ravenrs-app-ui", "tipo": "EntityPane", "pendente": true, "issue": 579, "conhecidos": ["beside_from", "cell_text", "new", "on_done", "on_failed", "version"]},
 {"crate": "ravenrs-app-ui", "tipo": "FormText", "pendente": true, "issue": 579, "conhecidos": ["description", "new"]},
 {"crate": "ravenrs-app-ui", "tipo": "ListView", "pendente": true, "issue": 579, "conhecidos": ["cell_text", "column_shape", "compact", "filter", "grid_shape", "implied", "new", "on_open", "plain_toolbar", "remote", "row_action", "single_selection", "sort", "source"]},
-{"crate": "ravenrs-app-ui", "tipo": "NavigationCount", "pendente": true, "issue": 579, "conhecidos": ["new", "spoken"]},
+{"crate": "ravenrs-app-ui", "tipo": "NavigationCount", "pendente": true, "issue": 579, "conhecidos": ["new", "spoken", "tone"]},
 {"crate": "ravenrs-app-ui", "tipo": "PaneWords", "pendente": true, "issue": 579, "conhecidos": ["new", "with_texts"]},
 {"crate": "ravenrs-app-ui", "tipo": "SecuredApp", "pendente": true, "issue": 579, "conhecidos": ["aside", "audit", "authenticator", "build", "demo_credentials", "description", "door", "into_view", "language", "merge", "new", "notice", "role", "seed", "sign_in_action", "temporary_access", "texts"]},
 {"crate": "ravenrs-app-ui", "tipo": "SignInAction", "pendente": true, "issue": 579, "conhecidos": ["icon", "new"]},
