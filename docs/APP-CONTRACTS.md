@@ -127,7 +127,7 @@ EntityInfo::new("Term").period_closing(
 
 The commit checks it all with `check_closing`, in every space here (memory, SQL and PostgREST), reading what storage has inside the transaction: a record of a period whose last version is current is not added, changed or deleted, by its new values or by those stored; a new version comes next in sequence, current, with its hash and document, while the period has none current; a version kept changes only from current to reopened, with the reason, and is never deleted. `check_closing_model` refuses, when the model is made, a path that does not lead to the period by references.
 
-What waits: the precondition runs in `approve`, not in the commit, so a record written as the period is approved can slip through it; the generated actions and screen (`ClosingModule`) and `PostgresAttachmentStore` come next (#855).
+What waits: the precondition runs in `approve`, not in the commit, so a record written as the period is approved can slip through it; the generated actions and screen (`ClosingModule`) come next (#855). In PostgreSQL the documents go to `PostgresAttachmentStore`, as `BYTEA` in a table apart from the records.
 
 ## Scenarios
 
