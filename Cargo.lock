@@ -6818,6 +6818,7 @@ version = "27.1.28"
 dependencies = [
  "ravenrs-app",
  "ravenrs-app-i18n",
+ "ravenrs-app-library",
  "ravenrs-app-ui",
  "ravenrs-core",
  "ravenrs-criteria",
