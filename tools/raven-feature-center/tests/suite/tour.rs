@@ -2709,6 +2709,43 @@ fn a_temporary_access_ends_by_itself_and_revoking_never_takes_oneself() {
     assert!(c.says("Motivo") && c.says("Vence em") && c.says("Autorizado por"), "{:?}", c.texts());
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn a_tenant_moves_to_another_database_from_its_backup() {
+    let mut c = Center::memory("ana");
+    c.press("Mover para outro banco");
+    c.settle();
+    let says_start = |c: &mut Center, start: &str| c.texts().iter().any(|t| t.starts_with(start));
+    assert!(c.says("Nada feito ainda."), "{:?}", c.texts());
+    // BackupStamp::new, tenant and version, Backups::save and inspect.
+    c.press("Fazer o backup de T1");
+    assert!(
+        says_start(
+            &mut c,
+            "Backup de Igreja · T1 · versão 1.0 · 1 migração(ões) · audit 0, members 3, units 2"
+        ),
+        "{:?}",
+        c.texts()
+    );
+    // copies_in, keep_copy, keep and copies.
+    c.press("Guardar uma cópia");
+    assert!(c.says("Cópias guardadas: 1 (no máximo 3)"), "{:?}", c.texts());
+    // export and TenantImport::new, audit and run, compared table by table.
+    c.press("Mover para o banco novo");
+    assert!(
+        c.says("Movido: 5 linhas, 3 referências conferidas · units 2→2 igual, members 3→3 igual, audit 0→0 igual · auditoria: 1 linha"),
+        "{:?}",
+        c.texts()
+    );
+    c.press("Mover como operador");
+    assert!(c.says("Recusado: moving a tenant to another database is not allowed"), "{:?}", c.texts());
+    c.press("Mover para o banco de T2");
+    assert!(c.says("Recusado: that export is of T1"), "{:?}", c.texts());
+    // restore, keeping a copy first.
+    c.press("Restaurar o backup");
+    assert!(c.says("Restaurado o backup de T1 · cópia de antes: guardada"), "{:?}", c.texts());
+}
+
 #[test]
 fn the_secure_door_refuses_weak_passwords_waits_after_wrong_ones_and_ends_idle_sessions() {
     let mut c = Center::memory("ana");

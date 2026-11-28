@@ -506,6 +506,26 @@ Limits to know:
 
 Its tests run when `RAVENRS_POSTGRES_URL` says where a database is, and otherwise have nothing to run against: `cargo xtask pr` does not start one. `RAVENRS_POSTGRES_STATEMENTS=unprepared` runs them all with statements as they go to a pooler. `tests/managed.rs` takes `RAVENRS_POSTGRES_TLS_URL` with `RAVENRS_POSTGRES_CA` (a server whose certificate an authority of its own signed) and `RAVENRS_POSTGRES_POOLER_URL` (PgBouncer in transaction mode with `max_prepared_statements = 0`).
 
+### Moving a tenant to another database
+
+An installation that grew moves a tenant from SQLite to PostgreSQL, or back, without being deployed again (#243). The source is always a stamped backup on SQLite, never the database in use; on PostgreSQL it is a read in one `REPEATABLE READ` transaction, which sees the database as it was when it started.
+
+```rust,ignore
+// On the SQLite of the tenant: a backup, then what it holds.
+let backups = sqlite.backups(BackupStamp::new("Church").tenant("T1"));
+backups.save(&file)?;
+let export = backups.export(&file)?;          // or TenantExport::read(&postgres, stamp) the other way
+// On the new database, with the same entities and migrations.
+let report = TenantImport::new(&postgres, BackupStamp::new("Church").tenant("T1"))
+    .audit(trail)                             // a note about the tenant, who and how many rows
+    .run(&export, &permissions)?;            // only an administrator
+assert!(report.matches());
+```
+
+`TenantImport::run` checks everything before it writes: it refuses someone who is not an administrator, an export of another application or another tenant, other migrations of the application (those the framework writes for one kind of database only, decimal upgrades and the guards of sealed records, are not compared), a destination that misses an entity or already has records, and references that point at nothing, listing the rows (`MigrationError::BrokenReferences`). Then it writes every row in a single transaction, the entities that are pointed at first, reads them back in the same transaction and compares the number of rows and a hash of their content, table by table; for managed tables the hash is the same whatever the database, and a table set up by hand with other column types can come back different, which is refused. Any failure or difference rolls everything back (`MigrationError::Failed`, `MigrationError::Mismatch`), and the destination stays as it was. Once committed, every record is checked against the rules of its entity, and those that break one now are listed in `MigrationReport::rule_violations`; they came across as they were.
+
+**Recovery.** Nothing changes in the source, and a destination where the migration failed is as it was before, so the procedure is to fix what the error says and run it again. A tenant that already moved goes back the same way, from the new database to a new SQLite file: `TenantExport::hashes` on both ends says whether the content is the same. Until each tenant has a context of its own (#225), a tenant is a database of its own, a file on SQLite or a schema on PostgreSQL, and the stamp is what keeps one from being written into another. The content of attached files (`SqliteAttachmentStore`, `PostgresAttachmentStore`) is not moved yet.
+
 ## PostgREST, Supabase and Neon's Data API
 
 `ravenrs-app-postgrest` keeps records in PostgreSQL through PostgREST, the HTTP API that Supabase puts in front of every project and that Neon's Data API speaks too. The station holds the token of the person signed in, never the database's password: what that person may read and change is decided by the database, with its grants and row level security.

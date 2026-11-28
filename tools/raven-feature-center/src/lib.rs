@@ -58,6 +58,8 @@ pub mod entrada;
 pub mod fechamento;
 #[cfg(feature = "app")]
 pub mod menu;
+#[cfg(all(feature = "app", not(target_arch = "wasm32")))]
+pub mod migracao;
 #[cfg(feature = "app")]
 pub mod model;
 #[cfg(feature = "app")]

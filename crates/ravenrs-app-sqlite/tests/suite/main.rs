@@ -7,5 +7,6 @@ mod amendments;
 mod backup;
 mod contract;
 mod decimal;
+mod migrate;
 mod schema;
 mod space;

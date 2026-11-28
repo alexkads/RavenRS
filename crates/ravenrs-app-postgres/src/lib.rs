@@ -17,8 +17,11 @@ use postgres::error::SqlState;
 use postgres::fallible_iterator::FallibleIterator;
 use postgres::types::{Format, FromSql, IsNull, Kind, ToSql, Type, to_sql_checked};
 use ravenrs_app::{FieldKind, Value};
+pub use ravenrs_app_sql::{
+    BackupStamp, BrokenReference, MigrationError, MigrationReport, SqlWords, TableCheck, TableMap,
+    TenantExport, TenantImport,
+};
 use ravenrs_app_sql::{SqlBackend, SqlBuilder, SqlCell, SqlDatabase, SqlError, SqlObjectSpace, SqlRows};
-pub use ravenrs_app_sql::{SqlWords, TableMap};
 
 use crate::connect::Reopen;
 pub use crate::connect::{ConnectError, PostgresOptions, Statements};
