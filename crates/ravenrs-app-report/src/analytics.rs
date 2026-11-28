@@ -69,6 +69,13 @@ pub fn analytics_entities() -> Vec<EntityInfo> {
             .field(FieldInfo::new("series", FieldKind::Text).caption("Values, as field:Sum"))
             .field(FieldInfo::new("interval", FieldKind::Text).caption("Dates by Day, Month or Year"))
             .field(FieldInfo::new("filter", FieldKind::Text))
+            .field(FieldInfo::new("good_from", FieldKind::Decimal(2)).caption("In good standing from"))
+            .field(FieldInfo::new("attention_from", FieldKind::Decimal(2)).caption("Attention from"))
+            .field(
+                FieldInfo::new("higher_is_better", FieldKind::Boolean)
+                    .caption("Higher is better")
+                    .default_value(true),
+            )
             .rule(ravenrs_app::Rule::required("title"))
             .rule(ravenrs_app::Rule::required("target_entity")),
     ]
@@ -332,6 +339,7 @@ impl TileSpec {
             series: tile.text("series"),
             interval: tile.text("interval"),
             filter: tile.text("filter"),
+            thresholds: kept_thresholds(tile),
             ..Self::default()
         }
     }
@@ -348,6 +356,17 @@ pub(crate) fn number_view(value: String, level: Option<IndicatorLevel>, words: &
         ),
         None => Box::new(number),
     }
+}
+
+/// The level a kept tile declares: both limits, and which way is better; nothing without them.
+fn kept_thresholds(tile: &Object) -> Option<Thresholds> {
+    let good = tile.number("good_from")?;
+    let attention = tile.number("attention_from")?;
+    Some(if tile.get("higher_is_better") == Value::Bool(false) {
+        Thresholds::at_most(good, attention)
+    } else {
+        Thresholds::at_least(good, attention)
+    })
 }
 
 /// What a tile shows, read now, as the person can read it.

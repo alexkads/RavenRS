@@ -618,3 +618,36 @@ fn a_group_all_restricted_says_only_that_and_the_print_follows_the_screen() {
         "the same reading as the screen: {shown}"
     );
 }
+
+#[test]
+fn a_kept_tile_shows_the_level_its_record_declares() {
+    let database = database();
+    let mut space = database.space();
+    let mut panel = space.new_object(ANALYTICS_DASHBOARD).expect("known");
+    panel.set("name", "Metas");
+    let key = panel.get("id");
+    space.save(panel.clone()).expect("saved");
+    for (at, title, series, good, attention, higher) in
+        [(0.0, "Vendido", "cost:Sum", 120.0, 60.0, true), (1.0, "Pedidos", "", 0.0, 0.0, false)]
+    {
+        let mut tile = space.new_object(ANALYTICS_TILE).expect("known");
+        tile.set("dashboard_id", key.clone());
+        tile.set("title", title);
+        tile.set("position", at);
+        tile.set("target_entity", "Order");
+        tile.set("kind", "number");
+        tile.set("series", series);
+        tile.set("good_from", good);
+        tile.set("attention_from", attention);
+        tile.set("higher_is_better", higher);
+        space.save(tile).expect("saved");
+    }
+    space.commit().expect("committed");
+    let mut world = World::plain(&database);
+    world.session.open_view("AnalyticsDashboard_ListView");
+    world.settle();
+    world.run("OpenPanel", Some(panel));
+    let said = world.texts().join(" | ");
+    // 150 sold, from 120 up: on track; two orders, lower being better from zero: critical.
+    assert!(said.contains("On track") && said.contains("Critical"), "{said}");
+}
