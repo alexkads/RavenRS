@@ -374,8 +374,23 @@ pub fn seed(space: &mut dyn ObjectSpace) -> Result<(), String> {
     }
     people(space)?;
     demos(space)?;
+    closing(space)?;
     sealed(space)?;
     reports(space)
+}
+
+/// A term with a lesson still in draft, which keeps it from being approved until it is posted.
+fn closing(space: &mut dyn ObjectSpace) -> Result<(), String> {
+    let term = crate::model::CLOSING_TERM;
+    add(space, term, &[("id", n(1.0)), ("name", t("1º semestre"))])?;
+    for (id, name, status) in [(1.0, "Aula 1", "Lançada"), (2.0, "Aula 2", "Rascunho")] {
+        add(
+            space,
+            "ClosingLesson",
+            &[("id", n(id)), ("name", t(name)), ("term_id", n(1.0)), ("status", t(status))],
+        )?;
+    }
+    Ok(())
 }
 
 /// A closed lesson, which only a correction changes, and one still open.

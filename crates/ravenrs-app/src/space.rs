@@ -833,7 +833,15 @@ impl MemoryObjectSpace {
             Ok(found)
         };
         crate::check_amendments(&self.database.entities, self.changes.list(), &mut stored)?;
-        crate::check_closing(&self.database.entities, self.changes.list(), &mut stored)
+        let mut listed = |entity: &EntityInfo, query: &Query| {
+            let rows = tables
+                .rows
+                .get(&entity.name)
+                .map(|rows| rows.values().cloned().collect())
+                .unwrap_or_default();
+            run_query(entity, rows, query, &self.environment)
+        };
+        crate::check_closing(&self.database.entities, self.changes.list(), &mut stored, &mut listed)
     }
 
     /// Writes a new amendment on its target before it waits, all or nothing.

@@ -2794,6 +2794,45 @@ fn a_chronology_shows_the_milestones_in_order_and_opens_one() {
 }
 
 #[test]
+fn a_term_is_approved_with_its_document_and_reopened_by_the_generated_actions() {
+    let mut c = Center::memory("ana");
+    c.press("Semestres aprovados");
+    c.settle();
+    // ClosingModule::new and action_ids: the actions come on the term, with Write.
+    c.select("ClosingTerm", 1.0);
+    let approving = |c: &mut Center| {
+        c.select("ClosingTerm", 1.0);
+        c.run("ClosingTerm.ApproveClosing", ActionInput::None);
+        c.press("Aprovar fechamento");
+    };
+    approving(&mut c);
+    assert!(c.says("still has Aulas do semestre that keep it open"), "{:?}", c.texts());
+    assert_eq!(c.count("ClosingTermVersion"), 0);
+    let mut space = (c.space)();
+    let mut lesson = space.find("ClosingLesson", &Value::Number(2.0)).expect("reads").expect("there");
+    lesson.set("status", "Lançada");
+    space.save(lesson).expect("saved");
+    space.commit().expect("committed");
+    // approver and words: the version keeps who approved, the message is in Portuguese.
+    approving(&mut c);
+    assert!(c.says("Aprovado, versão 1."), "{:?}", c.texts());
+    // The lessons of an approved term are frozen: the commit refuses a change.
+    c.press("Aulas do semestre");
+    assert!(c.says("Aula 2"), "{:?}", c.texts());
+    let mut space = (c.space)();
+    let mut lesson = space.find("ClosingLesson", &Value::Number(2.0)).expect("reads").expect("there");
+    lesson.set("status", "Rascunho");
+    assert!(space.save(lesson).and_then(|()| space.commit()).is_err(), "a frozen lesson changed");
+    c.press("Semestres aprovados");
+    c.select("ClosingTerm", 1.0);
+    c.run("ClosingTerm.ReopenClosing", ActionInput::Parameter(Value::Text("faltou uma presença".into())));
+    assert!(c.says("Reaberto."), "{:?}", c.texts());
+    c.select("ClosingTerm", 1.0);
+    c.run("ClosingTerm.ClosingVersions", ActionInput::None);
+    assert!(c.says("Versão 1") && c.says("Reaberta"), "{:?}", c.texts());
+}
+
+#[test]
 fn a_closed_lesson_is_corrected_by_the_generated_action_and_an_open_one_does_not_offer_it() {
     let mut c = Center::memory("ana");
     c.press("Aulas encerradas");

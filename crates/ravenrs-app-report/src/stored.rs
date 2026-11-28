@@ -77,6 +77,32 @@ pub struct ReportWords {
     pub panel_value: String,
     /// See `panel_group`.
     pub panel_level: String,
+    /// Approves a period.
+    pub closing_approve: String,
+    /// What is asked before approving.
+    pub closing_confirm: String,
+    /// Said after approving, before the version.
+    pub closing_approved: String,
+    /// Reopens a period.
+    pub closing_reopen: String,
+    /// What a reopening asks for.
+    pub closing_reason: String,
+    /// Said after reopening.
+    pub closing_reopened_done: String,
+    /// The versions of a period, with their documents.
+    pub closing_documents: String,
+    /// A period with no version.
+    pub closing_none: String,
+    /// The column of the version.
+    pub closing_version: String,
+    /// A version that holds its period closed.
+    pub closing_current: String,
+    /// A version reopened, the last one.
+    pub closing_reopened: String,
+    /// A reopened version with a later one.
+    pub closing_replaced: String,
+    /// Opens the document of a version.
+    pub closing_open: String,
     /// A word of the printed finance reports.
     pub finance_statement: String,
     /// A word of the printed finance reports.
@@ -152,6 +178,19 @@ impl ReportWords {
             panel_indicator: texts.get("report.panel_indicator"),
             panel_value: texts.get("report.panel_value"),
             panel_level: texts.get("report.panel_level"),
+            closing_approve: texts.get("report.closing_approve"),
+            closing_confirm: texts.get("report.closing_confirm"),
+            closing_approved: texts.get("report.closing_approved"),
+            closing_reopen: texts.get("report.closing_reopen"),
+            closing_reason: texts.get("report.closing_reason"),
+            closing_reopened_done: texts.get("report.closing_reopened_done"),
+            closing_documents: texts.get("report.closing_documents"),
+            closing_none: texts.get("report.closing_none"),
+            closing_version: texts.get("report.closing_version"),
+            closing_current: texts.get("report.closing_current"),
+            closing_reopened: texts.get("report.closing_reopened"),
+            closing_replaced: texts.get("report.closing_replaced"),
+            closing_open: texts.get("report.closing_open"),
             finance_statement: texts.get("report.finance_statement"),
             finance_date: texts.get("report.finance_date"),
             finance_description: texts.get("report.finance_description"),

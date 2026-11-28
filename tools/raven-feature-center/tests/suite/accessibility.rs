@@ -133,6 +133,8 @@ demonstrations! {
     registro => "Registro",
     fechamento => "Fechamento de período",
     acesso_temporario => "Acesso temporário",
+    semestres_aprovados => "Semestres aprovados",
+    aulas_do_semestre => "Aulas do semestre",
     aulas_encerradas => "Aulas encerradas",
     correcoes_de_aula => "Correções de aula",
     resumo_de_vencimentos => "Resumo de vencimentos",
