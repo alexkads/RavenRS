@@ -453,3 +453,99 @@ pub fn cancel(space: &mut dyn ObjectSpace, bill: &Value) -> Result<(), SpaceErro
     }
     written
 }
+
+/// What is open, in cents, at a day: to pay and to receive, and how much of each is overdue.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct Position {
+    /// Open to pay.
+    pub payable: i64,
+    /// Open to receive.
+    pub receivable: i64,
+    /// Of what is to pay, what was due before the day.
+    pub overdue_payable: i64,
+    /// Of what is to receive, what was due before the day.
+    pub overdue_receivable: i64,
+}
+
+/// What is open at `today`, as the space shows the bills: what is left of each bill open or partly
+/// paid. A split bill counts by its installments, never twice.
+pub fn position(space: &dyn ObjectSpace, today: DateTime) -> Result<Position, SpaceError> {
+    let mut found = Position::default();
+    for bill in space.query(COMMITMENT, &Query::all())? {
+        let status = bill.text("status");
+        if status != "open" && status != "partial" {
+            continue;
+        }
+        let left = cents(&bill, "amount") - cents(&bill, "settled");
+        let overdue = matches!(bill.get("due_on"), Value::Date(due) if due.days < today.days);
+        if bill.text("kind") == "receivable" {
+            found.receivable += left;
+            if overdue {
+                found.overdue_receivable += left;
+            }
+        } else {
+            found.payable += left;
+            if overdue {
+                found.overdue_payable += left;
+            }
+        }
+    }
+    Ok(found)
+}
+
+/// A line of a [`Statement`]: the entry, with money in as more and out as less, and the balance
+/// after it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct StatementLine {
+    /// When.
+    pub on: DateTime,
+    /// What.
+    pub description: String,
+    /// In cents: more for what came in, less for what went out.
+    pub amount: i64,
+    /// The balance after it.
+    pub balance: i64,
+}
+
+/// The cash book between two days: the balance before, each line with the balance after it, and
+/// the balance at the end.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct Statement {
+    /// The balance of everything before `from`.
+    pub opening: i64,
+    /// The entries from `from` to `to`, by date and then as written.
+    pub lines: Vec<StatementLine>,
+    /// The balance at the end.
+    pub closing: i64,
+}
+
+/// The cash book from `from` to `to`, both included, as the space shows it: whom may not read it
+/// gets an empty one.
+pub fn statement(space: &dyn ObjectSpace, from: DateTime, to: DateTime) -> Result<Statement, SpaceError> {
+    let mut entries: Vec<(i64, i64, String, i64)> = space
+        .query(LEDGER_ENTRY, &Query::all())?
+        .into_iter()
+        .filter_map(|entry| {
+            let Value::Date(on) = entry.get("on") else { return None };
+            let amount = cents(&entry, "amount");
+            let signed = if entry.text("kind") == "income" { amount } else { -amount };
+            let order = entry.number("id").map_or(0, |id| id as i64);
+            Some((on.days, order, entry.text("description"), signed))
+        })
+        .collect();
+    entries.sort();
+    let opening: i64 = entries.iter().filter(|(day, ..)| *day < from.days).map(|(.., amount)| amount).sum();
+    let mut balance = opening;
+    let lines = entries
+        .into_iter()
+        .filter(|(day, ..)| (from.days..=to.days).contains(day))
+        .map(|(day, _, description, amount)| {
+            balance += amount;
+            StatementLine { on: DateTime { days: day, seconds: 0 }, description, amount, balance }
+        })
+        .collect();
+    Ok(Statement { opening, lines, closing: balance })
+}

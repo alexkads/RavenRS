@@ -230,3 +230,34 @@ fn a_split_adds_up_to_the_cent_in_month_ends_and_cancelling_takes_only_open_part
     });
     assert!(split(&mut *memory()(), &Value::Number(1.0), 1, first).is_err(), "one installment");
 }
+
+#[test]
+fn the_position_and_the_statement_agree_with_the_cash_book() {
+    use ravenrs_app_library::finance::{position, statement};
+    both(|maker| {
+        let late = bill(maker, 10_000.0);
+        let mut space = maker();
+        let mut income = space.new_object(COMMITMENT).expect("bill");
+        income.set("description", "Aluguel recebido");
+        income.set("kind", "receivable");
+        income.set("amount", 50_000.0);
+        income.set("due_on", Value::Date(day(2026, 12, 5)));
+        let income_key = income.get("id");
+        space.insert(income).expect("kept");
+        space.commit().expect("kept");
+        // Today is after the bill's due date: what is left of it is overdue.
+        let later = day(2026, 11, 25);
+        settle(&mut *maker(), &late, SettleInput::new(today(), 4_000), today()).expect("part");
+        let now = position(&*maker(), later).expect("reads");
+        assert_eq!((now.payable, now.overdue_payable), (6_000, 6_000));
+        assert_eq!((now.receivable, now.overdue_receivable), (50_000, 0));
+        settle(&mut *maker(), &income_key, SettleInput::new(later, 50_000), later).expect("received");
+        let book = statement(&*maker(), day(2026, 11, 22), day(2026, 11, 30)).expect("reads");
+        assert_eq!(book.opening, -4_000, "the part paid on the 21st comes before");
+        assert_eq!(book.lines.len(), 1);
+        assert_eq!(book.lines[0].amount, 50_000);
+        assert_eq!(book.closing, 46_000);
+        let split_off = split(&mut *maker(), &income_key, 2, later);
+        assert!(split_off.is_err(), "a bill already paid is not split");
+    });
+}

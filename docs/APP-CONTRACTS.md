@@ -189,7 +189,9 @@ What waits (#860): the list filtered by what is pending and the days, the choice
 
 The rules hold wherever records are kept: the status moves only by the declared ways, each while `settled` agrees with it; `paid`, `cancelled` and `split` are `StateMachine::locked`, so nothing but the status changes, and `settled` only together with it (`unlocked_with`); an entry written by a settlement and a reversed settlement are sealed.
 
-What waits (#859): reports (`position`, `statement`, `annual`, `forecast`), the form actions, and the rule between category and kind. The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
+`position(space, today)` gives what is open to pay and to receive and how much of each is overdue; `statement(space, from, to)` gives the cash book with the balance before, each line with its balance, and the balance at the end; both read as the space shows the records.
+
+What waits (#859): `annual`, `forecast` and the printed documents of the reports, the form actions, and the rule between category and kind. The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
 
 ## Scenarios
 
