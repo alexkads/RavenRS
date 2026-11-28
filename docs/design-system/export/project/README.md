@@ -289,7 +289,7 @@ RavenComponentBook writes every file of this system from the RavenRS code, and t
 | Media | `TransformHandles` | Eight handles, a turn and a pivot over a box, returning its geometry | 2 |
 | Media | `ZoomPanView` | Zoom and pan with pinch, wheel, drag, keys and inertia, within limits | 1 |
 | Lists and trees | `Chronology` | Moments down a line: a date, a mark joined to the next, a title, a detail and a badge | 6 |
-| Application | `AppShell` | The window of an application made from its model: navigation by module, lists, forms and the theme menu | 3 |
+| Application | `AppShell` | The window of an application made from its model: navigation by module, lists, forms and the theme menu | 4 |
 | Application | `EntityForm` | A form made from an entity of the model, in a window: each field with the editor its kind asks for, the rules checked on save | 5 |
 | Application | `MoviePlayer` | Plays a film of the app, drawn as vectors, with chapters, captions and the sound it computes | 2 |
 | Application | `MovieAssistant` | Finds the part of a film that answers a question, by its chapters, and plays it | 1 |

@@ -395,6 +395,13 @@ impl AppShell {
         self
     }
 
+    /// Shows the window inside another application's, as a page of it: the outer one keeps ⌘K
+    /// and ⌘B, so neither answers twice, and this one has no palette of its own.
+    pub fn inside_another(mut self, on: bool) -> Self {
+        self.menu.inside = on;
+        self
+    }
+
     /// Whether the navigation is open.
     pub fn sidebar_state(&self) -> SidebarState {
         self.sidebar.clone()
@@ -551,6 +558,7 @@ impl AppShell {
         let sidebar = Sidebar::new(content)
             .collapsible(SidebarCollapse::Icons)
             .narrow_below(NARROW_WINDOW)
+            .shortcut(!self.menu.inside)
             .state(self.sidebar.clone())
             .header(match &self.brand {
                 Some(brand) => Box::new(brand.view(self.session.title())) as AnyView,
@@ -651,7 +659,7 @@ impl AppShell {
             self.session.revision();
             count(&self.session)
         });
-        Box::new(match count {
+        let row = match count {
             Some(crate::NavigationCount { shown, tone: Some(tone), .. }) => {
                 row.badge(ravenrs_widgets::Badge::new(shown).tone(tone))
             }
@@ -660,7 +668,8 @@ impl AppShell {
             }
             Some(crate::NavigationCount { shown, spoken: None, .. }) => row.count(shown),
             None => row,
-        })
+        };
+        (row, selected)
     }
 
     fn trail(&self, view: Option<&ViewInfo>) -> Vec<String> {
@@ -852,7 +861,7 @@ impl View for AppShell {
             kind: view.map(|view| view.kind),
         });
         parts.push(cx.child(&window));
-        if self.template.shows_navigation() {
+        if self.template.shows_navigation() && !self.menu.inside {
             let palette = crate::navigation::commands(session)
                 .into_iter()
                 .fold(ravenrs_widgets::CommandPalette::new(self.palette.binding()), |palette, command| {
@@ -885,4 +894,5 @@ struct NavigationMenu {
     compact: bool,
     search: bool,
     collapse: bool,
+    inside: bool,
 }

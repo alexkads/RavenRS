@@ -134,6 +134,7 @@ demonstrations! {
     fechamento => "Fechamento de período",
     acesso_temporario => "Acesso temporário",
     resumo_de_vencimentos => "Resumo de vencimentos",
+    menu_com_secoes => "Menu com seções",
     contas_a_pagar_e_receber => "Contas a pagar e receber",
     painel_com_niveis => "Painel com níveis",
     api_service => "Serviço da API",

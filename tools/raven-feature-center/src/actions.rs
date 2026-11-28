@@ -382,7 +382,7 @@ pub fn counter_app() -> App {
 
 /// One view built once and shown again on each rebuild, for a control that holds a running application.
 #[derive(Clone)]
-struct Kept(std::rc::Rc<AnyView>);
+pub(crate) struct Kept(pub(crate) std::rc::Rc<AnyView>);
 
 impl View for Kept {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {

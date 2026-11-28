@@ -79,7 +79,8 @@ pub struct App {
     brand_subtitle: Option<String>,
     counts: std::collections::HashMap<String, crate::navigation::CountOf>,
     counter: bool,
-    menu: (bool, bool, bool),
+    menu: (bool, bool, bool, bool),
+    sections: std::collections::HashMap<String, String>,
     actions: Vec<ActionMaker>,
 }
 
@@ -142,7 +143,8 @@ impl App {
             brand_subtitle: None,
             counts: std::collections::HashMap::new(),
             counter: false,
-            menu: (false, false, false),
+            menu: (false, false, false, false),
+            sections: std::collections::HashMap::new(),
             actions: Vec::new(),
         }
     }
@@ -452,6 +454,22 @@ impl App {
         self
     }
 
+    /// Shows the application inside another's window, as a page of it, as
+    /// [`AppShell::inside_another`](crate::AppShell::inside_another): ⌘K and ⌘B stay the outer one's.
+    pub fn inside_another(mut self, on: bool) -> Self {
+        self.menu.3 = on;
+        self
+    }
+
+    /// Gathers the navigation group `group` under the title `section`. The group then shows as one
+    /// item, with its own items in a submenu that is open while the screen is one of them, and
+    /// groups that follow each other in the same section share the title, as "Cadastros" over
+    /// "Pessoas" and "Turmas". A group in no section keeps its own title.
+    pub fn navigation_section(mut self, group: impl Into<String>, section: impl Into<String>) -> Self {
+        self.sections.insert(group.into(), section.into());
+        self
+    }
+
     /// Arranges the window for use at a counter: see [`CounterTemplate`](crate::CounterTemplate).
     pub fn counter(mut self) -> Self {
         self.counter = true;
@@ -528,9 +546,13 @@ impl App {
                 shell = shell.brand_subtitle(subtitle);
             }
         }
-        shell = shell.counts(Rc::new(self.counts));
-        let (compact, search, collapse) = self.menu;
-        shell = shell.compact_navigation(compact).navigation_search(search).navigation_collapse(collapse);
+        shell = shell.counts(Rc::new(self.counts)).sections(self.sections);
+        let (compact, search, collapse, inside) = self.menu;
+        shell = shell
+            .compact_navigation(compact)
+            .navigation_search(search)
+            .navigation_collapse(collapse)
+            .inside_another(inside);
         if self.counter {
             shell = shell.template(crate::CounterTemplate);
         }
