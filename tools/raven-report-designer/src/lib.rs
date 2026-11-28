@@ -3,7 +3,8 @@
 
 /// The scenarios of Raven Test Studio the tool brings, one per file of `tests/e2e/`: the Studio
 /// gets them when it opens the tool with `--e2e-serve`, and the tests play them.
-pub const SCENARIOS: [&str; 1] = [include_str!("../tests/e2e/abrir.raventest")];
+pub const SCENARIOS: [&str; 2] =
+    [include_str!("../tests/e2e/abrir.raventest"), include_str!("../tests/e2e/salvar.raventest")];
 
 use ravenrs::prelude::*;
 pub use ravenrs_report_designer::Designer;
