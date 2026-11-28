@@ -14,6 +14,7 @@ mod empty;
 mod jobs;
 mod kept;
 mod list_editors;
+mod list_strip;
 mod narrow;
 mod navigation;
 mod relations;

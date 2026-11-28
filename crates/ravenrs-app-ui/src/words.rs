@@ -177,6 +177,10 @@ pub struct Words {
     pub password_once: String,
     /// Closes what is done.
     pub done: String,
+    /// What a number says instead of a value its reader may not see.
+    pub restricted: String,
+    /// What an empty list says to whom may only read it.
+    pub empty_read_only: String,
     /// What fails a rule.
     pub rules: RuleWords,
     /// In front of money.
@@ -289,6 +293,8 @@ impl Words {
             access_granted: texts.get("ui.access_granted"),
             password_once: texts.get("ui.password_once"),
             done: texts.get("ui.done"),
+            restricted: texts.get("ui.restricted"),
+            empty_read_only: texts.get("ui.empty_read_only"),
             rules: RuleWords::from_texts(texts),
             money_prefix: texts.get("format.money_prefix"),
             thousands: texts.char("format.thousands", ','),

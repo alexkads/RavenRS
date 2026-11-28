@@ -334,6 +334,10 @@ fn appearance_follows_the_record() {
     c.open_record("AppearanceRules", 3.0);
     let delete = c.session().frame().action("Delete").expect("there");
     assert!(!delete.is_enabled(), "and the action");
+    // ListIndicator: the numbers above the list, over every record.
+    c.open_list("AppearanceRules");
+    assert!(c.says("EM ATRASO") && c.says("Pintados de vermelho"), "{:?}", c.texts());
+    assert!(c.says("R$ 410,00"), "{:?}", c.texts());
 }
 
 #[test]

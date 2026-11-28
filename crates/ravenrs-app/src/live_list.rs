@@ -74,6 +74,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::ViewVariant::__live_expose_fields(registry);
     crate::ViewVariant::__live_expose(registry);
     crate::ListFilter::__live_expose_fields(registry);
+    crate::ListIndicator::__live_expose_fields(registry);
+    crate::ListIndicator::__live_expose(registry);
     crate::ListFilter::__live_expose(registry);
     crate::EntityInfo::__live_expose_fields(registry);
     crate::EntityInfo::__live_expose_part1(registry);

@@ -601,6 +601,53 @@ pub struct ListFilter {
     pub criteria: Option<String>,
 }
 
+/// A number above the list of an entity: a count, a sum or an average of its records, read as the
+/// person may read them, with a filter and a line under it.
+///
+/// ```
+/// use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, ListIndicator};
+///
+/// let bill = EntityInfo::new("Bill")
+///     .field(FieldInfo::new("id", FieldKind::Integer).key())
+///     .field(FieldInfo::new("amount", FieldKind::Money))
+///     .field(FieldInfo::new("status", FieldKind::Text))
+///     .indicator(ListIndicator::new("A pagar", "amount:Sum").filter("[status] = 'open'").note("Em aberto"));
+/// assert!(bill.check().is_ok());
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct ListIndicator {
+    /// What it is called.
+    pub caption: String,
+    /// `field:Sum`, `field:Count`, `field:Average`, `field:Min` or `field:Max`; empty counts.
+    pub series: String,
+    /// Only the records that meet this.
+    pub filter: Option<String>,
+    /// A line under the number.
+    pub note: Option<String>,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl ListIndicator {
+    /// This number, by this series.
+    pub fn new(caption: impl Into<String>, series: impl Into<String>) -> Self {
+        Self { caption: caption.into(), series: series.into(), filter: None, note: None }
+    }
+
+    /// Over the records that meet this expression only.
+    pub fn filter(mut self, expression: impl Into<String>) -> Self {
+        self.filter = Some(expression.into());
+        self
+    }
+
+    /// With this line under the number.
+    pub fn note(mut self, text: impl Into<String>) -> Self {
+        self.note = Some(text.into());
+        self
+    }
+}
+
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ListFilter {
     /// A filter that lets everything through, as the choice that takes the others off.
@@ -640,6 +687,10 @@ pub struct EntityInfo {
     pub description: Option<String>,
     /// What its list says when it has no records, in place of the language's own words.
     pub empty_text: Option<String>,
+    /// What the empty list adds for whom may create a record: the next step.
+    pub empty_hint: Option<String>,
+    /// The numbers above its list.
+    pub indicators: Vec<ListIndicator>,
     /// The states its records go through.
     pub state_machines: Vec<crate::StateMachine>,
     /// When to remind people of a record.
@@ -697,6 +748,8 @@ impl EntityInfo {
             variants: Vec::new(),
             description: None,
             empty_text: None,
+            empty_hint: None,
+            indicators: Vec::new(),
             state_machines: Vec::new(),
             actions: Vec::new(),
             reminder: None,
@@ -836,6 +889,20 @@ impl EntityInfo {
         self
     }
 
+    /// What its empty list adds, for whom may create a record, as the next step: "Comece pelo
+    /// nome." Whom may only read is told records show up once someone who may adds them. It lands
+    /// on the list view as `EmptyHint`.
+    pub fn empty_hint(mut self, text: impl Into<String>) -> Self {
+        self.empty_hint = Some(text.into());
+        self
+    }
+
+    /// A number above its list, in the order given. It lands on the list view under `Indicators`.
+    pub fn indicator(mut self, indicator: ListIndicator) -> Self {
+        self.indicators.push(indicator);
+        self
+    }
+
     /// Gives its records states, and only these ways between them. Its field becomes read-only on
     /// forms and starts in the machine's first state, its actions come by themselves, and any other
     /// change is refused when it is kept. Declare the field first.
@@ -970,6 +1037,21 @@ impl EntityInfo {
         }
         for action in &self.actions {
             action.check(self).map_err(|e| ModelError(format!("{}: {}", self.name, e.0)))?;
+        }
+        for indicator in &self.indicators {
+            let field = indicator.series.split(':').next().unwrap_or_default().trim();
+            if !field.is_empty() && self.field_named(field).is_none() {
+                return wrong(format!(
+                    "the indicator {} sums {field}, which is not a field",
+                    indicator.caption
+                ));
+            }
+            if let Some(Err(e)) = indicator.filter.as_deref().map(Criteria::parse) {
+                return wrong(format!(
+                    "the filter of the indicator {} does not read: {e}",
+                    indicator.caption
+                ));
+            }
         }
         if let Some(seal) = &self.seal
             && let Err(e) = Criteria::parse(&seal.when)
