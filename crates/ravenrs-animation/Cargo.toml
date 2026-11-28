@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-animation"
+workspace = "../../camadas/nucleo"
 description = "RavenRS motion primitives: analytic springs, cubic-bezier easing, OKLab color interpolation and interruptible animated values."
 version.workspace = true
 edition.workspace = true

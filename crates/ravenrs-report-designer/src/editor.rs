@@ -241,6 +241,7 @@ impl Editor {
     pub fn add_control(&self, band: BandRef, control: Control) {
         let mut index = None;
         self.edit(|r| {
+            let control = named(r, control);
             if let Some(b) = band.get_mut(r) {
                 // Grow the band if the control would stick out of it.
                 b.height = b.height.max(control.y + control.height);
@@ -455,9 +456,12 @@ impl Editor {
         self.edit(|r| {
             if let Some(b) = band.get_mut(r) {
                 first = Some(b.controls.len());
-                for c in &copies {
+            }
+            for c in &copies {
+                let c = named(r, Control { name: None, ..c.clone() });
+                if let Some(b) = band.get_mut(r) {
                     b.height = b.height.max(c.y + c.height);
-                    b.controls.push(c.clone());
+                    b.controls.push(c);
                 }
             }
         });
@@ -525,4 +529,39 @@ impl Editor {
 /// Rounds to the 2-point design grid.
 pub fn snap(v: f32) -> f32 {
     (v / 2.0).round() * 2.0
+}
+
+/// The control with a name no other control of the report has, unless it brings one of its own
+/// that is free: the kind of the control and a number, such as `rotulo1`. The name is the key
+/// the design surface gives the part as its test id (`parte:rotulo1`), so a scenario finds it
+/// by what it is, never by where it is.
+pub(crate) fn named(report: &Report, mut control: Control) -> Control {
+    let taken: Vec<&str> = BandRef::all(report)
+        .into_iter()
+        .filter_map(|b| b.get(report))
+        .flat_map(|b| b.controls.iter())
+        .filter_map(|c| c.name.as_deref())
+        .collect();
+    if control.name.as_deref().is_some_and(|n| !n.is_empty() && !taken.contains(&n)) {
+        return control;
+    }
+    let base = match &control.kind {
+        ControlKind::Label(l) if l.expression.is_some() => "campo",
+        ControlKind::Label(_) => "rotulo",
+        ControlKind::CheckBox(_) => "caixa",
+        ControlKind::Line(_) => "linha",
+        ControlKind::Shape(_) => "forma",
+        ControlKind::Table(_) => "tabela",
+        ControlKind::Panel(_) => "painel",
+        ControlKind::Picture(_) => "imagem",
+        ControlKind::Link(_) => "link",
+        ControlKind::Bookmark(_) => "marcador",
+        ControlKind::Barcode(_) => "codigo",
+        ControlKind::PrinterCommand(_) => "comando",
+        ControlKind::Chart(_) => "grafico",
+        _ => "parte",
+    };
+    let free = (1..).map(|n| format!("{base}{n}")).find(|n| !taken.contains(&n.as_str()));
+    control.name = free;
+    control
 }

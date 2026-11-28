@@ -39,7 +39,7 @@
     { "command": "raven-test-studio --atualizacao --format json", "does": "Says whether there is a newer Studio: the version running, the latest one, its news, and whether this copy updates itself (installed) or with git pull (a checkout). The Claude pane asks it when the session starts and every hour." },
     { "command": "raven-test-studio --atualizar", "does": "Installs the newer version now with the Studio's installer, printing each stage; a checkout is refused and told to use git pull." },
     { "command": "raven-test-studio --versao", "does": "Prints the version; the installer and the updater use it." },
-    { "command": "cargo run -p raven-test-studio -- <flags>", "does": "The same, from a RavenRS checkout, with no install." }
+    { "command": "cargo run --manifest-path tools/raven-test-studio/Cargo.toml -- <flags>", "does": "The same, from a RavenRS checkout, with no install." }
   ],
   "exit_codes": [
     { "code": 0, "means": "The scenario passed." },

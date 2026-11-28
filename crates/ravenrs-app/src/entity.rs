@@ -7,13 +7,26 @@ use ravenrs_criteria::{Criteria, Environment, FieldType, Record, Schema, Scope, 
 
 // What the entity keeps of its rules, actions and workflow: data only. The code that runs them
 // lives in its own module and imports them from here, so it can stand on the entity.
+pub(crate) mod amendment_types;
 pub(crate) mod appearance_types;
+pub(crate) mod closing_types;
+pub(crate) mod due_digest_types;
 pub(crate) mod record_actions;
 pub(crate) mod rules;
 pub(crate) mod workflow_types;
 
 pub use crate::model_node::ModelNode;
+pub use amendment_types::{
+    Amendment, AmendmentApply, AmendmentKind, Seal, StoredLookup, apply_amendment, check_amendment_model,
+    check_amendments,
+};
 pub use appearance_types::{AppearanceContext, AppearanceRule, AppearanceTarget, Tint};
+pub use closing_types::{
+    CLOSING_CURRENT, CLOSING_REOPENED, ClosingError, PeriodClosing, StoredList, approve, archived_document,
+    check_closing, check_closing_model, closing_digest, closing_key, closing_versions,
+    closing_versions_entity, missing_closing_entities, reopen,
+};
+pub use due_digest_types::DueDigest;
 pub use record_actions::{RecordAction, Selection};
 pub use rules::{Comparison, Operand, Rule, RuleKind, Severity, TextComparison};
 pub use workflow_types::{Reminder, StateMachine, Transition, check_transitions, local_now, local_today};
@@ -120,13 +133,22 @@ pub struct EnumOption {
     pub code: String,
     /// What people see.
     pub caption: String,
+    /// Its tone in a list, where the column shows each value as a badge.
+    pub tint: Option<Tint>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl EnumOption {
     /// An option stored as `code` and shown as `caption`.
     pub fn new(code: impl Into<String>, caption: impl Into<String>) -> Self {
-        Self { code: code.into(), caption: caption.into() }
+        Self { code: code.into(), caption: caption.into(), tint: None }
+    }
+
+    /// Shows it in a list as a badge of this tone: a column of options with a tone shows each
+    /// value as a badge, neutral for those with none.
+    pub fn tint(mut self, tint: Tint) -> Self {
+        self.tint = Some(tint);
+        self
     }
 }
 
@@ -143,6 +165,9 @@ pub struct FieldInfo {
     pub kind: FieldKind,
     /// It identifies the record.
     pub is_key: bool,
+    /// It counts the times the record was kept, so that keeping over what someone else kept
+    /// after it was read is refused with [`SpaceError::Outdated`](crate::SpaceError::Outdated).
+    pub is_row_version: bool,
     /// It can be seen but not changed.
     pub read_only: bool,
     /// It has a column in lists.
@@ -198,6 +223,10 @@ pub struct FieldInfo {
     pub accessible_name: Option<String>,
     /// What screen readers say after its name, such as what goes in it. The hint by default.
     pub accessible_description: Option<String>,
+    /// A list shows its value as a badge, as for a status worked out by an expression.
+    pub badge: bool,
+    /// The field a list shows under its value, smaller and muted, in the same cell.
+    pub list_detail: Option<String>,
 }
 
 /// `opening_cents` as `Opening cents`.
@@ -224,6 +253,7 @@ impl FieldInfo {
             in_detail: true,
             in_lookup: false,
             is_key: false,
+            is_row_version: false,
             read_only: false,
             calculated: None,
             default_value,
@@ -247,6 +277,8 @@ impl FieldInfo {
             secret: false,
             accessible_name: None,
             accessible_description: None,
+            badge: false,
+            list_detail: None,
             kind,
         }
     }
@@ -269,6 +301,18 @@ impl FieldInfo {
     /// Makes it the key, typed by people, as a code is.
     pub fn typed_key(mut self) -> Self {
         self.is_key = true;
+        self
+    }
+
+    /// Makes it the version of the record, an integer: storage starts it at 1, adds one each
+    /// time the record is kept, and refuses keeping a record read at another version with
+    /// [`SpaceError::Outdated`](crate::SpaceError::Outdated). Read-only, and out of lists and forms.
+    pub fn row_version(mut self) -> Self {
+        self.is_row_version = true;
+        self.read_only = true;
+        self.in_list = false;
+        self.in_detail = false;
+        self.non_cloneable = true;
         self
     }
 
@@ -424,6 +468,21 @@ impl FieldInfo {
     /// For text: the values offered to pick from.
     pub fn predefined(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
         self.predefined = values.into_iter().map(Into::into).collect();
+        self
+    }
+
+    /// Shows its value in a list as a badge. The tone comes from the options of an enumeration,
+    /// with [`EnumOption::tint`]; other values show neutral.
+    pub fn badge(mut self) -> Self {
+        self.badge = true;
+        self
+    }
+
+    /// Shows `field` under its value in a list, smaller and muted, in the same cell: a person's
+    /// phone under their name. Exported and filtered, the two go on one line with " · " between.
+    /// Whoever cannot read `field` sees only the value.
+    pub fn list_detail(mut self, field: impl Into<String>) -> Self {
+        self.list_detail = Some(field.into());
         self
     }
 
@@ -590,6 +649,53 @@ pub struct ListFilter {
     pub criteria: Option<String>,
 }
 
+/// A number above the list of an entity: a count, a sum or an average of its records, read as the
+/// person may read them, with a filter and a line under it.
+///
+/// ```
+/// use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, ListIndicator};
+///
+/// let bill = EntityInfo::new("Bill")
+///     .field(FieldInfo::new("id", FieldKind::Integer).key())
+///     .field(FieldInfo::new("amount", FieldKind::Money))
+///     .field(FieldInfo::new("status", FieldKind::Text))
+///     .indicator(ListIndicator::new("A pagar", "amount:Sum").filter("[status] = 'open'").note("Em aberto"));
+/// assert!(bill.check().is_ok());
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct ListIndicator {
+    /// What it is called.
+    pub caption: String,
+    /// `field:Sum`, `field:Count`, `field:Average`, `field:Min` or `field:Max`; empty counts.
+    pub series: String,
+    /// Only the records that meet this.
+    pub filter: Option<String>,
+    /// A line under the number.
+    pub note: Option<String>,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl ListIndicator {
+    /// This number, by this series.
+    pub fn new(caption: impl Into<String>, series: impl Into<String>) -> Self {
+        Self { caption: caption.into(), series: series.into(), filter: None, note: None }
+    }
+
+    /// Over the records that meet this expression only.
+    pub fn filter(mut self, expression: impl Into<String>) -> Self {
+        self.filter = Some(expression.into());
+        self
+    }
+
+    /// With this line under the number.
+    pub fn note(mut self, text: impl Into<String>) -> Self {
+        self.note = Some(text.into());
+        self
+    }
+}
+
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ListFilter {
     /// A filter that lets everything through, as the choice that takes the others off.
@@ -629,10 +735,16 @@ pub struct EntityInfo {
     pub description: Option<String>,
     /// What its list says when it has no records, in place of the language's own words.
     pub empty_text: Option<String>,
+    /// What the empty list adds for whom may create a record: the next step.
+    pub empty_hint: Option<String>,
+    /// The numbers above its list.
+    pub indicators: Vec<ListIndicator>,
     /// The states its records go through.
     pub state_machines: Vec<crate::StateMachine>,
     /// When to remind people of a record.
     pub reminder: Option<crate::Reminder>,
+    /// How what falls due in its records is summed up for each person.
+    pub due_digest: Option<DueDigest>,
     /// Actions that set fields of the records selected.
     pub actions: Vec<crate::RecordAction>,
     /// What the list editors are told about this list: an editor's settings node, and in it names and values.
@@ -660,6 +772,12 @@ pub struct EntityInfo {
     /// The fields its form goes through first with the keyboard, in this order. The form shows
     /// them in the same order, so the eye and the keyboard go the same way.
     pub focus_order: Vec<String>,
+    /// When one of its records, as stored, is closed and changes only by an amendment.
+    pub seal: Option<crate::Seal>,
+    /// The closed records of another entity its records amend.
+    pub amendment: Option<crate::Amendment>,
+    /// How it is approved as a period, freezing the records that belong to it.
+    pub period_closing: Option<crate::PeriodClosing>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
@@ -678,9 +796,12 @@ impl EntityInfo {
             variants: Vec::new(),
             description: None,
             empty_text: None,
+            empty_hint: None,
+            indicators: Vec::new(),
             state_machines: Vec::new(),
             actions: Vec::new(),
             reminder: None,
+            due_digest: None,
             editor_settings: Vec::new(),
             form_columns: None,
             filters: Vec::new(),
@@ -693,6 +814,9 @@ impl EntityInfo {
             form_actions: Vec::new(),
             singleton: false,
             focus_order: Vec::new(),
+            seal: None,
+            amendment: None,
+            period_closing: None,
         }
     }
 
@@ -813,6 +937,20 @@ impl EntityInfo {
         self
     }
 
+    /// What its empty list adds, for whom may create a record, as the next step: "Comece pelo
+    /// nome." Whom may only read is told records show up once someone who may adds them. It lands
+    /// on the list view as `EmptyHint`.
+    pub fn empty_hint(mut self, text: impl Into<String>) -> Self {
+        self.empty_hint = Some(text.into());
+        self
+    }
+
+    /// A number above its list, in the order given. It lands on the list view under `Indicators`.
+    pub fn indicator(mut self, indicator: ListIndicator) -> Self {
+        self.indicators.push(indicator);
+        self
+    }
+
     /// Gives its records states, and only these ways between them. Its field becomes read-only on
     /// forms and starts in the machine's first state, its actions come by themselves, and any other
     /// change is refused when it is kept. Declare the field first.
@@ -824,6 +962,26 @@ impl EntityInfo {
             }
         }
         self.state_machines.push(machine);
+        self
+    }
+
+    /// Its records, once stored meeting this seal, change only by an amendment.
+    pub fn sealed(mut self, seal: crate::Seal) -> Self {
+        self.seal = Some(seal);
+        self
+    }
+
+    /// Its records amend the closed records of another entity. They are kept as written: once
+    /// committed, they are not changed or deleted.
+    pub fn amends(mut self, amendment: crate::Amendment) -> Self {
+        self.amendment = Some(amendment);
+        self
+    }
+
+    /// It is a period that is approved and closed: approving keeps a numbered version with the
+    /// document and its hash, and freezes the records that belong to it until it is reopened.
+    pub fn period_closing(mut self, closing: crate::PeriodClosing) -> Self {
+        self.period_closing = Some(closing);
         self
     }
 
@@ -843,6 +1001,13 @@ impl EntityInfo {
     /// Reminds people of its records.
     pub fn reminder(mut self, reminder: crate::Reminder) -> Self {
         self.reminder = Some(reminder);
+        self
+    }
+
+    /// Its records fall due: each person gets, as they choose, a summary of what is overdue and
+    /// what falls due in the next days, with the amounts only if they may read them.
+    pub fn due_digest(mut self, digest: DueDigest) -> Self {
+        self.due_digest = Some(digest);
         self
     }
 
@@ -874,6 +1039,16 @@ impl EntityInfo {
         self.fields.iter().find(|f| f.is_key)
     }
 
+    /// The field that holds the version of a record, when its records have one.
+    pub fn row_version_field(&self) -> Option<&FieldInfo> {
+        self.fields.iter().find(|f| f.is_row_version)
+    }
+
+    /// The version of this record, when its records have one: 0 for one never kept with it.
+    pub fn version_of(&self, object: &Object) -> Option<i64> {
+        self.row_version_field().map(|field| object.integer(&field.name).unwrap_or(0))
+    }
+
     /// The field that names a record: the first in lookups, or else the first with text.
     pub fn default_property(&self) -> Option<&FieldInfo> {
         self.fields
@@ -901,9 +1076,25 @@ impl EntityInfo {
             0 => return wrong("it has no key field".into()),
             n => return wrong(format!("it has {n} key fields, and only one can be")),
         }
+        if self.fields.iter().filter(|f| f.is_row_version).count() > 1 {
+            return wrong("it has more than one row version field".into());
+        }
+        if let Some(field) = self.row_version_field()
+            && (field.is_key || field.calculated.is_some() || !matches!(field.kind, FieldKind::Integer))
+        {
+            return wrong(format!("the row version {} has to be a stored integer, not the key", field.name));
+        }
         for (i, field) in self.fields.iter().enumerate() {
             if self.fields[..i].iter().any(|f| f.name == field.name) {
                 return wrong(format!("the field {} is declared twice", field.name));
+            }
+            if let Some(detail) = &field.list_detail
+                && self.field_named(detail).is_none()
+            {
+                return wrong(format!(
+                    "the field {} shows {detail} under it, which is not a field",
+                    field.name
+                ));
             }
             if let Some(expression) = &field.calculated {
                 let parsed = Criteria::parse(expression)
@@ -921,6 +1112,32 @@ impl EntityInfo {
         for action in &self.actions {
             action.check(self).map_err(|e| ModelError(format!("{}: {}", self.name, e.0)))?;
         }
+        for indicator in &self.indicators {
+            let field = indicator.series.split(':').next().unwrap_or_default().trim();
+            if !field.is_empty() && self.field_named(field).is_none() {
+                return wrong(format!(
+                    "the indicator {} sums {field}, which is not a field",
+                    indicator.caption
+                ));
+            }
+            if let Some(Err(e)) = indicator.filter.as_deref().map(Criteria::parse) {
+                return wrong(format!(
+                    "the filter of the indicator {} does not read: {e}",
+                    indicator.caption
+                ));
+            }
+        }
+        if let Some(seal) = &self.seal
+            && let Err(e) = Criteria::parse(&seal.when)
+        {
+            return wrong(format!("its seal does not read: {e}"));
+        }
+        if let Some(problem) = self.amendment.as_ref().and_then(|amendment| amendment.problem(self)) {
+            return wrong(problem);
+        }
+        if let Some(problem) = self.period_closing.as_ref().and_then(|closing| closing.problem()) {
+            return wrong(problem);
+        }
         for machine in &self.state_machines {
             if self.field_named(&machine.field).is_none() {
                 return wrong(format!("a state machine is over {}, which is not a field", machine.field));
@@ -928,6 +1145,9 @@ impl EntityInfo {
             if let Some(problem) = machine.problem() {
                 return wrong(problem);
             }
+        }
+        if let Some(problem) = self.due_digest.as_ref().and_then(|digest| digest.problem(self)) {
+            return wrong(problem);
         }
         if let Some(reminder) = &self.reminder
             && !self

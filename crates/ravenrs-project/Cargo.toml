@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-project"
+workspace = "../../camadas/widgets"
 description = "Turns code written in the RavenRS playground into a Cargo project that runs on the desktop and in the browser, as files or a .zip."
 version.workspace = true
 edition.workspace = true

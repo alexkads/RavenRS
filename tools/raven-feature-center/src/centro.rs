@@ -2,15 +2,17 @@
 //! with what to try on its own list. People sign in as ana, bia or caio, with [`seed::PASSWORD`].
 //! Behind the `app` feature: what only shows components or examples does not pay for it.
 
+use std::rc::Rc;
+
 use ravenrs::prelude::{AnyView, ThemeEditor};
 use ravenrs_app::{
-    Access, Application, AuditMode, AuditSettings, DashboardInfo, Diff, EntityInfo, MemoryDatabase,
-    ModelLayer, ObjectSpace, Operation, PermissionPolicy, Role, audit_entity, register_function,
-    security_entities,
+    Access, Application, AuditMode, AuditSettings, DashboardInfo, Diff, EntityInfo, MemoryAttachmentStore,
+    MemoryDatabase, ModelLayer, ObjectSpace, Operation, PermissionPolicy, Role, audit_entity,
+    register_function, security_entities,
 };
 use ravenrs_app_library::LibraryModule;
 use ravenrs_app_report::{
-    AnalyticsApp, AnalyticsModule, AnalyticsPanel, PanelChart, ReportModule, ReportWords,
+    AnalyticsApp, AnalyticsModule, AnalyticsPanel, ClosingModule, PanelChart, ReportModule, ReportWords,
     StoredReportsModule, analytics_entities, report_entity,
 };
 use ravenrs_app_ui::{App, CloneModule, Language, SecuredApp, Session, Words};
@@ -56,6 +58,32 @@ pub fn storage_entities() -> Result<Vec<EntityInfo>, String> {
     Ok(entities)
 }
 
+/// Approving and reopening the terms of the demonstration, with their documents in memory.
+fn closing_module() -> ClosingModule {
+    ClosingModule::new(model::CLOSING_TERM, Rc::new(MemoryAttachmentStore::default()), closing_document)
+        .approver(|| "Coordenação".to_owned())
+        .words(ReportWords::pt_br())
+}
+
+/// The document a term of the demonstration is approved with: its name and lessons.
+fn closing_document(
+    space: &dyn ObjectSpace,
+    term: &ravenrs_app::Object,
+) -> Result<ravenrs_report::Document, String> {
+    let lessons = space.query("ClosingLesson", &ravenrs_app::Query::all()).map_err(|e| e.to_string())?;
+    use ravenrs::prelude::grid::{GridColumn, GridQuery, Value as Cell, to_table};
+    let rows: Vec<Vec<Cell>> = lessons
+        .iter()
+        .filter(|lesson| lesson.get("term_id") == term.get("id"))
+        .map(|lesson| vec![Cell::Text(lesson.text("name")), Cell::Text(lesson.text("status"))])
+        .collect();
+    let columns = [GridColumn::text("Aula"), GridColumn::text("Situação")];
+    let every: Vec<usize> = (0..rows.len()).collect();
+    let title = format!("Fechamento de {}", term.text("name"));
+    let table = to_table(&title, "", &columns, &rows, &GridQuery::default(), &every);
+    Ok(ravenrs_grid_export::document_of(&table))
+}
+
 /// Who can do what. Administrators come with every installation.
 fn roles() -> Vec<Role> {
     let document = "SecuredDocument";
@@ -69,7 +97,9 @@ fn roles() -> Vec<Role> {
                 "[owner] <> ?CurrentUserName",
                 [Operation::Write, Operation::Delete],
                 Access::Deny,
-            ),
+            )
+            // Sales posts the lessons but does not approve a term; reopening one stays theirs.
+            .action_permission(closing_module().action_ids()[0].clone(), Access::Deny),
         Role::new("Leitura")
             .policy(PermissionPolicy::ReadOnlyAll)
             .object_permission(document, "[owner] = 'ana'", [Operation::Read], Access::Deny)
@@ -118,6 +148,7 @@ fn application() -> App {
         .module(ReportModule::new("Relatório da lista"))
         .module(StoredReportsModule::new(words()))
         .module(AnalyticsModule::new(words()))
+        .module(closing_module())
         .administrator_settings(model::CUSTOM_FIELDS)
         .translation("pt-BR", ravenrs_app_library::PT_BR)
         .translation("pt-BR", ravenrs_app_report::PT_BR)
@@ -145,6 +176,49 @@ fn application() -> App {
             .icon("database")
             .control(crate::registro::PAGE, crate::registro::ID),
     );
+    app = app.dashboard(
+        DashboardInfo::new(crate::versao_registro::ID, crate::versao_registro::PAGE)
+            .navigation("Aplicação")
+            .icon("history")
+            .control(crate::versao_registro::PAGE, crate::versao_registro::ID),
+    );
+    app = app.dashboard(
+        DashboardInfo::new(crate::fechamento::ID, crate::fechamento::PAGE)
+            .navigation("Aplicação")
+            .icon("lock")
+            .control(crate::fechamento::PAGE, crate::fechamento::ID),
+    );
+    app = app.dashboard(
+        DashboardInfo::new(crate::acesso::ID, crate::acesso::PAGE)
+            .navigation("Aplicação")
+            .icon("clock")
+            .control(crate::acesso::PAGE, crate::acesso::ID),
+    );
+    app = app.dashboard(
+        DashboardInfo::new(crate::entrada::ID, crate::entrada::PAGE)
+            .navigation("Aplicação")
+            .icon("shield")
+            .control(crate::entrada::PAGE, crate::entrada::ID),
+    );
+    app = app.dashboard(
+        DashboardInfo::new(crate::vencimentos::ID, crate::vencimentos::PAGE)
+            .navigation("Aplicação")
+            .icon("calendar")
+            .control(crate::vencimentos::PAGE, crate::vencimentos::ID),
+    );
+    app = app.dashboard(
+        DashboardInfo::new(crate::contas::ID, crate::contas::PAGE)
+            .navigation("Aplicação")
+            .icon("receipt")
+            .control(crate::contas::PAGE, crate::contas::ID),
+    );
+    app = app.dashboard(
+        DashboardInfo::new(crate::menu::ID, crate::menu::PAGE)
+            .navigation("Aplicação")
+            .icon("menu")
+            .control(crate::menu::PAGE, crate::menu::ID),
+    );
+    app = app.dashboard(crate::painel::panel().info());
     // The server does not run in a browser, so neither does its page.
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -159,6 +233,12 @@ fn application() -> App {
                 .navigation("Servidor")
                 .icon("server")
                 .control(crate::servico::PAGE, crate::servico::ID),
+        );
+        app = app.dashboard(
+            DashboardInfo::new(crate::migracao::ID, crate::migracao::PAGE)
+                .navigation("Servidor")
+                .icon("database")
+                .control(crate::migracao::PAGE, crate::migracao::ID),
         );
     }
     app.dashboard(
@@ -175,10 +255,24 @@ fn register_controls(session: &Session) {
     session.register_control(THEME_EDITOR, || Box::new(ThemeEditor::new()) as AnyView);
     session.register_control(model::COUNTER_WINDOW, actions::counter_control());
     session.register_control(crate::registro::ID, || Box::new(crate::registro::RecordPage) as AnyView);
+    session.register_control(crate::versao_registro::ID, || {
+        Box::new(crate::versao_registro::RowVersionPage) as AnyView
+    });
+    session.register_control(crate::fechamento::ID, || Box::new(crate::fechamento::ClosingPage) as AnyView);
+    session.register_control(crate::acesso::ID, || Box::new(crate::acesso::TemporaryAccessPage) as AnyView);
+    session.register_control(crate::entrada::ID, || Box::new(crate::entrada::SecureDoorPage) as AnyView);
+    session
+        .register_control(crate::vencimentos::ID, || Box::new(crate::vencimentos::DueDigestPage) as AnyView);
+    session.register_control(crate::contas::ID, || Box::new(crate::contas::FinancePage) as AnyView);
+    session.register_control(crate::menu::ID, crate::menu::control());
+    crate::painel::panel().register(session);
     #[cfg(not(target_arch = "wasm32"))]
     session.register_control(crate::servidor::ID, || Box::new(crate::servidor::ApiOptionsPage) as AnyView);
     #[cfg(not(target_arch = "wasm32"))]
     session.register_control(crate::servico::ID, || Box::new(crate::servico::ApiServicePage) as AnyView);
+    #[cfg(not(target_arch = "wasm32"))]
+    session
+        .register_control(crate::migracao::ID, || Box::new(crate::migracao::TenantMigrationPage) as AnyView);
     widgets::register(session);
 }
 
@@ -325,7 +419,7 @@ pub fn sqlite_database(file: &std::path::Path) -> Result<ravenrs_app_sqlite::Sql
     Ok(builder.build())
 }
 
-/// The counter window on its own, with a look of its own: `cargo run -p raven-feature-center -- caixa`.
+/// The counter window on its own, with a look of its own: `cargo run --manifest-path tools/raven-feature-center/Cargo.toml -- caixa`.
 pub fn counter_window() -> AnyView {
     actions::counter_app().theme(ravenrs::prelude::Theme::raven_light()).into_view()
 }

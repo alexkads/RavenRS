@@ -66,12 +66,44 @@ pub fn entry(name: &str, krate: &str) -> Option<&'static Entry> {
 }
 
 /// The page a caption names: its file and, for the pages of the components, its id.
+///
+/// A page of the app framework is an entity of the center's model, declared by
+/// `demo("<Entity>", "<caption>", …)` in `model.rs`: its file is that one, and it opens from the
+/// navigation, so it has no id.
 fn page_file(caption: &str) -> Option<(&'static str, Option<&'static str>)> {
     let declaration = format!("pub const PAGE: &str = {caption:?};");
-    RUST_SOURCES
-        .iter()
-        .find(|(path, text)| path.starts_with(SOURCES) && text.contains(&declaration))
+    let sources = || RUST_SOURCES.iter().filter(|(path, _)| path.starts_with(SOURCES));
+    sources()
+        .find(|(_, text)| text.contains(&declaration))
         .map(|(path, text)| (*path, string_const(text, "ID")))
+        .or_else(|| {
+            sources()
+                .find(|(path, text)| path.ends_with("/model.rs") && declares_demo(text, caption))
+                .map(|(path, _)| (*path, None))
+        })
+}
+
+/// Whether `text` calls `demo(name, caption, …)` with this caption as the second argument. The
+/// name is the entity's, between quotes or in a constant (`demo(CLOSING_TERM, "…", …)`, #1090).
+fn declares_demo(text: &str, caption: &str) -> bool {
+    let quoted = format!("{caption:?},");
+    text.match_indices(&quoted).any(|(at, _)| {
+        // Before the caption: `demo(`, the entity's name and a comma.
+        let before = text[..at].trim_end();
+        let Some(before) = before.strip_suffix(',') else { return false };
+        let before = before.trim_end();
+        let rest = if let Some(name_end) = before.strip_suffix('"') {
+            let Some(open) = name_end.rfind('"') else { return false };
+            &name_end[..open]
+        } else {
+            let name = before.trim_end_matches(|c: char| c.is_ascii_alphanumeric() || c == '_');
+            if name.len() == before.len() {
+                return false;
+            }
+            name
+        };
+        rest.trim_end().ends_with("demo(")
+    })
 }
 
 /// The value of `pub const NAME: &str = "…";` in a source file.
@@ -96,19 +128,20 @@ pub fn describe(entry: &Entry) -> Value {
         Some((file, Some(id))) => {
             value["id"] = json!(id);
             value["source"] = json!(file);
-            value["run"] =
-                json!(format!("cargo run -p raven-feature-center -- --modo componentes --pagina {id}"));
+            value["run"] = json!(format!(
+                "cargo run --manifest-path tools/raven-feature-center/Cargo.toml -- --modo componentes --pagina {id}"
+            ));
             value["web"] = json!(format!("index.html?modo=componentes&pagina={id}"));
         }
         Some((file, None)) => {
             value["source"] = json!(file);
             value["run"] = json!(format!(
-                "cargo run -p raven-feature-center, then open \"{caption}\" in the navigation"
+                "cargo run --manifest-path tools/raven-feature-center/Cargo.toml, then open \"{caption}\" in the navigation"
             ));
         }
         None => {
             value["run"] = json!(format!(
-                "cargo run -p raven-feature-center, then open \"{caption}\" in the navigation"
+                "cargo run --manifest-path tools/raven-feature-center/Cargo.toml, then open \"{caption}\" in the navigation"
             ));
         }
     }
@@ -177,7 +210,7 @@ pub fn search(
         "shown": shown,
         "waiting": waiting,
         "components": components,
-        "modes": "cargo run -p raven-feature-center opens the whole center (sign in as ana, bia or caio, password raven-demo); --modo componentes opens only the pages of the components, --modo playground the examples, and --incorporado only the page",
+        "modes": "cargo run --manifest-path tools/raven-feature-center/Cargo.toml opens the whole center (sign in as ana, bia or caio, password raven-demo); --modo componentes opens only the pages of the components, --modo playground the examples, and --incorporado only the page",
     }))
 }
 
@@ -199,6 +232,27 @@ mod tests {
             let Some(caption) = entry.page() else { continue };
             assert!(page_file(caption).is_some(), "{}: no file declares the page {caption:?}", entry.name);
         }
+    }
+
+    #[test]
+    fn a_page_of_the_model_is_found_in_its_file_and_opens_from_the_navigation() {
+        // ListIndicator is shown on an entity of the model, not on a page of its own.
+        let (file, id) = page_file("Regras de aparência").expect("the model page");
+        assert!(file.ends_with("/model.rs"), "{file}");
+        assert_eq!(id, None);
+        assert_eq!(page_file("Página que não existe"), None);
+    }
+
+    #[test]
+    fn a_demo_names_its_entity_between_quotes_or_in_a_constant() {
+        assert!(declares_demo("demo(\n    \"Rules\",\n    \"Regras\",\n    X,", "Regras"));
+        assert!(declares_demo(
+            "demo(\n    CLOSING_TERM,\n    \"Semestres aprovados\",\n",
+            "Semestres aprovados"
+        ));
+        // Not a demo: the caption is the first argument, or another call has it.
+        assert!(!declares_demo("demo(\"Semestres aprovados\", X)", "Semestres aprovados"));
+        assert!(!declares_demo("other(CLOSING_TERM, \"Semestres aprovados\",", "Semestres aprovados"));
     }
 
     #[test]

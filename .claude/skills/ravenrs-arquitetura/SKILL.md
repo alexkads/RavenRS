@@ -52,7 +52,7 @@ Se o código contradisser um documento, confie no código e corrija o documento 
 | Teclas de uso o dia todo, leitor de código | `crates/ravenrs-widgets-kit/src/counter.rs` (`KeyBar`, `ScanField`) | `crates/ravenrs-widgets/tests/suite/counter.rs` |
 | Contratos de módulos reutilizáveis | `docs/APP-CONTRACTS.md` (estado em `docs/APP-PARITY.md`); `ModuleManifest`, `switch_off` e `GuardedObjectSpace` em `crates/ravenrs-app/src/manifest.rs` e `module.rs`; `Provider` e `EventSink` em `provider.rs`; significados de `SpaceError` em `space.rs`; kit em `crates/ravenrs-app-testkit`; pacote de exemplo `crates/ravenrs-app-requests` e dois consumidores em `examples/contracts` (fora do workspace) | `crates/ravenrs-app/tests/suite/manifest.rs`, `crates/ravenrs-app-requests/tests/contracts.rs`, `cargo test` dentro de cada `examples/contracts/*`; ferramenta `app_contracts` do `ravenrs-mcp` |
 | Registros prontos | `crates/ravenrs-app-library/src/lib.rs`, palavras em `pt_br.json` | `crates/ravenrs-app-library/tests/library.rs` |
-| Instalar, atualizar e versionar um app compilando na máquina de quem usa | `crates/ravenrs-app-update/src/` (`InstalledApp`, `Updater`), modelo do instalador em `install.cmd.in`; cada app só guarda o seu `InstalledApp` (ex. `examples/family-finance/src/update.rs`) e o `install.cmd` gerado | `cargo test -p ravenrs-app-update` (instalador falso em sh) e os testes `update::` do app |
+| Instalar, atualizar e versionar um app compilando na máquina de quem usa | `crates/ravenrs-app-update/src/` (`InstalledApp`, `Updater`), modelo do instalador em `install.cmd.in`; cada app só guarda o seu `InstalledApp` (ex. `examples/family-finance/src/update.rs`) e o `install.cmd` gerado | `cargo test --manifest-path camadas/telas/Cargo.toml -p ravenrs-app-update` (instalador falso em sh) e os testes `update::` do app |
 | Relatório de uma lista | `crates/ravenrs-app-report/src/lib.rs`, sobre `Session::list_table` e `document_of` | `crates/ravenrs-app-report/tests/report.rs` |
 | Telas geradas do modelo | `crates/ravenrs-app-ui/src/`: `shell`, `list_view`, `detail_view`, `nested`, `dashboard`, `form`, `editors`, `container`, `system`, `session` | `crates/ravenrs-app-ui/tests/suite/e2e.rs`, `relations.rs` e `center.rs`, que dirigem a aplicação inteira sem janela; o que faltar de componente vai antes para `ravenrs-widgets` |
 | Exportar o que um `DataGrid` mostra | `crates/ravenrs-grid-export/src/lib.rs`, sobre `GridTable` e `ravenrs-report-export` | Widgets não conhecem relatórios; este crate é a única ponte |
@@ -71,11 +71,11 @@ Se o código contradisser um documento, confie no código e corrija o documento 
 | Telas de caixa, produtos e etiquetas | `crates/ravenrs-app-pos/src/`; `examples/mini-pdv` só compõe | `examples/mini-pdv/tests/`, `README.md` do exemplo |
 | O que o servidor MCP indexa | `crates/ravenrs-mcp/build.rs` acha sozinho fontes e Markdown; `src/docs.rs`, `src/api.rs`, `src/server.rs` respondem; `src/feature_center.rs` lê o `tools/raven-feature-center/recursos.json` | `crates/ravenrs-mcp/tests/tools.rs`; ferramenta nova entra em `plugins/ravenrs/skills/ravenrs/SKILL.md`, que o teste confere |
 | Relatórios guardados e painéis no framework | `crates/ravenrs-app-report/src/`: `stored`, `analytics` | `crates/ravenrs-app-report/tests/stored.rs` |
-| Cache de compilação entre worktrees | `crates/ravenrs-xcache/src/`: `args` (o que pode ser guardado), `paths` (raízes e remapeamento), `store` (blobs, manifestos, registro), `wrapper` (consulta, restauração, compilação); ligado por padrão em `scripts/check.sh` (`RAVENRS_XCACHE=0` desliga) | README do crate (limites e plano), skill `ravenrs-check`, testes em `crates/ravenrs-xcache/tests/wrapper.rs` com o `rustc` de verdade |
+| Cache de compilação entre worktrees | `crates/ravenrs-xcache/src/`: `args` (o que pode ser guardado), `paths` (raízes e remapeamento), `store` (blobs, manifestos, registro), `wrapper` (consulta, restauração, compilação); ligado por padrão em `cargo xtask pr` (`RAVENRS_XCACHE=0` desliga) | README do crate (limites e plano), skill `ravenrs-check`, testes em `crates/ravenrs-xcache/tests/wrapper.rs` com o `rustc` de verdade |
 | Desempenho: cenas, gate, tempos | `crates/ravenrs-perf/src/scenes/`, `perf/baseline.json`; `Ui::stats`, `RenderStats` | Skill `ravenrs-desempenho`, `docs/QUALITY.md`, `docs/PERFORMANCE.md` |
 | Ferramentas do painel de diagnóstico | `crates/ravenrs-widgets-kit/src/diagnostics.rs`, dados em `crates/ravenrs-core/src/diagnostics.rs` | `crates/ravenrs-widgets/tests/suite/performance_tools.rs`, `docs/PERFORMANCE.md` |
 | Playground e interpretador | `crates/ravenrs-live/src/` (`eval`, `bridge`, `registry`); `#[expose]` em `crates/ravenrs-live-derive`; `LiveRunner` e adaptadores em `crates/ravenrs-widgets/src/live.rs` | `scripts/gen-live.py` depois de componente novo (gera `live_list.rs` em widgets, lendo também os crates `ravenrs-widgets-*`, e em movie, app e app-ui); o que não der para gerar fica à mão em `live.rs` de cada crate; `examples/component-gallery/live-pending.txt`; `crates/ravenrs-live/tests/eval.rs`, `crates/ravenrs-widgets/tests/suite/live.rs` |
-| Baixar projeto do playground | `crates/ravenrs-project/src/lib.rs` (`Project`: Cargo.toml, lib, main, página, seed, `.zip`); `Playground::download` em `crates/ravenrs-widgets-chat/src/playground.rs`; `sample_project` em `examples/component-gallery/src/samples/mod.rs` | `crates/ravenrs-project/tests/project.rs`; `examples/component-gallery/tests/suite/projects.rs` (`--ignored`, roda no `check.sh --full`) |
+| Baixar projeto do playground | `crates/ravenrs-project/src/lib.rs` (`Project`: Cargo.toml, lib, main, página, seed, `.zip`); `Playground::download` em `crates/ravenrs-widgets-chat/src/playground.rs`; `sample_project` em `examples/component-gallery/src/samples/mod.rs` | `crates/ravenrs-project/tests/project.rs`; `examples/component-gallery/tests/suite/projects.rs` (`--ignored`, roda no `cargo xtask release`) |
 | API web do framework | `crates/ravenrs-app-server/src/`: `lib` (`ApiService`), `json`, `openapi`, `http` | `crates/ravenrs-app-server/tests/api.rs`, seção "A web API" de `docs/APP-FRAMEWORK.md` |
 | Telas sobre a API | `crates/ravenrs-app-remote/src/`: `lib`, `transport`, `gate` | `crates/ravenrs-app-remote/tests/remote.rs`, com transporte imediato e tardio |
 | Bancos do framework | Comum em `crates/ravenrs-app-sql/src/lib.rs`; cada banco é um `SqlBackend` em `ravenrs-app-sqlite` e `ravenrs-app-postgres` | Testes do PostgreSQL pedem `RAVENRS_POSTGRES_URL` |
@@ -87,7 +87,8 @@ Ao entregar ou adiar algo, atualize a tabela de status em §11 do `ARCHITECTURE.
 
 Estas regras são o que mantém o projeto testável e portátil, por isso vale parar e discutir antes de quebrar qualquer uma:
 
-- **Os widgets são camadas.** Base (`ravenrs-widgets-base`) ← kit (`ravenrs-widgets-kit`) ← uma família por crate ← fachada (`ravenrs-widgets`). Família não depende de família: o que duas precisam desce para o kit ou a base. `scripts/check-widget-layers.py` e `scripts/public-api.py --check`, no `check.sh`, conferem.
+- **Os widgets são camadas.** Base (`ravenrs-widgets-base`) ← kit (`ravenrs-widgets-kit`) ← uma família por crate ← fachada (`ravenrs-widgets`). Família não depende de família: o que duas precisam desce para o kit ou a base. `scripts/check-widget-layers.py` e `scripts/public-api.py --check`, no `cargo xtask pr`, conferem.
+- **O repositório é feito de camadas** (`camadas.toml`, #1080): núcleo; os motores leves que só usam o núcleo (fluxos, fiscal-motores e rede, F5 #1096); widgets, plataforma, documentos, app, serviços, telas, fiscal (as telas fiscais), automação, ia-video, infra, vitrine, Raven CI e apps, nessa ordem. Um pacote só usa a própria camada e as de baixo, também em `[dev-dependencies]`. Pacote novo entra numa seção de `camadas.toml` no mesmo PR; `scripts/camadas.py check` recusa pacote sem camada e aresta que sobe. Cada camada é um workspace Cargo próprio. As 13 da biblioteca ficam em `camadas/<nome>/Cargo.toml`, com os membros em `crates/` (F3 #1086); os apps, a vitrine e o Raven CI nas pastas deles (F1 #1084, F2 #1085); a raiz é a camada da infra, W14 (F4 #1087), e o `cargo xtask` só roda dela; a publicação segue a ordem das camadas (`camadas.py publicacao`). O desenho no Claude Design (canvas "RavenRS — mapa das camadas": torre, arquitetura e "Onde entra um componente novo") é o padrão para componente novo. Para trabalhar num crate: `cd crates/<crate> && cargo test`, ou da raiz `--manifest-path camadas/<camada>/Cargo.toml -p <crate>`. O `-p` na raiz só acha a infra e o que ela usa. Um motor sem tela que só usa o núcleo vai para uma camada leve, perto do núcleo, nunca para junto dos pesados do mesmo tema: `camadas.py pesos` avisa o pacote solto numa camada cara. A tabela "onde abrir o editor" está no `ARCHITECTURE.md`; `scripts/camadas.py` lista e mantém tudo em dia (skill `ravenrs-check`, "Workspaces separados").
 - **Widgets e renderer só se encontram no `Scene`.** `ravenrs-widgets` nunca toca a GPU e `ravenrs-render` não conhece widgets. Assim os testes de widgets rodam sem GPU e o renderer continua substituível.
 - **`ravenrs-criteria` não depende de nada do RavenRS** e não recebe nada específico de um módulo. Filtros, regras de segurança e um futuro framework de aplicações vão usar a mesma linguagem.
 - **Lógica útil a mais de um motor vai para um crate compartilhado, nunca para uma cópia.** `ravenrs-criteria`, `ravenrs-graphics` e `ravenrs-report-export` não conhecem quem os chama. Antes de escrever lógica num motor, procure se outro já tem.
@@ -115,26 +116,26 @@ Os módulos próprios, como o editor de relatórios, servem de exemplo para quem
 - Código, rustdoc e documentos do repositório ficam em inglês.
 - `unsafe` é proibido no workspace; `unwrap()` e `expect()` só em testes.
 - API pública: builders que recebem e devolvem `self`, `Binding<T>` para valores editados, closures para eventos, rustdoc em todo item público.
-- `wasm-bindgen` é fixado com `=` e precisa bater com a CLI usada em `scripts/build-web.sh`.
+- `wasm-bindgen` é fixado com `=` e precisa bater com a CLI usada em `cargo xtask web`.
 
 ## Como verificar
 
 Durante o trabalho, rode só o que a mudança afeta:
 
 ```bash
-cargo test -p ravenrs-widgets
+cargo test --manifest-path camadas/widgets/Cargo.toml -p ravenrs-widgets
 ```
 
 ```bash
-cargo clippy -p ravenrs-platform-web --target wasm32-unknown-unknown -- -D warnings
+cargo clippy --manifest-path camadas/plataforma/Cargo.toml -p ravenrs-platform-web --target wasm32-unknown-unknown -- -D warnings
 ```
 
-O portão é `scripts/check.sh`, porque o projeto não tem CI hospedado. Sem argumento, ele é rápido: formatação, clippy em tudo o que a mudança atinge e testes dos pacotes alterados e dos dependentes diretos. Com `--full`, roda antes de publicar e cobre clippy em desktop e wasm32, todos os testes com as imagens de referência, documentação e builds web.
+O portão são as checagens do `cargo xtask`, porque o projeto não tem CI hospedado (skill `ravenrs-check`). `cargo xtask lint` itera rápido, sem testes (rustfmt, conferências baratas e clippy dos alterados). `cargo xtask dev` confere os pacotes alterados, com testes, antes do commit. `cargo xtask pr` é o gate do PR: formatação, clippy em tudo o que a mudança atinge e testes dos pacotes alterados e dos dependentes diretos. `cargo xtask release` roda antes de publicar e cobre clippy em desktop e wasm32, todos os testes com as imagens de referência, documentação e builds web.
 
 Mudança visual intencional exige regenerar as imagens de referência e revisar o diff dos PNGs:
 
 ```bash
-RAVENRS_UPDATE_GOLDEN=1 cargo test -p ravenrs --test suite visual::
+RAVENRS_UPDATE_GOLDEN=1 cargo test --manifest-path camadas/plataforma/Cargo.toml -p ravenrs --test suite visual::
 ```
 
-Para ver no navegador, gere com `scripts/build-web.sh <exemplo>` e use as configurações `gallery-web` e `designer-web` de `.claude/launch.json`.
+Para ver no navegador, gere com `cargo xtask web <exemplo>` e use as configurações `gallery-web` e `designer-web` de `.claude/launch.json`.

@@ -93,7 +93,7 @@ Para saber por que um XML seria rejeitado, ou por que uma assinatura não confer
 ## XSD e conferências independentes
 
 ```bash
-cargo test -p ravenrs-nfe --all-features
+cargo test --manifest-path camadas/fiscal-motores/Cargo.toml -p ravenrs-nfe --all-features
 ```
 
 ```bash
@@ -105,15 +105,15 @@ Os esquemas não ficam no repositório. Em `tests/externos.rs`, se `xmllint` ou 
 ## Caixa e etiquetas
 
 ```bash
-cargo test -p mini-pdv
+cargo test --manifest-path examples/mini-pdv/Cargo.toml
 ```
 
 ```bash
-RAVEN_PDV_TELAS=pasta cargo test -p mini-pdv --test telas -- --ignored
+RAVEN_PDV_TELAS=pasta cargo test --manifest-path examples/mini-pdv/Cargo.toml --test telas -- --ignored
 ```
 
 ```bash
-cargo run -p ravenrs-report-label --example preview -- etiqueta.png
+cargo run --manifest-path camadas/documentos/Cargo.toml -p ravenrs-report-label --example preview -- etiqueta.png
 ```
 
 Tudo no caixa funciona sem mouse. Ao mudar tela, olhe as imagens geradas, porque teste sem janela não vê layout quebrado. Desempenho do caixa segue a skill `ravenrs-desempenho`.

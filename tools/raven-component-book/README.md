@@ -9,7 +9,7 @@ The design system is written whole by RCB, from the code, and the design tool ta
 - a component changes through its stories (`ComponentBook`) or the component itself;
 - a color, a size, a corner, a font or a motion changes in `ravenrs-style`, where RCB reads every token.
 
-RCB keeps it honest: `scripts/rcb-coverage.py` refuses a component without `ComponentBook`, a test refuses `docs/design-system/tokens.json` when it disagrees with `ravenrs-style` or leaves a token without words, and `--verify` proves a published copy is exactly what RCB writes. The copy everyone reads is in git, in `docs/design-system/export/`: `scripts/gen-design-system.py` rewrites it, `scripts/check.sh` refuses it out of date when a change reaches RCB (`--check`), and the Claude Design project is published from it, not from an export made on the spot (#1000).
+RCB keeps it honest: `scripts/rcb-coverage.py` refuses a component without `ComponentBook`, a test refuses `docs/design-system/tokens.json` when it disagrees with `ravenrs-style` or leaves a token without words, and `--verify` proves a published copy is exactly what RCB writes. The copy everyone reads is in git, in `docs/design-system/export/`: `scripts/gen-design-system.py` rewrites it, `cargo xtask pr` refuses it out of date when a change reaches RCB (`--check`), and the Claude Design project is published from it, not from an export made on the spot (#1000).
 
 ## Why it exists
 
@@ -35,15 +35,15 @@ A design made "with the RavenRS components" is only buildable when the designer 
 ## Use it
 
 ```bash
-cargo run -p raven-component-book
+cargo run --manifest-path tools/raven-component-book/Cargo.toml
 ```
 
 ```bash
-cargo run -p raven-component-book -- --claude-design target/design-system --sha "$(git rev-parse --short HEAD)"
+cargo run --manifest-path tools/raven-component-book/Cargo.toml -- --claude-design target/design-system --sha "$(git rev-parse --short HEAD)"
 ```
 
 ```bash
-cargo run -p raven-component-book -- --json target/component-book
+cargo run --manifest-path tools/raven-component-book/Cargo.toml -- --json target/component-book
 ```
 
 The window lists the components by family, with a search; the story on screen is the real component, live; its settings change it at once (Controles), its measurements are below it (Medidas) and so is its code (Código). The status bar says how many components give their stories and how many are pending.
@@ -63,7 +63,7 @@ impl ComponentBook for Badge {
 }
 ```
 
-List it in the `stories()` of the crate's `book` module and take it out of `pendentes.json`. The book's tests check that a story only sets settings the component declares, and `scripts/rcb-coverage.py`, in `check.sh`, refuses a public component that neither implements `ComponentBook` nor is listed in `pendentes.json` with its issue (#754). It also refuses one whose stories leave out what the design tool needs (#768): a story for each option of a choice of up to 12 (an icon sample excepted, a story drawn its own way named after the setting, as "All sizes", counts for all), a story with each state it has (`disabled`, `read_only`, `loading`, `error`) on, and at least one story. What does not have them yet is listed with `"conteudo": true` and its issue; `--self-test` checks these rules on made-up sources.
+List it in the `stories()` of the crate's `book` module and take it out of `pendentes.json`. The book's tests check that a story only sets settings the component declares, and `scripts/rcb-coverage.py`, in `cargo xtask pr`, refuses a public component that neither implements `ComponentBook` nor is listed in `pendentes.json` with its issue (#754). It also refuses one whose stories leave out what the design tool needs (#768): a story for each option of a choice of up to 12 (an icon sample excepted, a story drawn its own way named after the setting, as "All sizes", counts for all), a story with each state it has (`disabled`, `read_only`, `loading`, `error`) on, and at least one story. What does not have them yet is listed with `"conteudo": true` and its issue; `--self-test` checks these rules on made-up sources.
 
 ## Limits
 

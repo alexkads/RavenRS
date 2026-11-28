@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-flow-bpmn"
+workspace = "../../camadas/automacao"
 description = "BPMN 2.0 for RavenRS diagram components: the notation as data, BPMN XML with its drawing in and out, the checks of a process, and plans a local model writes."
 version.workspace = true
 edition.workspace = true

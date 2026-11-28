@@ -228,6 +228,14 @@ impl AuditedObjectSpace {
         Ok(())
     }
 
+    /// An amendment changes its target in the same commit: what the target was is kept too.
+    fn remember_target(&mut self, object: &Object) -> Result<(), SpaceError> {
+        let Some(amendment) = self.entity(object.entity()).and_then(|entity| entity.amendment.clone()) else {
+            return Ok(());
+        };
+        self.remember(&amendment.target, &object.get(&amendment.reference))
+    }
+
     fn remember_object(&mut self, object: &Object) -> Result<(), SpaceError> {
         let key = self
             .entity(object.entity())
@@ -328,7 +336,11 @@ impl AuditedObjectSpace {
             }
             if let Some(object) = object {
                 let fresh = entity.new_object();
-                for field in entity.fields.iter().filter(|field| settings.covers(field, &name)) {
+                for field in entity
+                    .fields
+                    .iter()
+                    .filter(|field| !field.is_row_version && settings.covers(field, &name))
+                {
                     let new = object.get(&field.name);
                     match (change, old) {
                         (Change::New(_), _) => {
@@ -375,11 +387,13 @@ impl ObjectSpace for AuditedObjectSpace {
 
     fn save(&mut self, object: Object) -> Result<(), SpaceError> {
         self.remember_object(&object)?;
+        self.remember_target(&object)?;
         self.inner.save(object)
     }
 
     fn insert(&mut self, object: Object) -> Result<(), SpaceError> {
         self.remember_object(&object)?;
+        self.remember_target(&object)?;
         self.inner.insert(object)
     }
 

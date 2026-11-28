@@ -1325,7 +1325,7 @@ impl<C: ViewSeq> SidebarGroup<C> {
     }
 
     /// Adds a control at the end of the caption, usually a small [`IconButton`]
-    /// with a label, or a [`DropdownMenu`](crate::DropdownMenu). Hidden when
+    /// with a label, or a [`DropdownMenu`]. Hidden when
     /// reduced to icons.
     pub fn action(mut self, action: impl View + 'static) -> Self {
         self.actions.push(Box::new(action));
@@ -1566,7 +1566,7 @@ impl SidebarItem {
     }
 
     /// Adds a control at the end of the row, beside its button: usually a small
-    /// [`IconButton`] with a label, or a [`DropdownMenu`](crate::DropdownMenu).
+    /// [`IconButton`] with a label, or a [`DropdownMenu`].
     /// Hidden when reduced to icons.
     pub fn action(mut self, action: impl View + 'static) -> Self {
         self.actions.push(Box::new(action));

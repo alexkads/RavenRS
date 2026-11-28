@@ -1,0 +1,168 @@
+# As camadas do RavenRS (#1080): cada seção é um workspace Cargo, na ordem de baixo para cima.
+# Um pacote só depende de pacotes da própria camada ou das que vêm antes neste arquivo. Vale para
+# [dependencies], [build-dependencies] e [dev-dependencies]: quem testa um widget não pode precisar
+# compilar a vitrine.
+#
+# Todo pacote do repositório aparece em exatamente uma camada. O passo
+# `scripts/check-camadas.py` confere as duas coisas, e o `cargo xtask` o roda em toda checagem.
+#
+# `separada = true`: a camada já é um workspace Cargo fora do da raiz. Com `pasta`, um workspace
+# naquela pasta; com `um_workspace_por_pacote`, cada pacote é um workspace na pasta dele. O
+# `scripts/camadas.py deps --write` escreve neles a cópia do Cargo.toml da raiz (F1, #1084).
+#
+# As camadas da biblioteca (W1 a W13) têm o workspace em `camadas/<nome>/Cargo.toml` e os membros
+# continuam em `crates/`: cada um diz `workspace = "../../camadas/<nome>"` no `[package]`, e a raiz
+# lista só o que sobrou nela (F3, #1086). Os dois o `deps --write` escreve.
+#
+# `raiz = true`: a única camada sem `separada`, a do workspace da raiz (F4, #1087). Ela é publicada
+# depois das da biblioteca, na ordem deste arquivo: `scripts/camadas.py publicacao` lista os comandos.
+
+[nucleo]
+rotulo = "W1"
+separada = true
+pasta = "camadas/nucleo"
+pacotes = [
+    "ravenrs-core", "ravenrs-reactive", "ravenrs-style", "ravenrs-layout", "ravenrs-text",
+    "ravenrs-graphics", "ravenrs-animation", "ravenrs-lottie", "ravenrs-live", "ravenrs-live-derive",
+    "ravenrs-criteria", "ravenrs-app-i18n", "ravenrs-barcode", "ravenrs-process", "ravenrs-perifericos",
+]
+
+[fluxos]
+rotulo = "W2"
+# Os motores leves ficam logo acima do núcleo, porque só usam o núcleo (F5, #1096).
+separada = true
+pasta = "camadas/fluxos"
+pacotes = ["ravenrs-flows", "ravenrs-flows-runtime", "ravenrs-git"]
+
+[fiscal-motores]
+rotulo = "W3"
+separada = true
+pasta = "camadas/fiscal-motores"
+pacotes = ["ravenrs-dfe", "ravenrs-nfe", "ravenrs-nfse", "ravenrs-pagamento", "ravenrs-pos"]
+
+[rede]
+rotulo = "W4"
+separada = true
+pasta = "camadas/rede"
+pacotes = ["ravenrs-mail", "ravenrs-secrets", "ravenrs-metrics"]
+
+[widgets]
+rotulo = "W5"
+separada = true
+pasta = "camadas/widgets"
+pacotes = [
+    "ravenrs-widgets-base", "ravenrs-widgets-kit", "ravenrs-widgets-charts", "ravenrs-widgets-chat",
+    "ravenrs-widgets-dock", "ravenrs-widgets-grid", "ravenrs-widgets-imaging", "ravenrs-widgets-lists",
+    "ravenrs-widgets-scheduler", "ravenrs-widgets", "ravenrs-e2e", "ravenrs-e2e-wire", "ravenrs-schedule",
+    "ravenrs-project",
+]
+
+[plataforma]
+rotulo = "W6"
+separada = true
+pasta = "camadas/plataforma"
+pacotes = [
+    "ravenrs-render", "ravenrs-wayland-gestures", "ravenrs-platform-native", "ravenrs-platform-web",
+    "ravenrs-movie", "ravenrs",
+]
+
+[documentos]
+rotulo = "W7"
+separada = true
+pasta = "camadas/documentos"
+pacotes = [
+    "ravenrs-report", "ravenrs-report-export", "ravenrs-report-pdf", "ravenrs-report-xlsx",
+    "ravenrs-report-label", "ravenrs-pdf", "ravenrs-word", "ravenrs-deck", "ravenrs-sheet",
+    "ravenrs-grid-export",
+]
+
+[app]
+rotulo = "W8"
+separada = true
+pasta = "camadas/app"
+pacotes = [
+    "ravenrs-app", "ravenrs-app-spec", "ravenrs-app-derive", "ravenrs-app-sql", "ravenrs-app-sqlite",
+    "ravenrs-app-testkit", "ravenrs-app-requests",
+]
+
+[servicos]
+rotulo = "W9"
+separada = true
+pasta = "camadas/servicos"
+pacotes = [
+    "ravenrs-app-postgres", "ravenrs-app-postgrest", "ravenrs-app-server", "ravenrs-report-server",
+]
+
+[telas]
+rotulo = "W10"
+separada = true
+pasta = "camadas/telas"
+pacotes = [
+    "ravenrs-report-viewer", "ravenrs-report-designer", "ravenrs-spreadsheet", "ravenrs-app-ui",
+    "ravenrs-app-a11y", "ravenrs-app-library", "ravenrs-app-update", "ravenrs-app-remote",
+    "ravenrs-app-report",
+]
+
+[fiscal]
+rotulo = "W11"
+separada = true
+pasta = "camadas/fiscal"
+pacotes = [
+    "ravenrs-app-nfe", "ravenrs-app-pos",
+]
+
+[automacao]
+rotulo = "W12"
+separada = true
+pasta = "camadas/automacao"
+pacotes = ["ravenrs-flow-bpmn", "ravenrs-flow-export"]
+
+[ia-video]
+rotulo = "W13"
+# A IA local (candle) e o vídeo (openh264) só compilam quando são a tarefa (F5, #1096; #348).
+separada = true
+pasta = "camadas/ia-video"
+pacotes = ["ravenrs-ai", "ravenrs-movie-video"]
+
+[infra]
+rotulo = "W14"
+# A camada que fica no workspace da raiz: o `cargo xtask` mora nela e só roda daqui (F4, #1087).
+raiz = true
+pacotes = [
+    "ravenrs-xcache", "ravenrs-e2e-runner", "ravenrs-junit", "ravenrs-lint", "ravenrs-mcp", "cargo-ravenrs",
+    "ravenrs-agent-cli", "xtask",
+]
+
+[vitrine]
+rotulo = "W15"
+# Um workspace por pacote: o feature-center e o ComponentBook usam a galeria por caminho (F2, #1085).
+separada = true
+um_workspace_por_pacote = true
+pacotes = ["raven-feature-center", "component-gallery", "raven-component-book"]
+
+[raven-ci]
+rotulo = "W16"
+separada = true
+pasta = "tools/raven-ci"
+pacotes = [
+    "raven-ci", "raven-ci-agent", "raven-ci-core", "raven-ci-explicador", "raven-ci-painel",
+    "raven-ci-plugin-agent-local", "raven-ci-plugin-agent-remote", "raven-ci-plugin-api-trigger",
+    "raven-ci-plugin-api", "raven-ci-plugin-artifacts", "raven-ci-plugin-azure-devops",
+    "raven-ci-plugin-cargo", "raven-ci-plugin-credentials", "raven-ci-plugin-cron", "raven-ci-plugin-docker",
+    "raven-ci-plugin-email", "raven-ci-plugin-explain", "raven-ci-plugin-format-jenkinsfile",
+    "raven-ci-plugin-format-toml", "raven-ci-plugin-git", "raven-ci-plugin-github", "raven-ci-plugin-junit",
+    "raven-ci-plugin-kubernetes", "raven-ci-plugin-lock", "raven-ci-plugin-metrics", "raven-ci-plugin-shell",
+    "raven-ci-plugin-webhook-github", "raven-ci-plugin-webhook-out", "raven-ci-plugin-workspace",
+    "raven-ci-exemplo-rust",
+]
+
+[apps]
+rotulo = "A"
+separada = true
+um_workspace_por_pacote = true
+pacotes = [
+    "bpmn-editor", "calculator", "dock-workbench", "family-finance", "flow-chat-bot", "flow-design-board",
+    "flow-whiteboard", "grid-poc", "hello-world", "mini-pdv", "quick-app", "quick-plan",
+    "raven-channel-video", "raven-code", "raven-flows", "raven-movie-editor", "raven-report-designer",
+    "raven-test-studio", "site-home", "spreadsheet", "tasks-sqlite", "tutorial-tasks", "ravenrs-perf",
+]

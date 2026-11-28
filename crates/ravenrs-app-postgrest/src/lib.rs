@@ -524,6 +524,36 @@ impl PostgrestObjectSpace {
             .next())
     }
 
+    /// Writes a new amendment on its target before it waits, all or nothing.
+    fn amended(&mut self, info: &EntityInfo, object: Object) -> Result<Object, SpaceError> {
+        if info.amendment.is_none() {
+            return Ok(object);
+        }
+        let key = info.key_field().map(|field| object.get(&field.name));
+        let kept =
+            key.is_some_and(|key| self.entity(&info.name).is_ok_and(|entity| self.exists(entity, &key)));
+        if kept {
+            return Ok(object);
+        }
+        let pending = self.changes.list().iter().any(|change| {
+            matches!(change, Change::New(waiting) if waiting.entity() == info.name
+                && key_of(info, waiting) == key_of(info, &object))
+        });
+        let before = self.changes.clone();
+        let reader = PostgrestObjectSpace {
+            shared: self.shared.clone(),
+            environment: ravenrs_app::environment(),
+            changes: ChangeSet::default(),
+            watchers: Vec::new(),
+        };
+        let mut stored = |info: &EntityInfo, key: &Value| reader.by_key(reader.entity(&info.name)?, key);
+        let result = ravenrs_app::apply_amendment(self, info, object, &mut stored, !pending);
+        if result.is_err() {
+            self.changes = before;
+        }
+        result
+    }
+
     fn exists(&self, entity: &Entity, key: &Value) -> bool {
         self.by_key(entity, key).is_ok_and(|found| found.is_some())
     }
@@ -670,16 +700,18 @@ impl ObjectSpace for PostgrestObjectSpace {
     }
 
     fn save(&mut self, object: Object) -> Result<(), SpaceError> {
+        let info = self.entity(object.entity())?.info.clone();
+        let object = self.amended(&info, object)?;
         let entity = self.entity(object.entity())?;
-        let info = entity.info.clone();
         let key = info.key_field().map(|field| object.get(&field.name));
         let exists = key.is_some_and(|key| self.exists(entity, &key));
         self.changes.save(&info, object, exists)
     }
 
     fn insert(&mut self, object: Object) -> Result<(), SpaceError> {
+        let info = self.entity(object.entity())?.info.clone();
+        let object = self.amended(&info, object)?;
         let entity = self.entity(object.entity())?;
-        let info = entity.info.clone();
         let key = info.key_field().map(|field| object.get(&field.name));
         let exists = key.is_some_and(|key| self.exists(entity, &key));
         self.changes.insert(&info, object, exists)
@@ -701,6 +733,23 @@ impl ObjectSpace for PostgrestObjectSpace {
         let changes = self.changes.list().to_vec();
         self.tell(SpaceEvent::Committing(&changes))?;
         if !changes.is_empty() {
+            let entities: Vec<EntityInfo> =
+                self.shared.entities.iter().map(|entity| entity.info.clone()).collect();
+            if entities.iter().any(|entity| entity.seal.is_some() || entity.amendment.is_some()) {
+                let mut stored = |info: &EntityInfo, key: &Value| self.by_key(self.entity(&info.name)?, key);
+                ravenrs_app::check_amendments(&entities, &changes, &mut stored)?;
+            }
+            if entities.iter().any(|entity| entity.period_closing.is_some()) {
+                let mut stored = |info: &EntityInfo, key: &Value| self.by_key(self.entity(&info.name)?, key);
+                let reader = PostgrestObjectSpace {
+                    shared: self.shared.clone(),
+                    environment: ravenrs_app::environment(),
+                    changes: ChangeSet::default(),
+                    watchers: Vec::new(),
+                };
+                let mut listed = |info: &EntityInfo, query: &Query| reader.query(&info.name, query);
+                ravenrs_app::check_closing(&entities, &changes, &mut stored, &mut listed)?;
+            }
             let mut described = Vec::with_capacity(changes.len());
             for change in &changes {
                 if let Some(said) = self.described(change)? {

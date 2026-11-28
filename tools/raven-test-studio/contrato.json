@@ -183,6 +183,48 @@
    }
   },
   {
+   "crate": "ravenrs-app",
+   "tipo": "Amendment",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "DueDigest",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "ListIndicator",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "EnumOption",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "PeriodClosing",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "TemporaryAccessPolicy",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
    "crate": "ravenrs-app-a11y",
    "tipo": "Audit",
    "rts": {
@@ -199,6 +241,13 @@
   {
    "crate": "ravenrs-app-library",
    "tipo": "LibraryModule",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-library",
+   "tipo": "SettleInput",
    "rts": {
     "sem_tela": true
    }
@@ -254,6 +303,13 @@
   {
    "crate": "ravenrs-app-report",
    "tipo": "StoredReportsModule",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-report",
+   "tipo": "ClosingModule",
    "rts": {
     "sem_tela": true
    }
@@ -315,8 +371,15 @@
    }
   },
   {
-   "crate": "ravenrs-app-sqlite",
+   "crate": "ravenrs-app-sql",
    "tipo": "BackupStamp",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-sql",
+   "tipo": "TenantImport",
    "rts": {
     "sem_tela": true
    }

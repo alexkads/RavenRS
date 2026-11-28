@@ -1,11 +1,15 @@
 ---
 name: ravenrs-feature-center
-description: Regra obrigatória do RavenRS - todo componente criado ou alterado entra no tools/raven-feature-center (Raven Feature Center) com todos os seus recursos públicos, cada um com demonstração e passo no tour, no mesmo PR. Vale para widgets das famílias ravenrs-widgets-*, motores com tela e tipos do framework de aplicação ravenrs-app*. Diz onde pôr a página, como montar, o manifesto recursos.json e o script de cobertura que o check.sh roda. Use sempre que for criar um componente, acrescentar ou mudar um pub fn, um evento, uma variante ou um atalho de um componente, mexer no raven-feature-center, ou quando o check.sh acusar feature-center-coverage, mesmo que o pedido não cite o raven-feature-center.
+description: Regra obrigatória do RavenRS - todo componente criado ou alterado entra no tools/raven-feature-center (Raven Feature Center) com todos os seus recursos públicos, cada um com demonstração e passo no tour, no PR de lote da vitrine logo depois do PR da camada (#1085). Vale para widgets das famílias ravenrs-widgets-*, motores com tela e tipos do framework de aplicação ravenrs-app*. Diz onde pôr a página, como montar, o manifesto recursos.json e o script de cobertura que o cargo xtask pr roda. Use sempre que for criar um componente, acrescentar ou mudar um pub fn, um evento, uma variante ou um atalho de um componente, mexer no raven-feature-center, ou quando o cargo xtask pr acusar feature-center-coverage, mesmo que o pedido não cite o raven-feature-center.
 ---
 
 # Todo componente no Centro de Recursos
 
-Decisão do Alex em 15/11/2026 (#579, #580): **o `tools/raven-feature-center` é a vitrine única do RavenRS.** Um componente criado ou alterado entra nele com **todos** os recursos públicos, cada um com demonstração e passo em `tests/suite/tour.rs`, **no mesmo PR**. Sem isso, o PR não está pronto, e o `scripts/check.sh` falha.
+Decisão do Alex em 15/11/2026 (#579, #580): **o `tools/raven-feature-center` é a vitrine única do RavenRS.** Um componente criado ou alterado entra nele com **todos** os recursos públicos, cada um com demonstração e passo em `tests/suite/tour.rs`.
+
+**Desde a F2 da #1080 (#1085), em dois PRs.** A vitrine (feature-center, galeria e ComponentBook) é um workspace à parte, cada um na pasta dele, e não está no grafo da biblioteca. O componente entra no **PR da camada dele**, que compila só a camada e as de baixo. A página, a amostra na galeria, as histórias do RCB e o design system vêm no **PR de lote da vitrine**, logo depois; um lote pode levar as páginas de vários componentes. O `cargo xtask pr` roda `feature-center-coverage.py`, `rcb-coverage.py` e `gen-design-system.py --check` quando a mudança toca a vitrine, e o `cargo xtask release` sempre roda. Assim, componente sem página é recusado no lote, e o lote não sai sem fechar a conta. Para rodar o centro: `cargo run --manifest-path tools/raven-feature-center/Cargo.toml`.
+
+**Onde abrir o editor (F3 e F4 da #1080).** O componente vive na camada dele: um widget em `camadas/widgets`, um motor de documento em `camadas/documentos`, um tipo do framework de app em `camadas/app`, uma tela de relatório ou do app em `camadas/telas` (tabela completa no `ARCHITECTURE.md`). A página dele mora em `tools/raven-feature-center`, um workspace à parte, e só se abre no PR de lote. O guia "Onde entra um componente novo", no desenho das camadas no Claude Design, diz a camada e o checklist do PR.
 
 O centro mostra o que o framework faz, permite revisar as telas e prova que tudo ainda funciona. O `examples/component-gallery` sai até o fim da #579: o centro ganha parâmetros de abertura (`modo`, `pagina`, `incorporado`) para servir também ao site, ao Playground, ao perf e ao vídeo. Até lá, a amostra curta de um componente continua na galeria, e a demonstração completa fica no centro.
 
@@ -44,7 +48,7 @@ Os motores com tela (relatório, planilha, PDF, documento e apresentação) entr
 - **Demonstrado** (`pagina` e `recursos`): `recursos` é exatamente a lista dos `pub fn` do tipo. Cada um é chamado em `tools/raven-feature-center/src` (`.nome(` ou `::nome(`), e a página, com o nome que tem na navegação, aparece entre aspas em `tests/suite/tour.rs`.
 - **Pendente** (`pendente`, `issue` e `conhecidos`): o componente ainda espera o lote dele. `conhecidos` são os `pub fn` que ele tinha quando entrou na espera.
 
-O script roda sempre no `check.sh`, entre as conferências baratas, e leva cerca de 3 s:
+O script roda sempre no `cargo xtask pr`, entre as conferências baratas, e leva cerca de 3 s:
 
 ```bash
 ./scripts/feature-center-coverage.py            # confere
@@ -70,7 +74,7 @@ O script confere os recursos pelo nome, não pelo tipo: um `.theme(` de outro ti
 
 ## Testabilidade (RTS)
 
-Além da página, todo tipo do `recursos.json` tem uma entrada em `tools/raven-test-studio/contrato.json`, conferida pelo `scripts/rts-coverage.py` no `check.sh` (#734, #736). A entrada fica separada do `recursos.json`, como o `pendentes.json` do RCB, para os dois mudarem em paralelo. Ela é de um destes três tipos:
+Além da página, todo tipo do `recursos.json` tem uma entrada em `tools/raven-test-studio/contrato.json`, conferida pelo `scripts/rts-coverage.py` no `cargo xtask pr` (#734, #736). A entrada fica separada do `recursos.json`, como o `pendentes.json` do RCB, para os dois mudarem em paralelo. Ela é de um destes três tipos:
 
 - **completa**: `ids` (cada um `parte:<chave>`), `acoes` (as que o componente declara com `BuildCx::on_access`), e, quando houver, `busy`, `driver` (do módulo `testing` do crate) e `cenario` (um `.raventest` em `tests/e2e`);
 - `{"sem_tela": true}` para tipo sem nada na tela;
@@ -117,17 +121,17 @@ Cada família tem um grupo na navegação e uma pasta. Um componente por página
 
 - **Não embrulhar nem estender o componente no exemplo para a demonstração ficar bonita.** O que faltar vira recurso do próprio componente, no crate dele (memória `recursos-dentro-do-componente`, regra "a casa segue o padrão").
 - **Não inventar visual.** Ajuste de UX feito no centro vira padrão da biblioteca (`ravenrs-widgets`, `ravenrs-app-ui`, `docs/design-system/README.md`). Redesenho passa antes pelo Claude Design.
-- **Não deixar o recurso para outro PR.** O componente muda e é demonstrado no mesmo PR.
+- **Não deixar o recurso para depois do lote.** O componente muda no PR da camada e é demonstrado no PR de lote da vitrine que vem logo em seguida; o lote não fecha com recurso sem página.
 
 ## Como verificar
 
 ```bash
 ./scripts/feature-center-coverage.py
-cargo nextest run -p raven-feature-center
-cargo run -p raven-feature-center
-./scripts/build-web.sh raven-feature-center && python3 -m http.server -d tools/raven-feature-center/web 8099
+cargo nextest run --manifest-path tools/raven-feature-center/Cargo.toml
+cargo run --manifest-path tools/raven-feature-center/Cargo.toml
+cargo xtask web raven-feature-center && python3 -m http.server -d tools/raven-feature-center/web 8099
 ```
 
 - **Desktop:** entrar com `ana`, `bia` e `caio` (senha `raven-demo`) e capturar a página nova.
 - **Web:** percorrer com Playwright em desktop e em 375 px.
-- **No PR:** registrar no "How it was tested" a saída do script ("N components: X shown, Y waiting") e o `check.sh`.
+- **No PR:** registrar no "How it was tested" a saída do script ("N components: X shown, Y waiting") e o `cargo xtask pr`.

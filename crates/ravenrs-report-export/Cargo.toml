@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-report-export"
+workspace = "../../camadas/documentos"
 description = "One way to turn a RavenRS report document into a file: PDF, XLSX or CSV, with its name and media type."
 version.workspace = true
 edition.workspace = true

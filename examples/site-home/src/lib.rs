@@ -1,7 +1,7 @@
 //! The RavenRS home page, built only from RavenRS components and drawn by RavenRS.
 //!
 //! On the web it starts from `web_entry` with WebGL2, so it opens in every browser
-//! and phone; `cargo run -p site-home` shows the same page in a window.
+//! and phone; `cargo run --manifest-path examples/site-home/Cargo.toml` shows the same page in a window.
 
 /// The scenarios of Raven Test Studio the app brings, one per file of `tests/e2e/`: the tool
 /// gets them when it opens the app with `--e2e-serve`, and the tests play them.
@@ -328,7 +328,7 @@ const CODE: [&str; 6] = [
     "// Flex and grid, solved once per change.\nHStack::new((sidebar, content.grow(1.0), inspector))\n    .spacing(16.0)\n    .padding(32.0)",
     "// Parley shapes and wraps; swash rasterizes into a GPU atlas.\nText::new(\"RavenRS\").style(TextStyle::Title)",
     "// Corners, borders, gradients and soft shadows.\nCard::new(body)\n    .corner_radius(24.0)\n    .shadow(Shadow::soft())",
-    "// Only the window and input glue differ.\nfn main() {\n    ravenrs::run(\"Counter\", app);   // desktop\n}\n// scripts/build-web.sh counter  → browser",
+    "// Only the window and input glue differ.\nfn main() {\n    ravenrs::run(\"Counter\", app);   // desktop\n}\n// cargo xtask web counter  → browser",
 ];
 
 /// The share of the scene each step holds, with a short cross-fade into the next.

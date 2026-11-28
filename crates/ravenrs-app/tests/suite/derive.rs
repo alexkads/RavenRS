@@ -133,7 +133,11 @@ fn wrong_attributes_point_at_what_is_wrong() {
 }
 
 #[derive(BusinessObject, Clone, Debug, PartialEq)]
-#[object(caption = "Chamadas", empty_text = "Nenhuma chamada ainda: abra uma aula para começar.")]
+#[object(
+    caption = "Chamadas",
+    empty_text = "Nenhuma chamada ainda: abra uma aula para começar.",
+    empty_hint = "Cadastre a primeira chamada pelo botão Novo."
+)]
 struct Attendance {
     #[field(key)]
     id: i64,
@@ -150,4 +154,30 @@ fn what_an_empty_list_says_comes_from_the_struct_and_reaches_the_model() {
     let view = model.at(&["Views", "Attendance_ListView"]).expect("the list view");
     assert_eq!(view.text("EmptyText"), Some("Nenhuma chamada ainda: abra uma aula para começar."));
     assert_eq!(Account::entity_info().empty_text, None);
+    // What an empty list tells whoever can add records, as the method says.
+    assert_eq!(
+        Attendance::entity_info().empty_hint.as_deref(),
+        Some("Cadastre a primeira chamada pelo botão Novo.")
+    );
+    assert_eq!(Account::entity_info().empty_hint, None);
+}
+
+#[derive(BusinessObject, Clone, Debug, PartialEq)]
+struct Person {
+    #[field(key)]
+    id: i64,
+    #[field(default_property, list_detail = "phone")]
+    name: String,
+    phone: String,
+    #[field(badge)]
+    rank: String,
+}
+
+#[test]
+fn a_badge_and_the_field_under_another_come_from_the_struct() {
+    let entity = Person::entity_info();
+    assert!(entity.field_named("rank").is_some_and(|field| field.badge));
+    assert_eq!(entity.field_named("name").and_then(|field| field.list_detail.as_deref()), Some("phone"));
+    assert!(entity.field_named("phone").is_some_and(|field| !field.badge && field.list_detail.is_none()));
+    assert!(entity.check().is_ok());
 }

@@ -416,7 +416,10 @@ impl Frame {
                             .all(|record| permissions.can(operation, &entity.name, Some(record))),
                         _ => true,
                     };
-                    (permissions.can_use_action(action.id()), can)
+                    let other = action
+                        .required_on()
+                        .is_none_or(|(entity, operation)| permissions.can(operation, entity, None));
+                    (permissions.can_use_action(action.id()) && other, can)
                 });
                 action.set_active(crate::REASON_SECURITY, exists);
                 action.set_enabled(crate::REASON_SECURITY, can);

@@ -78,6 +78,10 @@ fn render(args: &Args) -> AnyView {
     if !args.bool("theme_menu") {
         shell = shell.without_theme_menu();
     }
+    let section = args.text("section");
+    if !section.is_empty() {
+        shell = shell.sections(std::iter::once(("Cadastros".to_owned(), section)).collect());
+    }
     Box::new(Localized::new(Labels::pt_br(), shell))
 }
 
@@ -88,9 +92,13 @@ impl ComponentBook for AppShell {
             .arg(ArgType::text("name", "Raven Contas").description("The application's name, at the top of the navigation."))
             .arg(ArgType::text("subtitle", "").description("A line under the name; empty, none."))
             .arg(ArgType::bool("theme_menu", true).description("The theme menu at the foot of the navigation."))
+            .arg(ArgType::text("section", "").description(
+                "The section that gathers the group Cadastros, which then is one item with its lists in a submenu; empty, none.",
+            ))
             .story("Lists", Args::new())
             .story("With subtitle", Args::new().with("subtitle", "Finanças da família"))
             .story("No theme menu", Args::new().with("theme_menu", false))
+            .story("In sections", Args::new().with("section", "Finanças"))
     }
 }
 

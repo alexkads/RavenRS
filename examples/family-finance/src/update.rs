@@ -119,7 +119,7 @@ mod tests {
             r#"$Casa = if ($env:FF_CASA) { $env:FF_CASA } else { "$env:USERPROFILE\.raven-financas" }"#,
             r#"$Destino = if ($env:FF_DESTINO) { $env:FF_DESTINO } else { "$env:LOCALAPPDATA\Programs\RavenFinancas" }"#,
             r#"if not "%FF_SEM_PAUSA%"=="1" pause"#,
-            "FAMILY_FINANCE_INSTALLED=1 cargo build --release -p family-finance",
+            "FAMILY_FINANCE_INSTALLED=1 cargo build --release --manifest-path examples/family-finance/Cargo.toml -p family-finance",
             "<key>CFBundleIdentifier</key><string>dev.ravenrs.family-finance</string>",
         ] {
             assert!(installer.contains(kept), "{kept}");

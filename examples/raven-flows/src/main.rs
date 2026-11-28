@@ -1,4 +1,4 @@
-//! `cargo run -p raven-flows`
+//! `cargo run --manifest-path examples/raven-flows/Cargo.toml`
 fn main() -> Result<(), ravenrs::native::PlatformError> {
     // The installer proves a new binary opens with this, before any window or folder.
     if std::env::args().nth(1).as_deref() == Some("--versao") {

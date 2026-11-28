@@ -3,7 +3,7 @@
 //! | Feature | Module | What |
 //! |---|---|---|
 //! | `vp9-decode` | [`decode`] | Decoder: profiles 0-3, all coding tools |
-//! | `vp9-encode` | this module | Encoder: profile 0, 8-bit 4:2:0 ([`Vp9Encoder`]) |
+//! | `vp9-encode` | this module | Encoder: profile 0, 8-bit 4:2:0 (`Vp9Encoder`) |
 //!
 //! Feature `vp9` turns on both.
 

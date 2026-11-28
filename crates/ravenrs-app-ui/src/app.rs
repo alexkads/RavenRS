@@ -70,6 +70,7 @@ pub struct App {
     attachment_store: Option<Rc<dyn AttachmentStore>>,
     model_store: Option<Rc<dyn ModelStore>>,
     steps: Vec<SessionStep>,
+    due_notice: bool,
     administrator: Option<String>,
     security: Option<(Rc<ravenrs_app::SecurityContext>, ravenrs_app::SpaceMaker)>,
     theme: Option<ravenrs_style::Theme>,
@@ -78,6 +79,8 @@ pub struct App {
     brand_subtitle: Option<String>,
     counts: std::collections::HashMap<String, crate::navigation::CountOf>,
     counter: bool,
+    menu: (bool, bool, bool, bool),
+    sections: std::collections::HashMap<String, String>,
     actions: Vec<ActionMaker>,
 }
 
@@ -131,6 +134,7 @@ impl App {
             attachment_store: None,
             model_store: None,
             steps: Vec::new(),
+            due_notice: true,
             administrator: None,
             security: None,
             theme: None,
@@ -139,6 +143,8 @@ impl App {
             brand_subtitle: None,
             counts: std::collections::HashMap::new(),
             counter: false,
+            menu: (false, false, false, false),
+            sections: std::collections::HashMap::new(),
             actions: Vec::new(),
         }
     }
@@ -376,6 +382,14 @@ impl App {
         }
     }
 
+    /// Whether the session opens with a message per entity with a `DueDigest`, what is overdue
+    /// and what falls due as each person chose; on unless turned off, for an application that
+    /// shows the summary elsewhere with [`show_due_digests`](crate::show_due_digests).
+    pub fn due_digest_notice(mut self, on: bool) -> Self {
+        self.due_notice = on;
+        self
+    }
+
     /// Runs this with its session, once it is put together, for what needs a session from outside.
     pub fn with_session(mut self, then: impl FnOnce(&crate::Session) + 'static) -> Self {
         self.steps.push(Box::new(then));
@@ -417,6 +431,42 @@ impl App {
     /// of the three of RavenRS; see [`AppShell::themes`](crate::AppShell::themes).
     pub fn themes(mut self, themes: impl IntoIterator<Item = ravenrs_style::Theme>) -> Self {
         self.themes = themes.into_iter().collect();
+        self
+    }
+
+    /// Draws the navigation tighter, each item in one short row, as [`AppShell::compact_navigation`](crate::AppShell::compact_navigation).
+    pub fn compact_navigation(mut self, on: bool) -> Self {
+        self.menu.0 = on;
+        self
+    }
+
+    /// Puts first in the navigation an item that opens the commands (⌘K), as
+    /// [`AppShell::navigation_search`](crate::AppShell::navigation_search).
+    pub fn navigation_search(mut self, on: bool) -> Self {
+        self.menu.1 = on;
+        self
+    }
+
+    /// Puts at the foot of the navigation an item, and ⌘B, that folds it to its icons, as
+    /// [`AppShell::navigation_collapse`](crate::AppShell::navigation_collapse).
+    pub fn navigation_collapse(mut self, on: bool) -> Self {
+        self.menu.2 = on;
+        self
+    }
+
+    /// Shows the application inside another's window, as a page of it, as
+    /// [`AppShell::inside_another`](crate::AppShell::inside_another): ⌘K and ⌘B stay the outer one's.
+    pub fn inside_another(mut self, on: bool) -> Self {
+        self.menu.3 = on;
+        self
+    }
+
+    /// Gathers the navigation group `group` under the title `section`. The group then shows as one
+    /// item, with its own items in a submenu that is open while the screen is one of them, and
+    /// groups that follow each other in the same section share the title, as "Cadastros" over
+    /// "Pessoas" and "Turmas". A group in no section keeps its own title.
+    pub fn navigation_section(mut self, group: impl Into<String>, section: impl Into<String>) -> Self {
+        self.sections.insert(group.into(), section.into());
         self
     }
 
@@ -496,7 +546,13 @@ impl App {
                 shell = shell.brand_subtitle(subtitle);
             }
         }
-        shell = shell.counts(Rc::new(self.counts));
+        shell = shell.counts(Rc::new(self.counts)).sections(self.sections);
+        let (compact, search, collapse, inside) = self.menu;
+        shell = shell
+            .compact_navigation(compact)
+            .navigation_search(search)
+            .navigation_collapse(collapse)
+            .inside_another(inside);
         if self.counter {
             shell = shell.template(crate::CounterTemplate);
         }
@@ -511,6 +567,9 @@ impl App {
         }
         for step in self.steps {
             step(&session);
+        }
+        if self.due_notice {
+            crate::due::show_due_digests(&session);
         }
         if let Some(store) = self.model_store {
             session.use_model_store(store).map_err(ModelError)?;

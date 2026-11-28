@@ -51,7 +51,7 @@ pub enum KeyRace {
     /// They get different keys: the storage hands them out.
     Distinct,
     /// Both take the same next key, and the second commit fails as a whole, with nothing written:
-    /// one program at a time should create records there (#241).
+    /// one program at a time should create records there.
     SecondCommitFails,
 }
 
@@ -61,18 +61,19 @@ pub enum KeyRace {
 pub struct Capabilities {
     /// Two programs creating records at once.
     pub keys: KeyRace,
-    /// A change to a record another program changed since it was read is refused as a
-    /// [`SpaceError::Conflict`]; without it, the last commit wins.
+    /// On an entity with a [row version](ravenrs_app::FieldInfo::row_version), a change to a
+    /// record another program kept since it was read is refused as a [`SpaceError::Outdated`];
+    /// without it, the last commit wins.
     pub lost_updates_detected: bool,
 }
 
 impl Capabilities {
     /// `MemoryDatabase`: one program, so its spaces share the numbering.
-    pub const MEMORY: Self = Self { keys: KeyRace::Distinct, lost_updates_detected: false };
+    pub const MEMORY: Self = Self { keys: KeyRace::Distinct, lost_updates_detected: true };
     /// `ravenrs-app-sqlite`.
-    pub const SQLITE: Self = Self { keys: KeyRace::SecondCommitFails, lost_updates_detected: false };
+    pub const SQLITE: Self = Self { keys: KeyRace::SecondCommitFails, lost_updates_detected: true };
     /// `ravenrs-app-postgres`.
-    pub const POSTGRES: Self = Self { keys: KeyRace::SecondCommitFails, lost_updates_detected: false };
+    pub const POSTGRES: Self = Self { keys: KeyRace::SecondCommitFails, lost_updates_detected: true };
     /// `ravenrs-app-postgrest`.
     pub const POSTGREST: Self = Self { keys: KeyRace::SecondCommitFails, lost_updates_detected: false };
 
@@ -140,7 +141,7 @@ enum Outcome {
 }
 
 /// Every case, by name.
-const CASES: [(&str, Case); 15] = [
+const CASES: [(&str, Case); 17] = [
     ("types", types),
     ("filters_and_order", filters_and_order),
     ("pages_only_and_calculated", pages_only_and_calculated),
@@ -148,6 +149,8 @@ const CASES: [(&str, Case); 15] = [
     ("all_or_nothing", all_or_nothing),
     ("gone_record_conflicts", gone_record_conflicts),
     ("state_machine", state_machine),
+    ("sealed_and_amendment", sealed_and_amendment),
+    ("period_closing", period_closing),
     ("rules_and_watchers", rules_and_watchers),
     ("audit_in_the_same_commit", audit_in_the_same_commit),
     ("permission_denied", permission_denied),
@@ -269,6 +272,11 @@ fn plain() -> EntityInfo {
         .field(FieldInfo::new("rate", FieldKind::Decimal(2)))
         .field(FieldInfo::new("active", FieldKind::Boolean))
         .field(FieldInfo::new("twice", FieldKind::Integer).calculated("[seats] * 2"))
+}
+
+/// A plain record with a version, so that keeping over another program's is refused.
+fn versioned() -> EntityInfo {
+    plain().field(FieldInfo::new("version", FieldKind::Integer).row_version())
 }
 
 fn three_plain(space: &mut dyn ObjectSpace) -> Result<(), String> {
@@ -517,6 +525,194 @@ fn state_machine(adapter: &dyn Adapter) -> Result<Outcome, String> {
     Ok(Outcome::Passed)
 }
 
+/// A sealed record is refused when changed directly, and an amendment with its reason changes it in
+/// the same commit and is kept as written (#856).
+fn sealed_and_amendment(adapter: &dyn Adapter) -> Result<Outcome, String> {
+    use ravenrs_app::{Amendment, Seal};
+    let lesson = EntityInfo::new("Lesson")
+        .field(FieldInfo::new("id", FieldKind::Integer).key())
+        .field(FieldInfo::new("status", FieldKind::Text))
+        .field(FieldInfo::new("present", FieldKind::Integer))
+        .sealed(Seal::when("[status] = 'closed'"));
+    let correction = EntityInfo::new("LessonCorrection")
+        .field(FieldInfo::new("id", FieldKind::Integer).key())
+        .field(FieldInfo::new("lesson_id", FieldKind::Reference("Lesson".into())))
+        .field(FieldInfo::new("present", FieldKind::Integer))
+        .field(FieldInfo::new("reason", FieldKind::LongText))
+        .field(FieldInfo::new("previous", FieldKind::LongText))
+        .amends(
+            Amendment::correction("Lesson", "lesson_id")
+                .copies(["present"])
+                .reason("reason", 10)
+                .before("previous"),
+        );
+    let store = store(adapter, "sealed", &[lesson, correction])?;
+    let mut space = (store.space)();
+    let key = add(&mut *space, "Lesson", &[("status", "closed".into()), ("present", Value::Number(3.0))])?;
+    space.commit().map_err(wrong)?;
+
+    let mut space = (store.space)();
+    let mut found = space.find("Lesson", &key).map_err(wrong)?.ok_or("the lesson")?;
+    found.set("present", 9.0);
+    let refused = space.save(found).and_then(|()| space.commit());
+    ensure!(refused.is_err(), "a closed record was changed directly");
+
+    let correct = |reason: &str| -> Result<(), String> {
+        let mut space = (store.space)();
+        let mut object = space.new_object("LessonCorrection").map_err(wrong)?;
+        object.set("lesson_id", key.clone());
+        object.set("present", 5.0);
+        object.set("reason", reason);
+        space.insert(object).map_err(wrong)?;
+        space.commit().map_err(wrong)
+    };
+    ensure!(correct("curta").is_err(), "a correction with a short reason went through");
+    correct("lista de presença errada").map_err(|e| format!("a justified correction was refused: {e}"))?;
+    let kept = (store.again)().find("Lesson", &key).map_err(wrong)?.ok_or("the lesson")?;
+    same!(kept.integer("present"), Some(5));
+    let mut written = (store.space)()
+        .query("LessonCorrection", &Query::all())
+        .map_err(wrong)?
+        .pop()
+        .ok_or("the correction")?;
+    ensure!(written.text("previous").contains("\"present\":3"), "what was before is not kept");
+
+    let mut space = (store.space)();
+    written.set("reason", "outro motivo qualquer");
+    let refused = space.save(written).and_then(|()| space.commit());
+    ensure!(refused.is_err(), "a kept correction was changed");
+    Ok(Outcome::Passed)
+}
+
+/// An approved period freezes its records until it is reopened with a reason; versions come in
+/// sequence and, once kept, change only to reopened (#855).
+fn period_closing(adapter: &dyn Adapter) -> Result<Outcome, String> {
+    use ravenrs_app::{MemoryAttachmentStore, PeriodClosing, approve, closing_key, reopen};
+    let closing = PeriodClosing::new("TermClosing")
+        .freezes("Lesson", "[term_id]")
+        .freezes("Presence", "[lesson_id.term_id]")
+        .requires_none("Lesson", "[status] = 'draft'")
+        .reopen_reason(10);
+    let term = EntityInfo::new("Term")
+        .field(FieldInfo::new("id", FieldKind::Integer).key())
+        .field(FieldInfo::new("name", FieldKind::Text))
+        .period_closing(closing.clone());
+    let lesson = EntityInfo::new("Lesson")
+        .field(FieldInfo::new("id", FieldKind::Integer).key())
+        .field(FieldInfo::new("term_id", FieldKind::Reference("Term".into())))
+        .field(FieldInfo::new("status", FieldKind::Text));
+    let presence = EntityInfo::new("Presence")
+        .field(FieldInfo::new("id", FieldKind::Integer).key())
+        .field(FieldInfo::new("lesson_id", FieldKind::Reference("Lesson".into())))
+        .field(FieldInfo::new("name", FieldKind::Text));
+    let versions = closing.versions_entity(&term);
+    let store = store(adapter, "closing", &[term, lesson, presence, versions])?;
+    let files = MemoryAttachmentStore::default();
+    let mut space = (store.space)();
+    let term_key = add(&mut *space, "Term", &[("name", "1º semestre".into())])?;
+    let lesson_key =
+        add(&mut *space, "Lesson", &[("term_id", term_key.clone()), ("status", "draft".into())])?;
+    add(&mut *space, "Presence", &[("lesson_id", lesson_key.clone()), ("name", "Ana".into())])?;
+    space.commit().map_err(wrong)?;
+
+    let mut space = (store.space)();
+    ensure!(
+        approve(&mut *space, &files, "Term", &term_key, b"pdf", "ana").is_err(),
+        "a term with a draft lesson was approved"
+    );
+    same!(count(&*(store.space)(), "TermClosing")?, 0, "a refused approval left a version");
+    let mut space = (store.space)();
+    let mut found = space.find("Lesson", &lesson_key).map_err(wrong)?.ok_or("the lesson")?;
+    found.set("status", "done");
+    space.save(found).map_err(wrong)?;
+    space.commit().map_err(wrong)?;
+
+    // The commit asks what the closing requires none of too, not only `approve`: a version written
+    // with a draft lesson of the term waiting, or one written straight past `approve`, is refused.
+    let direct = |space: &mut dyn ObjectSpace| -> Result<(), String> {
+        let mut version = space.new_object("TermClosing").map_err(wrong)?;
+        version.set("id", Value::Text(closing_key(&term_key, 1).ok_or("the key")?));
+        version.set("period", term_key.clone());
+        version.set("version", 1.0);
+        version.set("digest", "b".repeat(64));
+        version.set("document", "1");
+        version.set("status", "current");
+        space.insert(version).map_err(wrong)
+    };
+    let mut space = (store.space)();
+    add(&mut *space, "Lesson", &[("term_id", term_key.clone()), ("status", "draft".into())])?;
+    direct(&mut *space)?;
+    ensure!(space.commit().is_err(), "a version was kept with a draft lesson waiting in the same commit");
+    space.rollback();
+    same!(count(&*(store.space)(), "TermClosing")?, 0, "a refused commit left a version");
+    let mut space = (store.space)();
+    let late = add(&mut *space, "Lesson", &[("term_id", term_key.clone()), ("status", "draft".into())])?;
+    space.commit().map_err(wrong)?;
+    let mut space = (store.space)();
+    direct(&mut *space)?;
+    ensure!(space.commit().is_err(), "a version written past approve was kept with a draft lesson stored");
+    space.rollback();
+    let mut space = (store.space)();
+    space.delete("Lesson", &late).map_err(wrong)?;
+    space.commit().map_err(wrong)?;
+
+    let mut space = (store.space)();
+    let first = approve(&mut *space, &files, "Term", &term_key, b"pdf da 1", "ana")
+        .map_err(|e| format!("approving a term with nothing open: {e}"))?;
+    same!(first.integer("version"), Some(1));
+    same!(first.text("digest").len(), 64, "the hash");
+
+    let child = |name: &str| -> Result<(), String> {
+        let mut space = (store.space)();
+        add(&mut *space, "Presence", &[("lesson_id", lesson_key.clone()), ("name", name.into())])?;
+        space.commit().map_err(wrong)
+    };
+    ensure!(child("Bia").is_err(), "a record was added through a reference to an approved term");
+    let mut space = (store.space)();
+    let mut found = space.find("Lesson", &lesson_key).map_err(wrong)?.ok_or("the lesson")?;
+    found.set("status", "draft");
+    let refused = space.save(found).and_then(|()| space.commit());
+    ensure!(refused.is_err(), "a record of an approved term was changed");
+    let mut space = (store.space)();
+    let refused = space.delete("Lesson", &lesson_key).and_then(|()| space.commit());
+    ensure!(refused.is_err(), "a record of an approved term was deleted");
+
+    let first_key = Value::Text(closing_key(&term_key, 1).ok_or("the key")?);
+    let mut space = (store.space)();
+    let mut kept = space.find("TermClosing", &first_key).map_err(wrong)?.ok_or("the version")?;
+    kept.set("digest", "0".repeat(64));
+    let refused = space.save(kept).and_then(|()| space.commit());
+    ensure!(refused.is_err(), "the hash of an approval was changed");
+    let mut space = (store.space)();
+    let refused = space.delete("TermClosing", &first_key).and_then(|()| space.commit());
+    ensure!(refused.is_err(), "an approval was deleted");
+
+    let mut space = (store.space)();
+    ensure!(reopen(&mut *space, "Term", &term_key, "curto").is_err(), "a short reason reopened it");
+    let mut space = (store.space)();
+    reopen(&mut *space, "Term", &term_key, "faltou uma presença")
+        .map_err(|e| format!("a justified reopening was refused: {e}"))?;
+    child("Bia").map_err(|e| format!("a reopened term still froze its records: {e}"))?;
+
+    let mut space = (store.space)();
+    let mut ahead = space.new_object("TermClosing").map_err(wrong)?;
+    ahead.set("id", Value::Text(closing_key(&term_key, 4).ok_or("the key")?));
+    ahead.set("period", term_key.clone());
+    ahead.set("version", 4.0);
+    ahead.set("digest", "a".repeat(64));
+    ahead.set("document", "1");
+    ahead.set("status", "current");
+    let refused = space.insert(ahead).and_then(|()| space.commit());
+    ensure!(refused.is_err(), "a version out of sequence was kept");
+
+    let mut space = (store.space)();
+    let second = approve(&mut *space, &files, "Term", &term_key, b"pdf da 2", "ana")
+        .map_err(|e| format!("approving again: {e}"))?;
+    same!(second.integer("version"), Some(2));
+    ensure!(child("Caio").is_err(), "the second approval did not freeze the term");
+    Ok(Outcome::Passed)
+}
+
 /// Rules do not run by themselves: forms, the web API and actions call `validate` before keeping,
 /// and a watcher on the commit can refuse it. What the adapter owes them is reading other records
 /// for a rule such as `unique`, and keeping nothing when a watcher refuses.
@@ -641,36 +837,54 @@ fn keys_from_two_programs(adapter: &dyn Adapter) -> Result<Outcome, String> {
                 ["Alfa", "Beta", "Gama", "Um"],
                 "nothing of the second commit stayed, and the first is whole"
             );
-            Ok(Outcome::Limited(
-                "two programs creating records at once: the second commit fails, whole (#241)",
-            ))
+            Ok(Outcome::Limited("two programs creating records at once: the second commit fails, whole"))
         }
     }
 }
 
 fn update_from_two_programs(adapter: &dyn Adapter) -> Result<Outcome, String> {
-    let store = store(adapter, "updates", &[plain()])?;
+    let store = store(adapter, "updates", &[versioned()])?;
     three_plain(&mut *(store.space)())?;
     let mut one = (store.space)();
     let mut two = (store.again)();
     let mut mine = one.query("Plain", &filtered("[name] = 'Beta'")).map_err(wrong)?.remove(0);
     let mut theirs = two.query("Plain", &filtered("[name] = 'Beta'")).map_err(wrong)?.remove(0);
+    let mut other = two.query("Plain", &filtered("[name] = 'Gama'")).map_err(wrong)?.remove(0);
     let key = mine.get("id");
     theirs.set("seats", Value::Number(20.0));
     two.save(theirs).map_err(wrong)?;
     two.commit().map_err(wrong)?;
+    // Another record, read before and kept after, is not in the way of anyone.
+    other.set("seats", Value::Number(30.0));
+    one.save(other).map_err(wrong)?;
+    one.commit().map_err(|e| format!("a different record conflicted: {e}"))?;
     mine.set("seats", Value::Number(10.0));
     one.save(mine).map_err(wrong)?;
+    add(&mut *one, "Plain", &[("name", "Delta".into())])?;
     let committed = one.commit();
-    let kept = (store.space)().find("Plain", &key).map_err(wrong)?.ok_or("Beta")?.get("seats");
+    let reader = (store.space)();
+    let kept = reader.find("Plain", &key).map_err(wrong)?.ok_or("Beta")?;
+    let deltas = names(&*reader, "Plain", &filtered("[name] = 'Delta'"))?.len();
     if adapter.capabilities().lost_updates_detected {
-        ensure!(matches!(committed, Err(SpaceError::Conflict(_))), "a lost update gave {committed:?}");
-        same!(kept, Value::Number(20.0));
+        let expected = SpaceError::Outdated {
+            entity: "Plain".into(),
+            key: ravenrs_app::key_text(&key).unwrap_or_default(),
+            read: 1,
+            stored: Some(2),
+        };
+        same!(committed, Err(expected), "a lost update");
+        same!(kept.get("seats"), Value::Number(20.0));
+        same!(kept.get("version"), Value::Number(2.0), "one more for each keeping");
+        same!(deltas, 0, "nothing of the refused commit");
+        let gama = reader.query("Plain", &filtered("[name] = 'Gama'")).map_err(wrong)?.remove(0);
+        same!(gama.get("version"), Value::Number(2.0));
+        let alfa = reader.query("Plain", &filtered("[name] = 'Alfa'")).map_err(wrong)?.remove(0);
+        same!(alfa.get("version"), Value::Number(1.0), "a new record starts at one");
         return Ok(Outcome::Passed);
     }
     committed.map_err(wrong)?;
-    same!(kept, Value::Number(10.0), "the last commit wins");
-    Ok(Outcome::Limited("an update over another program's: the last commit wins (#241)"))
+    same!(kept.get("seats"), Value::Number(10.0), "the last commit wins");
+    Ok(Outcome::Limited("an update over another program's: the last commit wins (#1073)"))
 }
 
 fn delete_what_another_changed(adapter: &dyn Adapter) -> Result<Outcome, String> {
@@ -686,17 +900,10 @@ fn delete_what_another_changed(adapter: &dyn Adapter) -> Result<Outcome, String>
     one.delete("Plain", &key).map_err(wrong)?;
     let committed = one.commit();
     let kept = (store.space)().find("Plain", &key).map_err(wrong)?;
-    if adapter.capabilities().lost_updates_detected {
-        ensure!(
-            matches!(committed, Err(SpaceError::Conflict(_))),
-            "deleting a changed record gave {committed:?}"
-        );
-        ensure!(kept.is_some(), "the changed record is gone");
-        return Ok(Outcome::Passed);
-    }
+    // A delete takes only the key, and no version it was read at (#1073).
     committed.map_err(wrong)?;
     ensure!(kept.is_none(), "the record is still there");
-    Ok(Outcome::Limited("deleting what another program changed since: it is deleted (#241)"))
+    Ok(Outcome::Limited("deleting what another program changed since: it is deleted (#1073)"))
 }
 
 fn delete(adapter: &dyn Adapter) -> Result<Outcome, String> {

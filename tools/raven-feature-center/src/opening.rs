@@ -65,7 +65,7 @@ pub struct Opening {
     pub look: Option<Look>,
     /// The language, instead of Brazilian Portuguese.
     pub speech: Option<Speech>,
-    /// The counter window on its own, as `cargo run -p raven-feature-center -- caixa` has always opened.
+    /// The counter window on its own, as `cargo run --manifest-path tools/raven-feature-center/Cargo.toml -- caixa` has always opened.
     pub counter: bool,
 }
 

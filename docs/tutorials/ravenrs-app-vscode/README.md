@@ -87,7 +87,7 @@ a interface e a execução nativa. SQLite pode ser acrescentado em uma próxima 
 Na raiz do repositório:
 
 ```sh
-cargo run -p tutorial-tasks --example record -- docs/tutorials/ravenrs-app-vscode/output
+cargo run --manifest-path examples/tutorial-tasks/Cargo.toml --example record -- docs/tutorials/ravenrs-app-vscode/output
 python3 -m venv docs/tutorials/ravenrs-app-vscode/.venv
 docs/tutorials/ravenrs-app-vscode/.venv/bin/pip install -r docs/tutorials/ravenrs-app-vscode/requirements.txt
 docs/tutorials/ravenrs-app-vscode/.venv/bin/python docs/tutorials/ravenrs-app-vscode/build_video.py
@@ -101,8 +101,8 @@ O script guarda narração, imagens e segmentos intermediários em `output/`.
 Para verificar o exemplo sem abrir uma janela:
 
 ```sh
-cargo clippy -p tutorial-tasks --all-targets -- -D warnings
-cargo run -p tutorial-tasks --example record -- docs/tutorials/ravenrs-app-vscode/output
+cargo clippy --manifest-path examples/tutorial-tasks/Cargo.toml --all-targets -- -D warnings
+cargo run --manifest-path examples/tutorial-tasks/Cargo.toml --example record -- docs/tutorials/ravenrs-app-vscode/output
 ```
 
 O gravador verifica a mensagem de validação e o registro salvo antes de exportar

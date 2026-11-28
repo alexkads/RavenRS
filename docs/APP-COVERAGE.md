@@ -236,7 +236,7 @@ Grupo: **Núcleo**.
 | Decimal exato de ponta a ponta no modelo e nos critérios | 0,5 |
 | Instante e fuso preservados como contrato uniforme | 0,5 |
 | Mesmas capacidades em desktop/web nos adaptadores | 0,5 |
-| Migração de tenant entre bancos com conferência | 0 |
+| Migração de tenant entre bancos com conferência | 0,5 |
 
 **Já absorvido pelo framework:** Vários caminhos de armazenamento e testes de contrato já reduzem o código de integração; suportes variam por adaptador e host.
 

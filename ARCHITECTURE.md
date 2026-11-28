@@ -33,6 +33,28 @@ The survey was done against the official repositories and docs (October 2026). N
 
 ## 3. Crate graph
 
+The packages are grouped in layers, listed bottom-up in `camadas.toml` (#1080): core; the light engines that use only the core (flows, fiscal engines, network clients, #1096); widgets, platform, document engines, application framework, services, screens, fiscal screens, automation, local AI and video, tooling, the showcase, Raven CI and the applications. A package uses only its own layer and the ones below it, `[dev-dependencies]` included; `scripts/camadas.py check`, run by every `cargo xtask` check, refuses a package outside the map and an edge that goes up. Each layer is a Cargo workspace of its own, so work on one layer never builds the ones above. The library's layers live in `camadas/<layer>/Cargo.toml` with their members in `crates/` (#1086); the applications, the showcase and Raven CI in their own folders (#1084, #1085); the root is the tooling's layer, W14, and the one place `cargo xtask` runs from (#1087). The crates.io release goes layer by layer in the same order (`python3 scripts/camadas.py publicacao`). `python3 scripts/camadas.py pesos`, run by `cargo xtask release`, prints how many crates each layer builds and warns about a light package loose in an expensive layer, the case that made #1096 move the light engines down. `scripts/camadas.py` lists them and keeps the copy of the root's dependencies in each one current.
+
+Where to open the editor for each task:
+
+| Task | Workspace | Builds |
+|---|---|---|
+| core, reactive, layout, text, criteria | `camadas/nucleo` | W1 |
+| flows and their runtime, git | `camadas/fluxos` | W1, W2 |
+| fiscal engines (DF-e, NF-e, NFS-e), payment, point of sale | `camadas/fiscal-motores` | W1, W3 |
+| mail, secrets, metrics | `camadas/rede` | W4 |
+| a widget | `camadas/widgets` | W1, W5 |
+| renderer, platforms, the `ravenrs` facade | `camadas/plataforma` | W1, W5, W6 |
+| a document engine (report, pdf, word, deck, sheet) | `camadas/documentos` | W1, W5, W7 |
+| the application framework | `camadas/app` | W1, W8 |
+| servers and databases (Postgres, PostgREST, app and report servers) | `camadas/servicos` | W9 and what it uses |
+| report viewer and designer, spreadsheet, app screens | `camadas/telas` | W10 and what it uses |
+| fiscal and point-of-sale screens | `camadas/fiscal` | W11 and what it uses |
+| BPMN and flow export | `camadas/automacao` | W1, W5, W7, W12 |
+| local AI, video | `camadas/ia-video` | W13 and what it uses |
+| xtask, lint, mcp, cargo-ravenrs | the root | W14 and what it uses |
+| the showcase, an application, Raven CI | its folder | itself and the library it uses |
+
 ```
 ravenrs-core ─────────────┬──────────────┬──────────────┬─────────────┐
  (geometry, color,      │              │              │             │
@@ -445,7 +467,7 @@ With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug
 
 | Area | Implemented | Experimental | Planned |
 |---|---|---|---|
-| Workspace, local checks (`scripts/check.sh`: desktop + wasm) | ✓ | | Hosted CI (intentionally not used for now) |
+| Workspace, local checks (`cargo xtask pr`: desktop + wasm) | ✓ | | Hosted CI (intentionally not used for now) |
 | `State`, `Binding`, `Derived`, dependency tracking | ✓ | | |
 | Full rebuild on tracked change | ✓ | | Incremental reconciliation, per-component observers |
 | `View`, `Component`, `BuildCx`, `view_fn`, `responsive`, `Option<V>`, `Keyed`, `ViewExt` modifiers, `use_state` widget-local state | ✓ | | Environment values, `#[component]` macro (`ravenrs-macros`) |

@@ -72,7 +72,7 @@ use ravenrs_widgets_imaging::imaging;
 use ravenrs_widgets_imaging::lottie;
 
 /// The stories of the components, as Storybook keeps them, for RavenComponentBook: each
-/// component gives its [`book::Meta`] through [`book::ComponentBook`], and [`book::all`] lists
+/// component gives its [`book::Meta`] through [`book::ComponentBook`], and `book::all` (feature `book`) lists
 /// them (feature `book`).
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 pub mod book {

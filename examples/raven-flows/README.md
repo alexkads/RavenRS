@@ -23,7 +23,7 @@ curl -fsSL https://raw.githubusercontent.com/alexkads/RavenRS/master/examples/ra
 Para rodar do código:
 
 ```bash
-cargo run -p raven-flows
+cargo run --manifest-path examples/raven-flows/Cargo.toml
 ```
 
 Ao abrir e a cada hora, o app lê o `novidades.json` do master. Se a versão é mais nova, o rodapé avisa e uma cópia compila em segundo plano; o app só é trocado depois que a nova responde `--versao`, e a anterior fica guardada. Tudo isso é o `ravenrs-app-update`, o mesmo do Raven Finanças: aqui só ficam a identidade do app (`src/versao.rs`), o `install.cmd` gerado do modelo e os ícones em `assets/`.

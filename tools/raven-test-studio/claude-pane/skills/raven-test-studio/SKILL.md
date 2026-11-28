@@ -24,7 +24,7 @@ raven-test-studio --run autoteste --format json
 From a RavenRS checkout with no install:
 
 ```bash
-cargo run -q -p raven-test-studio -- --run autoteste --format json
+cargo run -q --manifest-path tools/raven-test-studio/Cargo.toml -- --run autoteste --format json
 ```
 
 The exit code is 0 when it passed, 1 when it failed and 2 when there is no such scenario or the `--format` is not one of `text`, `json`, `jsonl`, `junit`, `html`, or a window option is wrong (such as `--slow-mo` without `--headed`).
@@ -69,9 +69,9 @@ Ids that components give a test: `row:<key>` (VirtualList with `key`, DataGrid w
 - An action scrolls to a target out of sight by itself.
 - To reach a row whatever its position, target it by its key: `#row:<key>` in a `VirtualList` with `key` or a `DataGrid` with `key_column`, `#item:<key>` in a `TreeView`, `#node:<id>` in a `FlowCanvas`.
 
-## Handing it to Codex
+## Handing it to another agent
 
-When the user asks to delegate the test, or to save your own context on a long diagnosis, hand the scenario to Codex: `run_scenario` with `delegate: "codex"`, or `raven-test-studio --delegate codex --run <scenario>`. Codex runs it with its cheapest model (read from the list the installed Codex keeps; `model` names another), reading only, and answers with the verdict, the cause and the fix with file and line. The Studio then runs the same scenario itself: `delegation.confirmed` says whether it agrees. Report Codex's diagnosis as Codex's, and trust it only when it is confirmed; when it is not, the Studio's own report is the truth. `delegate: "claude"` uses the Claude CLI with `haiku`. In the Studio's window, "Delegar ao Codex" does the same without freezing the screen, and "Parar" ends it.
+When the user asks to delegate the test, or to save your own context on a long diagnosis, hand the scenario to the Claude CLI: `run_scenario` with `delegate: "claude"`, or `raven-test-studio --delegate claude --run <scenario>`. It runs with `haiku` (`model` names another), reading only, and answers with the verdict, the cause and the fix with file and line. The Studio then runs the same scenario itself: `delegation.confirmed` says whether it agrees. Report the agent's diagnosis as the agent's, and trust it only when it is confirmed; when it is not, the Studio's own report is the truth.
 
 ## A newer Studio
 
@@ -110,7 +110,7 @@ When the user asks to delegate the test, or to save your own context on a long d
 When the user points the RTS at a Rust project ("aponta o RTS para a pasta …"), use the `scan_project` tool (or `raven-test-studio --project <folder>`). It reads the project without building it and says, per package made with RavenRS: app or library, its binaries, whether it opens on the test channel, its `.raventest` scenarios and the views it builds with file, line and test ids, plus the next step when something is missing (the channel, or scenarios).
 
 - `action: "run_all"` (`--run-all`) runs the scenarios of every app, opening each from the project's code.
-- `action: "suggest"` (`--suggest`): when an app has no scenario, or to find others, an AI reads the app's first screen, its views and test ids and the scenarios it has, and writes new ones. **The AI is local by default** (the largest text model RavenRS apps already downloaded); `delegate: "codex"` or `"claude"` only when the user asks. The Studio runs each suggestion on the app and says which passed; `write` keeps them in `tests/e2e/sugestoes/` for a person to review. Never move a suggestion into `tests/e2e/` without the user's ok.
+- `action: "suggest"` (`--suggest`): when an app has no scenario, or to find others, an AI reads the app's first screen, its views and test ids and the scenarios it has, and writes new ones. **The AI is local by default** (the largest text model RavenRS apps already downloaded); `delegate: "claude"` only when the user asks. The Studio runs each suggestion on the app and says which passed; `write` keeps them in `tests/e2e/sugestoes/` for a person to review. Never move a suggestion into `tests/e2e/` without the user's ok.
 
 An app declares itself for the RTS in its `Cargo.toml`, `[package.metadata.ravenrs.e2e]`: `app` (the name its scenarios open), `binary`, `since` (first version with the channel), `variable`, `installed`. The RTS keeps no list of apps of its own.
 

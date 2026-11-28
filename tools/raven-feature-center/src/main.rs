@@ -1,4 +1,4 @@
-//! `cargo run -p raven-feature-center`, with the parameters of [`raven_feature_center::Opening`]:
+//! `cargo run --manifest-path tools/raven-feature-center/Cargo.toml`, with the parameters of [`raven_feature_center::Opening`]:
 //! `-- --modo vitrine`, `-- --modo componentes --pagina CablePlugDemo --incorporado`,
 //! `-- --tema claro --idioma en`, and `-- caixa` for the counter window on its own. The web build
 //! starts from `lib.rs` and reads the same names from the address of the page. `--versao` prints

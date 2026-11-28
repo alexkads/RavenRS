@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-text"
+workspace = "../../camadas/nucleo"
 description = "RavenRS text: shaping and line layout with Parley, with the Inter font embedded, and Fira Mono with the `mono` feature."
 version.workspace = true
 edition.workspace = true

@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-app-spec"
+workspace = "../../camadas/app"
 description = "What the derives of ravenrs-app read from a business object or enum, as data: shared by the derive and by programs that read Rust source while they run."
 version.workspace = true
 edition.workspace = true

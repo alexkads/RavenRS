@@ -1,4 +1,4 @@
-//! `cargo run -p mini-pdv`. BETA: nothing here has fiscal value.
+//! `cargo run --manifest-path examples/mini-pdv/Cargo.toml`. BETA: nothing here has fiscal value.
 
 fn main() -> Result<(), ravenrs::native::PlatformError> {
     // A test tool such as Raven Test Studio drives the app with no window (`--e2e-serve`), in

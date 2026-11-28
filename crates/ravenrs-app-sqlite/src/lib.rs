@@ -26,10 +26,13 @@ use std::borrow::Cow;
 use std::rc::Rc;
 
 use ravenrs_app::{AttachmentStore, Diff, EntityInfo, FieldInfo, FieldKind, ModelError, ModelStore, Value};
+pub use ravenrs_app_sql::{
+    BrokenReference, MigrationError, MigrationReport, SqlWords, TableCheck, TableMap, TenantExport,
+    TenantImport,
+};
 use ravenrs_app_sql::{
     MIGRATIONS, SqlBackend, SqlBuilder, SqlCell, SqlDatabase, SqlError, SqlObjectSpace, SqlRows,
 };
-pub use ravenrs_app_sql::{SqlWords, TableMap};
 use ravenrs_criteria::Dialect;
 use rusqlite::types::{Value as SqlValue, ValueRef};
 use rusqlite::{Connection, ErrorCode, OptionalExtension, params_from_iter};
@@ -320,6 +323,26 @@ impl SqlBackend for SqliteBackend {
 
     fn offset_only(&self, offset: usize) -> String {
         format!(" LIMIT -1 OFFSET {offset}")
+    }
+
+    fn sealed_guard(&self, table: &str, entity: &str, sealed: &str, key: &str) -> Option<String> {
+        let quoted = |name: &str| format!("\"{}\"", name.replace('"', "\"\""));
+        let text = |value: &str| format!("'{}'", value.replace('\'', "''"));
+        let refused = text(&format!("{entity}: it is sealed: change it by an amendment"));
+        let allowed = format!(
+            "NOT EXISTS (SELECT 1 FROM {} WHERE entity = {} AND record = {key})",
+            ravenrs_app_sql::AMENDING,
+            text(entity)
+        );
+        let trigger = |operation: &str| {
+            format!(
+                "DROP TRIGGER IF EXISTS {name}; CREATE TRIGGER {name} BEFORE {operation} ON {table} FOR EACH ROW \
+                 WHEN ({sealed}) AND {allowed} BEGIN SELECT RAISE(ABORT, {refused}); END;",
+                name = quoted(&format!("raven_sealed_{table}_{}", operation.to_lowercase())),
+                table = quoted(table),
+            )
+        };
+        Some(format!("{} {}", trigger("UPDATE"), trigger("DELETE")))
     }
 
     fn columns_of(&self, table: &str) -> Result<Vec<String>, SqlError> {

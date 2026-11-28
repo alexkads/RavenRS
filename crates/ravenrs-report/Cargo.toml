@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-report"
+workspace = "../../camadas/documentos"
 description = "RavenRS Reporting engine: banded reports from JSON definitions, paginated into documents for viewing and export."
 version.workspace = true
 edition.workspace = true

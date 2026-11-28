@@ -16,7 +16,7 @@ CupsOutput::new("Etiquetas")?.send(&bytes)?;
 - Bars are laid on whole dots, centered, with no smoothing. A code that cannot keep its minimum module gives a `LabelError` that says which one and how much room it needs.
 - `presets()` lists printers by name; a preset only picks the language.
 - Outputs: `TcpOutput` (port 9100), `CupsOutput` (`lp -d name -o raw`, no shell), `FileOutput` (`.prn`) and, on Windows, `WindowsShareOutput` (`\\host\share`). In wasm32 only the core compiles.
-- `bitmap_to_png` shows what goes to the printer: `cargo run -p ravenrs-report-label --example preview -- etiqueta.png`.
+- `bitmap_to_png` shows what goes to the printer: `cargo run --manifest-path camadas/documentos/Cargo.toml -p ravenrs-report-label --example preview -- etiqueta.png`.
 
 Labels on an A4 sheet do not come here: they go through the normal print path of `ravenrs-report-viewer`.
 

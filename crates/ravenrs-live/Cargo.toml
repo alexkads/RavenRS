@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-live"
+workspace = "../../camadas/nucleo"
 description = "An interpreter of the Rust small RavenRS examples are written in, for playgrounds that run without a compiler."
 version.workspace = true
 edition.workspace = true

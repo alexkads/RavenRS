@@ -121,6 +121,11 @@ pub(crate) fn apply(
         if is_state && !creating && object.get(name) == Value::Null {
             return Err(Failure::denied());
         }
+        // The version it was read at, so that keeping it over someone else's is refused.
+        if field.is_row_version && !creating {
+            object.set(name, from_json(field, value)?);
+            continue;
+        }
         if field.secret || (field.read_only && !is_state) || field.calculated.is_some() {
             return Err(Failure::bad_request(format!("{name} cannot be written")));
         }

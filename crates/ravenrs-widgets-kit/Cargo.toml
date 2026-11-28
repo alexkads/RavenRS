@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-widgets-kit"
+workspace = "../../camadas/widgets"
 description = "The RavenRS components of general use: navigation, commands, form editors, lookups, filters, status pieces and tiles. Applications use them through ravenrs-widgets."
 version.workspace = true
 edition.workspace = true

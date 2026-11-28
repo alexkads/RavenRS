@@ -45,6 +45,9 @@ pub fn project_files(name: &str, template: &str, target: &str) -> Result<Vec<Pro
             file.contents = file.contents.replace(&from, &to);
         }
     }
+    // An example is a workspace of its own and ends with the copy of the root's sections that
+    // scripts/camadas.py writes (#1084): a new project starts without it.
+    let manifest = manifest.split("# >>> camadas.py").next().unwrap_or(manifest);
     let mut manifest: DocumentMut = manifest.parse().map_err(|e| format!("Modelo: {e}"))?;
     let workspace: DocumentMut = WORKSPACE.parse().map_err(|e| format!("Workspace: {e}"))?;
     manifest["package"]["name"] = value(name);
@@ -65,6 +68,9 @@ pub fn project_files(name: &str, template: &str, target: &str) -> Result<Vec<Pro
     serve.push("serve");
     manifest["target"]["cfg(not(target_arch = \"wasm32\"))"]["dependencies"]["ravenrs-e2e-wire"]["features"] =
         value(serve);
+    // The example's scenarios open it by its own name; the project's open the new app (#702).
+    let example_app =
+        manifest["package"]["metadata"]["ravenrs"]["e2e"]["app"].as_str().unwrap_or_default().to_owned();
     manifest["package"]["metadata"]["ravenrs"]["e2e"]["app"] = value(name);
     manifest["package"]["metadata"]["ravenrs"]["e2e"]["binary"] = value(name);
     let mut test_features = toml_edit::Array::new();
@@ -110,6 +116,25 @@ pub fn project_files(name: &str, template: &str, target: &str) -> Result<Vec<Pro
     }
     if target == "desktop" {
         files.retain(|f| f.path != "web/index.html");
+    }
+    // The `lib.rs` is the example's as it is, and its `SCENARIOS` embed these files.
+    for (file, scenario) in scenarios(template) {
+        let scenario = if example_app.is_empty() {
+            (*scenario).to_owned()
+        } else {
+            scenario
+                .lines()
+                .map(|line| match line.strip_prefix("open ") {
+                    Some(rest) if rest.starts_with(&example_app) => {
+                        format!("open {name}{}", &rest[example_app.len()..])
+                    }
+                    _ => line.to_owned(),
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+                + "\n"
+        };
+        files.push(ProjectFile { path: format!("tests/e2e/{file}"), contents: scenario });
     }
     let mut toolchain: DocumentMut = TOOLCHAIN.parse().map_err(|e| format!("Toolchain: {e}"))?;
     if target == "desktop" {
@@ -186,6 +211,33 @@ pub(crate) fn legacy_main(name: &str) -> Result<String, String> {
                 .replace(&format!("{normalized}::app()"), &format!("{}::app()", name.replace('-', "_")))
         })
         .ok_or_else(|| "O modelo não tem entrada desktop.".to_owned())
+}
+
+/// The scenarios the example's `lib.rs` embeds in `SCENARIOS` (`include_str!("../tests/e2e/…")`):
+/// the project carries them, or its library does not compile (#702).
+fn scenarios(template: &str) -> &'static [(&'static str, &'static str)] {
+    match template {
+        "hello" => {
+            &[("abrir.raventest", include_str!("../../../examples/hello-world/tests/e2e/abrir.raventest"))]
+        }
+        "app" => {
+            &[("abrir.raventest", include_str!("../../../examples/tutorial-tasks/tests/e2e/abrir.raventest"))]
+        }
+        "app-sqlite" => {
+            &[("abrir.raventest", include_str!("../../../examples/tasks-sqlite/tests/e2e/abrir.raventest"))]
+        }
+        "relatorios" => &[
+            (
+                "abrir.raventest",
+                include_str!("../../../tools/raven-report-designer/tests/e2e/abrir.raventest"),
+            ),
+            (
+                "salvar.raventest",
+                include_str!("../../../tools/raven-report-designer/tests/e2e/salvar.raventest"),
+            ),
+        ],
+        _ => &[],
+    }
 }
 
 fn valid_name(name: &str) -> bool {

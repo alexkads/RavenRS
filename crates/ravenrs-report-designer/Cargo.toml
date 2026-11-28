@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-report-designer"
+workspace = "../../camadas/telas"
 description = "The RavenRS report designer, to put inside an application: bands, fields, properties and a live preview."
 version.workspace = true
 edition.workspace = true

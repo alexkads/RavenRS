@@ -121,14 +121,14 @@ scripts/storytold/merge.py deckcraft $S/old $S/new
 ## Testar
 
 ```bash
-export CARGO_TARGET_DIR=<scratchpad>/target   # absoluto, um por worktree
-cargo nextest run -p ravenrs-deck
-cargo test -p ravenrs-deck --doc
-cargo clippy -p ravenrs-deck --all-targets -- -D warnings
-cargo check -p ravenrs-deck --target wasm32-unknown-unknown
-cargo tree -p ravenrs-deck | grep -c 'git+'   # tem de dar 0
+# num slot fixo (slot-a ou slot-b), com o target dele: sem CARGO_TARGET_DIR
+cargo nextest run --manifest-path camadas/documentos/Cargo.toml -p ravenrs-deck
+cargo test --manifest-path camadas/documentos/Cargo.toml -p ravenrs-deck --doc
+cargo clippy --manifest-path camadas/documentos/Cargo.toml -p ravenrs-deck --all-targets -- -D warnings
+cargo check --manifest-path camadas/documentos/Cargo.toml -p ravenrs-deck --target wasm32-unknown-unknown
+cargo tree --manifest-path camadas/documentos/Cargo.toml -p ravenrs-deck | grep -c 'git+'   # tem de dar 0
 cargo deny check
-scripts/check.sh
+cargo xtask pr
 ```
 
 Os testes de origem (1638 no `b0c77eb`, mais o exemplo de `lib.rs`) têm de passar todos:

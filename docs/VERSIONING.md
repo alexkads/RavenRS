@@ -40,11 +40,11 @@ Breaking changes are the ones that Cargo SemVer and [`cargo semver-checks`](http
 
 ## Release checklist
 
-1. `scripts/check.sh --full` passes, including the golden-image tests.
+1. `cargo xtask release` passes, including the golden-image tests.
 2. `cargo semver-checks` runs against the previous release. Until 28.1.0, what it finds goes under *Breaking* in the CHANGELOG; from then on it has to agree with the version bump.
 3. Benchmarks are within the budgets in [QUALITY.md](QUALITY.md).
 4. CHANGELOG has an entry, plus a migration guide for a major.
-5. All crates are published in dependency order, then the tag `vYY.R.P`, the GitHub release, and the site and API docs are updated.
+5. All crates are published in the order of the layers (`camadas.toml`, #1087): `python3 scripts/camadas.py publicacao` lists one `cargo publish --workspace` per workspace, from the core to the tooling, and inside each Cargo finds the order. Then the tag `vYY.R.P`, the GitHub release, and the site and API docs are updated.
 6. Every crate's documentation built on docs.rs (`https://docs.rs/crate/<name>/<version>/status.json`); it uses a recent nightly, so it can fail when stable passes.
 
 ## Unified publication

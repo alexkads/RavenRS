@@ -8,7 +8,7 @@ Um caixa de supermercado feito só com crates do RavenRS. Este exemplo não tem 
 ## Como rodar
 
 ```bash
-cargo run -p mini-pdv
+cargo run --manifest-path examples/mini-pdv/Cargo.toml
 ```
 
 Os dados ficam em `~/mini-pdv-beta.sqlite`, ou no arquivo indicado em `RAVEN_PDV`. Apague o arquivo para começar de novo. O exemplo só compila no desktop, porque depende de SQLite. Os testes rodam no macOS; Windows e Linux ainda não foram tentados.
@@ -67,8 +67,8 @@ O campo de leitura fica sempre com o foco. Um leitor de código de barras funcio
 
 ## O que foi verificado
 
-- `cargo test -p mini-pdv`: venda do leitor até a nota, rejeição, duplicidade, paralisação, bloqueio e nota grande, sem janela.
-- `RAVEN_PDV_TELAS=pasta cargo test -p mini-pdv --test telas -- --ignored` desenha as telas em PNG, para olhar sem abrir a janela.
+- `cargo test --manifest-path examples/mini-pdv/Cargo.toml`: venda do leitor até a nota, rejeição, duplicidade, paralisação, bloqueio e nota grande, sem janela.
+- `RAVEN_PDV_TELAS=pasta cargo test --manifest-path examples/mini-pdv/Cargo.toml --test telas -- --ignored` desenha as telas em PNG, para olhar sem abrir a janela.
 
 Falta testar com leitor físico, impressora física, certificado A1 e servidor real da SEFAZ.
 

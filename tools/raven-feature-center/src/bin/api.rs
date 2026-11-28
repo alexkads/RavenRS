@@ -1,4 +1,4 @@
-//! `cargo run -p raven-feature-center --bin api -- [file]`: the center as a web API, on 127.0.0.1:8090, in
+//! `cargo run --manifest-path tools/raven-feature-center/Cargo.toml --bin api -- [file]`: the center as a web API, on 127.0.0.1:8090, in
 //! this SQLite file or else in memory. Sign in as ana, bia or caio, at `/api/auth/token`. A page on
 //! another origin can call it if `RAVEN_API_ORIGIN` names that origin. Over a file, four threads answer
 //! at the same time; in memory, one.

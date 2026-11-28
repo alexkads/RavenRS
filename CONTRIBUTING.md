@@ -16,8 +16,10 @@ Thank you for helping make RavenRS the most complete free component library for 
 You need Rust stable 1.88+. For the web build, also `rustup target add wasm32-unknown-unknown` and `cargo install wasm-bindgen-cli --version 0.2.130 --locked`.
 
 ```bash
-cargo run -p component-gallery --release
+cargo run --manifest-path examples/component-gallery/Cargo.toml --release
 ```
+
+Every layer of `camadas.toml` (#1080) is a Cargo workspace of its own. The library's 13 layers (core; flows, fiscal engines and network clients, which use only the core, #1096; widgets, platform, documents, app, services, screens, fiscal screens, automation, local AI and video) have theirs in `camadas/<layer>/Cargo.toml`, while their crates stay in `crates/`: each crate says `workspace = "../../camadas/<layer>"` in its `[package]`, and a build reaches only its layer and the ones below (#1086). The applications in `examples/` and `tools/`, the showcase (feature center, gallery, ComponentBook) and Raven CI are workspaces of their own too, and the root is the tooling's layer, W14 (`xtask`, `ravenrs-lint`, `ravenrs-mcp`, `cargo-ravenrs`…, #1087). Run `cargo xtask` from the root: Cargo looks for the `xtask` package in the workspace of the folder you are in, and a layer's has none. Work on a crate from its folder (`cd crates/ravenrs-widgets-grid && cargo test`), or name its layer from the root: `cargo test --manifest-path camadas/widgets/Cargo.toml -p ravenrs-widgets-grid`. From the root, `-p` finds only the tooling and what it uses. Run an application through its manifest, from the root (`cargo run --manifest-path examples/family-finance/Cargo.toml`), or from its folder. Every workspace builds into the root's `target/` (`.cargo/config.toml`). Each one carries a copy of the root's versions, dependencies, lints and profiles, which `python3 scripts/camadas.py deps --write` writes after a change to the root `Cargo.toml`; `cargo xtask` fails while a copy is stale. A new package goes into a section of `camadas.toml` in the same pull request.
 
 Each worktree builds the ~780 external dependencies once. A compiler cache shares them between checkouts, so a new branch starts from the workspace crates only:
 
@@ -32,27 +34,39 @@ then, in `~/.cargo/config.toml` (your machine, not the repository):
 rustc-wrapper = "sccache"
 ```
 
-Before opening a pull request, run the checks locally (the project has no hosted CI):
+The checks are tasks of `cargo xtask` (the `xtask/` crate), one per purpose, each taking no arguments. They are Rust, so they run the same on macOS, Linux and Windows. The project has no hosted CI.
 
 ```bash
-./scripts/check.sh
+cargo xtask lint
 ```
 
-It runs rustfmt, then clippy with warnings as errors on every package your change reaches (those whose files changed against `origin/master`, and every package that depends on them), and the tests of the packages that changed and of those that depend on them directly. `Cargo.toml` and `Cargo.lock` are read entry by entry: a new crate, a version bump or an updated dependency reaches only the packages that use it, while profiles, lints, the edition, `.cargo/`, the toolchain and `clippy.toml` reach the whole workspace.
-
-The tests run on [cargo-nextest](https://nexte.st), which runs every test binary at once; install it once with `cargo install cargo-nextest --locked`, or the script stops and says so. With [Kache](https://github.com/kunobi-ninja/kache) installed (`cargo install kache --locked`), the script uses it as the compiler cache, so a new worktree restores what another one compiled instead of building it again; without it the checks run the same, slower, and `RAVENRS_KACHE=0` leaves it out. Each worktree needs its own build directory: worktrees that share a `CARGO_TARGET_DIR` reuse each other's builds of the local crates, and the script warns when it sees that.
-
-At the end, passing or failing, the script prints how long each step took, slowest first, and whether the build directory started empty; the test step is split into compiling and running, followed by the ten slowest tests. The table is saved to `<target>/check-timings/last.txt`, so two runs compare with `diff`. To see which crates take the compile time, run it with `RAVENRS_CHECK_TIMINGS=1`: Cargo then writes its per-crate report, and the script prints where.
-
-Before a release, run everything:
+The fastest loop, between one edit and the next, with no tests at all: rustfmt, the cheap checks and clippy on the packages that changed. It does not need `cargo-nextest`. It never stands in for a check: run `dev` before a commit and `pr` before a merge.
 
 ```bash
-./scripts/check.sh --full
+cargo xtask dev
 ```
 
-That runs clippy and every test on the whole workspace, and adds wasm32, optional features, the minimum Rust version, dependency checks, API docs and the web builds. Renderer tests draw on your GPU and skip themselves when no adapter is available.
+While you work, before a commit: rustfmt, the cheap checks of the whole workspace, then clippy with warnings as errors and the tests of the packages whose files changed against `origin/master`, and nothing else.
+
+```bash
+cargo xtask pr
+```
+
+The pull request's gate: clippy on every package your change reaches (those whose files changed, and every package that depends on them), the tests of the packages that changed and of those that depend on them directly, and the design system and the public API when the change reaches them. `Cargo.toml` and `Cargo.lock` are read entry by entry: a new crate, a version bump or an updated dependency reaches only the packages that use it, while profiles, lints, the edition, `.cargo/`, the toolchain and `clippy.toml` reach the whole workspace.
+
+```bash
+cargo xtask release
+```
+
+Before a release: clippy and every test on the whole workspace, wasm32, optional features, the minimum Rust version, dependency checks, API docs and the web builds. Renderer tests draw on your GPU and skip themselves when no adapter is available.
+
+The tests run on [cargo-nextest](https://nexte.st), which runs every test binary at once; install it once with `cargo install cargo-nextest --locked`, or the check stops and says so. A compiler cache, the repository's own `ravenrs-xcache`, stands in front of rustc, so a new worktree restores what another one compiled instead of building it again; `RAVENRS_XCACHE=0` turns it off. Each worktree needs its own build directory: worktrees that share a `CARGO_TARGET_DIR` reuse each other's builds of the local crates, and the check warns when it sees that.
+
+At the end, passing or failing, each check prints how long each step took, slowest first, and whether the build directory started empty; the test step is split into compiling and running, followed by the ten slowest tests. The table is saved to `<target>/check-timings/last.txt`, so two runs compare with `diff`. To see which crates take the compile time, run it with `RAVENRS_CHECK_TIMINGS=1`: Cargo then writes its per-crate report, and the check prints where.
 
 ## Adding a component
+
+A component lands in two pull requests (#1080, #1085). The first is its layer's: the crate, its tests, its docs and its testability, in the workspace of that layer, so it builds only that layer and the ones below. The second is the showcase's batch, right after, in the showcase's workspaces (`tools/raven-feature-center`, `examples/component-gallery`, `tools/raven-component-book`): its page in the feature center with every feature, its sample in the gallery, its stories in the ComponentBook and the design system. `cargo xtask pr` runs `scripts/feature-center-coverage.py`, `scripts/rcb-coverage.py` and `scripts/gen-design-system.py --check` when a change touches the showcase, and `cargo xtask release` always does, so a component with no page fails in the batch at the latest. One batch can carry the pages of several components.
 
 A component is done when it:
 
@@ -68,7 +82,7 @@ A component is done when it:
 
 ## Testability (RTS)
 
-Every public type of the feature center has an entry in `tools/raven-test-studio/contrato.json`, which `scripts/rts-coverage.py` checks in `check.sh` (#734, #736). A component with a screen keeps this contract:
+Every public type of the feature center has an entry in `tools/raven-test-studio/contrato.json`, which `scripts/rts-coverage.py` checks in `cargo xtask pr` (#734, #736). A component with a screen keeps this contract:
 
 - [ ] every part a test acts on has a name a screen reader reads, or a test id (`BuildCx::test_id`, `ViewExt::test_id`);
 - [ ] the items of a collection have test ids made from their key, `part:<key>` (`row:<key>`, `cell:<key>:<column>`), never from their position, so they stay with the data when the list sorts, filters or scrolls;
@@ -98,7 +112,7 @@ A type with nothing on the screen is `{"sem_tela": true}`; one that does not kee
 
 ## End-to-end scenarios of the apps
 
-Every app with a window in `examples/` and `tools/` (an independent workspace too) is tested by the Raven Test Studio as a person uses it, and `scripts/e2e-scenarios.py` checks in `check.sh` that the Studio finds and runs it (#702). A new app comes with the same five pieces, in the same pull request:
+Every app with a window in `examples/` and `tools/` (an independent workspace too) is tested by the Raven Test Studio as a person uses it, and `scripts/e2e-scenarios.py` checks in `cargo xtask pr` that the Studio finds and runs it (#702). A new app comes with the same five pieces, in the same pull request:
 
 - [ ] `Cargo.toml` says what the Studio opens, and brings the test channel outside the web build:
 

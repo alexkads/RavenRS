@@ -145,12 +145,12 @@ How the training narration is made (`record_narration` in
 
 ```sh
 # Everything again, about 25 minutes:
-FF_AI_MODELS=/path/to/models cargo test --release -p family-finance --test suite training::record_narration -- --ignored --nocapture
+FF_AI_MODELS=/path/to/models cargo test --release --manifest-path examples/family-finance/Cargo.toml --test suite training::record_narration -- --ignored --nocapture
 # Only what narracao.voz does not say yet, added to it:
-FF_NARRATION_ADD=1 FF_AI_MODELS=/path/to/models cargo test --release -p family-finance --test suite training::record_narration -- --ignored --nocapture
+FF_NARRATION_ADD=1 FF_AI_MODELS=/path/to/models cargo test --release --manifest-path examples/family-finance/Cargo.toml --test suite training::record_narration -- --ignored --nocapture
 # Six takes of texts 12 and 40, as WAV, to choose by ear; then pack the folder:
-FF_NARRATION_TAKES=12,40 FF_NARRATION_WAVS=/path/to/wavs FF_AI_MODELS=/path/to/models cargo test --release -p family-finance --test suite training::record_narration -- --ignored
-FF_NARRATION_WAVS=/path/to/wavs cargo test --release -p family-finance --test suite training::pack_narration -- --ignored
+FF_NARRATION_TAKES=12,40 FF_NARRATION_WAVS=/path/to/wavs FF_AI_MODELS=/path/to/models cargo test --release --manifest-path examples/family-finance/Cargo.toml --test suite training::record_narration -- --ignored
+FF_NARRATION_WAVS=/path/to/wavs cargo test --release --manifest-path examples/family-finance/Cargo.toml --test suite training::pack_narration -- --ignored
 ```
 
 `FF_NARRATION_SPEAKER` picks another Kokoro voice, `FF_NARRATION_MODEL` another model, and
@@ -276,13 +276,13 @@ These need the real model and run only when asked (`--ignored`), in release:
 
 ```sh
 # Three sentences, each with another Kokoro voice, into RAVENRS_AI_MODELS/fala-N.wav, with timings:
-RAVENRS_AI_MODELS=/path/to/models cargo test --release -p ravenrs-ai --test manager real_speech -- --ignored --nocapture
+RAVENRS_AI_MODELS=/path/to/models cargo test --release --manifest-path camadas/ia-video/Cargo.toml -p ravenrs-ai --test manager real_speech -- --ignored --nocapture
 # One sentence, one voice, one file. This one reads a clone of hexgrad/Kokoro-82M as Hugging Face
 # names it (kokoro-v1_0.pth, config.json, voices/pm_alex.pt), not a ModelFolder; RAVENRS_SAY_PHONEMES
 # gives the phonemes as they are, to hear the model apart from the rules:
-RAVENRS_KOKORO=/path/to/Kokoro-82M RAVENRS_SAY="Olá, tudo bem?" RAVENRS_VOICE=pm_alex RAVENRS_SAY_OUT=ola.wav cargo test --release -p ravenrs-ai kokoro_says -- --ignored
+RAVENRS_KOKORO=/path/to/Kokoro-82M RAVENRS_SAY="Olá, tudo bem?" RAVENRS_VOICE=pm_alex RAVENRS_SAY_OUT=ola.wav cargo test --release --manifest-path camadas/ia-video/Cargo.toml -p ravenrs-ai kokoro_says -- --ignored
 # Every stage against references written by the published PyTorch code:
-RAVENRS_KOKORO=/path/to/Kokoro-82M RAVENRS_KOKORO_REF=/path/to/references cargo test --release -p ravenrs-ai kokoro_matches -- --ignored --nocapture
+RAVENRS_KOKORO=/path/to/Kokoro-82M RAVENRS_KOKORO_REF=/path/to/references cargo test --release --manifest-path camadas/ia-video/Cargo.toml -p ravenrs-ai kokoro_matches -- --ignored --nocapture
 ```
 
 When something sounds wrong, compare the phonemes of the same sentence first

@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-app-pos"
+workspace = "../../camadas/fiscal"
 description = "BETA, proof of concept: a point of sale as a RavenRS application module, with products, a checkout from the keyboard, shelf labels and receipts anyone can change."
 version.workspace = true
 edition.workspace = true

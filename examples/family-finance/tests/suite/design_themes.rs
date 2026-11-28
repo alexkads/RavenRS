@@ -3,7 +3,7 @@
 //! A theme changed in `themes.rs` and not written again fails here:
 //!
 //! ```text
-//! FF_WRITE_THEMES=1 cargo test -p family-finance --test suite design_themes::
+//! FF_WRITE_THEMES=1 cargo test --manifest-path examples/family-finance/Cargo.toml --test suite design_themes::
 //! ```
 #![allow(clippy::expect_used, reason = "test helpers fail loudly")]
 

@@ -22,12 +22,18 @@
 use std::rc::Rc;
 
 mod analytics;
+mod closing;
 mod declared;
+mod finance;
 mod print;
 mod stored;
 
-pub use analytics::{ANALYTICS_DASHBOARD, ANALYTICS_TILE, AnalyticsModule, analytics_entities};
+pub use analytics::{
+    ANALYTICS_DASHBOARD, ANALYTICS_TILE, AnalyticsModule, IndicatorLevel, Thresholds, analytics_entities,
+};
+pub use closing::{ClosingDocument, ClosingModule};
 pub use declared::{AnalyticsApp, AnalyticsPanel, PanelChart};
+pub use finance::{annual_document, forecast_document, position_document, statement_document};
 #[cfg(not(target_arch = "wasm32"))]
 pub use print::send_to_printer;
 pub use print::{

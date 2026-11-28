@@ -5,7 +5,7 @@
 #   tools/raven-ci/scripts/medir-memoria.sh [PASTA_DOS_BINARIOS] [PASTA_TEMPORARIA]
 #
 # PASTA_DOS_BINARIOS holds `raven-ci` and `raven-ci-agent` built in release
-# (`cargo build --release -p raven-ci -p raven-ci-agent`), by default `target/release`. Everything it
+# (`cargo build --release --manifest-path tools/raven-ci/Cargo.toml -p raven-ci -p raven-ci-agent`), by default `target/release`. Everything it
 # makes goes to PASTA_TEMPORARIA (a folder of the system's temporary one by default) and is
 # removed at the end, as the processes it starts. It is bash, which macOS and Linux both have
 # (the zsh of 0.1.3 is not on a Fedora server, where the RPM runs).

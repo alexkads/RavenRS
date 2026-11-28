@@ -7,9 +7,9 @@ description: Roteiro completo para testar o desempenho gráfico do RavenRS - gat
 
 Tudo aqui se repete com um comando. A regra é medir antes de otimizar, e nunca aceitar uma mudança sem o número de antes e o de depois.
 
-**Só quando o Alex pedir.** Nenhum passo desta skill é regra fixa. Não rode o gate (nem tempos, frames frios, capacidade ou regressões plantadas) por iniciativa própria: nem depois de mexer no core ou num componente, nem antes de abrir PR ou publicar. Quando uma mudança puder afetar desempenho, diga isso em uma linha e ofereça a medição; ela só roda se ele pedir. O `scripts/check.sh --full` também não roda o gate nem compila os benchmarks, a menos que seja chamado com `RAVENRS_GATE=1`.
+**Só quando o Alex pedir.** Nenhum passo desta skill é regra fixa. Não rode o gate (nem tempos, frames frios, capacidade ou regressões plantadas) por iniciativa própria: nem depois de mexer no core ou num componente, nem antes de abrir PR ou publicar. Quando uma mudança puder afetar desempenho, diga isso em uma linha e ofereça a medição; ela só roda se ele pedir. O `cargo xtask release` também não roda o gate nem compila os benchmarks, a menos que seja chamado com `RAVENRS_GATE=1`.
 
-Compile com `CARGO_TARGET_DIR` no scratchpad quando estiver num worktree, **um por worktree**. O Cargo não põe o caminho de um crate local no hash dos artefatos. Duas worktrees que dividem o mesmo diretório reaproveitam o build uma da outra: já deu "can't find crate for `ravenrs`" num doctest e um derive compilado com um `ravenrs-app-spec` antigo. Uma medição feita assim não vale. O `scripts/check.sh` avisa quando o diretório foi usado por outra checkout.
+Compile num dos slots fixos (`slot-a` ou `slot-b`, skill `ravenrs-check`), com o target dele, e nunca aponte outra checkout para esse target. O Cargo não põe o caminho de um crate local no hash dos artefatos. Duas pastas que dividem o mesmo diretório de build reaproveitam o build uma da outra: já deu "can't find crate for `ravenrs`" num doctest e um derive compilado com um `ravenrs-app-spec` antigo. Uma medição feita assim não vale. O `cargo xtask pr` avisa quando o diretório foi usado por outra checkout.
 
 ## Quando rodar o quê (quando ele pedir)
 
@@ -26,15 +26,15 @@ Compile com `CARGO_TARGET_DIR` no scratchpad quando estiver num worktree, **um p
 ## 1. Gate: contadores exatos
 
 ```bash
-cargo run --release -p ravenrs-perf -- gate
+cargo run --release --manifest-path crates/ravenrs-perf/Cargo.toml -- gate
 ```
 
-Conta o trabalho de cada cena e compara com `perf/baseline.json`: builds, layouts, paints, shapings, alocações, draw calls, instâncias e bytes enviados à GPU. Roda duas vezes e reprova se as rodadas divergirem. Leva cerca de 40 s. Só entra no `scripts/check.sh --full` com `RAVENRS_GATE=1 ./scripts/check.sh --full`.
+Conta o trabalho de cada cena e compara com `perf/baseline.json`: builds, layouts, paints, shapings, alocações, draw calls, instâncias e bytes enviados à GPU. Roda duas vezes e reprova se as rodadas divergirem. Leva cerca de 40 s. Só entra no `cargo xtask release` com `RAVENRS_GATE=1 cargo xtask release`.
 
 Se reprovar, descubra a causa antes de qualquer outra coisa. Só atualize a baseline se a mudança for intencional, e revise o diff:
 
 ```bash
-cargo run --release -p ravenrs-perf -- gate --bless
+cargo run --release --manifest-path crates/ravenrs-perf/Cargo.toml -- gate --bless
 ```
 
 Para pôr na baseline só uma cena nova, sem levar junto mudanças de outras cenas que ninguém revisou, passe um filtro: `gate --bless cables` grava só as entradas que casam com o nome e mantém as outras como estavam. `gate cables` compara só essas.
@@ -44,7 +44,7 @@ Sem GPU, o gate falha de propósito. Fora do macOS, só os tetos reprovam; difer
 ## 2. Relatório de contadores
 
 ```bash
-cargo run --release -p ravenrs-perf -- report
+cargo run --release --manifest-path crates/ravenrs-perf/Cargo.toml -- report
 ```
 
 Aceita um filtro de cena, como `report curve`. Olhe primeiro:
@@ -63,14 +63,14 @@ Na tomada, no Mac de referência (MacBook Pro 14" M2 Pro, `Mac14,9`). Na bateria
 ./scripts/perf-time.sh
 ```
 
-Roda 3 processos, fica com o melhor p99 e compara com as metas de `docs/QUALITY.md`: CPU ≤ 4 ms em interação, ≤ 16,67 ms em rebuild e GPU ≤ 3 ms. As cenas `curve-large` são só mostradas, nunca reprovam. Tempo não entra no `check.sh`, porque é ruidoso em laptop.
+Roda 3 processos, fica com o melhor p99 e compara com as metas de `docs/QUALITY.md`: CPU ≤ 4 ms em interação, ≤ 16,67 ms em rebuild e GPU ≤ 3 ms. As cenas `curve-large` são só mostradas, nunca reprovam. Tempo não entra no `cargo xtask pr`, porque é ruidoso em laptop.
 
 O relógio de GPU do Metal é grosseiro: passes curtos costumam vir como 0. Compare ordens de grandeza, não décimos.
 
 ## 4. Frames frios
 
 ```bash
-cargo run --release -p ravenrs-perf -- cold
+cargo run --release --manifest-path crates/ravenrs-perf/Cargo.toml -- cold
 ```
 
 Abre o app de finanças e visita cada página duas vezes, mostrando o pior frame de cada visita. O caixa ainda não entra nesta visita; veja a seção do caixa. Os tempos acima descartam o aquecimento, então é aqui que aparece o travamento ao abrir uma tela. Acima de 16,67 ms, a pessoa vê.
@@ -88,11 +88,11 @@ Rode depois de `gate --bless`, porque ele compara com a baseline. Ele regrava `u
 ## 6. Comparar antes e depois
 
 ```bash
-cargo run --release -p ravenrs-perf -- time > antes.json
+cargo run --release --manifest-path crates/ravenrs-perf/Cargo.toml -- time > antes.json
 ```
 
 ```bash
-cargo run --release -p ravenrs-perf -- diff antes.json depois.json
+cargo run --release --manifest-path crates/ravenrs-perf/Cargo.toml -- diff antes.json depois.json
 ```
 
 Não meça tempo com a VM ligada ou com compilação rodando: os números dobram.
@@ -126,7 +126,7 @@ Windows continua só nas máquinas do Alex.
 ## 9. Capacidade da GPU
 
 ```bash
-cargo run --release -p ravenrs-perf -- capacity
+cargo run --release --manifest-path crates/ravenrs-perf/Cargo.toml -- capacity
 ```
 
 Aumenta cada tipo de trabalho até o frame não caber, contando até a GPU terminar, e diz quantos cabem a 120 e a 60 Hz. Com `--curve`, mostra cada tamanho medido. Serve para saber onde o renderer vira gargalo, e é o comando a rodar em outras máquinas, porque imprime a GPU usada. Na tomada, sem nada mais rodando. Se aparecer "leaves shapes out", formas estão sendo descartadas: é defeito, não lentidão.
@@ -140,11 +140,11 @@ Todo componente entra numa cena em `crates/ravenrs-perf/src/scenes/`, com `cover
 As cenas `cables` (200 `CablePlug` entre tomadas) e `flow-cables` (`FlowCanvas` com 60 nós ligados por cabos) ficam em `crates/ravenrs-perf/src/scenes/cables.rs`. O arnês dá a cada cena o mundo de cabos da GPU, como uma janela. Com `--cpu-cables`, usa o gêmeo na CPU, que é o que o WebGL2 roda:
 
 ```bash
-cargo run --release -p ravenrs-perf -- report cables --cpu-cables
+cargo run --release --manifest-path crates/ravenrs-perf/Cargo.toml -- report cables --cpu-cables
 ```
 
 ```bash
-cargo run --release -p ravenrs-perf -- time cables --cpu-cables
+cargo run --release --manifest-path crates/ravenrs-perf/Cargo.toml -- time cables --cpu-cables
 ```
 
 O que olhar:
@@ -167,7 +167,7 @@ A cena `flow-cables-large` é o FlowCanvas com 1.000 nós e 1.935 ligações que
 
 A cena `counter-keys` (em `crates/ravenrs-perf/src/scenes/components.rs`) cobre `KeyBar` e `ScanField`. O caixa e a tela de etiquetas ainda não têm cena no gate: entram em `scenes/apps.rs`, como as outras telas de aplicação.
 
-O caixa é a tela usada o dia todo, então o que importa é `builds` e `shapes` a cada item bipado: não podem crescer com o tamanho da venda. Para ver a tela sem janela, `RAVEN_PDV_TELAS=pasta cargo test -p mini-pdv --test telas -- --ignored` gera os PNG.
+O caixa é a tela usada o dia todo, então o que importa é `builds` e `shapes` a cada item bipado: não podem crescer com o tamanho da venda. Para ver a tela sem janela, `RAVEN_PDV_TELAS=pasta cargo test --manifest-path examples/mini-pdv/Cargo.toml --test telas -- --ignored` gera os PNG.
 
 Não foi medido: as telas do caixa e de etiquetas, tempo em máquina de caixa real, a prévia de etiqueta rasterizada com muitas etiquetas, e impressão em impressora física.
 

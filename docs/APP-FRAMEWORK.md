@@ -56,7 +56,7 @@ fn main() -> Result<(), ravenrs::native::PlatformError> {
 }
 ```
 
-That is the whole application: navigation, a list with search, filters and export to Excel, PDF and CSV, a form, and New, Save, Save and close, Save and new, Cancel, Delete, Refresh, Back, Previous and Next. [`examples/quick-app`](../examples/quick-app) is this with a second record and a reference between them, in under 100 lines, in a window with `cargo run -p quick-app` and in the browser with `scripts/build-web.sh quick-app`.
+That is the whole application: navigation, a list with search, filters and export to Excel, PDF and CSV, a form, and New, Save, Save and close, Save and new, Cancel, Delete, Refresh, Back, Previous and Next. [`examples/quick-app`](../examples/quick-app) is this with a second record and a reference between them, in under 100 lines, in a window with `cargo run --manifest-path examples/quick-app/Cargo.toml` and in the browser with `cargo xtask web quick-app`.
 
 Records live in memory for now, so they are gone when the application closes. `seed` puts some in when it opens. A wrong attribute is a compile error that points at it.
 
@@ -171,7 +171,7 @@ EntityInfo::new("Order")
 - `data_access` picks how a list reads: `Client`, all of it; `Server`, as needed; `DataView`, only its columns and with no editing, finding the whole record when one is selected.
 - A difference can add fields under `Members`, each with `"$new": true`, `Kind` and `Caption`, `Expression` for one worked out, and `Options` for a list. They come in order of name, and get a column and a place on the form. `App::administrator_settings` gives them before storage opens, and `App::storage_for` hands a database the entities with them.
 - `FieldKind::Guid` makes up a key. `FieldKind::Tags` holds several options. `predefined`, `edit_mask`, `criteria_of`, `display_format` and `group` shape a field, and the `Progress` editor shows a number from 0 to 100.
-- `ActionContext::message` tells people something, with `Message::action` and `Message::on_close`. `ActionCategory::InForm` with `EntityInfo::form_actions` puts an action inside a form's layout.
+- `ActionContext::message` tells people something, with `Message::action` and `Message::on_close`. `ActionCategory::InForm` with `EntityInfo::form_actions` puts an action inside a form's layout. `ActionCategory::InRow` puts it on each row of the entity's lists instead of above them: the button lights up only on the rows that meet its `target_criteria`, runs with that row as the selection (rules, confirmation, audit and message as usual), and is not there for whoever lacks the operation it `requires`.
 - `use_records` and `use_collection`, or the same on `App`, give records no storage keeps. A navigation item can open a form directly: on a new record, or with `ObjectKey` on one by its key.
 - `DashboardInfo::variant` lets people change a dashboard to another; it lists itself too, since a menu takes two.
 - `export_captions` writes what people see as CSV, with an empty column to fill in, and `import_captions` takes it back as a language.
@@ -296,7 +296,7 @@ A record with a time in its reminder field comes up when that is due, for whoeve
 
 ## At a counter
 
-An application used all day from the keyboard needs little of its own. These come with the framework, and `raven-feature-center` shows them in "Caixa de exemplo", or alone with `cargo run -p raven-feature-center -- caixa`.
+An application used all day from the keyboard needs little of its own. These come with the framework, and `raven-feature-center` shows them in "Caixa de exemplo", or alone with `cargo run --manifest-path tools/raven-feature-center/Cargo.toml -- caixa`.
 
 ```rust
 App::new("Caixa")
@@ -504,7 +504,27 @@ Limits to know:
 - `TIMESTAMPTZ` comes in UTC, with no time zone of its own, since `DateTime` has none.
 - Reading entities from a schema, and keeping the model and attachments in the database, are only in SQLite for now.
 
-Its tests run when `RAVENRS_POSTGRES_URL` says where a database is, and otherwise have nothing to run against: `scripts/check.sh` does not start one. `RAVENRS_POSTGRES_STATEMENTS=unprepared` runs them all with statements as they go to a pooler. `tests/managed.rs` takes `RAVENRS_POSTGRES_TLS_URL` with `RAVENRS_POSTGRES_CA` (a server whose certificate an authority of its own signed) and `RAVENRS_POSTGRES_POOLER_URL` (PgBouncer in transaction mode with `max_prepared_statements = 0`).
+Its tests run when `RAVENRS_POSTGRES_URL` says where a database is, and otherwise have nothing to run against: `cargo xtask pr` does not start one. `RAVENRS_POSTGRES_STATEMENTS=unprepared` runs them all with statements as they go to a pooler. `tests/managed.rs` takes `RAVENRS_POSTGRES_TLS_URL` with `RAVENRS_POSTGRES_CA` (a server whose certificate an authority of its own signed) and `RAVENRS_POSTGRES_POOLER_URL` (PgBouncer in transaction mode with `max_prepared_statements = 0`).
+
+### Moving a tenant to another database
+
+An installation that grew moves a tenant from SQLite to PostgreSQL, or back, without being deployed again (#243). The source is always a stamped backup on SQLite, never the database in use; on PostgreSQL it is a read in one `REPEATABLE READ` transaction, which sees the database as it was when it started.
+
+```rust,ignore
+// On the SQLite of the tenant: a backup, then what it holds.
+let backups = sqlite.backups(BackupStamp::new("Church").tenant("T1"));
+backups.save(&file)?;
+let export = backups.export(&file)?;          // or TenantExport::read(&postgres, stamp) the other way
+// On the new database, with the same entities and migrations.
+let report = TenantImport::new(&postgres, BackupStamp::new("Church").tenant("T1"))
+    .audit(trail)                             // a note about the tenant, who and how many rows
+    .run(&export, &permissions)?;            // only an administrator
+assert!(report.matches());
+```
+
+`TenantImport::run` checks everything before it writes: it refuses someone who is not an administrator, an export of another application or another tenant, other migrations of the application (those the framework writes for one kind of database only, decimal upgrades and the guards of sealed records, are not compared), a destination that misses an entity or already has records, and references that point at nothing, listing the rows (`MigrationError::BrokenReferences`). Then it writes every row in a single transaction, the entities that are pointed at first, reads them back in the same transaction and compares the number of rows and a hash of their content, table by table; for managed tables the hash is the same whatever the database, and a table set up by hand with other column types can come back different, which is refused. Any failure or difference rolls everything back (`MigrationError::Failed`, `MigrationError::Mismatch`), and the destination stays as it was. Once committed, every record is checked against the rules of its entity, and those that break one now are listed in `MigrationReport::rule_violations`; they came across as they were.
+
+**Recovery.** Nothing changes in the source, and a destination where the migration failed is as it was before, so the procedure is to fix what the error says and run it again. A tenant that already moved goes back the same way, from the new database to a new SQLite file: `TenantExport::hashes` on both ends says whether the content is the same. Until each tenant has a context of its own (#225), a tenant is a database of its own, a file on SQLite or a schema on PostgreSQL, and the stamp is what keeps one from being written into another. The content of attached files (`SqliteAttachmentStore`, `PostgresAttachmentStore`) is not moved yet.
 
 ## PostgREST, Supabase and Neon's Data API
 
@@ -593,7 +613,7 @@ Other systems sign in with a **key**, in the same `Authorization: Bearer` header
 
 An application with a look of its own gives its themes with `App::themes([light, dark])`. The Theme menu then offers only those, under their names, and starts on the first; the one someone chooses is kept as above. With a light and a dark one among them, "Follow the system" switches between the first of each instead of Raven Light and Raven Dark. Each theme is kept as what differs from the built-in theme it is `based_on`, so a theme made with `Theme { name: "Mine", ..Theme::raven_light() }`, or read from tokens with a `"name"`, comes back under its own name and colors. A kept theme that fails `is_readable`, as white text on a light accent, is not brought back.
 
-The top of the navigation can carry the application's brand: `App::brand(IconTile::new(IconName::Church))` with `brand_subtitle("Central Church")`. Reduced to icons, only the mark stays, and screen readers hear the title and the line. `App::navigation_count("Lesson", |session| ...)` puts a count beside that item of the navigation, read again whenever records change, with `NavigationCount::spoken` for what screen readers hear ("1 with attendance to take"). Cmd/Ctrl+K opens a command palette with the places the person can open. The list report of `ReportModule` comes out in the colors on screen: the accent and its text for the headers, and the theme's text where it is dark enough for white paper.
+The top of the navigation can carry the application's brand: `App::brand(IconTile::new(IconName::Church))` with `brand_subtitle("Central Church")`. Reduced to icons, only the mark stays, and screen readers hear the title and the line. `App::navigation_count("Lesson", |session| ...)` puts a count beside that item of the navigation, read again whenever records change, with `NavigationCount::spoken` for what screen readers hear ("1 with attendance to take"). `NavigationCount::tone(Tone::Danger)` draws it as a badge of that tone, as overdue bills in red. `App::navigation_section("Pessoas", "Cadastros")` gathers a navigation group under a section: the group becomes one item, with its screens in a submenu that opens by itself while one of them is showing, folds and unfolds with a click (or the arrows right and left), and groups that follow each other in the same section share one title, as "Cadastros" over "Pessoas" and "Turmas". A group in no section keeps its own title, as before. An application shown as a page of another, as the demonstrations of the feature center, takes `App::inside_another(true)`: the outer window keeps Cmd/Ctrl+K and Cmd/Ctrl+B, so neither answers twice. Cmd/Ctrl+K opens a command palette with the places the person can open. Three options, all off unless asked, draw the navigation the way Raven Finanças does: `App::compact_navigation(true)` makes each item one short row, `navigation_search(true)` puts "Search commands" first, with ⌘K, and `navigation_collapse(true)` puts "Collapse menu" at the foot, with ⌘B, which says "Open menu" once it is folded to its icons. The list report of `ReportModule` comes out in the colors on screen: the accent and its text for the headers, and the theme's text where it is dark enough for white paper.
 
 It is not OData: the query options are its own, which is the difference to keep in mind for clients made for OData. Money travels in cents, as it is stored, and dates as text. Users, roles and the audit trail are not exposed, whatever the permissions say.
 
@@ -613,7 +633,7 @@ Limits to know:
 - A key's expiry goes by the server's clock, in its local time, so a change of time zone moves it.
 - Two people changing the same field: the last one stays, since `PATCH` carries no version. Different fields do not get in each other's way.
 
-Try it with `cargo run -p raven-feature-center --bin api`.
+Try it with `cargo run --manifest-path tools/raven-feature-center/Cargo.toml --bin api`.
 
 ## An application over a server
 
@@ -639,7 +659,7 @@ Limits to know:
 - A record that refers to another one created in the same commit does not work, since the server gives the key. Keep them in two commits.
 - An address comes from the build (`RAVEN_API_URL` in the center), and never from the page's own address, so a link cannot make a page send a password somewhere else.
 
-Try it: `RAVEN_API_ORIGIN=http://localhost:8099 cargo run -p raven-feature-center --bin api`, and `RAVEN_API_URL=http://127.0.0.1:8090 scripts/build-web.sh raven-feature-center`, served on that port.
+Try it: `RAVEN_API_ORIGIN=http://localhost:8099 cargo run --manifest-path tools/raven-feature-center/Cargo.toml --bin api`, and `RAVEN_API_URL=http://127.0.0.1:8090 cargo xtask web raven-feature-center`, served on that port.
 
 ## Known gaps
 

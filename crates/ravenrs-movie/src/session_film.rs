@@ -83,7 +83,7 @@ impl FrameObserver for Watch {
     }
 }
 
-/// A film of an [`E2e`] session being made. See the [module](self).
+/// A film of an [`E2e`] session being made. See the module's documentation.
 #[derive(Debug)]
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SessionFilm {

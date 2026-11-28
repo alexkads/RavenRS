@@ -247,7 +247,70 @@ pub(crate) fn column_of(field: &FieldInfo, caption: &str, words: &Words) -> Grid
         }
         _ => GridColumn::text(caption),
     };
-    column.field(field.name.clone())
+    shaped(field, column.field(field.name.clone()))
+}
+
+/// Between a value and the field shown under it, in the text of the cell: what export and filter use.
+pub(crate) const DETAIL_BETWEEN: &str = " · ";
+
+/// The tone of a badge for a tint of the model.
+pub(crate) fn tone_of(tint: Tint) -> ravenrs_widgets::Tone {
+    use ravenrs_widgets::Tone;
+    match tint {
+        Tint::Danger => Tone::Danger,
+        Tint::Warning => Tone::Warning,
+        Tint::Success => Tone::Success,
+        Tint::Accent => Tone::Accent,
+        _ => Tone::Neutral,
+    }
+}
+
+/// A column drawn as the field asks: its value as a badge, and the field under it in a second line.
+fn shaped(field: &FieldInfo, column: GridColumn) -> GridColumn {
+    use ravenrs_style::{Semantic, TextStyle};
+    use ravenrs_widgets::{Badge, Text, VStack};
+    let tones: Vec<(String, ravenrs_widgets::Tone)> = match &field.kind {
+        FieldKind::Enum(options) => options
+            .iter()
+            .map(|option| {
+                (option.caption.clone(), option.tint.map_or(ravenrs_widgets::Tone::Neutral, tone_of))
+            })
+            .collect(),
+        _ => Vec::new(),
+    };
+    let tinted = matches!(&field.kind, FieldKind::Enum(options) if options.iter().any(|o| o.tint.is_some()));
+    let badge = field.badge || tinted;
+    if !badge && field.list_detail.is_none() {
+        return column;
+    }
+    let detailed = field.list_detail.is_some();
+    column.template(move |value| {
+        let text = match value {
+            Cell::Text(text) => text.clone(),
+            Cell::Empty => String::new(),
+            other => other.key_text(),
+        };
+        let (main, under) = match text.split_once(DETAIL_BETWEEN) {
+            Some((main, under)) if detailed => (main.to_owned(), Some(under.to_owned())),
+            _ => (text, None),
+        };
+        let top: ravenrs_widgets::AnyView = if badge && !main.is_empty() {
+            let tone = tones
+                .iter()
+                .find(|(caption, _)| *caption == main)
+                .map_or(ravenrs_widgets::Tone::Neutral, |(_, tone)| *tone);
+            Box::new(Badge::new(main).tone(tone))
+        } else {
+            Box::new(Text::new(main).style(TextStyle::Callout))
+        };
+        match under {
+            Some(under) => Box::new(
+                VStack::new((top, Text::new(under).style(TextStyle::Caption).foreground(Semantic::InkMuted)))
+                    .spacing(2.0),
+            ),
+            None => top,
+        }
+    })
 }
 
 /// Whether a field can be changed right on a list.

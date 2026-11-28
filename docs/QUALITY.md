@@ -31,7 +31,7 @@ Behavior that a user can observe is documented publicly. A private comment can k
 
 ## Enforced checks
 
-`scripts/check.sh --full` runs every check below, and nothing ships unless it passes. The project uses no hosted CI, so this script is the gate. Without `--full` it is the quick check for each pull request: rustfmt, clippy on every package the change reaches, and the tests of the packages changed and of their direct dependents (`scripts/changed-packages.py`). A direct dependent that was not changed and pulls in a heavy crate the change does not reach (the local AI in `ravenrs-ai`, the video encoder in `ravenrs-movie-video`) is only linted, and `--full` runs its tests.
+`cargo xtask release` runs every check below, and nothing ships unless it passes. The project uses no hosted CI, so the checks of `cargo xtask` are the gate. `cargo xtask pr` is the check for each pull request: rustfmt, clippy on every package the change reaches, and the tests of the packages changed and of their direct dependents (`scripts/changed-packages.py`). A direct dependent that was not changed and pulls in a heavy crate the change does not reach (the local AI in `ravenrs-ai`, the video encoder in `ravenrs-movie-video`) is only linted, and `--full` runs its tests.
 
 The script uses a compiler cache that worktrees share, so a new worktree restores what another one compiled instead of building it again: [`ravenrs-xcache`](../crates/ravenrs-xcache/README.md), this repository's own, which keeps libraries, reports what went past it and why, and is cut down to 20 GB after each run. `RAVENRS_XCACHE=0` turns it off, and [Kache](https://github.com/kunobi-ninja/kache) takes its place when it is installed. Neither changes what is checked; each worktree keeps its own build directory.
 
@@ -49,10 +49,10 @@ Each run ends with the time per step, slowest first, saved to `<target>/check-ti
 | `cargo +1.88 check` | The declared minimum Rust version (MSRV) still builds |
 | `--no-default-features` | Optional features really are optional |
 | `cargo bench --no-run`, only with `RAVENRS_GATE=1` | Benchmarks keep compiling. It runs when asked for, with the performance gate |
-| `cargo run --release -p ravenrs-perf -- gate`, only with `RAVENRS_GATE=1` | Performance regressions: the exact work of every scene against `perf/baseline.json`. It runs when asked for, not on every check |
+| `cargo run --release --manifest-path crates/ravenrs-perf/Cargo.toml -- gate`, only with `RAVENRS_GATE=1` | Performance regressions: the exact work of every scene against `perf/baseline.json`. It runs when asked for, not on every check |
 | Web builds | The examples build and bind for WebAssembly |
 
-GPU tests skip themselves, with a message, on machines without a GPU adapter. To accept an intended visual change, regenerate the golden images with `RAVENRS_UPDATE_GOLDEN=1 cargo test -p ravenrs --test suite visual::`, then review the PNG diff in the commit. A failing run writes `*.actual.png` next to the golden image.
+GPU tests skip themselves, with a message, on machines without a GPU adapter. To accept an intended visual change, regenerate the golden images with `RAVENRS_UPDATE_GOLDEN=1 cargo test --manifest-path camadas/plataforma/Cargo.toml -p ravenrs --test suite visual::`, then review the PNG diff in the commit. A failing run writes `*.actual.png` next to the golden image.
 
 Release checks, run by hand before each publish:
 - `cargo semver-checks` against the previous release.

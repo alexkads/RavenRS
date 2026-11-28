@@ -214,11 +214,13 @@ pub struct AppShell {
     themes: Option<Vec<ravenrs_style::Theme>>,
     brand: Option<crate::navigation::Brand>,
     counts: crate::navigation::Counts,
+    sections: Rc<std::collections::HashMap<String, String>>,
     palette: State<bool>,
     theme_applied: std::cell::Cell<bool>,
     kept_theme: RefCell<Option<String>>,
     kept_follow: std::cell::Cell<Option<bool>>,
     sidebar: SidebarState,
+    menu: NavigationMenu,
 }
 
 impl std::fmt::Debug for AppShell {
@@ -266,11 +268,13 @@ impl AppShell {
             themes: None,
             brand: None,
             counts: Rc::default(),
+            sections: Rc::default(),
             palette: State::new(false),
             theme_applied: std::cell::Cell::new(false),
             kept_theme: RefCell::new(None),
             kept_follow: std::cell::Cell::new(None),
             sidebar: SidebarState::new(true),
+            menu: NavigationMenu::default(),
         }
     }
 
@@ -319,6 +323,12 @@ impl AppShell {
         self
     }
 
+    /// The sections that gather groups of the navigation, by the group's id.
+    pub(crate) fn sections(mut self, sections: std::collections::HashMap<String, String>) -> Self {
+        self.sections = Rc::new(sections);
+        self
+    }
+
     pub(crate) fn counts(mut self, counts: crate::navigation::Counts) -> Self {
         self.counts = counts;
         self
@@ -362,6 +372,33 @@ impl AppShell {
     /// An application that saves or drives it passes a [`SidebarState::controlled`] one.
     pub fn sidebar(mut self, state: SidebarState) -> Self {
         self.sidebar = state;
+        self
+    }
+
+    /// Draws the navigation tighter, each item in one short row.
+    pub fn compact_navigation(mut self, on: bool) -> Self {
+        self.menu.compact = on;
+        self
+    }
+
+    /// Puts first in the navigation an item that opens the commands, with the ⌘K it already
+    /// answers to.
+    pub fn navigation_search(mut self, on: bool) -> Self {
+        self.menu.search = on;
+        self
+    }
+
+    /// Puts at the foot of the navigation an item that folds it to its icons and opens it again,
+    /// as ⌘B already does, and says so. Pass a [`SidebarState::controlled`] one to [`AppShell::sidebar`] to remember it.
+    pub fn navigation_collapse(mut self, on: bool) -> Self {
+        self.menu.collapse = on;
+        self
+    }
+
+    /// Shows the window inside another application's, as a page of it: the outer one keeps ⌘K
+    /// and ⌘B, so neither answers twice, and this one has no palette of its own.
+    pub fn inside_another(mut self, on: bool) -> Self {
+        self.menu.inside = on;
         self
     }
 
@@ -460,6 +497,17 @@ impl AppShell {
     fn navigation(&self, current: Option<&ViewInfo>) -> AnyView {
         let model = self.session.model();
         let mut content: Vec<AnyView> = Vec::new();
+        let words = self.session.words();
+        if self.menu.search {
+            let palette = self.palette.clone();
+            content.push(Box::new(
+                SidebarItem::new(IconName::Search, words.search_command.clone())
+                    .compact()
+                    .shortcut("⌘K")
+                    .on_click(move || palette.set(true)),
+            ));
+        }
+        let mut section: Option<String> = None;
         if let Some(root) = model.get("NavigationItems") {
             for group in root.in_order() {
                 if let Some(view) = group.text("View") {
@@ -468,16 +516,37 @@ impl AppShell {
                     }
                     continue;
                 }
-                let items: Vec<AnyView> = group
+                let rows: Vec<(SidebarItem, bool)> = group
                     .in_order()
                     .into_iter()
                     .filter_map(|item| {
                         let view = item.text("View")?;
                         self.session
                             .can_open(Some(&group.id), &item.id, view)
-                            .then(|| self.navigation_item(item, view, current))
+                            .then(|| self.navigation_row(item, view, current))
                     })
                     .collect();
+                // A group gathered in a section is one item, with its own as a submenu that is
+                // open while the screen is one of them.
+                if let Some(gathered) = self.sections.get(&group.id).filter(|_| !rows.is_empty()) {
+                    if section.as_ref() != Some(gathered) {
+                        content.push(Box::new(SidebarSection::new(gathered.clone())));
+                        section = Some(gathered.clone());
+                    }
+                    let icon = group.text("Icon").and_then(icon_named).unwrap_or(IconName::Folder);
+                    let open = rows.iter().any(|(_, selected)| *selected);
+                    let mut parent =
+                        SidebarItem::new(icon, group.text("Caption").unwrap_or(&group.id).to_owned())
+                            .expanded(open);
+                    if self.menu.compact {
+                        parent = parent.compact();
+                    }
+                    content
+                        .push(Box::new(rows.into_iter().fold(parent, |parent, (row, _)| parent.item(row))));
+                    continue;
+                }
+                section = None;
+                let items: Vec<AnyView> = rows.into_iter().map(|(row, _)| Box::new(row) as AnyView).collect();
                 if !items.is_empty() {
                     content.push(Box::new(SidebarSection::new(
                         group.text("Caption").unwrap_or(&group.id).to_owned(),
@@ -489,6 +558,7 @@ impl AppShell {
         let sidebar = Sidebar::new(content)
             .collapsible(SidebarCollapse::Icons)
             .narrow_below(NARROW_WINDOW)
+            .shortcut(!self.menu.inside)
             .state(self.sidebar.clone())
             .header(match &self.brand {
                 Some(brand) => Box::new(brand.view(self.session.title())) as AnyView,
@@ -506,14 +576,30 @@ impl AppShell {
         });
         let account = self.session.account();
         let running = crate::jobs::running(&self.session);
-        if running.is_none() && reminders.is_none() && account.is_none() && !self.theme_menu {
+        let collapse = self.menu.collapse.then(|| {
+            let state = self.sidebar.clone();
+            let caption = if state.is_open() { words.collapse_menu.clone() } else { words.open_menu.clone() };
+            SidebarItem::new(IconName::PanelLeft, caption)
+                .compact()
+                .shortcut("⌘B")
+                .on_click(move || state.toggle())
+        });
+        if running.is_none()
+            && reminders.is_none()
+            && account.is_none()
+            && !self.theme_menu
+            && collapse.is_none()
+        {
             return Box::new(sidebar);
         }
-        let last: AnyView = match account {
-            Some(account) => self.account_of(account),
-            None => Box::new(self.theme_picker()),
+        let last: Option<AnyView> = match account {
+            Some(account) => Some(self.account_of(account)),
+            None => self.theme_menu.then(|| Box::new(self.theme_picker()) as AnyView),
         };
-        Box::new(sidebar.footer(VStack::new((running, reminders, last)).spacing(4.0).align(Align::Stretch)))
+        Box::new(
+            sidebar
+                .footer(VStack::new((running, reminders, collapse, last)).spacing(4.0).align(Align::Stretch)),
+        )
     }
 
     fn account_of(&self, account: crate::session::Account) -> AnyView {
@@ -523,6 +609,8 @@ impl AppShell {
         Box::new(
             ravenrs_widgets::HStack::new((
                 Text::new(account.name).style(TextStyle::Callout).grow(1.0),
+                // What falls due, as each person chooses to be told.
+                crate::due::choice_button(&self.session),
                 self.theme_picker(),
                 // Only where passwords are kept here: on a server, its own way in does this.
                 self.session.frame().security().map(|_| {
@@ -545,6 +633,16 @@ impl AppShell {
     }
 
     fn navigation_item(&self, item: &ModelNode, view: &str, current: Option<&ViewInfo>) -> AnyView {
+        Box::new(self.navigation_row(item, view, current).0)
+    }
+
+    /// The row of an item, and whether the screen showing is its own.
+    fn navigation_row(
+        &self,
+        item: &ModelNode,
+        view: &str,
+        current: Option<&ViewInfo>,
+    ) -> (SidebarItem, bool) {
         let model = self.session.model();
         let entity_of = |id: &str| model.at(&["Views", id]).and_then(|n| n.text("Entity"));
         let selected = current
@@ -552,19 +650,28 @@ impl AppShell {
         let icon = item.text("Icon").and_then(icon_named).unwrap_or(ravenrs_widgets::IconName::File);
         let (session, target) = (self.session.clone(), view.to_owned());
         let key = item.text("ObjectKey").map(str::to_owned);
-        let row = SidebarItem::new(icon, item.text("Caption").unwrap_or(&item.id).to_owned())
+        let mut row = SidebarItem::new(icon, item.text("Caption").unwrap_or(&item.id).to_owned())
             .selected(selected)
             .on_click(move || session.open_navigation(&target, key.as_deref()));
+        if self.menu.compact {
+            row = row.compact();
+        }
         // Read under the revision, so a change to the records draws it again.
         let count = self.counts.get(&item.id).and_then(|count| {
             self.session.revision();
             count(&self.session)
         });
-        Box::new(match count {
-            Some(crate::NavigationCount { shown, spoken: Some(spoken) }) => row.count_spoken(shown, spoken),
-            Some(crate::NavigationCount { shown, spoken: None }) => row.count(shown),
+        let row = match count {
+            Some(crate::NavigationCount { shown, tone: Some(tone), .. }) => {
+                row.badge(ravenrs_widgets::Badge::new(shown).tone(tone))
+            }
+            Some(crate::NavigationCount { shown, spoken: Some(spoken), .. }) => {
+                row.count_spoken(shown, spoken)
+            }
+            Some(crate::NavigationCount { shown, spoken: None, .. }) => row.count(shown),
             None => row,
-        })
+        };
+        (row, selected)
     }
 
     fn trail(&self, view: Option<&ViewInfo>) -> Vec<String> {
@@ -756,7 +863,7 @@ impl View for AppShell {
             kind: view.map(|view| view.kind),
         });
         parts.push(cx.child(&window));
-        if self.template.shows_navigation() {
+        if self.template.shows_navigation() && !self.menu.inside {
             let palette = crate::navigation::commands(session)
                 .into_iter()
                 .fold(ravenrs_widgets::CommandPalette::new(self.palette.binding()), |palette, command| {
@@ -781,4 +888,13 @@ impl View for AppShell {
             Paint::None,
         )
     }
+}
+
+/// How the navigation is drawn: all off, as it always was, unless the application asks.
+#[derive(Clone, Copy, Debug, Default)]
+struct NavigationMenu {
+    compact: bool,
+    search: bool,
+    collapse: bool,
+    inside: bool,
 }

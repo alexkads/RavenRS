@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-wayland-gestures"
+workspace = "../../camadas/plataforma"
 description = "Touchpad pinches on Wayland for RavenRS, until winit delivers them. The one place in the workspace with unsafe code."
 version.workspace = true
 edition.workspace = true

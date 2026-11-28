@@ -26,7 +26,7 @@
 //!
 //! Who the app is, its folders and its addresses, is an [`InstalledApp`]; nothing
 //! here knows any app. The README says how an app adopts it. With no features the
-//! crate draws nothing; the feature `ui` adds [`ui`], the news and the notice drawn the same
+//! crate draws nothing; the feature `ui` adds the `ui` module: the news and the notice drawn the same
 //! way in every app.
 //!
 //! An app that is a server runs as a service of the system: [`ServiceSpec`] says what to run and

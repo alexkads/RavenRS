@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-app-update"
+workspace = "../../camadas/telas"
 description = "Installing, updating and versioning a RavenRS app by compiling it on the user's machine: one installer for Windows, macOS and Linux, the news of each version, and the check that keeps the release files together."
 version.workspace = true
 edition.workspace = true

@@ -16,7 +16,7 @@ Reach for this crate when people need to *change* a layout. A `Report` comes in.
 
 There are two ways to use it:
 
-- **On its own**, with `Designer::new()`. It opens on a gallery of sample templates, and it offers a wizard that builds a report from a sample data set. This is the playground. `tools/raven-report-designer` runs it in a desktop window (`cargo run -p raven-report-designer`) and on the web page. On the web page, `?report=invoice` opens one sample through `Designer::sample`.
+- **On its own**, with `Designer::new()`. It opens on a gallery of sample templates, and it offers a wizard that builds a report from a sample data set. This is the playground. `tools/raven-report-designer` runs it in a desktop window (`cargo run --manifest-path tools/raven-report-designer/Cargo.toml`) and on the web page. On the web page, `?report=invoice` opens one sample through `Designer::sample`.
 - **Embedded**, with `Designer::embedded(report, save_label, close_label, on_save, on_close)`. It opens on the application's report, with no gallery or wizard, and adds two buttons above the ribbon. Save calls `on_save` with the report as it stands, and Close calls `on_close`. `ravenrs-app-report` opens the stored reports of a business application this way.
 
 ## Use from start to finish

@@ -1,6 +1,6 @@
 # spreadsheet
 
-`cargo run -p spreadsheet`.
+`cargo run --manifest-path examples/spreadsheet/Cargo.toml`.
 
 ## End-to-end tests (Raven Test Studio)
 

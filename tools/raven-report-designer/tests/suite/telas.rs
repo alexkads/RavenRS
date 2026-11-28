@@ -1,5 +1,5 @@
 //! Pictures of the designer in each theme and as the system changes, for the eye (#290):
-//! `RAVEN_RD_TELAS=<pasta> cargo test -p raven-report-designer --test suite telas -- --ignored`.
+//! `RAVEN_RD_TELAS=<pasta> cargo test --manifest-path tools/raven-report-designer/Cargo.toml --test suite telas -- --ignored`.
 
 use raven_report_designer::Designer;
 use ravenrs::prelude::*;

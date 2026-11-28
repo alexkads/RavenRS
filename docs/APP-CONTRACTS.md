@@ -93,6 +93,131 @@ The result distinguishes six meanings, all of them in `SpaceError` (`crates/rave
 
 Messages never reveal that data the person cannot reach exists.
 
+### Sealed records and amendments
+
+A sealed entity (`EntityInfo::sealed(Seal::when("[status] = 'closed'"))`) says, by an expression over the record **as stored**, when a record is closed. A closed record is not changed or deleted directly: the commit refuses it with `SpaceError::Refused`, naming the entity that amends it. The only way in is an amendment, a record of another entity declared with `EntityInfo::amends`:
+
+- `Amendment::correction(target, reference)` corrects a closed target, which stays closed. A correction of an open target is refused ("correct it on its own form").
+- `Amendment::closing(target, reference)` closes, ends or transfers an open target, which has to be closed after it. A target has one closing at most: a second is refused because the target is closed already.
+- `.copies([..])` writes fields of the same name on the target, `.marks(field)` sets a yes-or-no field there, `.reason(field, n)` asks for a reason of at least `n` characters, `.before(field)` keeps, as JSON, the target's values that change, and `.apply(|amendment, target, space| ..)` does the rest in the same unit of work, such as creating the record a transfer goes to.
+
+The amendment is written on its target as it is inserted (`apply_amendment`, called by every space here: memory, SQL and PostgREST), so whatever wraps the space sees the change to the target: `AuditedObjectSpace` keeps both, the amendment and the target's old and new values, in the same commit. If `apply` fails, nothing it did waits. The commit checks it all with `check_amendments`, reading what storage has inside the transaction: an amendment that is kept is never changed or deleted.
+
+Permissions: creating an amendment needs `Create` on the amendment entity and `Read` on the target, not `Write` on the target. An `object_permission` that denies `Write` on closed records still holds for direct edits.
+
+In SQLite and PostgreSQL the database itself can refuse a sealed record written by other ways than the framework: `SqlBuilder::sealed_guards()`, called after the entities, writes once, as a migration, a trigger on each sealed table that refuses an update or a delete of a row whose stored values meet the seal. The commit of an amendment writes down, in its own transaction, the records it changes (in `raven_amending`), so the triggers let only those through, and takes them away before it ends. SQLite refuses with `RAISE(ABORT, ...)`, PostgreSQL with `ERRCODE '23514'`. A database with no way to say it holds only to the rules of the framework.
+
+Each amendment gets an action on its target, by itself: `<Amendment>.Amend`, with the caption of the amendment entity, as "Correct the lesson". It is on for one record that can take it (sealed, for a correction; not sealed yet, for a closing), and only whoever can create the amendment sees it (`Action::requires_on`). It opens a new amendment on its form already pointing to the record (`ActionContext::open_new`), for the reason and the new values; saving it is what applies it.
+
+### Period closing
+
+A period entity, such as a month, a term or a payroll, declares with `EntityInfo::period_closing` how it is approved:
+
+```rust
+EntityInfo::new("Term").period_closing(
+    PeriodClosing::new("TermClosing")                  // the entity of the versions
+        .freezes("Lesson", "[term_id]")                // a record and the reference to the period
+        .freezes("Presence", "[lesson_id.term_id]")    // the path may go through other records
+        .requires_none("Lesson", "[status] = 'draft'") // nothing of this to approve
+        .reopen_reason(10),                            // characters a reason to reopen needs
+)
+```
+
+`PeriodClosing::versions_entity` makes the entity of the versions: `period`, `version`, `approved_at`, `approved_by`, `digest` (sha256 in hexadecimal), `document` (the key in an `AttachmentStore`), `status` (`current` or `reopened`) and `reopen_reason`. Its key is the period's key and the version, as `7/2`, so two versions with the same number cannot be kept, and the commit finds the last one by key, without a query. `MemoryDatabase` adds it alone; a SQL database takes it with `managed`, like any entity.
+
+- `approve(space, files, period, key, document, approver)` refuses while a record meets a `requires_none`, keeps the document, and writes the next version, current, with the hash, in one commit. If the commit fails, the document is removed.
+- `reopen(space, period, key, reason)` turns the current version into reopened, with the reason.
+- `archived_document(space, files, versions, key)` reads the version through the space, so a `SecuredObjectSpace` denies it to whom cannot read, and gives the document only if it matches the hash; otherwise `ClosingError::Tampered`.
+
+The commit checks it all with `check_closing`, in every space here (memory, SQL and PostgREST), reading what storage has inside the transaction: a record of a period whose last version is current is not added, changed or deleted, by its new values or by those stored; a new version comes next in sequence, current, with its hash and document, while the period has none current; a version kept changes only from current to reopened, with the reason, and is never deleted. `check_closing_model` refuses, when the model is made, a path that does not lead to the period by references.
+
+`check_closing` also reads, with the `StoredList` each space gives it, what keeps the period open: a new version is refused while a record of the period meets a `requires_none`, as storage has it inside the transaction or as the same commit leaves it. `approve` asks first, so a refusal keeps no document. Before deciding about a period, the commit reads its row; in PostgreSQL and MySQL that read is `FOR UPDATE`, so approving a term and writing one of its lessons at the same time wait for each other. In PostgreSQL the documents go to `PostgresAttachmentStore`, as `BYTEA` in a table apart from the records.
+
+`ClosingModule` (in `ravenrs-app-report`) gives the period its actions: Approve closing renders the document, keeps it as PDF and writes the version; Reopen closing asks for the reason; Archived versions lists each version (current, reopened, replaced) with its short hash and opens the document through the space, checked against the hash. Approving and reopening need `Write` on the period, and `action_ids` names them for an `action_permission`:
+
+```rust
+let module = ClosingModule::new("Term", files, |space, term| Ok(term_document(space, term)))
+    .approver(move || who_is_signed_in())
+    .words(ReportWords::pt_br());
+let sales = Role::new("Sales").action_permission(module.action_ids()[0].clone(), Access::Deny);
+```
+
+### Access for a while and revoking a user
+
+An administrator gives someone, such as support, access with a reason and a deadline:
+
+```rust
+let policy = TemporaryAccessPolicy::new("Support") // the role the user gets, not administrative
+    .max_hours(72)                                  // the longest it lasts
+    .min_reason(10)                                 // characters the reason needs
+    .name_prefix("support-");                       // how the user is named
+let access = context.grant_temporary_access(&policy, "cash register support", 2)?;
+// access.user_name, access.password (shown once, never kept or audited), access.expires_at
+```
+
+In one commit, written to the audit trail when the context has one, it creates the user with `expires_at`, links the role and keeps a `SecurityTemporaryAccess` with the reason, who granted it, when and until when. The password is random, from the same source as the salt of the hash, and `TemporaryAccess` does not show it in `Debug`.
+
+- Past `expires_at` the user is not active: `authenticate` turns them off first (`UserDirectory::end_expired`) and refuses with the same `AuthError::Rejected` as a wrong password, and `identity_by_key` gives nobody, so the next `reload` of an open session leaves it no permission. The access ends with `ACCESS_EXPIRED`.
+- `revoke_user(&key)` turns the user off, with their API keys, and ends their open accesses with "Revoked by <name>", in one commit. Nobody revokes themselves (`AccessError::OwnUser`), nor the last active administrator (`AccessError::LastAdministrator`).
+- Only an administrator does either (`AccessError::NotAllowed`). An access that ended is sealed: it does not change again.
+- `TemporaryAccessPolicy::clock` reads the time from elsewhere, so a test moves past the deadline without waiting.
+
+`SecuredApp::temporary_access(policy)` checks, when it is built, that the role is there and not administrative; it ends who expired before each sign in and, at most every `check_every` by the policy's clock, when a screen of an open session opens.
+
+With a policy, the list of users has Grant temporary access, which asks the reason and the hours and shows the user, the deadline and the password once, and Revoke access, which asks first.
+
+The web API reads who a session is on each call, so a user expired or revoked gets 401 on the next one.
+
+### Due dates summed up for each person
+
+An entity with a due date declares how it is summed up, apart from `Reminder`, whose field is put off and dismissed: a `DueDigest` never writes to its field.
+
+```rust
+EntityInfo::new("Invoice").due_digest(
+    DueDigest::new("due_on")            // a Date or DateTime field
+        .pending("[status] = 'open'")   // only what is still pending
+        .label("description")           // what names a record; the default property otherwise
+        .amount("amount")               // a Money field, added up for whom reads it
+        .words("conta", "contas")       // the word for one and for several
+        .named(3)                       // how many it names; the rest it counts
+        .hidden_amounts("Os valores ficam com a Tesouraria."),
+)
+```
+
+- `digest_of(entity, records, today, advance_days, show_amounts, words)` is the plain calculation: overdue is before `today`, coming is up to `advance_days` after it, in due order, naming `named` and "more N". Without `show_amounts` no amount is in the text, and the `hidden_amounts` sentence goes in its place. A record whose amount came empty, as a record permission leaves it, takes the total out instead of adding nothing. `DigestWords::portuguese()` and `english()` give the words around the entity's own and how money is written.
+- `due_digest_for(space, entity, permissions, today, preference, words)` gives nothing to whom cannot read the entity or turned it off, reads through their space (only records they read), and shows amounts only if `permissions.can_field(Read, entity, amount, None)`.
+- `digest_preference` and `set_digest_preference` keep `{ enabled, advance_days }` under `due-digest/<Entity>` for the person (`SettingScope::User`): on, three days ahead, by default; 0, 1, 3 or 7 days; nobody keeps someone else's.
+
+On opening, a session shows a message per entity with a `DueDigest`, by the person's preference and permissions, with a button that opens its list; `App::due_digest_notice(false)` turns it off, and `show_due_digests(session)` shows it where an application wants.
+
+The button of the notice opens the list on the records it is about (`Session::open_view_filtered`, by their keys); opening the list another way shows it all. The words come from the catalog (`DigestWords::from_texts`, keys `ui.due_*` and the money of `format.*`).
+
+Beside the account, a bell opens "Due date notices": each entity with a `DueDigest` and the choice of off, on the day, or one, three or seven days before, kept by `set_digest_preference` for that person only. It shows when someone is signed in and the application keeps settings.
+
+### Bills, settlements and installments
+
+`ravenrs_app_library::finance` brings the entities (`finance_category`, `ledger_entry`, `commitment`, `settlement`, or `LibraryModule::finance()`) and services over `&mut dyn ObjectSpace` that write all they do in one unit of work and commit it, or roll it back:
+
+- `settle(space, bill, SettleInput::new(on, principal).interest(..).fine(..).discount(..), today)` writes the settlement, the cash book entry of the total and the bill as `partial` or `paid`. A date after `today`, an amount below zero, a discount that leaves nothing and more than what is open are refused, and nothing is written.
+- `reverse(space, settlement, reason, today)` needs a reason; it writes an entry of the opposite sign that points to the first, marks the settlement reversed and gives the bill back what it settled. Nothing is deleted.
+- `split(space, bill, n, first_due)` and `plan(amount, n, first_due)` divide with `allocate`, the rest in the last, on the same day of the following months or the last day of a shorter one; the bill becomes `split`. `cancel` on it cancels only the installments still open.
+
+The rules hold wherever records are kept: the status moves only by the declared ways, each while `settled` agrees with it; `paid`, `cancelled` and `split` are `StateMachine::locked`, so nothing but the status changes, and `settled` only together with it (`unlocked_with`); an entry written by a settlement and a reversed settlement are sealed.
+
+`position(space, today)` gives what is open to pay and to receive and how much of each is overdue; `statement(space, from, to)` gives the cash book with the balance before, each line with its balance, and the balance at the end; both read as the space shows the records.
+
+`annual(space, year)` gives the twelve months with what came in, went out and the balance by category; `forecast(space, month, today)` gives the open bills due in the month, what is left of them and how many are overdue.
+
+`category_guard(stored)` is a watcher for each unit of work: a bill or an entry with a category of the other kind is refused, and so are deleting a category in use and changing it to a kind its movements do not have.
+
+`LibraryModule::finance()` brings `FinanceActions`: Settle (what is left, today), Split (in the installments typed) and Reverse (with the reason typed), each with its id and needing `Write`, enabled only on the records they fit.
+
+Settle opens a window to review the settlement (`settle_review`, an entity no storage keeps), filled with today and what is open; the person changes the date, interest, fine and discount, sees the total that goes to the cash book, and OK settles what it says.
+
+The reports print as documents, in `ravenrs-app-report`: `statement_document`, `annual_document`, `position_document` and `forecast_document` take what the services read through the person's space and write money and dates in a `Culture`, with the heads of the columns from the catalog (`report.finance_*`). Each gives a `Document` to show, print or keep as PDF.
+
+The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
+
 ## Scenarios
 
 Each scenario has one owner issue, where its checklist lives. The text of the interface may change; the observable result is the contract. Sketches V01–V16 and diagrams D01–D03 are in the [visual appendix of #253](https://github.com/alexkads/RavenRS/issues/253#issuecomment-6828194062).
@@ -102,7 +227,7 @@ Each scenario has one owner issue, where its checklist lives. The text of the in
 | C01 | The same read through the local and the remote client returns the same allowed fields; a forged key of T2 is refused; paging and export keep the scope | #226 |
 | C02 | A relation is authorized on create too, including references the storage computes; switching organization clears the previous context | #232, #225 |
 | C03 | An external identity never widens scope: no linking by e-mail, revocation stops the next operation, provider outage has a documented recovery | #257 (done) |
-| C04 | A second writer on the same version does not overwrite silently; a backup of T1 restores on a clean install, a file of T2 is refused; migrations keep data and can be recovered | #241, #229, #243 |
+| C04 | A second writer on the same version does not overwrite silently (`FieldInfo::row_version`, `SpaceError::Outdated`, done in #241); a backup of T1 restores on a clean install, a file of T2 is refused; migrations keep data and can be recovered | #241, #229, #243 |
 | C05 | An offline change reconciles once; a permission revoked meanwhile is refused; an online-only command shows pending, never false success; turning a module off keeps reads and exports | #240, #242 |
 | C06 | An approval survives a restart without losing or repeating a decision; self-approval follows the application's policy; delegation ends on its date | #258 (done) |
 | C07 | An event leaves only after its commit; a duplicate or a crash between send and confirmation never doubles the effect; an unauthenticated incoming event is refused | #254 (done), #255 (done in this process), #256 (done) |
@@ -139,7 +264,7 @@ What each group of capabilities uses today and where the rest is followed. *Mast
 | M01 API and client | `ravenrs-app-server`, `ravenrs-app-remote`, `ravenrs-app-sql`, `ravenrs-app-postgres` | security of `ravenrs-app` | desktop, web, server; SQLite, PostgreSQL | in PR #244 | #226 |
 | M02 Organization and unit | `SecuredObjectSpace`, `Role::object_permission`, `member_permission` | #225 for the organization in context | any; any | partial; references on create in PR #236 | #225, #232 |
 | M03 Identity | `Authenticator`, `UserDirectory`, `SecurityContext`, `ExternalSignIn`, `IdentityProvider`, `Claims` | | any; any | partial (master): outside identities linked by issuer and revocable (#257); no OIDC provider or MFA | #257 |
-| M04 Data and recovery | `merge_changes`, `SqliteBuilder::migration`, `SpaceError::Conflict` | | native; SQLite | partial; backup in PR #230 | #241, #229, #243 |
+| M04 Data and recovery | `merge_changes`, `FieldInfo::row_version`, `SpaceError::Outdated`, `SqliteBuilder::migration`, `SpaceError::Conflict`, `TenantExport`, `TenantImport` | | native, server; SQLite, PostgreSQL | partial: a version per record (#241); moving a tenant between SQLite and PostgreSQL with `TenantImport` (#243); deleting with a version and PostgREST in #1073; backup in PR #230 | #1073, #229 |
 | M05 Offline and features | `ApplicationBuilder::switch_off`, `Application::guard` | #241 | any; any | partial (master) | #240, #242 |
 | M06 Durable processes | `ravenrs-app-requests` (`RequestsModule`, `Step::when`, `Step::due_in`, `task_reader`, `delegate`, `delegated_roles`, `tasks_for`), `StateMachine` | #66 for escalation | any; any | partial (master): tasks, inboxes, deadlines and delegations done (#258); no escalation | #66 |
 | M07 Events and worker | `ObjectSpaceExt::emit`, `Event`, `OutboxModule`, `Dispatcher`, `Provider`, `EventSink`, `CAN_TELL_STATUS` | #66 | any; any | partial (master): events in the commit (#254), delivery with tries, deadline and reconciling (#255) and signed incoming webhooks (#256) done, in this process only; no scheduler or worker process yet | #66 |
@@ -161,15 +286,15 @@ What each group of capabilities uses today and where the rest is followed. *Mast
 Everything below runs on synthetic data, with no account, credential or private database, from a clone of the repository:
 
 ```bash
-cargo test -p ravenrs-app-requests
+cargo test --manifest-path camadas/app/Cargo.toml -p ravenrs-app-requests
 ```
 
 ```bash
-cargo test -p ravenrs-app --test suite manifest::
+cargo test --manifest-path camadas/app/Cargo.toml -p ravenrs-app --test suite manifest::
 ```
 
 ```bash
-cargo test -p ravenrs-app-sqlite --test suite space::a_database_held_by_another_connection_is_a_temporary_failure
+cargo test --manifest-path camadas/app/Cargo.toml -p ravenrs-app-sqlite --test suite space::a_database_held_by_another_connection_is_a_temporary_failure
 ```
 
 ```bash

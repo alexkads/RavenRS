@@ -11,9 +11,15 @@ use std::rc::Rc;
 
 use ravenrs_app::{
     Change, ChangeSet, EntityInfo, FieldInfo, FieldKind, ModelError, Object, ObjectSpace, Query, SpaceError,
-    SpaceEvent, SpaceWatcher, Value, exact_decimals, key_of, key_text, run_query,
+    SpaceEvent, SpaceWatcher, Value, exact_decimals, key_of, key_text, next_version, run_query,
 };
 use ravenrs_criteria::{DateTime, Dialect, Environment, SqlParam, to_sql};
+
+mod migrate;
+
+pub use migrate::{
+    BackupStamp, BrokenReference, MigrationError, MigrationReport, TableCheck, TenantExport, TenantImport,
+};
 
 type Hook = Rc<dyn Fn(&mut Object)>;
 
@@ -206,7 +212,24 @@ pub trait SqlBackend {
     fn batch(&self, sql: &str) -> Result<(), SqlError>;
     /// Reads rows.
     fn query(&self, sql: &str, values: &[Value]) -> Result<SqlRows, SqlError>;
+    /// What makes the database itself refuse to change or delete a sealed record of `table`
+    /// directly: a trigger that refuses an update or a delete when the row as stored meets
+    /// `sealed`, written over `OLD`, unless [`AMENDING`] has the row's `key` (text, over `OLD`)
+    /// for `entity`, as the commit of an amendment writes it. `None` for a database that has no
+    /// way to say it, which then holds only to the rules of the framework.
+    fn sealed_guard(&self, table: &str, entity: &str, sealed: &str, key: &str) -> Option<String> {
+        let _ = (table, entity, sealed, key);
+        None
+    }
+    /// A key column, as text, over the row a trigger sees before it changes: `OLD."id"`.
+    fn old_key_text(&self, column: &str) -> String {
+        format!("CAST(OLD.{} AS TEXT)", quoted(column))
+    }
 }
+
+/// Where a commit writes, while it runs, the sealed records its amendments change, so the
+/// guards of [`SqlBuilder::sealed_guards`] let those through and nothing else.
+pub const AMENDING: &str = "raven_amending";
 
 fn quoted(name: &str) -> String {
     format!("\"{}\"", name.replace('"', "\"\""))
@@ -215,6 +238,7 @@ fn quoted(name: &str) -> String {
 /// Where migrations that ran are written down.
 pub const MIGRATIONS: &str = "ravenrs_app_migrations";
 
+#[derive(Clone)]
 struct Entity {
     info: EntityInfo,
     map: TableMap,
@@ -272,6 +296,8 @@ struct Shared<B> {
     entities: Vec<Entity>,
     words: SqlWords,
     next_keys: RefCell<HashMap<String, i64>>,
+    /// Whether the database guards its sealed records, so an amendment writes down what it changes.
+    guarded: bool,
 }
 
 /// Records in a database. Any number of spaces share it.
@@ -294,6 +320,7 @@ pub struct SqlBuilder<B> {
     backend: B,
     entities: Vec<Entity>,
     words: SqlWords,
+    guarded: bool,
 }
 
 impl<B> fmt::Debug for SqlBuilder<B> {
@@ -391,6 +418,44 @@ impl<B: SqlBackend> SqlBuilder<B> {
         Ok(self)
     }
 
+    /// Makes the database itself refuse to change or delete a sealed record directly, for whoever
+    /// writes by other ways than the framework: a trigger on each sealed table of the entities
+    /// added so far, in the dialect of the database, written once as a migration. The commit of
+    /// an amendment writes down, in its own transaction, the records it changes, and the triggers
+    /// let only those through. Call it after the entities.
+    ///
+    /// A database that has no way to say it ([`SqlBackend::sealed_guard`]) holds only to the
+    /// rules of the framework, as before.
+    pub fn sealed_guards(mut self) -> Result<Self, ModelError> {
+        let wrong = |e: SqlError| ModelError(format!("the guards of sealed records: {e}"));
+        let mut guards = Vec::new();
+        for entity in &self.entities {
+            let Some(seal) = &entity.info.seal else { continue };
+            let key =
+                entity.info.key_field().ok_or_else(|| ModelError(format!("{}: no key", entity.info.name)))?;
+            let sealed = old_condition(&self.backend, entity, &seal.when)?;
+            let key = self.backend.old_key_text(entity.map.column_of(&key.name));
+            if let Some(sql) = self.backend.sealed_guard(&entity.map.table, &entity.info.name, &sealed, &key)
+            {
+                // Another seal makes another guard; the same one runs once.
+                guards.push((format!("sealed guard {} {}", entity.map.table, short_hash(&sql)), sql));
+            }
+        }
+        if guards.is_empty() {
+            return Ok(self);
+        }
+        self.backend
+            .batch(&format!(
+                "CREATE TABLE IF NOT EXISTS {AMENDING} (entity TEXT NOT NULL, record TEXT NOT NULL, PRIMARY KEY (entity, record))"
+            ))
+            .map_err(wrong)?;
+        for (id, sql) in guards {
+            self = self.migration(&id, &sql)?;
+        }
+        self.guarded = true;
+        Ok(self)
+    }
+
     /// Ready to read and write.
     pub fn build(self) -> SqlDatabase<B> {
         SqlDatabase(Rc::new(Shared {
@@ -398,6 +463,7 @@ impl<B: SqlBackend> SqlBuilder<B> {
             entities: self.entities,
             words: self.words,
             next_keys: RefCell::default(),
+            guarded: self.guarded,
         }))
     }
 }
@@ -406,6 +472,18 @@ impl<B> SqlDatabase<B> {
     /// The database itself, for what only one kind of database does, such as a backup.
     pub fn backend(&self) -> &B {
         &self.0.backend
+    }
+
+    /// The same entities over another connection, whose schema is not touched: to read a copy of
+    /// the database, such as a backup, as this one reads its own.
+    pub fn reopened(&self, backend: B) -> Self {
+        SqlDatabase(Rc::new(Shared {
+            backend,
+            entities: self.0.entities.clone(),
+            words: self.0.words.clone(),
+            next_keys: RefCell::default(),
+            guarded: self.0.guarded,
+        }))
     }
 
     /// Forgets the next keys it handed out, so they are counted again from what is stored: after
@@ -418,7 +496,12 @@ impl<B> SqlDatabase<B> {
 impl<B: SqlBackend> SqlDatabase<B> {
     /// Starts one over this. See [`SqlBuilder`].
     pub fn builder(backend: impl Into<B>) -> SqlBuilder<B> {
-        SqlBuilder { backend: backend.into(), entities: Vec::new(), words: SqlWords::default() }
+        SqlBuilder {
+            backend: backend.into(),
+            entities: Vec::new(),
+            words: SqlWords::default(),
+            guarded: false,
+        }
     }
 
     /// A new unit of work.
@@ -556,7 +639,8 @@ impl<B: SqlBackend> SqlObjectSpace<B> {
         };
         match change {
             Change::New(object) => {
-                let object = prepared(object)?;
+                let mut object = prepared(object)?;
+                next_version(&entity.info, &mut object, true);
                 let stored: Vec<&FieldInfo> = entity.stored().collect();
                 let columns: Vec<String> =
                     stored.iter().map(|f| quoted(entity.map.column_of(&f.name))).collect();
@@ -567,7 +651,9 @@ impl<B: SqlBackend> SqlObjectSpace<B> {
                 backend.execute(&sql, &values).map_err(failed)?;
             }
             Change::Updated(object) => {
-                let object = prepared(object)?;
+                let mut object = prepared(object)?;
+                let read = entity.info.version_of(&object);
+                next_version(&entity.info, &mut object, false);
                 let stored: Vec<&FieldInfo> = entity.stored().filter(|f| !f.is_key).collect();
                 let sets: Vec<String> = stored
                     .iter()
@@ -576,15 +662,32 @@ impl<B: SqlBackend> SqlObjectSpace<B> {
                         format!("{} = {}", quoted(entity.map.column_of(&f.name)), backend.slot(at + 1))
                     })
                     .collect();
-                let sql = format!(
+                let mut sql = format!(
                     "UPDATE {table} SET {} WHERE {key_column} = {}",
                     sets.join(", "),
                     backend.slot(stored.len() + 1)
                 );
                 let mut values: Vec<Value> = stored.iter().map(|f| object.get(&f.name)).collect();
                 values.push(object.get(&key_field.name));
+                // Only over the version it was read at: someone else's keeping in between leaves
+                // nothing to change, in the same statement, so no other writer gets in the middle.
+                let version = entity.info.row_version_field().zip(read);
+                if let Some((field, read)) = version {
+                    let column = quoted(entity.map.column_of(&field.name));
+                    sql.push_str(&format!(" AND COALESCE({column}, 0) = {}", backend.slot(stored.len() + 2)));
+                    values.push(Value::Number(read as f64));
+                }
                 let changed = backend.execute(&sql, &values).map_err(failed)?;
                 if changed == 0 {
+                    let key = object.get(&key_field.name);
+                    if let (Some((_, read)), Some(now)) = (version, self.stored_record(&entity.info, &key)?) {
+                        return Err(SpaceError::Outdated {
+                            entity: entity.info.name.clone(),
+                            key: key_text(&key).unwrap_or_default(),
+                            read,
+                            stored: entity.info.version_of(&now),
+                        });
+                    }
                     return Err(SpaceError::Conflict(format!("a record of {} is gone", entity.info.name)));
                 }
             }
@@ -604,7 +707,96 @@ impl<B: SqlBackend> SqlObjectSpace<B> {
         Ok(())
     }
 
+    /// A record as the database has it now, inside the transaction, without what waits.
+    fn stored_record(&self, info: &EntityInfo, key: &Value) -> Result<Option<Object>, SpaceError> {
+        let entity = self.entity(&info.name)?;
+        let field = info.key_field().ok_or_else(|| SpaceError::MissingKey(info.name.clone()))?;
+        let mut tail = format!(" WHERE {} = {}", quoted(&field.name), self.shared.backend.slot(1));
+        // A period is read locked, so approving it and writing one of its records wait for each other.
+        if info.period_closing.is_some()
+            && matches!(self.shared.backend.dialect(), Dialect::Postgres | Dialect::MySql)
+        {
+            tail.push_str(" FOR UPDATE");
+        }
+        Ok(self.select(entity, &tail, std::slice::from_ref(key))?.into_iter().next())
+    }
+
+    /// Records as the database has them now, inside the transaction, without what waits.
+    fn stored_records(&self, info: &EntityInfo, query: &Query) -> Result<Vec<Object>, SpaceError> {
+        let reader = SqlObjectSpace {
+            shared: self.shared.clone(),
+            environment: ravenrs_app::environment(),
+            changes: ChangeSet::default(),
+            watchers: Vec::new(),
+        };
+        reader.query(&info.name, query)
+    }
+
+    /// Writes a new amendment on its target before it waits, all or nothing.
+    fn amended(&mut self, info: &EntityInfo, object: Object) -> Result<Object, SpaceError> {
+        if info.amendment.is_none() {
+            return Ok(object);
+        }
+        let kept = key_of(info, &object)
+            .is_some_and(|key| self.entity(&info.name).is_ok_and(|entity| self.exists(entity, &key)));
+        if kept {
+            return Ok(object);
+        }
+        let pending = self.changes.list().iter().any(|change| {
+            matches!(change, Change::New(waiting) if waiting.entity() == info.name
+                && key_of(info, waiting) == key_of(info, &object))
+        });
+        let before = self.changes.clone();
+        let reader = SqlObjectSpace {
+            shared: self.shared.clone(),
+            environment: ravenrs_app::environment(),
+            changes: ChangeSet::default(),
+            watchers: Vec::new(),
+        };
+        let mut stored = |entity: &EntityInfo, key: &Value| reader.stored_record(entity, key);
+        let result = ravenrs_app::apply_amendment(self, info, object, &mut stored, !pending);
+        if result.is_err() {
+            self.changes = before;
+        }
+        result
+    }
+
     fn apply_all(&self, changes: &[Change]) -> Result<(), SpaceError> {
+        let entities: Vec<EntityInfo> =
+            self.shared.entities.iter().map(|entity| entity.info.clone()).collect();
+        if entities.iter().any(|entity| entity.seal.is_some() || entity.amendment.is_some()) {
+            let mut stored = |entity: &EntityInfo, key: &Value| self.stored_record(entity, key);
+            ravenrs_app::check_amendments(&entities, changes, &mut stored)?;
+        }
+        if entities.iter().any(|entity| entity.period_closing.is_some()) {
+            let mut stored = |entity: &EntityInfo, key: &Value| self.stored_record(entity, key);
+            let mut listed = |entity: &EntityInfo, query: &Query| self.stored_records(entity, query);
+            ravenrs_app::check_closing(&entities, changes, &mut stored, &mut listed)?;
+        }
+        // The guards in the database let through, in this transaction, only what an amendment changes.
+        let amended = if self.shared.guarded { amended_records(&entities, changes) } else { Vec::new() };
+        let backend = &self.shared.backend;
+        let mark = |sql: &str, entity: &str, key: &str| {
+            backend
+                .execute(sql, &[Value::Text(entity.to_owned()), Value::Text(key.to_owned())])
+                .map(drop)
+                .map_err(|e| SpaceError::Storage(e.to_string()))
+        };
+        let (put, take) = (
+            format!(
+                "INSERT INTO {AMENDING} (entity, record) VALUES ({}, {})",
+                backend.slot(1),
+                backend.slot(2)
+            ),
+            format!(
+                "DELETE FROM {AMENDING} WHERE entity = {} AND record = {}",
+                backend.slot(1),
+                backend.slot(2)
+            ),
+        );
+        for (entity, key) in &amended {
+            mark(&put, entity, key)?;
+        }
         for change in changes {
             let name = match change {
                 Change::New(object) | Change::Updated(object) => object.entity(),
@@ -621,6 +813,9 @@ impl<B: SqlBackend> SqlObjectSpace<B> {
                 ravenrs_app::check_transitions(&entity.info, stored.first(), new)?;
             }
             self.write(entity, change)?;
+        }
+        for (entity, key) in &amended {
+            mark(&take, entity, key)?;
         }
         Ok(())
     }
@@ -728,15 +923,17 @@ impl<B: SqlBackend> ObjectSpace for SqlObjectSpace<B> {
     }
 
     fn save(&mut self, object: Object) -> Result<(), SpaceError> {
+        let info = self.entity(object.entity())?.info.clone();
+        let object = self.amended(&info, object)?;
         let entity = self.entity(object.entity())?;
-        let info = entity.info.clone();
         let exists = key_of(&info, &object).is_some_and(|key| self.exists(entity, &key));
         self.changes.save(&info, object, exists)
     }
 
     fn insert(&mut self, object: Object) -> Result<(), SpaceError> {
+        let info = self.entity(object.entity())?.info.clone();
+        let object = self.amended(&info, object)?;
         let entity = self.entity(object.entity())?;
-        let info = entity.info.clone();
         let exists = key_of(&info, &object).is_some_and(|key| self.exists(entity, &key));
         self.changes.insert(&info, object, exists)
     }
@@ -783,4 +980,57 @@ impl<B: SqlBackend> ObjectSpace for SqlObjectSpace<B> {
     fn on_event(&mut self, watcher: SpaceWatcher) {
         self.watchers.push(watcher);
     }
+}
+
+/// The seal of an entity in its dialect, over the row before it changes (`OLD."status" =
+/// 'closed'`), with its values written in, for a trigger has nothing to bind them to.
+fn old_condition<B: SqlBackend>(backend: &B, entity: &Entity, when: &str) -> Result<String, ModelError> {
+    let wrong = |why: String| ModelError(format!("{}: the seal {when}: {why}", entity.info.name));
+    let criteria = ravenrs_app::Criteria::parse(when).map_err(|e| wrong(e.to_string()))?;
+    let translated = to_sql(&criteria, backend.dialect()).map_err(|e| wrong(e.to_string()))?;
+    let mut text = translated.text;
+    for (at, param) in translated.params.iter().enumerate().rev() {
+        let literal = match param {
+            SqlParam::Value(Value::Text(text)) => format!("'{}'", text.replace('\'', "''")),
+            SqlParam::Value(Value::Number(number)) => number.to_string(),
+            SqlParam::Value(Value::Bool(yes)) => (if *yes { "1" } else { "0" }).to_owned(),
+            SqlParam::Value(Value::Null) => "NULL".to_owned(),
+            other => return Err(wrong(format!("{other:?} cannot be written in a trigger"))),
+        };
+        text = text.replace(&backend.slot(at + 1), &literal);
+    }
+    for field in entity.stored() {
+        let column = quoted(entity.map.column_of(&field.name));
+        text = text.replace(&column, &format!("OLD.{column}"));
+    }
+    Ok(text)
+}
+
+/// A short name for some SQL, so a migration knows it ran it already.
+fn short_hash(sql: &str) -> String {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in sql.bytes() {
+        hash = (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3);
+    }
+    format!("{:08x}", hash >> 32)
+}
+
+/// The sealed records the amendments in these changes change, by entity and key as text.
+fn amended_records(entities: &[EntityInfo], changes: &[Change]) -> Vec<(String, String)> {
+    let mut found: Vec<(String, String)> = Vec::new();
+    for change in changes {
+        let Change::New(object) = change else { continue };
+        let Some(amendment) =
+            entities.iter().find(|e| e.name == object.entity()).and_then(|e| e.amendment.as_ref())
+        else {
+            continue;
+        };
+        if let Some(key) = ravenrs_app::key_text(&object.get(&amendment.reference)) {
+            let pair = (amendment.target.clone(), key);
+            if !found.contains(&pair) {
+                found.push(pair);
+            }
+        }
+    }
+    found
 }

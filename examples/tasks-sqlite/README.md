@@ -1,6 +1,6 @@
 # tasks-sqlite
 
-`cargo run -p tasks-sqlite`.
+`cargo run --manifest-path examples/tasks-sqlite/Cargo.toml`.
 
 ## End-to-end tests (Raven Test Studio)
 

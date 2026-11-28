@@ -68,7 +68,7 @@ From there it grows with you:
 - **Views:** dashboards, charts, trees, calendars and timelines over a list, and reports your users design and keep as records.
 - **Customization at run time:** a model in layers, so a module, an administrator or a user can change the application as a JSON difference, and even add fields.
 
-Status: usable today, with the API still moving, and shipped as separate crates: `cargo add ravenrs ravenrs-app ravenrs-app-ui`. See [docs/APP-FRAMEWORK.md](https://github.com/alexkads/RavenRS/blob/master/docs/APP-FRAMEWORK.md), and run `cargo run -p raven-feature-center` for a demonstration of every feature.
+Status: usable today, with the API still moving, and shipped as separate crates: `cargo add ravenrs ravenrs-app ravenrs-app-ui`. See [docs/APP-FRAMEWORK.md](https://github.com/alexkads/RavenRS/blob/master/docs/APP-FRAMEWORK.md), and run `cargo run --manifest-path tools/raven-feature-center/Cargo.toml` for a demonstration of every feature.
 
 ## Install a real app
 
@@ -95,7 +95,7 @@ On Windows 11, in PowerShell:
 irm https://raw.githubusercontent.com/alexkads/RavenRS/master/examples/family-finance/install.cmd -OutFile "$env:TEMP\install.cmd"; & "$env:TEMP\install.cmd"
 ```
 
-Already have the repository? `cargo run -p family-finance` runs it without installing. The [app's README](https://github.com/alexkads/RavenRS/blob/master/examples/family-finance) shows which component each screen uses.
+Already have the repository? `cargo run --manifest-path examples/family-finance/Cargo.toml` runs it without installing. The [app's README](https://github.com/alexkads/RavenRS/blob/master/examples/family-finance) shows which component each screen uses.
 
 ## Why RavenRS
 
@@ -264,7 +264,7 @@ See [the CLI guide](crates/cargo-ravenrs/README.md).
 Requirements: Rust stable 1.88+. For the browser: the `wasm32-unknown-unknown` target and `wasm-bindgen-cli` **0.2.130** (it must match the crate version).
 
 ```bash
-cargo run -p component-gallery --release
+cargo run --manifest-path examples/component-gallery/Cargo.toml --release
 ```
 
 ```bash
@@ -276,7 +276,7 @@ cargo install wasm-bindgen-cli --version 0.2.130 --locked
 ```
 
 ```bash
-./scripts/build-web.sh component-gallery && python3 -m http.server -d examples/component-gallery/web 8080
+cargo xtask web component-gallery && python3 -m http.server -d examples/component-gallery/web 8080
 ```
 
 Then open http://localhost:8080 in a current browser. RavenRS draws with WebGPU where the browser has it and with WebGL2 otherwise, so it also opens on phones and browsers without WebGPU; `WebOptions::backend` can ask for one of them.

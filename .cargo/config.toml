@@ -1,0 +1,9 @@
+# `cargo xtask <check>`: the project's checks, one subcommand per purpose (#1034). See xtask/README.md.
+[alias]
+xtask = "run -q -p xtask --"
+
+# Every workspace of the repository builds into the root's target/, the warm one of each worktree:
+# the applications are workspaces of their own (#1080) and would each start a cold target/ of their own.
+# CARGO_TARGET_DIR still wins over this.
+[build]
+target-dir = "target"

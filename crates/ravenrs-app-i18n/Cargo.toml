@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-app-i18n"
+workspace = "../../camadas/nucleo"
 description = "Languages and words of a RavenRS business application: a catalog of texts by key, with English to fall back on, and the translations of the model that come with it."
 version.workspace = true
 edition.workspace = true

@@ -17,8 +17,11 @@ use postgres::error::SqlState;
 use postgres::fallible_iterator::FallibleIterator;
 use postgres::types::{Format, FromSql, IsNull, Kind, ToSql, Type, to_sql_checked};
 use ravenrs_app::{FieldKind, Value};
+pub use ravenrs_app_sql::{
+    BackupStamp, BrokenReference, MigrationError, MigrationReport, SqlWords, TableCheck, TableMap,
+    TenantExport, TenantImport,
+};
 use ravenrs_app_sql::{SqlBackend, SqlBuilder, SqlCell, SqlDatabase, SqlError, SqlObjectSpace, SqlRows};
-pub use ravenrs_app_sql::{SqlWords, TableMap};
 
 use crate::connect::Reopen;
 pub use crate::connect::{ConnectError, PostgresOptions, Statements};
@@ -474,6 +477,29 @@ impl SqlBackend for PostgresBackend {
         format!(" OFFSET {offset}")
     }
 
+    fn old_key_text(&self, column: &str) -> String {
+        format!("OLD.\"{}\"::text", column.replace('"', "\"\""))
+    }
+
+    fn sealed_guard(&self, table: &str, entity: &str, sealed: &str, key: &str) -> Option<String> {
+        let quoted = |name: &str| format!("\"{}\"", name.replace('"', "\"\""));
+        let text = |value: &str| format!("'{}'", value.replace('\'', "''"));
+        let (function, trigger) =
+            (quoted(&format!("raven_sealed_{table}")), quoted(&format!("raven_sealed_{table}")));
+        let refused = text(&format!("{entity}: it is sealed: change it by an amendment"));
+        Some(format!(
+            "CREATE OR REPLACE FUNCTION {function}() RETURNS trigger LANGUAGE plpgsql AS $guard$ BEGIN \
+             IF ({sealed}) AND NOT EXISTS (SELECT 1 FROM {amending} WHERE entity = {entity_text} AND record = {key}) THEN \
+             RAISE EXCEPTION USING MESSAGE = {refused}, ERRCODE = '23514'; END IF; \
+             IF TG_OP = 'DELETE' THEN RETURN OLD; END IF; RETURN NEW; END $guard$; \
+             DROP TRIGGER IF EXISTS {trigger} ON {table}; \
+             CREATE TRIGGER {trigger} BEFORE UPDATE OR DELETE ON {table} FOR EACH ROW EXECUTE FUNCTION {function}();",
+            amending = ravenrs_app_sql::AMENDING,
+            entity_text = text(entity),
+            table = quoted(table),
+        ))
+    }
+
     fn columns_of(&self, table: &str) -> Result<Vec<String>, SqlError> {
         let sql = "SELECT column_name::text FROM information_schema.columns \
                    WHERE table_schema = current_schema() AND table_name = $1";
@@ -526,6 +552,65 @@ pub type PostgresDatabase = SqlDatabase<PostgresBackend>;
 pub type PostgresBuilder = SqlBuilder<PostgresBackend>;
 /// A unit of work over a [`PostgresDatabase`]. A commit is one transaction.
 pub type PostgresObjectSpace = SqlObjectSpace<PostgresBackend>;
+
+/// The table where [`PostgresAttachmentStore`] keeps files, apart from the records.
+const FILES: &str = "ravenrs_app_files";
+
+/// Keeps the content of attached files in PostgreSQL, as `BYTEA` in a table apart from the
+/// records, so a document is not text in a field. It has its own connection.
+///
+/// ```no_run
+/// use ravenrs_app::AttachmentStore;
+/// use ravenrs_app_postgres::{PostgresAttachmentStore, PostgresBackend};
+///
+/// let store = PostgresAttachmentStore::new(PostgresBackend::connect("postgresql://localhost/app")?)?;
+/// let key = store.put("relatorio.pdf", b"%PDF")?;
+/// assert_eq!(store.get(&key)?, Some(b"%PDF".to_vec()));
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+#[derive(Debug)]
+pub struct PostgresAttachmentStore {
+    backend: PostgresBackend,
+}
+
+impl PostgresAttachmentStore {
+    /// A store on this connection, creating where it keeps things if needed.
+    ///
+    /// # Errors
+    ///
+    /// When the table cannot be made.
+    pub fn new(backend: PostgresBackend) -> Result<Self, ravenrs_app::ModelError> {
+        backend
+            .batch(&format!(
+                "CREATE TABLE IF NOT EXISTS {FILES} (id BIGSERIAL PRIMARY KEY, name TEXT NOT NULL, content BYTEA NOT NULL)"
+            ))
+            .map_err(|e| ravenrs_app::ModelError(e.to_string()))?;
+        Ok(Self { backend })
+    }
+}
+
+impl ravenrs_app::AttachmentStore for PostgresAttachmentStore {
+    fn put(&self, name: &str, bytes: &[u8]) -> Result<String, String> {
+        let sql = format!("INSERT INTO {FILES} (name, content) VALUES ($1, $2) RETURNING id");
+        let row =
+            self.backend.client.borrow_mut().query_one(&sql, &[&name, &bytes]).map_err(|e| e.to_string())?;
+        let id: i64 = row.get(0);
+        Ok(id.to_string())
+    }
+
+    fn get(&self, key: &str) -> Result<Option<Vec<u8>>, String> {
+        let Ok(id) = key.parse::<i64>() else { return Ok(None) };
+        let sql = format!("SELECT content FROM {FILES} WHERE id = $1");
+        let rows = self.backend.client.borrow_mut().query(&sql, &[&id]).map_err(|e| e.to_string())?;
+        Ok(rows.first().map(|row| row.get::<_, Vec<u8>>(0)))
+    }
+
+    fn remove(&self, key: &str) -> Result<(), String> {
+        let Ok(id) = key.parse::<i64>() else { return Ok(()) };
+        let sql = format!("DELETE FROM {FILES} WHERE id = $1");
+        self.backend.client.borrow_mut().execute(&sql, &[&id]).map(|_| ()).map_err(|e| e.to_string())
+    }
+}
 
 #[cfg(test)]
 mod numeric_tests {

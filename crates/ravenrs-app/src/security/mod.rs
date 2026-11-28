@@ -16,20 +16,23 @@ mod external;
 mod password;
 mod records;
 mod space;
+mod temporary;
 
 pub use audit::{AuditMode, AuditSettings, AuditTrail, AuditedObjectSpace};
 pub use directory::{
-    AuthError, Authenticator, Credentials, MIN_PASSWORD_CHARS, PasswordError, SecurityContext, SpaceMaker,
-    UserDirectory,
+    AuthError, Authenticator, Credentials, MIN_PASSWORD_CHARS, PasswordError, PasswordPolicy,
+    SecurityContext, SpaceMaker, UserDirectory,
 };
 pub use external::{Claims, ExternalSignIn, IdentityProvider, SECURITY_EXTERNAL_LOGIN};
 pub use password::{hash_password, verify_password};
 pub use records::{
     ADMINISTRATORS_ROLE, SECURITY_ACTION_PERMISSION, SECURITY_API_KEY, SECURITY_AUDIT_ENTRY,
     SECURITY_MEMBER_PERMISSION, SECURITY_NAVIGATION_PERMISSION, SECURITY_OBJECT_PERMISSION, SECURITY_ROLE,
-    SECURITY_TYPE_PERMISSION, SECURITY_USER, SECURITY_USER_ROLE, audit_entity, security_entities,
+    SECURITY_TEMPORARY_ACCESS, SECURITY_TYPE_PERMISSION, SECURITY_USER, SECURITY_USER_ROLE, audit_entity,
+    security_entities,
 };
 pub use space::SecuredObjectSpace;
+pub use temporary::{ACCESS_EXPIRED, AccessError, TemporaryAccess, TemporaryAccessPolicy};
 
 /// What can be done to a record.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]

@@ -96,7 +96,7 @@ Write-Host "> compilando (a primeira vez demora; as seguintes aproveitam o que j
 $env:CARGO_TARGET_DIR = $Alvo
 $env:RAVEN_FEATURE_CENTER_INSTALLED = "1"
 Push-Location $codigo
-try { Correr { cargo build --release -p raven-feature-center } } finally { Pop-Location }
+try { Correr { cargo build --release --manifest-path tools/raven-feature-center/Cargo.toml -p raven-feature-center } } finally { Pop-Location }
 
 $novo = Join-Path $Alvo "release\raven-feature-center.exe"
 $resposta = & $novo --versao
@@ -205,7 +205,7 @@ tar -xzmf "$PACOTE" -C "$CODIGO" --strip-components=1
 diga "compilando (a primeira vez demora; as seguintes aproveitam o que já existe)"
 CARGO_TARGET_DIR="${RFC_TARGET:-$CASA/target}"
 export CARGO_TARGET_DIR
-( cd "$CODIGO" && RAVEN_FEATURE_CENTER_INSTALLED=1 cargo build --release -p raven-feature-center )
+( cd "$CODIGO" && RAVEN_FEATURE_CENTER_INSTALLED=1 cargo build --release --manifest-path tools/raven-feature-center/Cargo.toml -p raven-feature-center )
 
 BINARIO="$CARGO_TARGET_DIR/release/raven-feature-center"
 RESPOSTA="$("$BINARIO" --versao 2>/dev/null | head -1 || true)"

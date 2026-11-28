@@ -4,16 +4,18 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 use ravenrs_app::{
-    AppearanceTarget, CONTEXT_SAVE, Criteria, DataAccess, EntityInfo, FieldInfo, FieldKind, Frame, Message,
-    MessageKind, ModelNode, Object, Query, Severity, Value, ViewInfo, validate_in_place,
+    ActionCategory, ActionInput, AppearanceTarget, CONTEXT_SAVE, Criteria, DataAccess, EntityInfo, FieldInfo,
+    FieldKind, Frame, Message, MessageKind, ModelNode, Object, Query, Severity, Value, ViewInfo,
+    validate_in_place,
 };
 use ravenrs_grid_export::export;
+use ravenrs_layout::Align;
 use ravenrs_reactive::{Binding, State};
 use ravenrs_widgets::grid::{GridQuery, Row, Value as Cell, to_table};
 use ravenrs_widgets::{
-    BuildCx, CellEdit, DataGrid, GridCellStyle, GridColumn, GridCurrent, GridData, GridPage, GridRequest,
-    GridResponder, GridRowAction, GridTable, Keyed, NodeId, RemoteRows, SelectionMode, SortDirection, Text,
-    View,
+    AnyView, BuildCx, Button, Card, CellEdit, DataGrid, EmptyState, GridCellStyle, GridColumn, GridCurrent,
+    GridData, GridPage, GridRequest, GridResponder, GridRowAction, GridTable, HStack, IconName, Keyed,
+    NodeId, RemoteRows, SelectionMode, SortDirection, Stat, Text, VStack, View, ViewExt,
 };
 
 use crate::session::Session;
@@ -162,10 +164,28 @@ impl Reader {
             let text = display(field, &value);
             return Cell::Text(known.get(&text).cloned().unwrap_or(text));
         }
-        match self.cell_text.as_ref().and_then(|text| text(&field.name, object)) {
+        let cell = match self.cell_text.as_ref().and_then(|text| text(&field.name, object)) {
             Some(text) if text.is_empty() => Cell::Empty,
             Some(text) => Cell::Text(text),
             None => cell_of(field, &value),
+        };
+        // The field shown under it goes in the same text, so export and filter read both.
+        let under = field.list_detail.as_deref().and_then(|name| {
+            let entity = self.session.entity(object.entity())?;
+            let detail = entity.field_named(name)?;
+            let shown = display(detail, &object.get(name));
+            (!shown.is_empty()).then_some(shown)
+        });
+        match under {
+            Some(under) => {
+                let main = match &cell {
+                    Cell::Empty => String::new(),
+                    Cell::Text(text) => text.clone(),
+                    _ => display(field, &value),
+                };
+                Cell::Text(format!("{main}{}{under}", crate::values::DETAIL_BETWEEN))
+            }
+            None => cell,
         }
     }
 
@@ -310,6 +330,48 @@ fn answer_remote(
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ListView {
+    /// The actions of the entity that go on each row: each runs on its row's record, the way the
+    /// others run on what is selected, and lights up only where its criteria hold. Whoever cannot
+    /// do what one does to the records does not see it.
+    fn in_row(
+        &self,
+        entity: &EntityInfo,
+        objects: &Rc<BTreeMap<String, Object>>,
+        key_at: usize,
+    ) -> Vec<GridRowAction> {
+        let security = self.frame.security();
+        self.frame
+            .actions()
+            .into_iter()
+            .filter(|action| matches!(action.action_category(), ActionCategory::InRow) && action.is_active())
+            .filter(|action| match (action.required_operation(), &security) {
+                (Some(operation), Some(security)) => {
+                    security.with(|permissions| permissions.can(operation, &entity.name, None))
+                }
+                _ => true,
+            })
+            .map(|action| {
+                let icon =
+                    action.icon_name().and_then(crate::container::icon_named).unwrap_or(IconName::Play);
+                let record_of = {
+                    let known = objects.clone();
+                    move |row: &Row| row.get(key_at).and_then(|cell| known.get(&cell.key_text())).cloned()
+                };
+                let (session, frame, running, find) =
+                    (self.session.clone(), self.frame.clone(), action.clone(), record_of.clone());
+                GridRowAction::new(action.caption().to_owned(), icon, move |row| {
+                    let Some(record) = find(row) else { return };
+                    frame.set_selected(vec![record]);
+                    session.run_action(&running, ActionInput::None);
+                })
+                .show_text()
+                .enabled(move |row| {
+                    record_of(row).is_some_and(|record| action.fits(&record, &ravenrs_app::environment()))
+                })
+            })
+            .collect()
+    }
+
     /// The list of this view in the model, reading through this frame.
     pub fn new(session: Session, frame: Frame, view: ViewInfo) -> Self {
         Self {
@@ -730,7 +792,7 @@ impl View for ListView {
             Some(rows) => DataGrid::remote(rows, columns),
             None => DataGrid::new(data, columns),
         };
-        let grid = match node.text("EmptyText") {
+        let grid = match empty_text_for(session, &entity, node) {
             Some(text) => grid.empty_text(text),
             None => grid,
         };
@@ -777,6 +839,7 @@ impl View for ListView {
             None => grid,
         };
         let grid = self.row_actions.iter().cloned().fold(grid, DataGrid::row_action);
+        let grid = self.in_row(&entity, &objects, key_at).into_iter().fold(grid, DataGrid::row_action);
         let grid = if in_place {
             let (session, frame, named, shown) =
                 (session.clone(), self.frame.clone(), entity.clone(), infos.clone());
@@ -798,12 +861,107 @@ impl View for ListView {
             Some(shape) => shape(grid),
             None => grid,
         };
+        let strip = if self.compact { None } else { indicator_strip(session, &entity, node) };
+        // Nothing yet, and whoever looks may create: the next step, with the button that takes it.
+        if !self.compact
+            && access != DataAccess::Server
+            && objects.is_empty()
+            && can_create(session, &entity)
+            && let Some(hint) = node.text("EmptyHint")
+        {
+            let title = node.text("EmptyText").unwrap_or(&session.words().new).to_owned();
+            let creating = session.clone();
+            let new = Button::new(session.words().new.clone()).on_click(move || {
+                if let Some(action) = creating.frame().action(crate::ids::NEW) {
+                    creating.run_action(&action, ravenrs_app::ActionInput::None);
+                }
+            });
+            let empty = EmptyState::new(title).description(hint).action(new);
+            return match strip {
+                Some(strip) => cx.child(&VStack::new((strip, empty)).spacing(12.0).align(Align::Stretch)),
+                None => cx.child(&empty),
+            };
+        }
         // Another set of columns starts over, since the grid keeps what it knows by position.
-        match only {
-            Some(names) => cx.child(&Keyed::new(hash_of(&names.join(",")), grid)),
-            None => cx.child(&grid),
+        match (only, strip) {
+            (Some(names), Some(strip)) => cx.child(
+                &VStack::new((strip, Keyed::new(hash_of(&names.join(",")), grid)))
+                    .spacing(12.0)
+                    .align(Align::Stretch),
+            ),
+            (Some(names), None) => cx.child(&Keyed::new(hash_of(&names.join(",")), grid)),
+            (None, Some(strip)) => cx.child(&VStack::new((strip, grid)).spacing(12.0).align(Align::Stretch)),
+            (None, None) => cx.child(&grid),
         }
     }
+}
+
+/// Whether the person signed in may create a record of this entity.
+fn can_create(session: &Session, entity: &EntityInfo) -> bool {
+    session
+        .frame()
+        .security()
+        .is_none_or(|security| security.with(|p| p.can(ravenrs_app::Operation::Create, &entity.name, None)))
+}
+
+/// What an empty list says: its text and, for whom may create a record, the next step; for whom
+/// may only read, that records show up once someone allowed adds them.
+fn empty_text_for(session: &Session, entity: &EntityInfo, node: &ravenrs_app::ModelNode) -> Option<String> {
+    let text = node.text("EmptyText");
+    let Some(hint) = node.text("EmptyHint") else { return text.map(str::to_owned) };
+    let second =
+        if can_create(session, entity) { hint.to_owned() } else { session.words().empty_read_only.clone() };
+    Some(match text {
+        Some(text) => format!("{text} {second}"),
+        None => second,
+    })
+}
+
+/// The numbers above a list, read over all the records of its entity as the person may read
+/// them. One whose reader may not read the entity or the field it sums says it is restricted,
+/// never zero.
+fn indicator_strip(session: &Session, entity: &EntityInfo, node: &ravenrs_app::ModelNode) -> Option<AnyView> {
+    let indicators = node.get("Indicators")?;
+    let mut items: Vec<&ravenrs_app::ModelNode> = indicators.children.iter().collect();
+    items.sort_by_key(|item| item.integer("Index").unwrap_or(0));
+    let words = session.words();
+    let security = session.frame().security();
+    let stats: Vec<AnyView> = items
+        .into_iter()
+        .map(|item| {
+            let caption = item.text("Caption").unwrap_or_default().to_owned();
+            let series = item.text("Series").unwrap_or_default().to_owned();
+            let field = series.split(':').next().unwrap_or_default().trim().to_owned();
+            let readable = security.as_ref().is_none_or(|security| {
+                security.with(|p| {
+                    p.can(ravenrs_app::Operation::Read, &entity.name, None)
+                        && (field.is_empty()
+                            || p.can_field(ravenrs_app::Operation::Read, &entity.name, &field, None))
+                })
+            });
+            let value = if readable {
+                let query = match item.text("Filter").map(ravenrs_app::Criteria::parse) {
+                    Some(Ok(criteria)) => Query::all().filter(criteria),
+                    Some(Err(error)) => {
+                        return Box::new(Card::new(Stat::new(caption, error.to_string()))) as AnyView;
+                    }
+                    None => Query::all(),
+                };
+                let objects =
+                    session.frame().space().borrow().query(&entity.name, &query).unwrap_or_default();
+                crate::summary_text(session, entity, &objects, &series).unwrap_or_else(|why| why)
+            } else {
+                words.restricted.clone()
+            };
+            let stat = Stat::new(caption, value);
+            let stat = match item.text("Note") {
+                Some(note) => stat.caption(note),
+                None => stat,
+            };
+            Box::new(Card::new(stat).grow(1.0)) as AnyView
+        })
+        .collect();
+    (!stats.is_empty()).then(|| Box::new(HStack::new(stats).spacing(12.0).align(Align::Stretch)) as AnyView)
 }
 
 /// Keeps a value changed right on a list, in the record as storage has it now, if its rules let it

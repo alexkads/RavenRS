@@ -23,6 +23,9 @@
     "locked_until": {
      "Caption": "Bloqueado até"
     },
+    "expires_at": {
+     "Caption": "Vence em"
+    },
     "roles": {
      "Caption": "Papéis"
     }
@@ -366,6 +369,32 @@
     },
     "new_value": {
      "Caption": "Valor novo"
+    }
+   }
+  },
+  "SecurityTemporaryAccess": {
+   "Caption": "Acessos temporários",
+   "Members": {
+    "user_id": {
+     "Caption": "Usuário"
+    },
+    "reason": {
+     "Caption": "Motivo"
+    },
+    "granted_by": {
+     "Caption": "Autorizado por"
+    },
+    "granted_at": {
+     "Caption": "Concedido em"
+    },
+    "expires_at": {
+     "Caption": "Vence em"
+    },
+    "ended_at": {
+     "Caption": "Encerrado em"
+    },
+    "ended_reason": {
+     "Caption": "Motivo do encerramento"
     }
    }
   }

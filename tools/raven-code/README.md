@@ -29,7 +29,7 @@ On Windows, in PowerShell:
 irm https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven-code/install.cmd -OutFile "$env:TEMP\install.cmd"; & "$env:TEMP\install.cmd"
 ```
 
-From a checkout: `cargo run -p raven-code`.
+From a checkout: `cargo run --manifest-path tools/raven-code/Cargo.toml`.
 
 ## Limits
 

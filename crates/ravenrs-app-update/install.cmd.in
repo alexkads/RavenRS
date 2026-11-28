@@ -96,7 +96,7 @@ Write-Host "> compilando (a primeira vez demora; as seguintes aproveitam o que j
 $env:CARGO_TARGET_DIR = $Alvo
 $env:@INSTALADO@ = "1"
 Push-Location $codigo
-try { Correr { cargo build --release -p @PACOTE@ } } finally { Pop-Location }
+try { Correr { cargo build --release --manifest-path @MANIFESTO@ -p @PACOTE@ } } finally { Pop-Location }
 
 $novo = Join-Path $Alvo "release\@PACOTE@.exe"
 $resposta = & $novo --versao
@@ -205,7 +205,7 @@ tar -xzmf "$PACOTE" -C "$CODIGO" --strip-components=1
 diga "compilando (a primeira vez demora; as seguintes aproveitam o que já existe)"
 CARGO_TARGET_DIR="${@PREFIXO@_TARGET:-$CASA/target}"
 export CARGO_TARGET_DIR
-( cd "$CODIGO" && @INSTALADO@=1 cargo build --release -p @PACOTE@ )
+( cd "$CODIGO" && @INSTALADO@=1 cargo build --release --manifest-path @MANIFESTO@ -p @PACOTE@ )
 
 BINARIO="$CARGO_TARGET_DIR/release/@PACOTE@"
 RESPOSTA="$("$BINARIO" --versao 2>/dev/null | head -1 || true)"

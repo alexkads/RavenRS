@@ -48,7 +48,7 @@ Measured from what RavenRS paints, in points. Colors are tokens; `token@N` is th
 
 ## API
 
-Builder methods: `new`, `range`, `today`.
+Builder methods: `blocked`, `new`, `range`, `today`.
 
 `CalendarView`: `Agenda`, `Day`, `Month`, `Season`, `Week`, `Year`.
 

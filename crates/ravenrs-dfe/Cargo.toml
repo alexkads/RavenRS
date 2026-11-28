@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-dfe"
+workspace = "../../camadas/fiscal-motores"
 description = "BETA, proof of concept: what Brazilian electronic fiscal documents share in RavenRS (XML, C14N, XMLDSig, transport, sandbox handlers, test ICP-Brasil certificates). Not homologated."
 version.workspace = true
 edition.workspace = true

@@ -25,10 +25,12 @@ impl InstalledApp {
         let icons_windows = self.icons.replace('/', "\\");
         let windows_dir = self.windows_dir();
         let ascii_name = self.ascii_name();
-        let values: [(&str, &str); 13] = [
+        let manifest = format!("{}/Cargo.toml", self.source_folder());
+        let values: [(&str, &str); 14] = [
             ("@NOME@", self.name),
             ("@NOME_ASCII@", &ascii_name),
             ("@PACOTE@", self.package),
+            ("@MANIFESTO@", &manifest),
             ("@CASA@", self.home_dir),
             ("@PASTA_WINDOWS@", &windows_dir),
             ("@BUNDLE_ID@", self.bundle_id),

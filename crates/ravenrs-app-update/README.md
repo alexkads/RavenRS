@@ -92,7 +92,7 @@ fn the_installer_is_the_one_the_template_makes() {
 ```
 
 ```bash
-RAVENRS_WRITE_INSTALLER=1 cargo test -p raven-flows the_installer_is_the_one
+RAVENRS_WRITE_INSTALLER=1 cargo test --manifest-path examples/raven-flows/Cargo.toml the_installer_is_the_one
 ```
 
 From then on the test fails if the copy and [`install.cmd.in`](install.cmd.in) part ways. Change the template, never the copy, and write the copies again. A field that would change what the script does (a quote, a `$`, a `%`) is refused before anything is written.
@@ -165,4 +165,4 @@ The test of step 4 keeps the copies from drifting, so the 300 lines are written 
 
 ## What is tested where
 
-`cargo test -p ravenrs-app-update` runs the rules with no network: the decision, the hour between looks, the day after a failure by a given clock, the status bar's sentences, the lock, the steps, the template for two apps that must not touch each other's folders, the release files, and, on Linux and macOS, an installer that does not compile, which swaps only when the new binary answers, keeps the previous one, and is refused when cut in half. Windows runs the same Rust, but its PowerShell part is only tested by hand.
+`cargo test --manifest-path camadas/telas/Cargo.toml -p ravenrs-app-update` runs the rules with no network: the decision, the hour between looks, the day after a failure by a given clock, the status bar's sentences, the lock, the steps, the template for two apps that must not touch each other's folders, the release files, and, on Linux and macOS, an installer that does not compile, which swaps only when the new binary answers, keeps the previous one, and is refused when cut in half. Windows runs the same Rust, but its PowerShell part is only tested by hand.

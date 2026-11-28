@@ -3,7 +3,7 @@
 A design board made only with library components (`FlowCanvas`, `FlowToolbox`, `FlowInspector`, `FlowLibrary` and more): screens as frames, the pieces of each screen placed freely, resized, turned and lined up with the guides, and arrows between screens saying where a tap leads. It is here to check how far the diagram component goes as a board of this kind.
 
 ```bash
-cargo run -p flow-design-board
+cargo run --manifest-path examples/flow-design-board/Cargo.toml
 ```
 
 ## What it shows
@@ -30,11 +30,11 @@ and distances shown while dragging.
 In the browser, the diagrams are kept in the browser's own storage:
 
 ```bash
-scripts/build-web.sh flow-design-board
+cargo xtask web flow-design-board
 python3 -m http.server -d examples/flow-design-board/web 8080
 ```
 
-On Linux and Windows, run `cargo run -p flow-design-board --release` and check that you can drag a shape onto a frame and turn it by its handle; hide a piece in Camadas and show it again; Exportar as PNG; Salvar, close and open again.
+On Linux and Windows, run `cargo run --manifest-path examples/flow-design-board/Cargo.toml --release` and check that you can drag a shape onto a frame and turn it by its handle; hide a piece in Camadas and show it again; Exportar as PNG; Salvar, close and open again.
 
 ## End-to-end tests (Raven Test Studio)
 

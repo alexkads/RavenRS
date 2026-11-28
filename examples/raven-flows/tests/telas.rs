@@ -1,5 +1,5 @@
 //! Pictures of the screens, drawn with no window, to look at them next to the design. It only
-//! runs when asked: `RAVEN_FLOWS_TELAS=pasta cargo test -p raven-flows --test telas -- --ignored`.
+//! runs when asked: `RAVEN_FLOWS_TELAS=pasta cargo test --manifest-path examples/raven-flows/Cargo.toml --test telas -- --ignored`.
 #![allow(clippy::expect_used, reason = "tests fail loudly")]
 
 use raven_flows::Worker;

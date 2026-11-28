@@ -11,7 +11,7 @@ when something goes wrong.
 | **RPM** (Fedora): `sudo dnf install <url of the release>` | a Linux server | the service `raven-ci` as the user `raven-ci`, data in `/var/lib/raven-ci`, `127.0.0.1:8090`, the panel at `/painel/`, `MemoryMax=256M`. See "Install it" in the [README](../README.md) |
 | **Container**: `tools/raven-ci/pacote/docker` | trying a version on a machine that already runs something else | the same RPM in a clean Fedora, its data in a volume, `127.0.0.1:8090`, 256 MB |
 | **Installer**: `install.cmd`, then `raven-ci servico instalar` | macOS, Windows, or a Linux without the RPM | the binary of the user, and the server as a service of systemd, launchd or the Task Scheduler |
-| **From the repository**: `cargo run -p raven-ci -- servir` | developing Raven CI | everything in `~/.raven-ci` unless `--dados` says |
+| **From the repository**: `cargo run --manifest-path tools/raven-ci/Cargo.toml -p raven-ci -- servir` | developing Raven CI | everything in `~/.raven-ci` unless `--dados` says |
 
 The server listens on one address (`--endereco`), on the loopback unless told otherwise. To reach
 it from other machines, put it behind what already publishes services there (a reverse proxy, a

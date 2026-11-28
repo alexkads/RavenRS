@@ -1,6 +1,6 @@
 # site-home
 
-`cargo run -p site-home`.
+`cargo run --manifest-path examples/site-home/Cargo.toml`.
 
 ## End-to-end tests (Raven Test Studio)
 

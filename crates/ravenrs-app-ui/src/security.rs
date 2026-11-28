@@ -1,21 +1,22 @@
 //! Signing in and managing passwords, on top of the permissions in `ravenrs-app`. What is protected
 //! is protected under this, in the secured space; these screens are the way in.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use std::time::Duration;
 
 use ravenrs_app::{
     Action, ActionCategory, AuditSettings, AuditTrail, AuditedObjectSpace, AuthError, Authenticator,
     Credentials, EntityInfo, Identity, Message, MessageKind, ModelError, Module, ObjectSpace, PasswordError,
-    Role, RoleMerge, SECURITY_USER, SecuredObjectSpace, SecurityContext, Selection, SpaceMaker,
-    UserDirectory, Value, ViewController, audit_entity, security_entities,
+    PasswordPolicy, Role, RoleMerge, SECURITY_USER, SecuredObjectSpace, SecurityContext, Selection,
+    SpaceMaker, TemporaryAccessPolicy, UserDirectory, Value, ViewController, audit_entity, security_entities,
 };
 use ravenrs_layout::{Align, Justify};
 use ravenrs_reactive::State;
 use ravenrs_style::{TextStyle, Weight};
 use ravenrs_widgets::{
     Alert, AnyView, BuildCx, Button, ButtonStyle, Card, FormField, HStack, IconName, Keyed, Localized,
-    NodeId, Text, TextField, Tone, VStack, View, ViewExt,
+    NodeId, Text, TextField, Tone, UiActivity, VStack, View, ViewExt,
 };
 
 use crate::model_editor::MODEL_EDITOR;
@@ -25,6 +26,8 @@ use crate::{App, Language, Session};
 
 /// The id of the action that gives someone a new password.
 pub(crate) const SET_PASSWORD: &str = "SetPassword";
+/// The id of the action that lets someone waiting after too many wrong passwords in again.
+pub(crate) const UNLOCK_USER: &str = "UnlockUser";
 const CARD_WIDTH: f32 = 380.0;
 /// Below this window width the door leaves out its aside and the card fits the window.
 const NARROW_DOOR: f32 = 720.0;
@@ -36,6 +39,8 @@ const DOOR_GUTTER: f32 = 16.0;
 pub(crate) struct SecurityModule {
     words: Words,
     audited: bool,
+    temporary: Option<TemporaryAccessPolicy>,
+    directory: UserDirectory,
 }
 
 impl Module for SecurityModule {
@@ -52,11 +57,27 @@ impl Module for SecurityModule {
     }
 
     fn view_controllers(&self) -> Vec<Box<dyn ViewController>> {
-        vec![Box::new(PasswordsController(self.words.clone()))]
+        vec![
+            Box::new(PasswordsController(self.words.clone(), self.directory.clone())),
+            Box::new(AccessController(self.words.clone(), self.temporary.clone())),
+        ]
     }
 }
 
-struct PasswordsController(Words);
+struct PasswordsController(Words, UserDirectory);
+
+/// Granting access for a while and revoking a user, on the list of users.
+struct AccessController(Words, Option<TemporaryAccessPolicy>);
+
+impl ViewController for AccessController {
+    fn id(&self) -> &str {
+        "TemporaryAccess"
+    }
+
+    fn actions(&self) -> Vec<Action> {
+        crate::temporary::actions(&self.0, self.1.as_ref())
+    }
+}
 
 impl ViewController for PasswordsController {
     fn id(&self) -> &str {
@@ -65,7 +86,22 @@ impl ViewController for PasswordsController {
 
     fn actions(&self) -> Vec<Action> {
         let words = self.0.clone();
+        let (unlocking, directory) = (self.0.clone(), self.1.clone());
         vec![
+            Action::simple(UNLOCK_USER, unlocking.unlock_user.clone())
+                .category(ActionCategory::Edit)
+                .target_entity(SECURITY_USER)
+                .selection(Selection::RequireSingle)
+                .icon("lock-open")
+                .on_execute(move |cx| {
+                    let session = Session::of(cx).ok_or("this action needs the application's screens")?;
+                    let context = session.frame().security().ok_or("nobody is signed in")?;
+                    let user = cx.selected.first().map_or(Value::Null, |user| user.get("id"));
+                    directory.unlock(&context, &user).map_err(|error| error.to_string())?;
+                    session.show_message(Message::new(unlocking.user_unlocked.clone(), MessageKind::Success));
+                    session.records_changed();
+                    Ok(())
+                }),
             Action::simple(SET_PASSWORD, words.set_password.clone())
                 .category(ActionCategory::Edit)
                 .target_entity(SECURITY_USER)
@@ -306,6 +342,10 @@ pub struct SecuredApp {
     seed: Option<Seed>,
     title: String,
     door: Door,
+    temporary: Option<TemporaryAccessPolicy>,
+    password_policy: Option<PasswordPolicy>,
+    lockout: Option<(u32, u32)>,
+    idle: Option<Duration>,
 }
 
 impl std::fmt::Debug for SecuredApp {
@@ -335,7 +375,49 @@ impl SecuredApp {
             seed: None,
             title: title.into(),
             door: Door::default(),
+            temporary: None,
+            password_policy: None,
+            lockout: None,
+            idle: None,
         }
+    }
+
+    /// What the application asks of a new password besides its length, given the user's name and
+    /// the password: when creating the first administrator, when someone changes their own, also
+    /// when made to after being given one, and when an administrator gives one. What it says in
+    /// `Err` is what the form shows, as it is. With an [`SecuredApp::authenticator`] of its own,
+    /// this still holds for the passwords the framework keeps.
+    pub fn password_policy(mut self, policy: impl Fn(&str, &str) -> Result<(), String> + 'static) -> Self {
+        self.password_policy = Some(Rc::new(policy));
+        self
+    }
+
+    /// After `attempts` wrong passwords in a row an account waits `minutes`, and even the right
+    /// password is refused meanwhile. The usual is 5 and 15. Neither turns the lockout off: 0
+    /// attempts counts as 1 and 0 minutes as 1, as in `UserDirectory::with_lockout`. An
+    /// administrator lets someone in earlier, keeping their password, with
+    /// `UserDirectory::unlock`.
+    pub fn lockout(mut self, attempts: u32, minutes: u32) -> Self {
+        self.lockout = Some((attempts, minutes));
+        self
+    }
+
+    /// Ends the session of whoever does nothing for this long, with no key, click, pointer
+    /// movement or scrolling: the screen goes back to signing in, as signing out does, and
+    /// nothing typed in the application is kept. Doing anything starts the time again. It goes
+    /// by the clock of the window, so a test moves it with `Ui::set_time`.
+    pub fn idle_timeout(mut self, idle: Duration) -> Self {
+        self.idle = Some(idle);
+        self
+    }
+
+    /// Access for a while, as this policy gives it: before each sign in, and in an open session at
+    /// most every [`TemporaryAccessPolicy::check_every`], the users whose deadline passed are
+    /// turned off, so the next screen of such a session reads nothing. Its role has to be there
+    /// and not administrative, or building refuses.
+    pub fn temporary_access(mut self, policy: TemporaryAccessPolicy) -> Self {
+        self.temporary = Some(policy);
+        self
     }
 
     /// A line under the title of the screen of signing in, such as which organization this is.
@@ -444,7 +526,38 @@ impl SecuredApp {
                 return Err(ModelError(format!("storage has to know the entity {}", needed.name)));
             }
         }
-        let directory = UserDirectory::new(self.space.clone(), self.roles.clone()).map_err(wrong)?;
+        let mut directory = UserDirectory::new(self.space.clone(), self.roles.clone()).map_err(wrong)?;
+        if let Some(policy) = self.password_policy {
+            directory = directory.with_password_policy(move |name, password| policy(name, password));
+        }
+        if let Some((attempts, minutes)) = self.lockout {
+            directory = directory.with_lockout(attempts, minutes);
+        }
+        if let Some(policy) = &self.temporary {
+            let roles = (self.space)()
+                .query(ravenrs_app::SECURITY_ROLE, &ravenrs_app::Query::all())
+                .map_err(wrong)?;
+            let found = roles.iter().find(|role| role.text("name") == policy.role);
+            let code = self.roles.iter().find(|role| role.name() == policy.role);
+            match found {
+                None => {
+                    return Err(ModelError(format!(
+                        "the role {} of temporary access is not there",
+                        policy.role
+                    )));
+                }
+                Some(role)
+                    if role.get("administrative") == Value::Bool(true)
+                        || code.is_some_and(Role::is_administrative) =>
+                {
+                    return Err(ModelError(format!(
+                        "the role {} of temporary access is administrative",
+                        policy.role
+                    )));
+                }
+                Some(_) => {}
+            }
+        }
         if let Some(seed) = self.seed {
             let mut space = (self.space)();
             seed(&mut *space).map_err(ModelError)?;
@@ -478,6 +591,10 @@ impl SecuredApp {
             entered: RefCell::new(0),
             door_theme: std::cell::Cell::new(None),
             door: self.door,
+            temporary: self.temporary,
+            checked: std::cell::Cell::new(None),
+            idle: self.idle,
+            active_at: Rc::new(Cell::new(None)),
         }));
         gate.fill_demo();
         Ok(Box::new(Localized::new(gate.0.labels.clone(), gate)))
@@ -521,6 +638,13 @@ struct GateInner {
     error: State<Option<String>>,
     entered: RefCell<u64>,
     door: Door,
+    temporary: Option<TemporaryAccessPolicy>,
+    /// When the open session last looked for what expired, by the clock of the policy.
+    checked: std::cell::Cell<Option<ravenrs_criteria::DateTime>>,
+    /// How long a session lasts with nothing done, if it ends at all.
+    idle: Option<Duration>,
+    /// When, by the clock of the window, the person inside last did something.
+    active_at: Rc<Cell<Option<f64>>>,
 }
 
 /// What stands between people and the application.
@@ -588,6 +712,9 @@ impl Gate {
     fn sign_in(&self) {
         let inner = &self.0;
         let credentials = Credentials::new(inner.name.peek().clone(), inner.password.peek().clone());
+        if let Some(policy) = &inner.temporary {
+            let _ = inner.directory.end_expired(policy.now());
+        }
         let result = inner.authenticator.authenticate(&credentials);
         self.forget_typed();
         match result {
@@ -644,11 +771,27 @@ impl Gate {
         }
     }
 
+    /// Turns off who expired, once every `check_every` of the policy at most.
+    fn end_expired_now_and_then(&self) {
+        let inner = &self.0;
+        let Some(policy) = &inner.temporary else { return };
+        let now = policy.now();
+        let seconds = |at: ravenrs_criteria::DateTime| at.days * 86_400 + i64::from(at.seconds);
+        let every = i64::try_from(policy.check_every.as_secs()).unwrap_or(i64::MAX);
+        let due = inner.checked.get().is_none_or(|last| seconds(now) - seconds(last) >= every);
+        if due {
+            let _ = inner.directory.end_expired(now);
+            inner.checked.set(Some(now));
+        }
+    }
+
     fn open_application(&self, context: Rc<SecurityContext>, trail: Option<Rc<AuditTrail>>) {
         let inner = &self.0;
         let identity = context.identity();
         let (raw, secured_context, secured_trail) = (inner.space.clone(), context.clone(), trail.clone());
+        let watcher = self.clone();
         let storage = move || {
+            watcher.end_expired_now_and_then();
             // Each view reads who they are again, so what someone else changed about them counts.
             // If that fails they keep what they had, and storage is failing for the view too.
             let _ = secured_context.reload();
@@ -665,7 +808,12 @@ impl Gate {
             app = app.texts(language.clone(), json.clone());
         }
         let app = app
-            .module(SecurityModule { words: words.clone(), audited })
+            .module(SecurityModule {
+                words: words.clone(),
+                audited,
+                temporary: inner.temporary.clone(),
+                directory: inner.directory.clone(),
+            })
             .translation("pt-BR", ravenrs_app_i18n::model::SECURITY_PT_BR)
             .dashboard(
                 ravenrs_app::DashboardInfo::new(MODEL_EDITOR, words.model_editor.clone())
@@ -679,6 +827,7 @@ impl Gate {
             .signed_in(identity.name.clone(), move || gate.sign_out());
         match app.build() {
             Ok(view) => {
+                inner.active_at.set(None);
                 *inner.entered.borrow_mut() += 1;
                 inner.stage.set(Stage::Inside(Rc::new(view), *inner.entered.borrow()));
             }
@@ -686,7 +835,38 @@ impl Gate {
         }
     }
 
+    /// Signs out whoever did nothing for the time of `idle_timeout`, or watches for what they do
+    /// and asks to be built again when that time would be up.
+    fn end_if_idle(&self, cx: &mut BuildCx<'_>) {
+        let inner = &self.0;
+        let Some(idle) = inner.idle else { return };
+        if !matches!(*inner.stage.peek(), Stage::Inside(..)) {
+            return;
+        }
+        let now = cx.now();
+        let last = match inner.active_at.get() {
+            Some(last) => last,
+            None => {
+                inner.active_at.set(Some(now));
+                now
+            }
+        };
+        let deadline = last + idle.as_secs_f64();
+        if now >= deadline {
+            self.sign_out();
+            inner.error.set(Some(inner.words.session_idle.clone()));
+            return;
+        }
+        cx.wake_at(deadline);
+        let seen = inner.active_at.clone();
+        cx.observe_activity(Rc::new(move |activity: UiActivity<'_>, at: f64| match activity {
+            UiActivity::Painted(_) | UiActivity::Described(_) => {}
+            _ => seen.set(Some(at)),
+        }));
+    }
+
     fn sign_out(&self) {
+        self.0.active_at.set(None);
         self.forget_typed();
         self.0.name.set(String::new());
         self.0.error.set(None);
@@ -782,6 +962,7 @@ impl Gate {
 
 impl View for Gate {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        self.end_if_idle(cx);
         // The theme at the door is for whoever comes next, and not what the last person chose.
         let inside = matches!(self.0.stage.get(), Stage::Inside(..));
         match self.0.door_theme.get() {

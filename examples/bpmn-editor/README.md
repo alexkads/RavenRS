@@ -4,7 +4,7 @@ A BPMN 2.0 editor made only of RavenRS components, as a real test of the diagram
 nothing on its screen is drawn by the example, which only joins the parts.
 
 ```bash
-cargo run -p bpmn-editor --release
+cargo run --manifest-path examples/bpmn-editor/Cargo.toml --release
 ```
 
 ## What it is made of
@@ -27,10 +27,10 @@ cargo run -p bpmn-editor --release
 
 ## Tested
 
-- `cargo test -p ravenrs-flow-bpmn`: the XML against itself and against another tool's file,
+- `cargo test --manifest-path camadas/automacao/Cargo.toml -p ravenrs-flow-bpmn`: the XML against itself and against another tool's file,
   the checks, the plans and the debugger through the screen.
-- `cargo test -p bpmn-editor`: the editor through its interface.
-- With a local model on disk, `RAVENRS_MODELS=<folder> cargo test -p bpmn-editor --test local_ai
+- `cargo test --manifest-path examples/bpmn-editor/Cargo.toml`: the editor through its interface.
+- With a local model on disk, `RAVENRS_MODELS=<folder> cargo test --manifest-path examples/bpmn-editor/Cargo.toml --test local_ai
   -- --ignored --nocapture`. Measured with LFM3 1.7B on an Apple M2 Pro: a reimbursement process
   drafted in about 12 seconds, its broken JSON mended, and the checks pointing at the three
   mistakes the model made; the review in about 13 seconds.
@@ -40,11 +40,11 @@ cargo run -p bpmn-editor --release
 In the browser, the diagrams are kept in the browser's own storage:
 
 ```bash
-scripts/build-web.sh bpmn-editor
+cargo xtask web bpmn-editor
 python3 -m http.server -d examples/bpmn-editor/web 8080
 ```
 
-On Linux and Windows, run `cargo run -p bpmn-editor --release` and check that you can open "Pedido entre cliente e loja"; Verificar says nothing is wrong; Depurar runs a step at a time; Salvar em arquivo as BPMN 2.0 and open the file again; on the desktop, pick a model and ask for a process.
+On Linux and Windows, run `cargo run --manifest-path examples/bpmn-editor/Cargo.toml --release` and check that you can open "Pedido entre cliente e loja"; Verificar says nothing is wrong; Depurar runs a step at a time; Salvar em arquivo as BPMN 2.0 and open the file again; on the desktop, pick a model and ask for a process.
 
 The local AI runs only on the desktop: in the browser the chat says so.
 

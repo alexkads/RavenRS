@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-mail"
+workspace = "../../camadas/rede"
 description = "Sending email from a RavenRS service: a message with its attachments and safe headers, through an SMTP server over STARTTLS or TLS."
 version.workspace = true
 edition.workspace = true

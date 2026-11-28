@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-app-library"
+workspace = "../../camadas/telas"
 description = "Records most RavenRS business applications need: people, organizations, addresses, tasks, events, notes and files, ready to use or extend."
 version.workspace = true
 edition.workspace = true
@@ -15,11 +16,16 @@ categories = ["gui", "data-structures"]
 
 [dependencies]
 ravenrs-app.workspace = true
+# Dates and splitting money to the cent, for the finances.
+ravenrs-criteria.workspace = true
 
 [dev-dependencies]
+ravenrs-app-postgres.workspace = true
+ravenrs-app-sql.workspace = true
+ravenrs-app-sqlite.workspace = true
+rusqlite.workspace = true
 ravenrs-app-ui.workspace = true
 ravenrs-core.workspace = true
-ravenrs-criteria.workspace = true
 ravenrs-style.workspace = true
 ravenrs-widgets.workspace = true
 

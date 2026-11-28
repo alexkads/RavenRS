@@ -73,7 +73,7 @@ São poucas, e cada uma tem um motivo. Ao mesclar, confira que continuam:
 
 Em 13/11/2026, isso dá 19 arquivos diferentes da origem convertida, além dos que só existem aqui: `src/lib.rs`, `src/craft/mod.rs`, `src/craft/media_testkit/mod.rs`, `README.md`, `Cargo.toml` e `NOTICE`. Se a conferência do passo 3 mostrar mais que isso, algo novo divergiu: entenda o quê antes de mesclar.
 - `Cargo.toml`: `md-5` 0.11 (a origem usa 0.10), para casar com o `sha1` 0.11 do resto; o `xls` mistura os dois pelo trait `Digest`.
-- `Cargo.toml`: `[[test]] craft_zip_archive` com `required-features = ["test-support"]`. O teste usa uma amostra que só existe com essa feature, e o `check.sh` roda sem features. Se outro teste do `craft` passar a usar `zip64_entry_count_sample` ou o `opc` de teste, faça o mesmo com ele.
+- `Cargo.toml`: `[[test]] craft_zip_archive` com `required-features = ["test-support"]`. O teste usa uma amostra que só existe com essa feature, e o `cargo xtask pr` roda sem features. Se outro teste do `craft` passar a usar `zip64_entry_count_sample` ou o `opc` de teste, faça o mesmo com ele.
 - Docs dos módulos `craft`: exemplos com `ravenrs_sheet::craft::…`, porque rodam como doctests. O conversor já faz isso.
 
 Quando corrigir algo no motor que não seja só adaptação, avalie mandar a correção para a origem também. Cada mudança nossa é uma diferença a carregar em toda sincronização.
@@ -97,11 +97,11 @@ E, como para todos:
 ## Testar
 
 ```bash
-cargo clippy -p ravenrs-sheet --all-features --tests -- -D warnings
-cargo test -p ravenrs-sheet --all-features
-cargo clippy -p ravenrs-sheet -p ravenrs-spreadsheet --target wasm32-unknown-unknown -- -D warnings
-cargo test -p ravenrs-spreadsheet
-./scripts/check.sh
+cargo clippy --manifest-path camadas/documentos/Cargo.toml -p ravenrs-sheet --all-features --tests -- -D warnings
+cargo test --manifest-path camadas/documentos/Cargo.toml -p ravenrs-sheet --all-features
+cargo clippy --manifest-path camadas/documentos/Cargo.toml -p ravenrs-sheet -p ravenrs-spreadsheet --target wasm32-unknown-unknown -- -D warnings
+cargo test --manifest-path camadas/telas/Cargo.toml -p ravenrs-spreadsheet
+cargo xtask pr
 ```
 
 Os testes da origem vêm junto: mais de 2.100 unitários no motor, os de integração em `tests/` e os doctests dos módulos `craft`. Se um deles falhar, descubra se é a conversão (caminho, fixture, lint daqui) ou uma mudança nossa que a origem desfez. Não desligue o teste.

@@ -75,6 +75,15 @@ pub struct Words {
     pub conflict_detail: String,
     /// Keeps one's own changes over the other person's.
     pub conflict_answer: String,
+    /// Both sides of a field changed by two people: `{0}` the field, `{1}` this person's value
+    /// and `{2}` the one kept now.
+    pub conflict_values: String,
+    /// Drops one's own changes and shows the record as it is kept now.
+    pub conflict_reload: String,
+    /// What reloading does.
+    pub conflict_reload_detail: String,
+    /// Why this person cannot keep theirs over the other person's.
+    pub conflict_locked: String,
     /// What a way of showing a list says when something it needs is missing.
     pub list_editor_needs: String,
     /// A row of a timeline for records that point to no resource.
@@ -83,6 +92,12 @@ pub struct Words {
     pub chart_count: String,
     /// Things to be reminded of.
     pub reminders: String,
+    /// The first item of the navigation, which opens the commands.
+    pub search_command: String,
+    /// Folds the navigation to its icons.
+    pub collapse_menu: String,
+    /// Opens the folded navigation.
+    pub open_menu: String,
     /// Background work that cannot say what it is doing.
     pub working: String,
     /// Background work asked to stop, until it does.
@@ -119,6 +134,8 @@ pub struct Words {
     pub repeat_password: String,
     /// Signing in could not be tried.
     pub sign_in_unavailable: String,
+    /// The session ended because nothing was done for the time of `SecuredApp::idle_timeout`.
+    pub session_idle: String,
     /// The two are not the same.
     pub passwords_differ: String,
     /// It is too short.
@@ -135,6 +152,10 @@ pub struct Words {
     pub change_password: String,
     /// Gives someone a password.
     pub set_password: String,
+    /// The action that lets someone waiting after too many wrong passwords sign in again.
+    pub unlock_user: String,
+    /// Said once they can.
+    pub user_unlocked: String,
     /// Why they have to choose one now.
     pub must_change_password: String,
     /// What the first screen of a new installation says.
@@ -153,6 +174,34 @@ pub struct Words {
     pub restore_model: String,
     /// Why what is on a form cannot be kept any more.
     pub record_gone: String,
+    /// Grants access for a while.
+    pub grant_access: String,
+    /// Revokes a user.
+    pub revoke_access: String,
+    /// What is asked before revoking.
+    pub revoke_question: String,
+    /// What revoking does, said before it.
+    pub revoke_detail: String,
+    /// The answer that revokes.
+    pub revoke_answer: String,
+    /// What revoking says once done.
+    pub revoked: String,
+    /// Why nobody revokes themselves.
+    pub revoke_own: String,
+    /// The reason of an access.
+    pub access_reason: String,
+    /// How many hours an access lasts, with `{0}` for the most.
+    pub access_hours: String,
+    /// What a grant gives, with `{0}` for the user, `{1}` until when and `{2}` the password.
+    pub access_granted: String,
+    /// That the password shows only now.
+    pub password_once: String,
+    /// Closes what is done.
+    pub done: String,
+    /// What a number says instead of a value its reader may not see.
+    pub restricted: String,
+    /// What an empty list says to whom may only read it.
+    pub empty_read_only: String,
     /// What fails a rule.
     pub rules: RuleWords,
     /// In front of money.
@@ -214,10 +263,17 @@ impl Words {
             conflict_question: texts.get("ui.conflict_question"),
             conflict_detail: texts.get("ui.conflict_detail"),
             conflict_answer: texts.get("ui.conflict_answer"),
+            conflict_values: texts.get("ui.conflict_values"),
+            conflict_reload: texts.get("ui.conflict_reload"),
+            conflict_reload_detail: texts.get("ui.conflict_reload_detail"),
+            conflict_locked: texts.get("ui.conflict_locked"),
             list_editor_needs: texts.get("ui.list_editor_needs"),
             no_resource: texts.get("ui.no_resource"),
             chart_count: texts.get("ui.chart_count"),
             reminders: texts.get("ui.reminders"),
+            search_command: texts.get("ui.search_command"),
+            collapse_menu: texts.get("ui.collapse_menu"),
+            open_menu: texts.get("ui.open_menu"),
             working: texts.get("ui.working"),
             stopping: texts.get("ui.stopping"),
             snooze: texts.get("ui.snooze"),
@@ -236,6 +292,7 @@ impl Words {
             new_password: texts.get("ui.new_password"),
             repeat_password: texts.get("ui.repeat_password"),
             sign_in_unavailable: texts.get("ui.sign_in_unavailable"),
+            session_idle: texts.get("ui.session_idle"),
             passwords_differ: texts.get("ui.passwords_differ"),
             password_too_short: texts.get("ui.password_too_short"),
             password_same: texts.get("ui.password_same"),
@@ -244,6 +301,8 @@ impl Words {
             save_password: texts.get("ui.save_password"),
             change_password: texts.get("ui.change_password"),
             set_password: texts.get("ui.set_password"),
+            unlock_user: texts.get("ui.unlock_user"),
+            user_unlocked: texts.get("ui.user_unlocked"),
             must_change_password: texts.get("ui.must_change_password"),
             first_user: texts.get("ui.first_user"),
             create_user: texts.get("ui.create_user"),
@@ -253,6 +312,20 @@ impl Words {
             apply: texts.get("ui.apply"),
             restore_model: texts.get("ui.restore_model"),
             record_gone: texts.get("ui.record_gone"),
+            grant_access: texts.get("ui.grant_access"),
+            revoke_access: texts.get("ui.revoke_access"),
+            revoke_question: texts.get("ui.revoke_question"),
+            revoke_detail: texts.get("ui.revoke_detail"),
+            revoke_answer: texts.get("ui.revoke_answer"),
+            revoked: texts.get("ui.revoked"),
+            revoke_own: texts.get("ui.revoke_own"),
+            access_reason: texts.get("ui.access_reason"),
+            access_hours: texts.get("ui.access_hours"),
+            access_granted: texts.get("ui.access_granted"),
+            password_once: texts.get("ui.password_once"),
+            done: texts.get("ui.done"),
+            restricted: texts.get("ui.restricted"),
+            empty_read_only: texts.get("ui.empty_read_only"),
             rules: RuleWords::from_texts(texts),
             money_prefix: texts.get("format.money_prefix"),
             thousands: texts.char("format.thousands", ','),

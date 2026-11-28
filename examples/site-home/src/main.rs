@@ -1,4 +1,4 @@
-//! Native entry point: `cargo run -p site-home --release` shows the home page in a window.
+//! Native entry point: `cargo run --manifest-path examples/site-home/Cargo.toml --release` shows the home page in a window.
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<(), ravenrs::native::PlatformError> {

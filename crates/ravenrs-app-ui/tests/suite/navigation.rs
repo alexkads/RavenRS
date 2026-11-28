@@ -231,3 +231,137 @@ fn a_counter_has_no_palette_of_places_so_an_outer_application_keeps_command_k() 
         "no palette: a counter goes elsewhere through its actions"
     );
 }
+
+fn with_menu(compact: bool, search: bool, collapse: bool) -> World {
+    let database = MemoryDatabase::new(vec![lessons(), offerings()]).expect("valid");
+    let view = App::new("Comunhão")
+        .entity_info(lessons())
+        .entity_info(offerings())
+        .storage(move || database.space())
+        .compact_navigation(compact)
+        .navigation_search(search)
+        .navigation_collapse(collapse)
+        .build()
+        .expect("it puts together");
+    World::over(view)
+}
+
+#[test]
+fn the_menu_options_are_off_unless_the_application_asks() {
+    let mut world = with_menu(false, false, false);
+    assert!(world.named("Search commands").is_none());
+    assert!(world.named("Collapse menu").is_none());
+    let tall = world.named("Lessons").expect("the item").bounds.height();
+    let mut compact = with_menu(true, false, false);
+    let short = compact.named("Lessons").expect("the item").bounds.height();
+    assert!(short < tall, "compact items are shorter: {short} against {tall}");
+}
+
+#[test]
+fn search_opens_the_commands_and_collapse_folds_the_menu_and_says_so() {
+    let mut world = with_menu(true, true, true);
+    let nodes = world.nodes();
+    let search = nodes.iter().position(|n| n.name.as_deref() == Some("Search commands")).expect("the search");
+    let lessons = nodes.iter().position(|n| n.name.as_deref() == Some("Lessons")).expect("the item");
+    assert!(search < lessons, "the search comes first");
+    world.press("Search commands");
+    assert!(world.nodes().iter().any(|n| n.role == Role::TextInput), "the palette opened");
+    world.key(Key::Escape, false);
+
+    world.press("Collapse menu");
+    assert!(world.named("Lessons").is_some_and(|n| n.bounds.width() <= 48.0), "folded to its icons");
+    assert!(world.named("Open menu").is_some(), "and it says how to open it again");
+    world.key(Key::Character("b".into()), true);
+    assert!(world.named("Collapse menu").is_some(), "⌘B opens it again");
+}
+
+#[test]
+fn a_count_with_a_tone_shows_as_a_badge() {
+    let database = MemoryDatabase::new(vec![lessons(), offerings()]).expect("valid");
+    let view = App::new("Comunhão")
+        .entity_info(lessons())
+        .entity_info(offerings())
+        .storage(move || database.space())
+        .navigation_count("Offering", |_| Some(NavigationCount::new("2").tone(ravenrs_widgets::Tone::Danger)))
+        .build()
+        .expect("it puts together");
+    let mut world = World::over(view);
+    let offerings = world.named("Offerings").expect("the item");
+    assert_eq!(offerings.description.as_deref(), Some("2"), "screen readers hear the count");
+}
+
+fn in_sections() -> World {
+    let database = MemoryDatabase::new(vec![lessons(), offerings()]).expect("valid");
+    let view = App::new("Comunhão")
+        .entity_info(lessons())
+        .entity_info(offerings())
+        .storage(move || database.space())
+        .navigation_section("School", "Church")
+        .navigation_section("Treasury", "Church")
+        .build()
+        .expect("it puts together");
+    World::over(view)
+}
+
+#[test]
+fn groups_in_a_section_are_items_with_submenus_under_one_title() {
+    let mut world = in_sections();
+    let nodes = world.nodes();
+    let titles = nodes.iter().filter(|n| n.name.as_deref() == Some("CHURCH")).count();
+    assert_eq!(titles, 1, "the groups of one section share its title");
+    assert!(world.named("School").is_some_and(|n| n.role == Role::Button), "the group is an item");
+    assert!(world.named("Treasury").is_some_and(|n| n.role == Role::Button), "and so is the other");
+    assert!(world.named("Lessons").is_some(), "the submenu of the screen showing is open");
+    assert!(world.named("Offerings").is_none(), "the other one is folded");
+    assert_eq!(world.named("Treasury").and_then(|n| n.expanded), Some(false), "and says so");
+
+    world.press("Treasury");
+    assert_eq!(world.named("Treasury").and_then(|n| n.expanded), Some(true), "a click unfolds it");
+    world.press("Offerings");
+    assert!(world.named("Offerings").is_some_and(|n| n.selected == Some(true)), "its item opens the screen");
+    world.press("Treasury");
+    let item = |n: &AccessNode| n.role == Role::Button && n.name.as_deref() == Some("Offerings");
+    assert!(!world.nodes().iter().any(item), "and a second click folds it, the screen staying open");
+    assert!(world.named("Offerings").is_some_and(|n| n.role == Role::Heading));
+}
+
+#[test]
+fn a_group_in_no_section_keeps_its_own_title() {
+    let database = MemoryDatabase::new(vec![lessons(), offerings()]).expect("valid");
+    let view = App::new("Comunhão")
+        .entity_info(lessons())
+        .entity_info(offerings())
+        .storage(move || database.space())
+        .navigation_section("Treasury", "Church")
+        .build()
+        .expect("it puts together");
+    let mut world = World::over(view);
+    assert!(world.named("School").is_none(), "not an item");
+    assert!(world.named("SCHOOL").is_some_and(|n| n.role == Role::Label), "but a title");
+    assert!(world.named("Lessons").is_some(), "with its items shown");
+    assert!(world.named("CHURCH").is_some(), "the section of the other group");
+    assert!(world.named("Treasury").is_some_and(|n| n.role == Role::Button), "over it as an item");
+}
+
+#[test]
+fn an_application_inside_another_leaves_it_the_keys_of_the_window() {
+    let shown = |inside: bool| {
+        let database = MemoryDatabase::new(vec![lessons()]).expect("valid");
+        let view = App::new("Comunhão")
+            .entity_info(lessons())
+            .storage(move || database.space())
+            .inside_another(inside)
+            .build()
+            .expect("it puts together");
+        let mut world = World::over(view);
+        let keys: Vec<String> = world.ui.shortcuts().iter().map(|keys| keys.label()).collect();
+        (keys, world.named("Lessons").is_some())
+    };
+    // ⌘K and ⌘B on a Mac, Ctrl+K and Ctrl+B elsewhere.
+    let window = |k: &String| ["⌘K", "⌘B", "Ctrl+K", "Ctrl+B"].contains(&k.as_str());
+    let (own, _) = shown(false);
+    assert_eq!(own.iter().filter(|k| window(k)).count(), 2, "its own window: {own:?}");
+    let (inside, navigation) = shown(true);
+    assert!(!inside.iter().any(window), "the outer window keeps them: {inside:?}");
+    assert!(navigation, "and the navigation is the same");
+}

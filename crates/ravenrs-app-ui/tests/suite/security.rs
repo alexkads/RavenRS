@@ -1,13 +1,15 @@
 //! Signing in and what each person sees, driven through the accessibility tree.
 #![allow(clippy::expect_used, clippy::panic)]
 
+use std::time::Duration;
+
 use ravenrs_app::{
     Access, AuditMode, AuditSettings, EntityInfo, FieldInfo, FieldKind, MemoryDatabase, ObjectSpace,
     Operation, PermissionPolicy, Query, Role, SECURITY_AUDIT_ENTRY, SECURITY_ROLE, SECURITY_USER,
     SECURITY_USER_ROLE, Value, audit_entity, security_entities,
 };
 use ravenrs_app_ui::{App, Language, SecuredApp, SignInAction};
-use ravenrs_core::{AccessAction, Event, Key, Modifiers, Role as AccessRole};
+use ravenrs_core::{AccessAction, Event, Key, Modifiers, Point, Role as AccessRole};
 use ravenrs_style::Theme;
 use ravenrs_widgets::Ui;
 
@@ -336,6 +338,78 @@ fn a_field_they_cannot_read_says_it_is_protected_on_the_form() {
 }
 
 #[test]
+fn keeping_one_s_own_over_a_record_one_may_no_longer_write_is_not_offered() {
+    let versioned = || order().field(FieldInfo::new("version", FieldKind::Integer).row_version());
+    let mut entities = vec![versioned(), invoice(), audit_entity()];
+    entities.extend(security_entities());
+    let database = MemoryDatabase::new(entities).expect("valid");
+    let mut space = database.space();
+    let mut record = space.new_object("Order").expect("order");
+    record.set("name", "First");
+    let order_key = record.get("id");
+    space.save(record).expect("saved");
+    space.commit().expect("committed");
+    let source = database.clone();
+    let role = Role::new("Sales").policy(PermissionPolicy::AllowAll).object_permission(
+        "Order",
+        "[name] = 'Closed'",
+        [Operation::Write],
+        Access::Deny,
+    );
+    let shown = std::rc::Rc::new(std::cell::RefCell::new(None));
+    let keep = shown.clone();
+    let app = SecuredApp::new(
+        "Shop",
+        move || source.space(),
+        move |_| {
+            let keep = keep.clone();
+            App::new("Shop").entity_info(versioned()).entity_info(invoice()).with_session(move |session| {
+                *keep.borrow_mut() = Some(session.clone());
+            })
+        },
+    )
+    .role(role);
+    let mut world = World::over(app);
+    first_administrator(&mut world);
+    world.press("Sign out");
+    let mut space = database.space();
+    let sales = space
+        .query(SECURITY_ROLE, &Query::all())
+        .expect("reads")
+        .into_iter()
+        .find(|role| role.get("name") == Value::Text("Sales".into()))
+        .expect("there");
+    let mut user = space.new_object(SECURITY_USER).expect("user");
+    user.set("name", "bia");
+    user.set("must_change_password", false);
+    user.set("password_hash", ravenrs_app::hash_password("bia's password").expect("hashed"));
+    let key = user.get("id");
+    space.save(user).expect("saved");
+    let mut link = space.new_object(SECURITY_USER_ROLE).expect("link");
+    link.set("user_id", key);
+    link.set("role_id", sales.get("id"));
+    space.save(link).expect("saved");
+    space.commit().expect("committed");
+
+    world.sign_in("bia", "bia's password");
+    let session = shown.borrow().clone().expect("opened");
+    session.open_detail("Order", &order_key);
+    world.settle();
+    world.type_into("Name", " mine");
+    let mut other = database.space();
+    let mut closed = other.find("Order", &order_key).expect("reads").expect("there");
+    closed.set("name", "Closed");
+    other.save(closed).expect("saved");
+    other.commit().expect("committed");
+    world.press("Save");
+    assert!(world.says("You cannot keep yours over theirs here"), "it says why");
+    assert!(!world.has_button("Keep mine"), "and does not offer it");
+    assert!(world.has_button("Reload"));
+    let stored = database.space().find("Order", &order_key).expect("reads").expect("there");
+    assert_eq!(stored.get("name"), Value::Text("Closed".into()), "nothing of hers kept");
+}
+
+#[test]
 fn changes_land_on_the_trail_under_the_name_of_who_made_them() {
     let database = database();
     let source = database.clone();
@@ -636,4 +710,262 @@ mod at_the_door {
         let app = secured(&database, Language::English).demo_credentials("ana", "correct horse");
         assert!(!format!("{app:?}").contains("correct horse"));
     }
+}
+
+#[test]
+fn a_temporary_access_ends_in_the_open_session_once_its_deadline_passes() {
+    use std::cell::Cell;
+    use std::rc::Rc;
+    let database = database();
+    let hours = Rc::new(Cell::new(0_u32));
+    let clock = hours.clone();
+    let policy = ravenrs_app::TemporaryAccessPolicy::new("Support")
+        .check_every(std::time::Duration::from_secs(60))
+        .clock(move || {
+            let now = ravenrs_app::local_now();
+            ravenrs_criteria::DateTime { days: now.days + i64::from(clock.get()) / 24, seconds: now.seconds }
+        });
+    let source = database.clone();
+    let app = SecuredApp::new(
+        "Shop",
+        move || source.space(),
+        |_| App::new("Shop").entity_info(order()).entity_info(invoice()),
+    )
+    .role(Role::new("Support").policy(PermissionPolicy::ReadOnlyAll))
+    .temporary_access(policy.clone());
+    let mut world = World::over(app);
+    first_administrator(&mut world);
+    world.press("Sign out");
+    let raw = database.clone();
+    let maker: ravenrs_app::SpaceMaker = Rc::new(move || Box::new(raw.space()) as Box<dyn ObjectSpace>);
+    let directory = ravenrs_app::UserDirectory::new(maker, Vec::new()).expect("roles");
+    let admin = directory.identity_of("ana").expect("reads").expect("ana");
+    let mut entities = vec![order(), invoice(), audit_entity()];
+    entities.extend(security_entities());
+    let context =
+        ravenrs_app::SecurityContext::new(admin, directory, entities, ravenrs_app::RoleMerge::AnyRole);
+    let granted = context.grant_temporary_access(&policy, "suporte do caixa", 24).expect("granted");
+    world.sign_in(&granted.user_name, &granted.password);
+    assert!(world.says("First"), "support reads the orders");
+    // A day later, the next screen of the open session reads nothing.
+    hours.set(48);
+    let open = |world: &mut World, name: &str| {
+        world.settle();
+        let tree = world.ui.access_tree();
+        let names: Vec<String> = tree.nodes.iter().filter_map(|n| n.name.clone()).collect();
+        let id = tree
+            .nodes
+            .iter()
+            .find(|n| n.name.as_deref() == Some(name))
+            .unwrap_or_else(|| panic!("{name} is not in {names:?}"))
+            .id;
+        world.ui.perform_action(id, AccessAction::Click);
+        world.settle();
+    };
+    open(&mut world, "Invoices");
+    assert!(!world.says("First") && world.says("0 of 0 rows"), "an expired session still reads");
+    world.settle();
+    let tree = world.ui.access_tree();
+    assert!(
+        !tree.nodes.iter().any(|n| n.name.as_deref() == Some("Orders")),
+        "and still has its way to the orders"
+    );
+    world.press("Sign out");
+    world.sign_in(&granted.user_name, &granted.password);
+    assert!(world.says("Sign in"), "an expired user still gets in");
+}
+
+#[test]
+fn a_temporary_access_to_a_role_that_is_not_there_or_administrative_is_refused() {
+    let database = database();
+    let source = database.clone();
+    let missing = SecuredApp::new("Shop", move || source.space(), |_| App::new("Shop").entity_info(order()))
+        .temporary_access(ravenrs_app::TemporaryAccessPolicy::new("Support"));
+    assert!(missing.build().is_err());
+    let source = database.clone();
+    let admin = SecuredApp::new("Shop", move || source.space(), |_| App::new("Shop").entity_info(order()))
+        .role(Role::new("Support").administrative())
+        .temporary_access(ravenrs_app::TemporaryAccessPolicy::new("Support"));
+    assert!(admin.build().is_err());
+}
+
+#[test]
+fn an_administrator_grants_access_on_the_users_and_revokes_it_with_a_confirmation() {
+    let database = database();
+    let source = database.clone();
+    let app = SecuredApp::new("Shop", move || source.space(), |_| App::new("Shop").entity_info(order()))
+        .role(Role::new("Support").policy(PermissionPolicy::ReadOnlyAll))
+        .temporary_access(ravenrs_app::TemporaryAccessPolicy::new("Support"));
+    let mut world = World::over(app);
+    first_administrator(&mut world);
+    world.ui.access_tree();
+    let open = |world: &mut World, name: &str| {
+        world.settle();
+        let tree = world.ui.access_tree();
+        let id = tree.nodes.iter().find(|n| n.name.as_deref() == Some(name)).expect("there").id;
+        world.ui.perform_action(id, AccessAction::Click);
+        world.settle();
+    };
+    open(&mut world, "Users");
+    world.press("More");
+    open(&mut world, "Grant temporary access");
+    world.type_into("Reason", "curto");
+    world.press("Grant temporary access");
+    assert!(world.says("the reason needs at least 10 characters"), "a short reason");
+    world.type_into("Reason", " demais para o caixa");
+    world.press("Grant temporary access");
+    assert!(world.says("Password: ") && world.says("Hand the password over now"), "the password shows once");
+    world.press("Done");
+    let users = database.space().query(SECURITY_USER, &Query::all()).expect("reads");
+    let support = users.iter().find(|user| user.text("name").starts_with("temporary-")).expect("made");
+    assert!(world.says(&support.text("name")), "the new user is on the list");
+    // Revoking asks first, then turns the user off.
+    let name = support.text("name");
+    world.settle();
+    let tree = world.ui.access_tree();
+    let row =
+        tree.nodes.iter().find(|n| n.name.as_deref() == Some(&format!("Select {name}"))).expect("its row").id;
+    world.ui.perform_action(row, AccessAction::Click);
+    world.settle();
+    world.press("More");
+    open(&mut world, "Revoke access");
+    assert!(world.says("Their API keys and open accesses end too."), "it asks first");
+    world.press("Yes, revoke");
+    assert!(world.says("Access revoked."));
+    let user = database.space().find(SECURITY_USER, &support.get("id")).expect("reads").expect("there");
+    assert_eq!(user.get("active"), Value::Bool(false));
+}
+
+/// Another try at the door: the name typed before stays, so only the password is typed again.
+fn try_password(world: &mut World, password: &str) {
+    world.type_into("Password", password);
+    world.press("Sign in");
+}
+
+/// Wants a digit in every password, in the words of the application.
+fn digits(_name: &str, password: &str) -> Result<(), String> {
+    if password.chars().any(|c| c.is_ascii_digit()) { Ok(()) } else { Err("Put a digit in it.".to_owned()) }
+}
+
+#[test]
+fn the_password_policy_shows_its_words_on_the_first_and_the_forced_change() {
+    let database = database();
+    let mut world = World::over(secured(&database, Language::English).password_policy(digits));
+    first_administrator(&mut world);
+    assert!(world.says("Put a digit in it."), "the first administrator is refused");
+    assert!(database.space().query(SECURITY_USER, &Query::all()).expect("reads").is_empty());
+    world.type_into("New password", " 1");
+    world.type_into("Repeat the password", " 1");
+    world.press("Create administrator");
+    assert!(world.says("Orders"));
+    world.press("Sign out");
+
+    add_reader(&database, |_, _| {});
+    let mut space = database.space();
+    let mut user = space
+        .query(SECURITY_USER, &Query::all())
+        .expect("reads")
+        .into_iter()
+        .find(|user| user.get("name") == Value::Text("bia".into()))
+        .expect("there");
+    user.set("must_change_password", true);
+    space.save(user).expect("saved");
+    space.commit().expect("committed");
+    world.sign_in("bia", "bia's password");
+    world.type_into("Current password", "bia's password");
+    world.type_into("New password", "bia chose this");
+    world.type_into("Repeat the password", "bia chose this");
+    world.press("Save password");
+    assert!(world.says("Put a digit in it."), "a weak one does not end the forced change");
+    assert!(!world.says("Orders"));
+}
+
+#[test]
+fn the_lockout_takes_the_limits_of_the_application() {
+    let database = database();
+    let mut world = World::over(secured(&database, Language::English).lockout(2, 10));
+    first_administrator(&mut world);
+    world.press("Sign out");
+    world.sign_in("ana", "wrong one");
+    try_password(&mut world, "wrong two");
+    try_password(&mut world, "correct horse");
+    assert!(!world.says("Orders"), "two wrong ones are enough to wait");
+    assert!(world.says("waiting after too many attempts"));
+}
+
+#[test]
+fn a_session_with_nothing_done_goes_back_to_the_door_and_doing_something_keeps_it() {
+    let database = database();
+    let app = secured(&database, Language::English).idle_timeout(Duration::from_secs(600));
+    let mut world = World::over(app);
+    world.ui.set_time(0.0);
+    first_administrator(&mut world);
+    assert!(world.says("Orders"));
+    // Activity at 500 s starts the time again: at 900 s it is still open.
+    world.ui.set_time(500.0);
+    world.ui.handle_event(&Event::PointerMove { position: Point::new(10.0, 10.0) });
+    world.ui.set_time(900.0);
+    assert!(world.says("Orders"), "moving the pointer renewed it");
+    world.ui.set_time(1000.0);
+    world.ui.handle_event(&Event::KeyDown { key: Key::Escape, modifiers: Modifiers::default() });
+    world.ui.set_time(1500.0);
+    assert!(world.says("Orders"), "a key renewed it");
+    // Then nothing for longer than the time.
+    world.ui.set_time(1601.0);
+    assert!(world.has_button("Sign in"), "back at the door");
+    assert!(!world.says("Orders"));
+    assert!(world.says("Sign in again"));
+    // The door took nothing over, and signing in again opens a fresh session.
+    world.sign_in("ana", "correct horse");
+    assert!(world.says("Orders"));
+    world.ui.set_time(2000.0);
+    assert!(world.says("Orders"), "the time starts again on signing in");
+}
+
+#[test]
+fn an_administrator_unlocks_someone_who_keeps_their_password() {
+    let database = database();
+    let source = database.clone();
+    let shown = std::rc::Rc::new(std::cell::RefCell::new(None));
+    let keep = shown.clone();
+    let app = SecuredApp::new(
+        "Shop",
+        move || source.space(),
+        move |_| {
+            let keep = keep.clone();
+            App::new("Shop").entity_info(order()).with_session(move |session| {
+                *keep.borrow_mut() = Some(session.clone());
+            })
+        },
+    )
+    .audit(AuditSettings::new(AuditMode::Full))
+    .lockout(2, 60);
+    let mut world = World::over(app);
+    first_administrator(&mut world);
+    add_reader(&database, |_, _| {});
+    // Bia tries at another door over the same storage, so this one keeps ana inside.
+    let mut other = World::over(secured(&database, Language::English).lockout(2, 60));
+    other.sign_in("bia", "wrong one");
+    try_password(&mut other, "wrong two");
+    try_password(&mut other, "bia's password");
+    assert!(!other.says("Orders"), "bia waits");
+    let session = shown.borrow().clone().expect("opened");
+    let bia = database
+        .space()
+        .query(SECURITY_USER, &Query::all())
+        .expect("reads")
+        .into_iter()
+        .find(|user| user.get("name") == Value::Text("bia".into()))
+        .expect("there");
+    session.open_detail(SECURITY_USER, &bia.get("id"));
+    world.settle();
+    let action = session.frame().action("UnlockUser").expect("there");
+    session.run_action(&action, ravenrs_app::ActionInput::None);
+    world.settle();
+    assert!(world.says("User unlocked"));
+    let trail = database.space().query(SECURITY_AUDIT_ENTRY, &Query::all()).expect("reads");
+    assert!(trail.iter().any(|entry| entry.get("new_value") == Value::Text("Unlocked".into())));
+    assert!(!format!("{trail:?}").contains("bia's password"));
+    try_password(&mut other, "bia's password");
+    assert!(other.says("Orders"), "the same password works again");
 }

@@ -31,6 +31,19 @@ pub enum SpaceError {
     },
     /// The record is gone, or something else took it since this space read it.
     Conflict(String),
+    /// Someone else kept the record after it was read: it was read at the version `read`, and
+    /// is now at `stored`, when that is known. Only for entities with a
+    /// [row version](crate::FieldInfo::row_version). Nothing of the commit was kept.
+    Outdated {
+        /// The entity.
+        entity: String,
+        /// The key of the record.
+        key: String,
+        /// The version it was read at.
+        read: i64,
+        /// The version it is at now, when the storage said.
+        stored: Option<i64>,
+    },
     /// Something watching the commit refused it, with its reason.
     Refused(String),
     /// The person signed in cannot do this.
@@ -62,6 +75,9 @@ impl fmt::Display for SpaceError {
             Self::DuplicateKey { entity, key } => {
                 write!(f, "{entity} already has a record with the key {key}")
             }
+            Self::Outdated { entity, key, .. } => {
+                write!(f, "someone else kept the record {key} of {entity} after it was read")
+            }
         }
     }
 }
@@ -73,6 +89,12 @@ impl SpaceError {
     /// Whether trying the same thing again later may work.
     pub fn is_temporary(&self) -> bool {
         matches!(self, Self::Temporary(_))
+    }
+
+    /// Whether someone else got there first: the record is gone or was kept again after it was
+    /// read. Reading it again shows what they did.
+    pub fn is_conflict(&self) -> bool {
+        matches!(self, Self::Conflict(_) | Self::Outdated { .. })
     }
 
     /// Whether it may have happened in spite of the error, so that doing it again could do it twice.
@@ -480,6 +502,30 @@ pub(crate) fn select(
     Ok(chosen)
 }
 
+/// Refuses keeping `object` over `stored` when someone kept it again after it was read.
+pub fn check_version(
+    entity: &EntityInfo,
+    key: &str,
+    object: &Object,
+    stored: &Object,
+) -> Result<(), SpaceError> {
+    let (Some(read), Some(now)) = (entity.version_of(object), entity.version_of(stored)) else {
+        return Ok(());
+    };
+    if read == now {
+        return Ok(());
+    }
+    Err(SpaceError::Outdated { entity: entity.name.clone(), key: key.to_owned(), read, stored: Some(now) })
+}
+
+/// Gives a record about to be kept its next version: 1 when new, one more than it was read at.
+pub fn next_version(entity: &EntityInfo, object: &mut Object, new: bool) {
+    if let Some(field) = entity.row_version_field() {
+        let read = if new { 0 } else { object.integer(&field.name).unwrap_or(0) };
+        object.set(&field.name, Value::Number((read + 1) as f64));
+    }
+}
+
 /// What comes of putting together what a person changed and what someone else kept meanwhile.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
@@ -497,7 +543,10 @@ pub fn merge_changes(entity: &EntityInfo, original: &Object, mine: &Object, stor
     let mut record = stored.clone();
     let mut conflicts = Vec::new();
     let fields = entity.fields.iter().filter(|field| {
-        !field.is_key && field.calculated.is_none() && !matches!(field.kind, FieldKind::Collection(_))
+        !field.is_key
+            && !field.is_row_version
+            && field.calculated.is_none()
+            && !matches!(field.kind, FieldKind::Collection(_))
     });
     for field in fields {
         let (was, changed, now) = (original.get(&field.name), mine.get(&field.name), stored.get(&field.name));
@@ -552,7 +601,7 @@ impl fmt::Debug for MemoryDatabase {
 /// The version of [`MemoryDatabase::export_json`]'s format.
 const RECORDS_FORMAT: u64 = 1;
 
-fn value_to_json(value: &Value) -> serde_json::Value {
+pub(crate) fn value_to_json(value: &Value) -> serde_json::Value {
     match value {
         Value::Null => serde_json::Value::Null,
         Value::Bool(b) => serde_json::Value::Bool(*b),
@@ -587,10 +636,14 @@ fn value_from_json(json: &serde_json::Value) -> Result<Value, String> {
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MemoryDatabase {
     /// A database with these entities and no records.
-    pub fn new(entities: Vec<EntityInfo>) -> Result<Self, ModelError> {
+    pub fn new(mut entities: Vec<EntityInfo>) -> Result<Self, ModelError> {
+        let versions = crate::missing_closing_entities(&entities);
+        entities.extend(versions);
         for entity in &entities {
             entity.check()?;
         }
+        crate::check_amendment_model(&entities)?;
+        crate::check_closing_model(&entities)?;
         Ok(Self {
             entities: Rc::new(entities),
             tables: Rc::new(RefCell::new(Tables { next_key: 1, ..Tables::default() })),
@@ -818,12 +871,58 @@ impl MemoryObjectSpace {
                     }
                     let tables = self.database.tables.borrow();
                     let stored = tables.rows.get(&entity.name).and_then(|rows| rows.get(&key));
+                    if let Some(stored) = stored {
+                        check_version(entity, &key, object, stored)?;
+                    }
                     crate::check_transitions(entity, stored, object)?;
                 }
                 Change::Deleted { .. } => {}
             }
         }
-        Ok(())
+        let tables = self.database.tables.borrow();
+        let mut stored = |entity: &EntityInfo, key: &Value| {
+            let found = key_text(key).and_then(|key| tables.rows.get(&entity.name)?.get(&key).cloned());
+            Ok(found)
+        };
+        crate::check_amendments(&self.database.entities, self.changes.list(), &mut stored)?;
+        let mut listed = |entity: &EntityInfo, query: &Query| {
+            let rows = tables
+                .rows
+                .get(&entity.name)
+                .map(|rows| rows.values().cloned().collect())
+                .unwrap_or_default();
+            run_query(entity, rows, query, &self.environment)
+        };
+        crate::check_closing(&self.database.entities, self.changes.list(), &mut stored, &mut listed)
+    }
+
+    /// Writes a new amendment on its target before it waits, all or nothing.
+    fn amended(&mut self, info: &EntityInfo, object: Object) -> Result<Object, SpaceError> {
+        if info.amendment.is_none() {
+            return Ok(object);
+        }
+        // One kept already is refused by the commit, never written again on its target.
+        let kept = key_of(info, &object).is_some_and(|key| self.committed_has(&info.name, &key));
+        if kept {
+            return Ok(object);
+        }
+        let first_time = key_of(info, &object).is_none_or(|key| {
+            !matches!(
+                self.changes.position(info, &key).map(|at| &self.changes.list()[at]),
+                Some(Change::New(_))
+            )
+        });
+        let before = self.changes.clone();
+        let database = self.database.clone();
+        let mut stored = |entity: &EntityInfo, key: &Value| {
+            let tables = database.tables.borrow();
+            Ok(key_text(key).and_then(|key| tables.rows.get(&entity.name)?.get(&key).cloned()))
+        };
+        let result = crate::apply_amendment(self, info, object, &mut stored, first_time);
+        if result.is_err() {
+            self.changes = before;
+        }
+        result
     }
 }
 
@@ -865,12 +964,14 @@ impl ObjectSpace for MemoryObjectSpace {
 
     fn save(&mut self, object: Object) -> Result<(), SpaceError> {
         let info = self.entity(object.entity())?.clone();
+        let object = self.amended(&info, object)?;
         let exists = key_of(&info, &object).is_some_and(|key| self.committed_has(&info.name, &key));
         self.changes.save(&info, object, exists)
     }
 
     fn insert(&mut self, object: Object) -> Result<(), SpaceError> {
         let info = self.entity(object.entity())?.clone();
+        let object = self.amended(&info, object)?;
         let exists = key_of(&info, &object).is_some_and(|key| self.committed_has(&info.name, &key));
         self.changes.insert(&info, object, exists)
     }
@@ -893,9 +994,11 @@ impl ObjectSpace for MemoryObjectSpace {
         // Decimals are kept rounded to their places, as every database keeps them.
         let mut kept = changes.clone();
         for change in &mut kept {
+            let new = matches!(change, Change::New(_));
             if let Change::New(object) | Change::Updated(object) = change {
                 let entity = self.entity(object.entity())?;
                 crate::exact_decimals(entity, object).map_err(SpaceError::Refused)?;
+                next_version(entity, object, new);
             }
         }
         {
@@ -1071,6 +1174,64 @@ mod tests {
             space.find("Bank", &key).expect("reads").expect("there").get("name"),
             Value::Text("Tres".into())
         );
+    }
+
+    fn document() -> EntityInfo {
+        EntityInfo::new("Doc")
+            .field(FieldInfo::new("id", FieldKind::Integer).key())
+            .field(FieldInfo::new("name", FieldKind::Text))
+            .field(FieldInfo::new("version", FieldKind::Integer).row_version())
+    }
+
+    #[test]
+    fn a_record_with_a_version_is_not_kept_over_someone_elses() {
+        let db = MemoryDatabase::new(vec![document()]).expect("valid");
+        let mut space = db.space();
+        let mut object = space.new_object("Doc").expect("the entity");
+        object.set("name", "a");
+        let key = object.get("id");
+        space.save(object).expect("saves");
+        space.commit().expect("commits");
+        let version =
+            |db: &MemoryDatabase| db.space().find("Doc", &key).expect("reads").expect("there").get("version");
+        assert_eq!(version(&db), Value::Number(1.0), "a new record starts at one");
+        let (mut one, mut two) = (db.space(), db.space());
+        let mut mine = one.find("Doc", &key).expect("reads").expect("there");
+        let mut theirs = two.find("Doc", &key).expect("reads").expect("there");
+        theirs.set("name", "theirs");
+        two.save(theirs).expect("saves");
+        two.commit().expect("the first one is kept");
+        assert_eq!(version(&db), Value::Number(2.0));
+        mine.set("name", "mine");
+        one.save(mine).expect("saves");
+        let outdated = SpaceError::Outdated {
+            entity: "Doc".into(),
+            key: key_text(&key).expect("a key"),
+            read: 1,
+            stored: Some(2),
+        };
+        assert_eq!(one.commit(), Err(outdated.clone()));
+        assert!(outdated.is_conflict());
+        let kept = db.space().find("Doc", &key).expect("reads").expect("there");
+        assert_eq!(kept.get("name"), Value::Text("theirs".into()), "theirs stays");
+        let mut again = kept;
+        again.set("name", "mine, read again");
+        let mut space = db.space();
+        space.save(again).expect("saves");
+        space.commit().expect("read again, it is kept");
+        assert_eq!(version(&db), Value::Number(3.0));
+    }
+
+    #[test]
+    fn a_row_version_is_one_stored_integer() {
+        let two = document().field(FieldInfo::new("other", FieldKind::Integer).row_version());
+        assert!(two.check().is_err(), "only one");
+        let text = EntityInfo::new("Doc")
+            .field(FieldInfo::new("id", FieldKind::Integer).key())
+            .field(FieldInfo::new("version", FieldKind::Text).row_version());
+        assert!(text.check().is_err(), "an integer");
+        assert!(document().check().is_ok());
+        assert_eq!(document().version_of(&document().new_object()), Some(0), "never kept");
     }
 
     #[test]

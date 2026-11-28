@@ -101,6 +101,16 @@ impl InstalledApp {
         self.ascii_name().split_whitespace().collect()
     }
 
+    /// The app's folder in the repository, where its `Cargo.toml` is: the one that holds its
+    /// icons (`examples/family-finance` for `examples/family-finance/assets`). The installer builds
+    /// through that manifest, as the app may be a workspace of its own (#1084).
+    pub(crate) fn source_folder(&self) -> &str {
+        self.icons
+            .strip_suffix("/assets")
+            .or_else(|| self.icons.rsplit_once('/').map(|(folder, _)| folder))
+            .unwrap_or(".")
+    }
+
     /// How this copy was installed.
     pub fn install_kind(&self) -> InstallKind {
         if self.installed { InstallKind::Installed } else { InstallKind::Development }

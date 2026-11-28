@@ -4,7 +4,7 @@
 Puts `#[cfg_attr(feature = "live", ravenrs_live::expose)]` on every inherent `impl` block, public
 enum, public struct and inline public module of those crates, and writes a `src/live_list.rs`
 for each crate that registers them: ravenrs-widgets (with the crates under it), ravenrs-movie,
-ravenrs-app and ravenrs-app-ui. Run it after adding a component; scripts/check.sh fails while it
+ravenrs-app and ravenrs-app-ui. Run it after adding a component; cargo xtask pr fails while it
 is out of date (`--check`). An item behind its own `#[cfg(..)]`, as the `testing` module, is
 registered behind the same condition. `--self-test` checks how that condition is read."""
 import pathlib

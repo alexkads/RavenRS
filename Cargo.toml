@@ -1,8 +1,26 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "examples/*", "tools/*", "tools/*/crates/*", "tools/raven-ci/plugins/exemplo-rust"]
-# Applications of their own, opened and built apart: they prove a package works outside this workspace.
-exclude = ["examples/contracts"]
+# The tooling, and the canonical list of versions, dependencies, lints and profiles. Every layer of
+# camadas.toml is a workspace of its own (#1080): the library's in camadas/<layer>/ with their crates
+# in crates/ (#1086), the showcase, the applications and Raven CI in their folders.
+# `python3 scripts/camadas.py workspaces` lists them, and `python3 scripts/camadas.py deps --write`
+# copies the sections below into each one and writes `members` and `exclude` here.
+members = [
+    "crates/cargo-ravenrs",
+    "crates/ravenrs-agent-cli",
+    "crates/ravenrs-e2e-runner",
+    "crates/ravenrs-junit",
+    "crates/ravenrs-lint",
+    "crates/ravenrs-mcp",
+    "crates/ravenrs-xcache",
+    "xtask",
+]
+# `crates` holds the library's layers, workspaces of their own: excluded, so a path dependency of the
+# tooling does not make one of them a member here.
+exclude = [
+    "crates",
+    "examples/contracts",
+]
 
 [workspace.package]
 version = "27.1.28"
@@ -143,6 +161,11 @@ missing_docs = "warn"
 unwrap_used = "warn"
 expect_used = "warn"
 
+# Each workspace apart carries the whole list of the root's dependencies (camadas.toml, #1080) and
+# uses part of it: without this, Cargo warns about every entry the workspace does not use.
+[workspace.lints.cargo]
+unused_workspace_dependencies = "allow"
+
 [profile.dev]
 # Each worktree has its own target/; keep backtraces with file and line, drop the rest.
 debug = "line-tables-only"
@@ -152,22 +175,9 @@ debug = "line-tables-only"
 # workspace's own crates stay unoptimised, so they still build fast and debug as written.
 [profile.dev.package."*"]
 opt-level = 1
-
-# The spreadsheet evaluator budgets its stack for recursive LAMBDA calls; unoptimised frames are
-# several times larger, so the same formula would stop much earlier in debug builds.
-[profile.dev.package.ravenrs-sheet]
-opt-level = 1
-
-# The PDF engine's tests recurse as deep as hostile files do and decrypt with every key length; at
-# opt-level 0 they overflow the stack or take minutes, so it builds as PdfCraft builds it.
-[profile.dev.package.ravenrs-pdf]
-opt-level = 1
-
-# The presentation engine is built as DeckCraft builds it: its tests nest groups as deep as a
-# saved file may, which overflows the stack in unoptimised frames, and decode video frames.
-[profile.dev.package.ravenrs-deck]
-opt-level = 1
-
+# No debug information for them: less to compile and link, as Cargo's build performance guide
+# recommends. Backtraces still name the workspace's own lines.
+debug = false
 
 [profile.release]
 # Smaller WASM binaries; native release builds benefit as well.

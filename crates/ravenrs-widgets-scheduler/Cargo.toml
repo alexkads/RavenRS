@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-widgets-scheduler"
+workspace = "../../camadas/widgets"
 description = "RavenRS time on screen: Scheduler, EventCalendar with RecurrenceEditor, and Timeline. Applications use them through ravenrs-widgets."
 version.workspace = true
 edition.workspace = true

@@ -33,7 +33,7 @@ ravenrs-report-server --config server.json
 Try it with a sample layout:
 
 ```bash
-cargo run -p ravenrs-report-server --example sample_layout > invoice.json
+cargo run --manifest-path camadas/servicos/Cargo.toml -p ravenrs-report-server --example sample_layout > invoice.json
 ```
 
 ```bash

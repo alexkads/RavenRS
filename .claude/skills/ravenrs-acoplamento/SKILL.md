@@ -15,7 +15,8 @@ A regra `module_cycle` do `ravenrs-lint` mede e barra. Esta skill diz como escre
 2. **Folha não usa folha.** Dois componentes do mesmo nível (`grid` e `scheduler`, `chat` e `imaging`) não se importam. O que os dois precisam desce para a base, sem cópia: a regra da casa é reaproveitar.
 3. **Nada de agregador que importa todo mundo.** Um tipo que junta um pedaço de cada componente (como o `Labels`, que fazia `labels` usar 36 módulos) é montado de baixo para cima: cada componente define a própria parte (`GridLabels` em `grid`) e o agregador só a guarda. A base não guarda o agregador por valor.
 4. **Par tolerado, trio não.** Dois módulos que se usam (uma tela e seu auxiliar) passam. Três ou mais em laço são erro.
-5. **Crate novo quando a camada estiver limpa.** Um módulo só vira crate quando não está em ciclo (`--modules` mostra). O crate antigo reexporta nos mesmos caminhos (`pub use`), e o usuário não percebe a mudança.
+5. **Entre crates, as camadas do `camadas.toml`** (#1080). Um crate de baixo (núcleo, fluxos, fiscal-motores, rede, widgets, documentos, app) nunca usa um de cima (telas, serviços, vitrine, apps), nem só nos testes: o teste que precisa da vitrine mora na vitrine. `scripts/camadas.py check` recusa a aresta e diz qual é. Desde a F3 (#1086) cada camada é um workspace, mas o Cargo ainda resolve uma dependência de caminho para cima: plantar `ravenrs-app-report` (W10) nos testes de `ravenrs-widgets-base` (W5) leva o grafo de W5 de 168 para 336 crates. Quem barra é o `camadas.py check`, em todo `cargo xtask`. O contrário também custa: um motor leve que mora com pacotes pesados compila os pesados no PR dele. Por isso, na F5 (#1096), os fluxos, os motores fiscais e os clientes de rede desceram para camadas próprias, logo acima do núcleo.
+6. **Crate novo quando a camada estiver limpa.** Um módulo só vira crate quando não está em ciclo (`--modules` mostra). O crate antigo reexporta nos mesmos caminhos (`pub use`), e o usuário não percebe a mudança.
 
 ## Antes de escrever
 
@@ -27,7 +28,7 @@ A regra `module_cycle` do `ravenrs-lint` mede e barra. Esta skill diz como escre
 
 ```bash
 cargo run -q -p ravenrs-lint -- -p <pacote> --modules            # tamanho, quem usa quem, ciclos
-cargo run -q -p ravenrs-lint -- --workspace --only module_cycle  # o que o check.sh roda
+cargo run -q -p ravenrs-lint -- --workspace --only module_cycle  # o que o cargo xtask pr roda
 ```
 
 O diagnóstico aponta o `use` do módulo que mais nomeia outros dentro do laço (o nó a desatar primeiro) e mostra o caminho de volta, como em `lists → context → labels → dock → lists`. Para desfazer:
@@ -55,7 +56,7 @@ Para manter um caminho público ao mover, troque a reexportação da raiz para o
 
 ## A API pública não muda (`scripts/public-api.py`)
 
-`crates/ravenrs-widgets/public-api.txt` lista cada caminho que um usuário escreve: tipo, campo, variante, método, reexportação e trait implementado. É gerado do JSON do rustdoc, que só sai no nightly. O `check.sh` roda `scripts/public-api.py --check`, que falha mostrando a diferença. Mover um item entre módulos ou crates mantém o arquivo igual desde que ele continue reexportado no mesmo caminho. Regenere o arquivo (`scripts/public-api.py`) só quando a mudança for de propósito, e diga isso no PR.
+`crates/ravenrs-widgets/public-api.txt` lista cada caminho que um usuário escreve: tipo, campo, variante, método, reexportação e trait implementado. É gerado do JSON do rustdoc, que só sai no nightly. O `cargo xtask pr` roda `scripts/public-api.py --check`, que falha mostrando a diferença. Mover um item entre módulos ou crates mantém o arquivo igual desde que ele continue reexportado no mesmo caminho. Regenere o arquivo (`scripts/public-api.py`) só quando a mudança for de propósito, e diga isso no PR.
 
 ## O teto por pacote (catraca)
 
@@ -70,5 +71,5 @@ Uma sessão que vai mexer no `DataGrid` não precisa ler 70 mil linhas se o `gri
 ## Onde está
 
 - Regra: `crates/ravenrs-lint/src/coupling.rs`, testes em `crates/ravenrs-lint/tests/rules.rs`.
-- No `scripts/check.sh`: o passo `module_cycle` roda em todo o workspace.
+- No `cargo xtask pr`: o passo `module_cycle` roda na raiz e em cada camada da biblioteca (`--manifest-path camadas/<nome>/Cargo.toml --workspace`).
 - Mapa de crates e fronteiras: skill `ravenrs-arquitetura` e `ARCHITECTURE.md` §3.

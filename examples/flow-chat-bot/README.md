@@ -3,7 +3,7 @@
 An automation builder for chat conversations, made only with library components (`FlowCanvas`, `FlowToolbox`, `FlowInspector`, `FlowLibrary` and more). It is here to check that the diagram component is enough for this kind of product.
 
 ```bash
-cargo run -p flow-chat-bot
+cargo run --manifest-path examples/flow-chat-bot/Cargo.toml
 ```
 
 ## What it shows
@@ -28,11 +28,11 @@ out; a real bot would answer through the app.
 In the browser, the diagrams are kept in the browser's own storage:
 
 ```bash
-scripts/build-web.sh flow-chat-bot
+cargo xtask web flow-chat-bot
 python3 -m http.server -d examples/flow-chat-bot/web 8080
 ```
 
-On Linux and Windows, run `cargo run -p flow-chat-bot --release` and check that you can drag a block from the left onto the conversation; join two blocks; Testar conversa, then Próximo passo until the end; Salvar, close and open again: the conversation is there.
+On Linux and Windows, run `cargo run --manifest-path examples/flow-chat-bot/Cargo.toml --release` and check that you can drag a block from the left onto the conversation; join two blocks; Testar conversa, then Próximo passo until the end; Salvar, close and open again: the conversation is there.
 
 ## End-to-end tests (Raven Test Studio)
 

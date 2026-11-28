@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-app-nfe"
+workspace = "../../camadas/fiscal"
 description = "BETA, proof of concept: a RavenRS application module that issues NF-e and NFC-e documents, with a sandbox of the SEFAZ. Not homologated, no production."
 version.workspace = true
 edition.workspace = true
