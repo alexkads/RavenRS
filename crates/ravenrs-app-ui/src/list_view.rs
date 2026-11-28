@@ -12,9 +12,9 @@ use ravenrs_layout::Align;
 use ravenrs_reactive::{Binding, State};
 use ravenrs_widgets::grid::{GridQuery, Row, Value as Cell, to_table};
 use ravenrs_widgets::{
-    AnyView, BuildCx, Card, CellEdit, DataGrid, GridCellStyle, GridColumn, GridCurrent, GridData, GridPage,
-    GridRequest, GridResponder, GridRowAction, GridTable, HStack, Keyed, NodeId, RemoteRows, SelectionMode,
-    SortDirection, Stat, Text, VStack, View, ViewExt,
+    AnyView, BuildCx, Button, Card, CellEdit, DataGrid, EmptyState, GridCellStyle, GridColumn, GridCurrent,
+    GridData, GridPage, GridRequest, GridResponder, GridRowAction, GridTable, HStack, Keyed, NodeId,
+    RemoteRows, SelectionMode, SortDirection, Stat, Text, VStack, View, ViewExt,
 };
 
 use crate::session::Session;
@@ -800,6 +800,26 @@ impl View for ListView {
             None => grid,
         };
         let strip = if self.compact { None } else { indicator_strip(session, &entity, node) };
+        // Nothing yet, and whoever looks may create: the next step, with the button that takes it.
+        if !self.compact
+            && access != DataAccess::Server
+            && objects.is_empty()
+            && can_create(session, &entity)
+            && let Some(hint) = node.text("EmptyHint")
+        {
+            let title = node.text("EmptyText").unwrap_or(&session.words().new).to_owned();
+            let creating = session.clone();
+            let new = Button::new(session.words().new.clone()).on_click(move || {
+                if let Some(action) = creating.frame().action(crate::ids::NEW) {
+                    creating.run_action(&action, ravenrs_app::ActionInput::None);
+                }
+            });
+            let empty = EmptyState::new(title).description(hint).action(new);
+            return match strip {
+                Some(strip) => cx.child(&VStack::new((strip, empty)).spacing(12.0).align(Align::Stretch)),
+                None => cx.child(&empty),
+            };
+        }
         // Another set of columns starts over, since the grid keeps what it knows by position.
         match (only, strip) {
             (Some(names), Some(strip)) => cx.child(
@@ -814,16 +834,21 @@ impl View for ListView {
     }
 }
 
+/// Whether the person signed in may create a record of this entity.
+fn can_create(session: &Session, entity: &EntityInfo) -> bool {
+    session
+        .frame()
+        .security()
+        .is_none_or(|security| security.with(|p| p.can(ravenrs_app::Operation::Create, &entity.name, None)))
+}
+
 /// What an empty list says: its text and, for whom may create a record, the next step; for whom
 /// may only read, that records show up once someone allowed adds them.
 fn empty_text_for(session: &Session, entity: &EntityInfo, node: &ravenrs_app::ModelNode) -> Option<String> {
     let text = node.text("EmptyText");
     let Some(hint) = node.text("EmptyHint") else { return text.map(str::to_owned) };
-    let creates = session
-        .frame()
-        .security()
-        .is_none_or(|security| security.with(|p| p.can(ravenrs_app::Operation::Create, &entity.name, None)));
-    let second = if creates { hint.to_owned() } else { session.words().empty_read_only.clone() };
+    let second =
+        if can_create(session, entity) { hint.to_owned() } else { session.words().empty_read_only.clone() };
     Some(match text {
         Some(text) => format!("{text} {second}"),
         None => second,

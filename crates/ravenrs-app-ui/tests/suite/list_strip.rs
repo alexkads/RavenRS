@@ -158,7 +158,13 @@ fn an_empty_list_gives_the_next_step_to_whom_may_create() {
     let mut world = plain();
     world.click("Notes");
     let said = world.texts();
-    assert!(said.contains("Nenhuma nota. Comece pelo título."), "{said}");
+    assert!(said.contains("Nenhuma nota.") && said.contains("Comece pelo título."), "{said}");
+    let news = world.ui.access_tree().nodes.iter().filter(|n| n.name.as_deref() == Some("New")).count();
+    assert_eq!(news, 2, "the toolbar's and the empty state's: {said}");
+    // The button of the empty state opens a new record, as the toolbar's does.
+    world.click("New");
+    let said = world.texts();
+    assert!(said.contains("Save"), "a new record opens: {said}");
 }
 
 /// Someone who reads everything but the amount of a bill.
