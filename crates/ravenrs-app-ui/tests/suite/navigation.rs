@@ -365,3 +365,20 @@ fn an_application_inside_another_leaves_it_the_keys_of_the_window() {
     assert!(!inside.iter().any(window), "the outer window keeps them: {inside:?}");
     assert!(navigation, "and the navigation is the same");
 }
+
+#[test]
+fn a_count_with_a_tone_is_heard_in_its_own_words() {
+    let database = MemoryDatabase::new(vec![lessons(), offerings()]).expect("valid");
+    let view = App::new("Comunhão")
+        .entity_info(lessons())
+        .entity_info(offerings())
+        .storage(move || database.space())
+        .navigation_count("Offering", |_| {
+            Some(NavigationCount::new("2").tone(ravenrs_widgets::Tone::Danger).spoken("2 overdue offerings"))
+        })
+        .build()
+        .expect("it puts together");
+    let mut world = World::over(view);
+    let offerings = world.named("Offerings").expect("the item");
+    assert_eq!(offerings.description.as_deref(), Some("2 overdue offerings"), "the words, not the bare number");
+}

@@ -1547,6 +1547,14 @@ impl SidebarItem {
         self
     }
 
+    /// A [`Badge`], as [`Self::badge`], that screen readers hear in these words instead of its
+    /// text, such as "2 overdue bills" for a badge in danger that says "2".
+    pub fn badge_spoken(mut self, badge: Badge, spoken: impl Into<String>) -> Self {
+        self.badge = Some(badge);
+        self.count_spoken = Some(spoken.into());
+        self
+    }
+
     /// Shows the keys that do the same, at the end of the row.
     pub fn shortcut(mut self, keys: impl Into<String>) -> Self {
         self.shortcut = Some(keys.into());

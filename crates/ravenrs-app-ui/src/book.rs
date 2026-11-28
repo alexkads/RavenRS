@@ -82,6 +82,10 @@ fn render(args: &Args) -> AnyView {
     if !section.is_empty() {
         shell = shell.sections(std::iter::once(("Cadastros".to_owned(), section)).collect());
     }
+    shell = shell
+        .compact_navigation(args.bool("compact"))
+        .navigation_search(args.bool("search"))
+        .navigation_collapse(args.bool("collapse"));
     Box::new(Localized::new(Labels::pt_br(), shell))
 }
 
@@ -98,7 +102,15 @@ impl ComponentBook for AppShell {
             .story("Lists", Args::new())
             .story("With subtitle", Args::new().with("subtitle", "Finanças da família"))
             .story("No theme menu", Args::new().with("theme_menu", false))
+            .arg(ArgType::bool("compact", false).description("Denser items, 32 high with callout text, as in Raven Finanças."))
+            .arg(ArgType::bool("search", false).description("A first item, Procurar comando, that opens the command palette (⌘K)."))
+            .arg(ArgType::bool("collapse", false).description("An item at the foot, Recolher menu, that folds the menu to its icons (⌘B)."))
             .story("In sections", Args::new().with("section", "Finanças"))
+            .story("Compact", Args::new().with("compact", true))
+            .story(
+                "Compact, with search and collapse",
+                Args::new().with("compact", true).with("search", true).with("collapse", true).with("section", "Finanças"),
+            )
     }
 }
 
