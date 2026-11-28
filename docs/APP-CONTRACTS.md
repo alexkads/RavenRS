@@ -179,7 +179,9 @@ EntityInfo::new("Invoice").due_digest(
 
 On opening, a session shows a message per entity with a `DueDigest`, by the person's preference and permissions, with a button that opens its list; `App::due_digest_notice(false)` turns it off, and `show_due_digests(session)` shows it where an application wants.
 
-What waits (#860): the list filtered by what is pending and the days, the choice in `AppShell`, and the texts in `ravenrs-app-i18n`.
+The button of the notice opens the list on the records it is about (`Session::open_view_filtered`, by their keys); opening the list another way shows it all. The words come from the catalog (`DigestWords::from_texts`, keys `ui.due_*` and the money of `format.*`).
+
+What waits (#860): the choice in `AppShell`.
 
 ### Bills, settlements and installments
 

@@ -112,6 +112,8 @@ struct SessionInner {
     form: State<Option<Rc<FormState>>>,
     /// A save failed its rules, so the form says what is wrong as people fix it.
     checking: State<bool>,
+    /// A list opened for some of its records, with the filter that picks them.
+    narrowed: State<Option<(String, Criteria)>>,
     /// A save went through with notes from its rules, which the form keeps showing.
     noting: State<bool>,
     toasts: Toasts,
@@ -207,6 +209,7 @@ impl Session {
             revision: State::new(0),
             form: State::new(None),
             checking: State::new(false),
+            narrowed: State::new(None),
             noting: State::new(false),
             toasts: Toasts::new(),
             record_sources: Rc::default(),
@@ -287,6 +290,7 @@ impl Session {
             revision: parent.revision.clone(),
             form: State::new(None),
             checking: State::new(false),
+            narrowed: State::new(None),
             noting: State::new(false),
             toasts: parent.toasts.clone(),
             record_sources: parent.record_sources.clone(),
@@ -627,10 +631,12 @@ impl Session {
         let picked = ["Variants", "Filters"].into_iter().map(|part| {
             Self::chosen(&model, view, part).and_then(|item| item.text("Filter").map(str::to_owned))
         });
+        let narrowed = self.0.narrowed.peek().clone().filter(|(id, _)| id == view).map(|(_, filter)| filter);
         std::iter::once(own)
             .chain(picked)
             .flatten()
             .filter_map(|text| Criteria::parse(&text).ok())
+            .chain(narrowed)
             .reduce(Criteria::and)
     }
 
@@ -1095,7 +1101,20 @@ impl Session {
     /// Shows a list, asking first if that would lose changes.
     pub fn open_view(&self, id: &str) {
         let (session, id) = (self.clone(), id.to_owned());
-        self.leaving(move || session.show_view_now(&id));
+        self.leaving(move || {
+            session.0.narrowed.set(None);
+            session.show_view_now(&id);
+        });
+    }
+
+    /// Opens a list on only the records that meet `filter`, besides what the list filters itself,
+    /// as a notice opens the bills it is about. Opening the view again another way shows it all.
+    pub fn open_view_filtered(&self, id: &str, filter: Criteria) {
+        let (session, id) = (self.clone(), id.to_owned());
+        self.leaving(move || {
+            session.0.narrowed.set(Some((id.clone(), filter.clone())));
+            session.show_view_now(&id);
+        });
     }
 
     /// Goes to where a navigation item points: a list, or a form with no list before it, on the
@@ -1103,6 +1122,7 @@ impl Session {
     pub(crate) fn open_navigation(&self, id: &str, key: Option<&str>) {
         let (session, id, key) = (self.clone(), id.to_owned(), key.map(str::to_owned));
         self.leaving(move || {
+            session.0.narrowed.set(None);
             let model = session.model();
             let Ok(view) = ViewInfo::from_model(&model, &id) else {
                 return session.show_view_now(&id);
