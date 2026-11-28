@@ -2789,3 +2789,25 @@ fn a_chronology_shows_the_milestones_in_order_and_opens_one() {
     c.settle();
     assert!(c.says("Aberto: Afastamento"), "{:?}", c.texts());
 }
+
+#[test]
+fn a_closed_lesson_is_corrected_by_the_generated_action_and_an_open_one_does_not_offer_it() {
+    let mut c = Center::memory("ana");
+    c.press("Aulas encerradas");
+    c.settle();
+    // Action::requires_on and the generated action: on only for a closed lesson.
+    c.select("SealedLesson", 2.0);
+    let action = c.session().frame().action("SealedLessonCorrection.Amend").expect("generated");
+    assert!(!action.is_enabled(), "an open lesson offers a correction");
+    c.select("SealedLesson", 1.0);
+    // ActionContext::open_new: the correction opens on its form, pointing to the lesson.
+    c.run("SealedLessonCorrection.Amend", ActionInput::None);
+    let form = c.session().form_record().expect("the correction is on its form");
+    assert_eq!(form.get("lesson_id"), Value::Number(1.0));
+    c.set("present", 5.0);
+    c.set("reason", "duas chegaram atrasadas");
+    c.save();
+    assert_eq!(c.stored("SealedLesson", 1.0).get("present"), Value::Number(5.0));
+    c.press("Correções de aula");
+    assert_eq!(c.count("SealedLessonCorrection"), 1);
+}
