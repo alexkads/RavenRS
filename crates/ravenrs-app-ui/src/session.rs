@@ -6,16 +6,16 @@ use std::rc::Rc;
 
 use ravenrs_app::{
     Action, ActionContext, ActionInput, ActionResult, Application, AttachmentStore, CONTEXT_DELETE,
-    CONTEXT_SAVE, Criteria, EntityInfo, FieldKind, Frame, FrameContext, Message, MessageKind, ModelLayer,
-    ModelNode, ModelStore, Object, ObjectSpace, Query, Severity, Value, ViewInfo, ViewKind, Violation,
-    merge_changes, validate,
+    CONTEXT_SAVE, Criteria, EntityInfo, FieldInfo, FieldKind, Frame, FrameContext, Message, MessageKind,
+    ModelLayer, ModelNode, ModelStore, Object, ObjectSpace, Operation, Query, Severity, SpaceError, Value,
+    ViewInfo, ViewKind, Violation, merge_changes, validate,
 };
 use ravenrs_app_a11y::{AccessWords, Announcer};
 use ravenrs_app_i18n::Texts;
 use ravenrs_reactive::State;
 use ravenrs_widgets::{ConfirmDialog, Date, FilePicker, ToastExtras, Toaster, Toasts, Tone};
 
-use crate::values::key_text;
+use crate::values::{display as shown, key_text};
 
 // What the session keeps that carries the session itself: the jobs running for it, the field and
 // list editors' registries and requests. They live here so no screen sits under the session.
@@ -30,6 +30,16 @@ pub use list_types::{ListEditorRequest, ListSource, OpenHandler};
 
 /// The record a form is editing: what it was, and one state per field.
 #[derive(Debug)]
+/// What the form says when someone else kept its record, in the same fields, after it opened.
+pub(crate) struct Conflict {
+    pub entity: String,
+    pub key: Value,
+    /// Each field, with both values.
+    pub message: String,
+    /// The record as it is kept now, for reloading.
+    pub stored: Object,
+}
+
 pub(crate) struct FormState {
     pub entity: EntityInfo,
     pub original: Object,
@@ -126,6 +136,10 @@ struct SessionInner {
     /// Where it came from, for going back.
     history: State<Vec<String>>,
     error: State<Option<String>>,
+    /// Someone else kept the record of the form after it opened, in the same fields.
+    conflict: State<Option<Rc<Conflict>>>,
+    /// A save is being tried again after someone else kept the record in between.
+    retrying: Cell<bool>,
     confirm: ConfirmDialog,
     on_file: Rc<RefCell<Option<FileHandler>>>,
     on_url: Rc<RefCell<Option<UrlHandler>>>,
@@ -217,6 +231,8 @@ impl Session {
             collection_sources: Rc::default(),
             history: State::new(Vec::new()),
             error: State::new(None),
+            conflict: State::new(None),
+            retrying: Cell::new(false),
             confirm: ConfirmDialog::new(),
             on_file: Rc::default(),
             on_url: Rc::default(),
@@ -298,6 +314,8 @@ impl Session {
             collection_sources: parent.collection_sources.clone(),
             history: State::new(Vec::new()),
             error: State::new(None),
+            conflict: State::new(None),
+            retrying: Cell::new(false),
             confirm: ConfirmDialog::new(),
             on_file: parent.on_file.clone(),
             on_url: parent.on_url.clone(),
@@ -1355,17 +1373,49 @@ impl Session {
         if merged.conflicts.is_empty() {
             return self.keep(&form, merged.record, then);
         }
-        let names: Vec<&str> = merged
-            .conflicts
+        let fields: Vec<&FieldInfo> =
+            merged.conflicts.iter().filter_map(|name| form.entity.field_named(name)).collect();
+        let names: Vec<&str> = fields.iter().map(|field| field.caption.as_str()).collect();
+        let words = self.words();
+        let sides: Vec<String> = fields
             .iter()
-            .filter_map(|name| form.entity.field_named(name))
-            .map(|field| field.caption.as_str())
+            .map(|field| {
+                words
+                    .conflict_values
+                    .replace("{0}", &field.caption)
+                    .replace("{1}", &shown(field, &object.get(&field.name)))
+                    .replace("{2}", &shown(field, &stored.get(&field.name)))
+            })
             .collect();
-        let (session, then, record) = (self.clone(), then.clone(), merged.record);
-        let (words, kept_form) = (self.words(), form.clone());
+        // Keeping one's own goes over what is kept now, so it takes being allowed to write that.
+        let may_overwrite = self.0.frame.security().is_none_or(|security| {
+            security.with(|p| {
+                let name = &form.entity.name;
+                p.can(Operation::Write, name, Some(&stored))
+                    && fields
+                        .iter()
+                        .all(|field| p.can_field(Operation::Write, name, &field.name, Some(&stored)))
+            })
+        });
+        let mut message = sides.join("\n");
+        message.push('\n');
+        message.push_str(if may_overwrite { &words.conflict_reload_detail } else { &words.conflict_locked });
+        self.0.conflict.set(Some(Rc::new(Conflict {
+            entity: form.entity.name.clone(),
+            key: key.clone(),
+            message: message.clone(),
+            stored: stored.clone(),
+        })));
+        if !may_overwrite {
+            self.0.announcer.assertive(format!("{}. {message}", words.conflict_question));
+            return Err(words.conflict_locked.clone());
+        }
+        let (session, then, record, kept_form) = (self.clone(), then.clone(), merged.record, form.clone());
+        let detail =
+            format!("{}\n{}", words.conflict_detail.replace("{0}", &names.join(", ")), sides.join("\n"));
         self.0.confirm.ask(
             words.conflict_question.clone(),
-            words.conflict_detail.replace("{0}", &names.join(", ")),
+            detail,
             words.conflict_answer.clone(),
             move || {
                 // What fails goes on the screen.
@@ -1373,6 +1423,25 @@ impl Session {
             },
         );
         Ok(())
+    }
+
+    /// What the form says about someone else keeping its record in between, while it stands.
+    pub(crate) fn conflict(&self) -> Option<Rc<Conflict>> {
+        let conflict = self.0.conflict.get()?;
+        let form = self.0.form.get()?;
+        let key = form.entity.key_field().map(|field| form.original.get(&field.name))?;
+        (conflict.entity == form.entity.name && conflict.key == key).then_some(conflict)
+    }
+
+    /// Drops what the form changed and shows its record as someone else kept it.
+    pub(crate) fn reload_form(&self) {
+        let Some(conflict) = self.conflict() else { return };
+        let Some(form) = self.0.form.peek().clone() else { return };
+        self.0.conflict.set(None);
+        self.0.error.set(None);
+        self.0.form.set(Some(Rc::new(FormState::new(form.entity.clone(), conflict.stored.clone(), false))));
+        self.0.frame.set_selected(vec![conflict.stored.clone()]);
+        self.touch();
     }
 
     /// Writes the record, with what comes along with it.
@@ -1400,6 +1469,7 @@ impl Session {
         match done {
             Ok(()) => {
                 self.0.error.set(None);
+                self.0.conflict.set(None);
                 self.0.announcer.polite(self.access_words().saved(&Self::spoken_name(&form.entity, &object)));
                 let saved = form.entity.key_field().map(|f| object.get(&f.name));
                 self.touch();
@@ -1418,6 +1488,16 @@ impl Session {
             Err(error) => {
                 // What it could not keep must not stay waiting for the next try.
                 space.borrow_mut().rollback();
+                // Someone else kept it between reading it and keeping it: put the two together
+                // again, once, which asks if they changed the same fields.
+                if matches!(error, SpaceError::Outdated { .. })
+                    && !form.is_new
+                    && !self.0.retrying.replace(true)
+                {
+                    let again = self.save_merged(then);
+                    self.0.retrying.set(false);
+                    return again;
+                }
                 let message = error.to_string();
                 self.0.error.set(Some(message.clone()));
                 Err(message)

@@ -183,6 +183,8 @@ pub struct FieldSettings {
     pub autofocus: bool,
     /// `non_cloneable` in the attribute.
     pub non_cloneable: bool,
+    /// `row_version` in the attribute: the version of the record, checked on keeping it.
+    pub row_version: bool,
     /// `secret` in the attribute.
     pub secret: bool,
     /// `badge` in the attribute: a list shows the value as a badge.
@@ -623,6 +625,8 @@ pub fn field_settings(field: &syn::Field) -> Result<FieldSettings> {
                 attrs.autofocus = true;
             } else if named("non_cloneable") {
                 attrs.non_cloneable = true;
+            } else if named("row_version") {
+                attrs.row_version = true;
             } else if named("secret") {
                 attrs.secret = true;
             } else if named("badge") {
@@ -648,7 +652,7 @@ pub fn field_settings(field: &syn::Field) -> Result<FieldSettings> {
                      no_detail, lookup, money, long, color, date, guid, tags, decimals, reference, collection, \
                      calculated, default, required, unique, min, max, matches, message, editor, placeholder, \
                      hint, accessible_name, accessible_description, lookup_filter, none_caption, back_reference, most_bytes, wide, autofocus, \
-                     non_cloneable, secret, badge, list_detail, aggregated, group, display_format, edit_mask, predefined or criteria_of",
+                     non_cloneable, row_version, secret, badge, list_detail, aggregated, group, display_format, edit_mask, predefined or criteria_of",
                 ));
             }
             Ok(())

@@ -131,6 +131,7 @@ demonstrations! {
     caixa_de_exemplo => "Caixa de exemplo",
     api_web => "API web",
     registro => "Registro",
+    versao_do_registro => "Versão do registro",
     selo_e_linha_de_apoio => "Selo e linha de apoio",
     fechamento => "Fechamento de período",
     acesso_temporario => "Acesso temporário",

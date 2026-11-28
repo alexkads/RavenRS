@@ -336,6 +336,78 @@ fn a_field_they_cannot_read_says_it_is_protected_on_the_form() {
 }
 
 #[test]
+fn keeping_one_s_own_over_a_record_one_may_no_longer_write_is_not_offered() {
+    let versioned = || order().field(FieldInfo::new("version", FieldKind::Integer).row_version());
+    let mut entities = vec![versioned(), invoice(), audit_entity()];
+    entities.extend(security_entities());
+    let database = MemoryDatabase::new(entities).expect("valid");
+    let mut space = database.space();
+    let mut record = space.new_object("Order").expect("order");
+    record.set("name", "First");
+    let order_key = record.get("id");
+    space.save(record).expect("saved");
+    space.commit().expect("committed");
+    let source = database.clone();
+    let role = Role::new("Sales").policy(PermissionPolicy::AllowAll).object_permission(
+        "Order",
+        "[name] = 'Closed'",
+        [Operation::Write],
+        Access::Deny,
+    );
+    let shown = std::rc::Rc::new(std::cell::RefCell::new(None));
+    let keep = shown.clone();
+    let app = SecuredApp::new(
+        "Shop",
+        move || source.space(),
+        move |_| {
+            let keep = keep.clone();
+            App::new("Shop").entity_info(versioned()).entity_info(invoice()).with_session(move |session| {
+                *keep.borrow_mut() = Some(session.clone());
+            })
+        },
+    )
+    .role(role);
+    let mut world = World::over(app);
+    first_administrator(&mut world);
+    world.press("Sign out");
+    let mut space = database.space();
+    let sales = space
+        .query(SECURITY_ROLE, &Query::all())
+        .expect("reads")
+        .into_iter()
+        .find(|role| role.get("name") == Value::Text("Sales".into()))
+        .expect("there");
+    let mut user = space.new_object(SECURITY_USER).expect("user");
+    user.set("name", "bia");
+    user.set("must_change_password", false);
+    user.set("password_hash", ravenrs_app::hash_password("bia's password").expect("hashed"));
+    let key = user.get("id");
+    space.save(user).expect("saved");
+    let mut link = space.new_object(SECURITY_USER_ROLE).expect("link");
+    link.set("user_id", key);
+    link.set("role_id", sales.get("id"));
+    space.save(link).expect("saved");
+    space.commit().expect("committed");
+
+    world.sign_in("bia", "bia's password");
+    let session = shown.borrow().clone().expect("opened");
+    session.open_detail("Order", &order_key);
+    world.settle();
+    world.type_into("Name", " mine");
+    let mut other = database.space();
+    let mut closed = other.find("Order", &order_key).expect("reads").expect("there");
+    closed.set("name", "Closed");
+    other.save(closed).expect("saved");
+    other.commit().expect("committed");
+    world.press("Save");
+    assert!(world.says("You cannot keep yours over theirs here"), "it says why");
+    assert!(!world.has_button("Keep mine"), "and does not offer it");
+    assert!(world.has_button("Reload"));
+    let stored = database.space().find("Order", &order_key).expect("reads").expect("there");
+    assert_eq!(stored.get("name"), Value::Text("Closed".into()), "nothing of hers kept");
+}
+
+#[test]
 fn changes_land_on_the_trail_under_the_name_of_who_made_them() {
     let database = database();
     let source = database.clone();

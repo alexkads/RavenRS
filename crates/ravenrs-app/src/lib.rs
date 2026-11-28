@@ -127,7 +127,7 @@ pub use settings::{
 pub use source::{SourceError, entities_from_source, entities_from_spec};
 pub use space::{
     Change, ChangeSet, MemoryDatabase, MemoryObjectSpace, Merged, ObjectSpace, Query, SpaceError, SpaceEvent,
-    SpaceWatcher, check_query, key_of, key_text, merge_changes, run_query,
+    SpaceWatcher, check_query, check_version, key_of, key_text, merge_changes, next_version, run_query,
 };
 pub use validation::{CONTEXT_DELETE, CONTEXT_SAVE, RuleWords, Violation, validate, validate_in_place};
 pub use workflow::reminders_of;
