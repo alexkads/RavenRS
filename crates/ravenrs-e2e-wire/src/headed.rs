@@ -33,7 +33,7 @@ enum Line {
     Closed,
 }
 
-/// Answers a tool on the interface of the app's real window. See the [module](self).
+/// Answers a tool on the interface of the app's real window. See the module's documentation.
 pub struct Headed {
     hello: Hello,
     session: E2e,

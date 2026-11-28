@@ -16,6 +16,8 @@ workspace Cargo fora do da raiz: a que tem `pasta` é um workspace naquela pasta
                                         cada uma seguida dos pacotes dela (uma por linha)
     scripts/camadas.py workspaces --mudados
                                         só as que a mudança contra CHECK_BASE (origin/master) toca
+    scripts/camadas.py publicacao       os `cargo publish --workspace` de cada workspace com pacote
+                                        publicável, na ordem das camadas (F4, #1087)
     scripts/camadas.py --self-test      confere o próprio script, com uma aresta plantada
 
 O Cargo não herda `[workspace.dependencies]` entre workspaces. O Cargo.toml da raiz continua sendo
@@ -69,6 +71,12 @@ def camadas_do_repositorio():
 def conferir(camadas, pacotes):
     """`pacotes`: {nome: [(dependência, tipo)]}, só as dependências de caminho. Devolve os problemas."""
     problemas = []
+    na_raiz = [nome for nome, campos in camadas if not campos.get("separada")]
+    if len(na_raiz) > 1 or any(not campos.get("raiz") for nome, campos in camadas if nome in na_raiz):
+        problemas.append(
+            f"camadas.toml: só a camada com `raiz = true` fica no workspace da raiz; {', '.join(na_raiz)} "
+            "não dizem `separada = true` (F4, #1087)"
+        )
     nivel = {}
     for indice, (camada, campos) in enumerate(camadas):
         for pacote in campos.get("pacotes", []):
@@ -200,9 +208,10 @@ def secoes(texto):
     return [(cabecalho[1:-1], cabecalho + corpo) for cabecalho, corpo in zip(partes[1::2], partes[2::2])]
 
 
-def bloco(raiz_toml, pasta, membros):
+def bloco(raiz_toml, pasta, membros, extras=()):
     """A cópia gerada para o workspace em `pasta`: `[workspace]` e tudo de `workspace.*` e
-    `profile.*` da raiz, com os `path` das dependências relativos à pasta."""
+    `profile.*` da raiz, com os `path` das dependências relativos à pasta, e no fim `extras`: os
+    perfis de um pacote que a camada dele declara e que este workspace alcança (#1087)."""
     partes = [INICIO, "[workspace]", 'resolver = "3"']
     partes.append("members = [" + ", ".join(f'"{m}"' for m in membros) + "]")
     partes.append("")
@@ -217,8 +226,55 @@ def bloco(raiz_toml, pasta, membros):
             )
         partes.append(texto.strip("\n"))
         partes.append("")
+    for texto in extras:
+        partes.append(texto.strip("\n"))
+        partes.append("")
     partes.append(FIM)
     return "\n".join(partes) + "\n"
+
+
+def a_mao(manifesto):
+    """A parte de um manifesto de workspace escrita à mão: tudo antes do bloco gerado."""
+    return manifesto.split(INICIO.split(":")[0], 1)[0]
+
+
+def perfis_de_pacote(lista):
+    """[(pacote, texto da seção, pasta dona)] de cada `[profile.<perfil>.package.<pacote>]` que um
+    workspace separado declara à mão: o perfil de um pacote mora na camada dele (F3, #1086)."""
+    achados = []
+    for pasta, _ in lista:
+        manifesto = root / pasta / "Cargo.toml"
+        if not manifesto.exists():
+            continue
+        for cabecalho, texto in secoes(a_mao(manifesto.read_text(encoding="utf-8"))):
+            pacote = re.fullmatch(r'profile\.[\w-]+\.package\."?([\w-]+)"?', cabecalho)
+            if pacote:
+                achados.append((pacote.group(1), texto, pasta))
+    return achados
+
+
+def grafo_de_texto(pastas):
+    """{pacote: {pacotes do repositório que o Cargo.toml dele cita como dependência}}, lido do texto:
+    vale antes de o workspace existir, quando o `cargo metadata` ainda não responde."""
+    grafo = {}
+    for nome, lugar in pastas.items():
+        texto = (root / lugar / "Cargo.toml").read_text(encoding="utf-8")
+        grafo[nome] = {
+            d for d in re.findall(r'^\s*"?([\w-]+)"?\s*(?:\.workspace\s*=|=)', texto, re.M)
+            if d in pastas and d != nome
+        }
+    return grafo
+
+
+def alcance(grafo, inicio):
+    """`inicio` e tudo o que ele alcança no `grafo`, a qualquer profundidade."""
+    vistos, fila = set(), list(inicio)
+    while fila:
+        nome = fila.pop()
+        if nome not in vistos:
+            vistos.add(nome)
+            fila.extend(grafo.get(nome, ()))
+    return vistos
 
 
 def com_bloco(manifesto, novo):
@@ -284,6 +340,7 @@ def deps(camadas, escrever):
             print("Cargo.toml: members e exclude da raiz escritos")
         else:
             problemas.append("Cargo.toml: members ou exclude da raiz não batem com camadas.toml; rode `python3 scripts/camadas.py deps --write`")
+    perfis, grafo = perfis_de_pacote(lista), grafo_de_texto(pastas)
     for pasta, membros in lista:
         manifesto = root / pasta / "Cargo.toml"
         if not manifesto.exists() and escrever:
@@ -303,7 +360,9 @@ def deps(camadas, escrever):
                 else:
                     problemas.append(f"{arquivo.relative_to(root)}: falta `workspace = ...` apontando para {pasta}; rode `python3 scripts/camadas.py deps --write`")
         atual = manifesto.read_text(encoding="utf-8") if manifesto.exists() else ""
-        esperado = com_bloco(atual, bloco(raiz_toml, pasta, membros))
+        alcancados = alcance(grafo, pacotes_de(camadas, pasta, pastas))
+        extras = [texto for pacote, texto, dona in perfis if dona != pasta and pacote in alcancados]
+        esperado = com_bloco(atual, bloco(raiz_toml, pasta, membros, extras))
         if atual != esperado:
             if escrever:
                 manifesto.write_text(esperado, encoding="utf-8")
@@ -352,17 +411,45 @@ def workspaces_de(arquivos, donas):
     return [p for p in donas if p in tocadas]
 
 
+def publicaveis(pastas):
+    """Os pacotes que o crates.io recebe: os que não dizem `publish = false`."""
+    return {
+        nome for nome, lugar in pastas.items()
+        if not re.search(r"^publish\s*=\s*false", (root / lugar / "Cargo.toml").read_text(encoding="utf-8"), re.M)
+    }
+
+
+def publicacao(camadas, pastas, recebe):
+    """Os comandos de publicação, um por workspace com algum pacote em `recebe`, na ordem das camadas.
+    Dentro de um workspace, o `cargo publish --workspace` acha a ordem sozinho e pula o que diz
+    `publish = false`."""
+    comandos = []
+    for nome, campos in camadas:
+        if campos.get("separada") and campos.get("um_workspace_por_pacote"):
+            donos = [(pastas[p], [p]) for p in campos.get("pacotes", [])]
+        elif campos.get("separada"):
+            donos = [(campos["pasta"], pacotes_de(camadas, campos["pasta"], pastas))]
+        else:
+            donos = [(".", campos.get("pacotes", []))]
+        for pasta, nomes in donos:
+            if not any(n in recebe for n in nomes):
+                continue
+            alvo = "" if pasta == "." else f" --manifest-path {pasta}/Cargo.toml"
+            comandos.append(f"cargo publish --workspace{alvo}")
+    return comandos
+
+
 # --- autoteste -----------------------------------------------------------------------------------
 
 
 def autoteste():
     camadas = ler_camadas(
-        '# comentário\n[baixo]\nrotulo = "W1" # fim de linha\npacotes = [\n  "a", "b",\n]\n'
+        '# comentário\n[baixo]\nrotulo = "W1" # fim de linha\nraiz = true\npacotes = [\n  "a", "b",\n]\n'
         '[alto]\nrotulo = "W2"\nseparada = true\num_workspace_por_pacote = true\npacotes = ["c"]\n'
         '[ci]\nseparada = true\npasta = "tools/ci"\npacotes = ["ci", "ci-core"]\n'
     )
     assert [nome for nome, _ in camadas] == ["baixo", "alto", "ci"], camadas
-    assert camadas[0][1] == {"rotulo": "W1", "pacotes": ["a", "b"]}, camadas
+    assert camadas[0][1] == {"rotulo": "W1", "raiz": True, "pacotes": ["a", "b"]}, camadas
     assert camadas[1][1]["um_workspace_por_pacote"] is True, camadas
     assert conferir(camadas[:2], {"a": [], "b": [("a", "normal")], "c": [("b", "de teste")]}) == []
     # A aresta plantada: um pacote de baixo que testa com um de cima.
@@ -420,6 +507,22 @@ def autoteste():
     assert com_workspace(com_workspace(membro, "../../camadas/x"), "../../camadas/base") == com_workspace(membro, "../../camadas/base")
     raiz_nova = raiz_com_membros(raiz, ["crates/x", "xtask"], ["crates"])
     assert 'members = [\n    "crates/x",\n    "xtask",\n]' in raiz_nova and "[workspace.package]" in raiz_nova, raiz_nova
+    # A raiz: só a camada `raiz = true` fica fora de `separada` (F4, #1087).
+    raiz_ok = ler_camadas('[base]\nseparada = true\npasta = "camadas/base"\npacotes = ["a"]\n[infra]\nraiz = true\npacotes = ["x"]\n')
+    assert conferir(raiz_ok, {"a": [], "x": [("a", "normal")]}) == []
+    duas = ler_camadas('[base]\npacotes = ["a"]\n[infra]\nraiz = true\npacotes = ["x"]\n')
+    assert any("só a camada com `raiz = true`" in p for p in conferir(duas, {"a": [], "x": []}))
+    lugares_pub = {"a": "crates/a", "x": "crates/x", "app": "examples/app"}
+    com_app = ler_camadas('[base]\nseparada = true\npasta = "camadas/base"\npacotes = ["a"]\n[infra]\nraiz = true\npacotes = ["x"]\n[apps]\nseparada = true\num_workspace_por_pacote = true\npacotes = ["app"]\n')
+    assert publicacao(com_app, lugares_pub, {"a", "x"}) == [
+        "cargo publish --workspace --manifest-path camadas/base/Cargo.toml", "cargo publish --workspace",
+    ], publicacao(com_app, lugares_pub, {"a", "x"})
+    # Um workspace sem pacote publicável (um app) não entra.
+    assert publicacao(com_app, lugares_pub, {"x"}) == ["cargo publish --workspace"]
+    # O perfil de um pacote vai só para quem o alcança (F4, #1087).
+    assert alcance({"a": {"b"}, "b": {"c"}, "x": set()}, ["a"]) == {"a", "b", "c"}
+    com_extra = bloco(raiz, "camadas/x", [], ["[profile.dev.package.c]\nopt-level = 1\n"])
+    assert com_extra.index("[profile.dev.package.c]") > com_extra.index("[profile.dev]"), com_extra
     print("camadas.py: autoteste passou")
 
 
@@ -448,8 +551,12 @@ def main():
         pastas = pastas_dos_pacotes()
         for pasta in mudados(camadas) if "--mudados" in args else workspaces(camadas):
             print(pasta, *pacotes_de(camadas, pasta, pastas))
+    elif comando == "publicacao":
+        pastas = pastas_dos_pacotes()
+        for linha in publicacao(camadas, pastas, publicaveis(pastas)):
+            print(linha)
     else:
-        sys.exit(f"camadas.py: comando desconhecido {comando}; use check, deps ou workspaces")
+        sys.exit(f"camadas.py: comando desconhecido {comando}; use check, deps, workspaces ou publicacao")
 
 
 main()

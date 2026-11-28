@@ -59,7 +59,7 @@ pub fn render_slide(pres: &Presentation, index: usize, opts: &RenderOpts) -> Ima
 
 /// [`render_slide`], also returning how far the drawing reached, in slide space (at least the
 /// slide; off it, what the shapes, their effects and their text drew, the parts outside the output
-/// included). The editor grows its pasteboard to it ([`pasteboard_region`]).
+/// included). The editor grows its pasteboard to it ([`pasteboard_region`](super::pasteboard_region)).
 pub fn render_slide_drawn(pres: &Presentation, index: usize, opts: &RenderOpts) -> (Image, Rect) {
     let page = Rect::new(0.0, 0.0, pres.slide_size.width, pres.slide_size.height);
     let Some(slide) = pres.slides.get(index) else { return (Image::default(), page) };

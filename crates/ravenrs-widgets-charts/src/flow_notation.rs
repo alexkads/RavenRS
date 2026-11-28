@@ -14,7 +14,7 @@ type Reader = Rc<dyn Fn(&str) -> Result<FlowGraph, String>>;
 /// Makes the text of a diagram, given its name.
 type Writer = Rc<dyn Fn(&FlowGraph, &str) -> String>;
 
-/// A file format a [`FlowLibrary`] opens and saves diagrams in besides its own JSON, such as
+/// A file format a [`FlowLibrary`](crate::FlowLibrary) opens and saves diagrams in besides its own JSON, such as
 /// a notation's XML: what it is called, its extension, and how a diagram is read from it and
 /// written to it.
 #[derive(Clone)]

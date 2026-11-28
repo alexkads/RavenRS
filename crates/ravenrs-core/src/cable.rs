@@ -8,7 +8,7 @@
 //! describe their cables the same way.
 //!
 //! * [`Cable`] describes one cable for a frame: ends, physics, look. Widgets put
-//!   it in the scene as [`Primitive::Cable`](crate::Primitive::Cable).
+//!   it in the scene as [`Primitive::Cable`].
 //! * [`CableWorld`] simulates every cable of a window. [`CpuCables`] is the
 //!   reference, run on the CPU; the renderer has the same algorithm on the GPU.
 //! * [`cable_rest`] is where a cable settles, the same for the same input: what

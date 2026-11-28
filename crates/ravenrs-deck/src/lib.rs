@@ -8,7 +8,7 @@
 //! - [`fonts`] and [`text`]: font lookup and shaping, line breaking, bidi and date fields.
 //! - [`anim`]: animations and slide transitions, evaluated at a point in time.
 //! - [`render`]: slides drawn to pixels on the CPU.
-//! - [`pptx`] and [`format`]: PowerPoint packages and the native format, read and written.
+//! - [`pptx`] and [`format`](mod@format): PowerPoint packages and the native format, read and written.
 //! - [`pdf`]: slides, notes pages and handouts exported to PDF.
 //! - [`media`]: embedded audio and video: probing and poster frames.
 //! - [`engine`]: the commands, selection and undo history an editor drives.

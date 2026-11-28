@@ -13,6 +13,9 @@
 # As camadas da biblioteca (W1 a W9) têm o workspace em `camadas/<nome>/Cargo.toml` e os membros
 # continuam em `crates/`: cada um diz `workspace = "../../camadas/<nome>"` no `[package]`, e a raiz
 # lista só o que sobrou nela (F3, #1086). Os dois o `deps --write` escreve.
+#
+# `raiz = true`: a única camada sem `separada`, a do workspace da raiz (F4, #1087). Ela é publicada
+# depois das da biblioteca, na ordem deste arquivo: `scripts/camadas.py publicacao` lista os comandos.
 
 [nucleo]
 rotulo = "W1"
@@ -102,6 +105,8 @@ pacotes = [
 
 [infra]
 rotulo = "W10"
+# A camada que fica no workspace da raiz: o `cargo xtask` mora nela e só roda daqui (F4, #1087).
+raiz = true
 pacotes = [
     "ravenrs-xcache", "ravenrs-e2e-runner", "ravenrs-junit", "ravenrs-lint", "ravenrs-mcp", "cargo-ravenrs",
     "ravenrs-agent-cli", "xtask",
