@@ -374,5 +374,28 @@ pub fn seed(space: &mut dyn ObjectSpace) -> Result<(), String> {
     }
     people(space)?;
     demos(space)?;
+    cell_shapes(space)?;
     reports(space)
+}
+
+/// Three people, one in each status, with a phone under the name.
+fn cell_shapes(space: &mut dyn ObjectSpace) -> Result<(), String> {
+    for (id, name, phone, status, rank) in [
+        (1.0, "Ana", "(11) 9999-0000", "active", "Líder"),
+        (2.0, "Bia", "(21) 98888-1111", "away", "Membro"),
+        (3.0, "Caio", "", "gone", "Visitante"),
+    ] {
+        add(
+            space,
+            "CellShapesDemo",
+            &[
+                ("id", n(id)),
+                ("name", t(name)),
+                ("phone", t(phone)),
+                ("status", t(status)),
+                ("rank", t(rank)),
+            ],
+        )?;
+    }
+    Ok(())
 }

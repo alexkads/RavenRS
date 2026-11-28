@@ -163,10 +163,28 @@ impl Reader {
             let text = display(field, &value);
             return Cell::Text(known.get(&text).cloned().unwrap_or(text));
         }
-        match self.cell_text.as_ref().and_then(|text| text(&field.name, object)) {
+        let cell = match self.cell_text.as_ref().and_then(|text| text(&field.name, object)) {
             Some(text) if text.is_empty() => Cell::Empty,
             Some(text) => Cell::Text(text),
             None => cell_of(field, &value),
+        };
+        // The field shown under it goes in the same text, so export and filter read both.
+        let under = field.list_detail.as_deref().and_then(|name| {
+            let entity = self.session.entity(object.entity())?;
+            let detail = entity.field_named(name)?;
+            let shown = display(detail, &object.get(name));
+            (!shown.is_empty()).then_some(shown)
+        });
+        match under {
+            Some(under) => {
+                let main = match &cell {
+                    Cell::Empty => String::new(),
+                    Cell::Text(text) => text.clone(),
+                    _ => display(field, &value),
+                };
+                Cell::Text(format!("{main}{}{under}", crate::values::DETAIL_BETWEEN))
+            }
+            None => cell,
         }
     }
 
