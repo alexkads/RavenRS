@@ -9,7 +9,7 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use crate::args::{Invocation, Kind, parse};
 use crate::paths::Roots;
-use crate::store::{Entry, Output, Store, Stored, entry_text, sha, sha_of_file};
+use crate::store::{Entry, Output, Store, Stored, entry_text, inputs_text, sha, sha_of_file};
 
 /// Bump when what goes into a key changes: old entries then simply stop matching.
 const KEY_VERSION: &str = "ravenrs-xcache key 1";
@@ -141,20 +141,21 @@ pub(crate) fn run(compiler: &OsStr, rest: &[OsString]) -> i32 {
     let found = job.look_up(&request);
     times.lookup = looking.elapsed().as_millis();
     let reason = match found {
-        Ok(result) => {
+        Ok(entry) => {
+            let result = entry.result.as_str();
             let restoring = Instant::now();
-            match job.restore(&result) {
+            match job.restore(result) {
                 Ok(bytes) => {
                     times.restore = restoring.elapsed().as_millis();
-                    store.touch(&result);
-                    job.name_macro(&result);
+                    store.touch(result);
+                    job.name_macro(&request, &entry);
                     let outcome =
                         Outcome { kind: "hit", crate_name: &invocation.crate_name, reason: "", bytes };
                     log(&store, &outcome, &times);
                     return 0;
                 }
                 Err(error) => {
-                    store.drop_stored(&result);
+                    store.drop_stored(result);
                     format!("the kept result could not be restored ({error}); compiled again")
                 }
             }
@@ -178,10 +179,12 @@ fn rustc_behind_clippy<'a>(compiler: &OsStr, rest: &'a [OsString], linted: bool)
     (driver && !linted).then_some(rustc.as_os_str())
 }
 
-/// The linker a proc macro is linked with: `-C linker=`, or `cc` as rustc does without it.
+/// The linker a proc macro is linked with: the last `-C linker=`, the one rustc goes by, or `cc` as
+/// rustc does without it.
 fn linker_named(key_args: &[String]) -> &str {
     key_args
         .iter()
+        .rev()
         .find_map(|arg| arg.strip_prefix("--C=linker=").or_else(|| arg.strip_prefix("--codegen=linker=")))
         .unwrap_or("cc")
 }
@@ -302,7 +305,7 @@ struct Compiled {
 impl Job<'_> {
     /// The result kept for this command line whose recorded inputs are all as they are now, or why
     /// there is none.
-    fn look_up(&self, request: &str) -> Result<String, String> {
+    fn look_up(&self, request: &str) -> Result<Entry, String> {
         let entries = self.store.entries(request);
         if entries.is_empty() {
             return Err("first time: the compiler, the flags or a dependency are new to the cache".to_owned());
@@ -310,7 +313,7 @@ impl Job<'_> {
         let mut why = String::new();
         for entry in &entries {
             match self.still_holds(entry) {
-                Ok(()) if self.store.stored(&entry.result).is_some() => return Ok(entry.result.clone()),
+                Ok(()) if self.store.stored(&entry.result).is_some() => return Ok(entry.clone()),
                 Ok(()) => why = "its entry was cleaned from the cache".to_owned(),
                 Err(reason) if why.is_empty() => why = reason,
                 Err(_) => {}
@@ -465,8 +468,8 @@ impl Job<'_> {
             return compiled.code;
         }
         match self.keep(request, &compiled) {
-            Ok((bytes, result)) => {
-                self.name_macro(&result);
+            Ok((bytes, entry)) => {
+                self.name_macro(request, &entry);
                 log(self.store, &Outcome { kind: "miss", crate_name, reason, bytes }, times);
             }
             Err(why) => {
@@ -478,7 +481,7 @@ impl Job<'_> {
     }
 
     /// Keeps what a compilation produced. Returns the bytes kept.
-    fn keep(&self, request: &str, compiled: &Compiled) -> Result<(u64, String), String> {
+    fn keep(&self, request: &str, compiled: &Compiled) -> Result<(u64, Entry), String> {
         let outputs = self.reported(&compiled.lines)?;
         let mut entry = self.inputs(&outputs, compiled.began)?;
         let mut stored = Stored::default();
@@ -520,23 +523,31 @@ impl Job<'_> {
         entry.result = sha(format!("{request}\n{}", entry_text(&entry)).as_bytes());
         self.store.keep_stored(&entry.result, &stored).map_err(|e| e.to_string())?;
         self.store.add_entry(request, &entry).map_err(|e| e.to_string())?;
-        Ok((bytes, entry.result))
+        Ok((bytes, entry))
     }
 
     /// The name the crates that use a proc macro know it by. A proc macro links, and the linker
     /// may stamp the library with the build directory, so its bytes would tell two worktrees
     /// apart. The result is made of what the macro was built from only, the same in every
-    /// worktree: the crates that use it go by that, whether it was compiled or restored.
-    fn name_macro(&self, result: &str) {
+    /// worktree: the crates that use it go by that, whether it was compiled or restored. A macro
+    /// pinned to the roots it was built under keeps a result for each worktree, so the name leaves
+    /// the roots out.
+    fn name_macro(&self, request: &str, entry: &Entry) {
         if self.invocation.kind != Kind::ProcMacro {
             return;
         }
-        let Some(stored) = self.store.stored(result) else { return };
-        let identity = sha(format!("proc-macro {result}").as_bytes());
+        let Some(stored) = self.store.stored(&entry.result) else { return };
+        let identity = macro_identity(request, entry);
         for output in stored.outputs.iter().filter(|output| output.emit == "link") {
             self.store.remember(&self.invocation.out_dir.join(&output.name), &identity);
         }
     }
+}
+
+/// The name of a proc macro for the crates that use it: the command line and what it was built
+/// from, never the roots it is pinned to.
+fn macro_identity(request: &str, entry: &Entry) -> String {
+    sha(format!("proc-macro {request}\n{}", inputs_text(entry)).as_bytes())
 }
 
 /// The path and kind of an output file, from the line rustc writes for it with `--json=artifacts`.
@@ -619,6 +630,36 @@ mod tests {
         assert_eq!(linker_named(&args(&["--C=metadata=abc", "src/lib.rs"])), "cc");
         assert_eq!(linker_named(&args(&["--C=linker=/usr/bin/clang", "src/lib.rs"])), "/usr/bin/clang");
         assert_eq!(linker_named(&args(&["--codegen=linker=clang"])), "clang");
+        assert_eq!(
+            linker_named(&args(&["--C=linker=/usr/bin/gcc", "--codegen=linker=/usr/bin/clang"])),
+            "/usr/bin/clang",
+            "rustc links with the last -C linker= it is given"
+        );
+    }
+
+    #[test]
+    fn a_pinned_proc_macro_has_the_same_name_under_other_roots() {
+        let built = |roots: &str| {
+            let mut entry = Entry {
+                files: vec![("abc".into(), "<xcache:cwd>/src/lib.rs".into())],
+                env: vec![("CARGO_PKG_NAME".into(), Some("m".into())), ("NOT_SET".into(), None)],
+                ..Entry::default()
+            };
+            entry.pinned = Some(roots.to_owned());
+            entry.result = sha(format!("request\n{}", entry_text(&entry)).as_bytes());
+            entry
+        };
+        let (first, second) = (built("/w/one|/t/one"), built("/w/two|/t/two"));
+        assert_ne!(first.result, second.result, "each worktree keeps its own result");
+        assert_eq!(macro_identity("request", &first), macro_identity("request", &second));
+        let mut changed = second.clone();
+        changed.files[0].0 = "def".into();
+        assert_ne!(
+            macro_identity("request", &first),
+            macro_identity("request", &changed),
+            "a changed source is another macro"
+        );
+        assert_ne!(macro_identity("request", &first), macro_identity("other request", &first));
     }
 
     #[test]
