@@ -28,9 +28,8 @@ pub use background::{JobInfo, JobProgress};
 pub use editor_types::{EditorRegistry, EditorRequest};
 pub use list_types::{ListEditorRequest, ListSource, OpenHandler};
 
-/// The record a form is editing: what it was, and one state per field.
-#[derive(Debug)]
 /// What the form says when someone else kept its record, in the same fields, after it opened.
+#[derive(Debug)]
 pub(crate) struct Conflict {
     pub entity: String,
     pub key: Value,
@@ -40,6 +39,8 @@ pub(crate) struct Conflict {
     pub stored: Object,
 }
 
+/// The record a form is editing: what it was, and one state per field.
+#[derive(Debug)]
 pub(crate) struct FormState {
     pub entity: EntityInfo,
     pub original: Object,
