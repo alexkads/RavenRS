@@ -2,7 +2,7 @@
 //!
 //! It runs Cargo once over all of them, against the crates of this checkout, so it takes a few
 //! minutes: `cargo test -p component-gallery --test suite projects:: -- --ignored`, which
-//! `scripts/check.sh --full` runs.
+//! `cargo xtask release` runs.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
 use std::path::Path;
@@ -11,7 +11,7 @@ use std::process::Command;
 use component_gallery::samples::{NAMES, sample_code, sample_project};
 
 #[test]
-#[ignore = "builds every example as a project of its own; scripts/check.sh --full runs it"]
+#[ignore = "builds every example as a project of its own; cargo xtask release runs it"]
 fn every_example_downloads_as_a_project_that_builds() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").canonicalize().unwrap();
     let place = Path::new(env!("CARGO_TARGET_TMPDIR")).join("downloaded-projects");

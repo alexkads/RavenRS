@@ -105,6 +105,10 @@ The amendment is written on its target as it is inserted (`apply_amendment`, cal
 
 Permissions: creating an amendment needs `Create` on the amendment entity and `Read` on the target, not `Write` on the target. An `object_permission` that denies `Write` on closed records still holds for direct edits.
 
+In SQLite and PostgreSQL the database itself can refuse a sealed record written by other ways than the framework: `SqlBuilder::sealed_guards()`, called after the entities, writes once, as a migration, a trigger on each sealed table that refuses an update or a delete of a row whose stored values meet the seal. The commit of an amendment writes down, in its own transaction, the records it changes (in `raven_amending`), so the triggers let only those through, and takes them away before it ends. SQLite refuses with `RAISE(ABORT, ...)`, PostgreSQL with `ERRCODE '23514'`. A database with no way to say it holds only to the rules of the framework.
+
+Each amendment gets an action on its target, by itself: `<Amendment>.Amend`, with the caption of the amendment entity, as "Correct the lesson". It is on for one record that can take it (sealed, for a correction; not sealed yet, for a closing), and only whoever can create the amendment sees it (`Action::requires_on`). It opens a new amendment on its form already pointing to the record (`ActionContext::open_new`), for the reason and the new values; saving it is what applies it.
+
 ### Period closing
 
 A period entity, such as a month, a term or a payroll, declares with `EntityInfo::period_closing` how it is approved:
@@ -177,7 +181,9 @@ EntityInfo::new("Invoice").due_digest(
 
 On opening, a session shows a message per entity with a `DueDigest`, by the person's preference and permissions, with a button that opens its list; `App::due_digest_notice(false)` turns it off, and `show_due_digests(session)` shows it where an application wants.
 
-What waits (#860): the list filtered by what is pending and the days, the choice in `AppShell`, and the texts in `ravenrs-app-i18n`.
+The button of the notice opens the list on the records it is about (`Session::open_view_filtered`, by their keys); opening the list another way shows it all. The words come from the catalog (`DigestWords::from_texts`, keys `ui.due_*` and the money of `format.*`).
+
+What waits (#860): the choice in `AppShell`.
 
 ### Bills, settlements and installments
 
@@ -197,9 +203,11 @@ The rules hold wherever records are kept: the status moves only by the declared 
 
 `LibraryModule::finance()` brings `FinanceActions`: Settle (what is left, today), Split (in the installments typed) and Reverse (with the reason typed), each with its id and needing `Write`, enabled only on the records they fit.
 
+Settle opens a window to review the settlement (`settle_review`, an entity no storage keeps), filled with today and what is open; the person changes the date, interest, fine and discount, sees the total that goes to the cash book, and OK settles what it says.
+
 The reports print as documents, in `ravenrs-app-report`: `statement_document`, `annual_document`, `position_document` and `forecast_document` take what the services read through the person's space and write money and dates in a `Culture`, with the heads of the columns from the catalog (`report.finance_*`). Each gives a `Document` to show, print or keep as PDF.
 
-What waits (#859): the review screen of a settlement with interest, fine and discount. The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
+The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
 
 ## Scenarios
 

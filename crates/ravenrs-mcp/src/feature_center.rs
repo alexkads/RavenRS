@@ -66,12 +66,35 @@ pub fn entry(name: &str, krate: &str) -> Option<&'static Entry> {
 }
 
 /// The page a caption names: its file and, for the pages of the components, its id.
+///
+/// A page of the app framework is an entity of the center's model, declared by
+/// `demo("<Entity>", "<caption>", …)` in `model.rs`: its file is that one, and it opens from the
+/// navigation, so it has no id.
 fn page_file(caption: &str) -> Option<(&'static str, Option<&'static str>)> {
     let declaration = format!("pub const PAGE: &str = {caption:?};");
-    RUST_SOURCES
-        .iter()
-        .find(|(path, text)| path.starts_with(SOURCES) && text.contains(&declaration))
+    let sources = || RUST_SOURCES.iter().filter(|(path, _)| path.starts_with(SOURCES));
+    sources()
+        .find(|(_, text)| text.contains(&declaration))
         .map(|(path, text)| (*path, string_const(text, "ID")))
+        .or_else(|| {
+            sources()
+                .find(|(path, text)| path.ends_with("/model.rs") && declares_demo(text, caption))
+                .map(|(path, _)| (*path, None))
+        })
+}
+
+/// Whether `text` calls `demo(name, caption, …)` with this caption as the second argument.
+fn declares_demo(text: &str, caption: &str) -> bool {
+    let quoted = format!("{caption:?},");
+    text.match_indices(&quoted).any(|(at, _)| {
+        // Before the caption: `demo(`, the entity's name between quotes and a comma.
+        let before = text[..at].trim_end();
+        let Some(before) = before.strip_suffix(',') else { return false };
+        let before = before.trim_end();
+        let Some(name_end) = before.strip_suffix('"') else { return false };
+        let Some(open) = name_end.rfind('"') else { return false };
+        name_end[..open].trim_end().ends_with("demo(")
+    })
 }
 
 /// The value of `pub const NAME: &str = "…";` in a source file.
@@ -199,6 +222,15 @@ mod tests {
             let Some(caption) = entry.page() else { continue };
             assert!(page_file(caption).is_some(), "{}: no file declares the page {caption:?}", entry.name);
         }
+    }
+
+    #[test]
+    fn a_page_of_the_model_is_found_in_its_file_and_opens_from_the_navigation() {
+        // ListIndicator is shown on an entity of the model, not on a page of its own.
+        let (file, id) = page_file("Regras de aparência").expect("the model page");
+        assert!(file.ends_with("/model.rs"), "{file}");
+        assert_eq!(id, None);
+        assert_eq!(page_file("Página que não existe"), None);
     }
 
     #[test]

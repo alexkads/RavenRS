@@ -598,11 +598,16 @@ impl Designer {
         let e = self.editor.clone();
         let fixed = State::new(0);
         let top = VStack::new((
-            Tabs::new(self.left_tab.binding())
-                .item("Lista de campos")
-                .item("Explorador")
-                .item("Agrupar e ordenar")
-                .size(ButtonSize::Small),
+            // In Portuguese, as the rest of the designer: the tabs that do not fit go to
+            // "Mais abas" (#1009).
+            Localized::new(
+                Labels::pt_br(),
+                Tabs::new(self.left_tab.binding())
+                    .item("Lista de campos")
+                    .item("Explorador")
+                    .item("Agrupar e ordenar")
+                    .size(ButtonSize::Small),
+            ),
             VStack::new((LeftContent { editor: e.clone(), tab: self.left_tab.clone() },))
                 .padding(SPACING.s3)
                 .align(Align::Stretch)

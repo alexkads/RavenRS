@@ -26,6 +26,6 @@
     }
   ],
   "limits": [
-    "The web build is made with scripts/build-web.sh raven-report-designer."
+    "The web build is made with cargo xtask web raven-report-designer."
   ]
 }

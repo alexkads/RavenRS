@@ -16,13 +16,21 @@ use crate::session::Session;
 pub struct NavigationCount {
     pub(crate) shown: String,
     pub(crate) spoken: Option<String>,
+    pub(crate) tone: Option<ravenrs_widgets::Tone>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl NavigationCount {
     /// Shows `count`, such as `3` or `9+`. Screen readers hear it after the item's name.
     pub fn new(count: impl Into<String>) -> Self {
-        Self { shown: count.into(), spoken: None }
+        Self { shown: count.into(), spoken: None, tone: None }
+    }
+
+    /// Draws it as a [`Badge`](ravenrs_widgets::Badge) of this tone, as the overdue bills in red.
+    /// Screen readers then hear the count itself, not [`NavigationCount::spoken`].
+    pub fn tone(mut self, tone: ravenrs_widgets::Tone) -> Self {
+        self.tone = Some(tone);
+        self
     }
 
     /// What screen readers hear instead of the bare count, such as "1 with attendance to take".

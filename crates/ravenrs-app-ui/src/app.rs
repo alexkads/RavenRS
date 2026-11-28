@@ -79,6 +79,7 @@ pub struct App {
     brand_subtitle: Option<String>,
     counts: std::collections::HashMap<String, crate::navigation::CountOf>,
     counter: bool,
+    menu: (bool, bool, bool),
     actions: Vec<ActionMaker>,
 }
 
@@ -141,6 +142,7 @@ impl App {
             brand_subtitle: None,
             counts: std::collections::HashMap::new(),
             counter: false,
+            menu: (false, false, false),
             actions: Vec::new(),
         }
     }
@@ -430,6 +432,26 @@ impl App {
         self
     }
 
+    /// Draws the navigation tighter, each item in one short row, as [`AppShell::compact_navigation`](crate::AppShell::compact_navigation).
+    pub fn compact_navigation(mut self, on: bool) -> Self {
+        self.menu.0 = on;
+        self
+    }
+
+    /// Puts first in the navigation an item that opens the commands (⌘K), as
+    /// [`AppShell::navigation_search`](crate::AppShell::navigation_search).
+    pub fn navigation_search(mut self, on: bool) -> Self {
+        self.menu.1 = on;
+        self
+    }
+
+    /// Puts at the foot of the navigation an item, and ⌘B, that folds it to its icons, as
+    /// [`AppShell::navigation_collapse`](crate::AppShell::navigation_collapse).
+    pub fn navigation_collapse(mut self, on: bool) -> Self {
+        self.menu.2 = on;
+        self
+    }
+
     /// Arranges the window for use at a counter: see [`CounterTemplate`](crate::CounterTemplate).
     pub fn counter(mut self) -> Self {
         self.counter = true;
@@ -507,6 +529,8 @@ impl App {
             }
         }
         shell = shell.counts(Rc::new(self.counts));
+        let (compact, search, collapse) = self.menu;
+        shell = shell.compact_navigation(compact).navigation_search(search).navigation_collapse(collapse);
         if self.counter {
             shell = shell.template(crate::CounterTemplate);
         }

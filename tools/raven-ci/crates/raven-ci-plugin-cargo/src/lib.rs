@@ -29,7 +29,7 @@
 //!   whose variables already say `CARGO_TARGET_DIR`, or the setting `shared_target = false`,
 //!   keeps cargo's own.
 //! - **`ravenrs-xcache`**, with `xcache = true`, is the `RUSTC_WRAPPER` (with
-//!   `CARGO_INCREMENTAL=0`), as `scripts/check.sh` does. Without the program, a line in the log
+//!   `CARGO_INCREMENTAL=0`), as `cargo xtask pr` does. Without the program, a line in the log
 //!   and the build goes on.
 //! - **Refused**: with no `cargo` on the agent the step fails with "falta o cargo neste agente";
 //!   a cargo that fails says its code and its first error.

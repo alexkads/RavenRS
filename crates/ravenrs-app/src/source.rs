@@ -88,6 +88,9 @@ fn entity(
     if let Some(text) = &settings.empty_text {
         info = info.empty_text(text.value());
     }
+    if let Some(text) = &settings.empty_hint {
+        info = info.empty_hint(text.value());
+    }
     if let Some(text) = &settings.list_criteria {
         info = info.list_criteria(text.value());
     }
