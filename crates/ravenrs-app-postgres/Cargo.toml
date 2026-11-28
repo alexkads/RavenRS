@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-app-postgres"
+workspace = "../../camadas/servicos"
 description = "PostgreSQL for RavenRS applications: records on tables, as an ObjectSpace."
 version.workspace = true
 edition.workspace = true

@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-e2e"
+workspace = "../../camadas/widgets"
 description = "End-to-end tests for RavenRS apps: find a part of the screen by test id, role and name or text, act on it with real input events, check it, and read the screen as text. Errors carry stable codes, what was on the screen and what came close."
 version.workspace = true
 edition.workspace = true

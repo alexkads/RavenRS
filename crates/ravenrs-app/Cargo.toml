@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-app"
+workspace = "../../camadas/app"
 description = "The model of a RavenRS business application: entities, a layered application model, object spaces, actions and controllers. No GUI."
 version.workspace = true
 edition.workspace = true

@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-process"
+workspace = "../../camadas/nucleo"
 description = "Runs a child program for RavenRS apps: arguments with no shell, an environment of allowed variables only, input lines, output and error lines as events, a time limit, and stopping it with everything it started."
 version.workspace = true
 edition.workspace = true

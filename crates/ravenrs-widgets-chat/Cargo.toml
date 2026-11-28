@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-widgets-chat"
+workspace = "../../camadas/widgets"
 description = "RavenRS Chat, its conversation pieces, RichText, and the CodeEditor and Playground. Applications use them through ravenrs-widgets."
 version.workspace = true
 edition.workspace = true

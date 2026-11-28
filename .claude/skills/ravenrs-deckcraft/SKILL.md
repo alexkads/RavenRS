@@ -122,11 +122,11 @@ scripts/storytold/merge.py deckcraft $S/old $S/new
 
 ```bash
 # num slot fixo (slot-a ou slot-b), com o target dele: sem CARGO_TARGET_DIR
-cargo nextest run -p ravenrs-deck
-cargo test -p ravenrs-deck --doc
-cargo clippy -p ravenrs-deck --all-targets -- -D warnings
-cargo check -p ravenrs-deck --target wasm32-unknown-unknown
-cargo tree -p ravenrs-deck | grep -c 'git+'   # tem de dar 0
+cargo nextest run --manifest-path camadas/documentos/Cargo.toml -p ravenrs-deck
+cargo test --manifest-path camadas/documentos/Cargo.toml -p ravenrs-deck --doc
+cargo clippy --manifest-path camadas/documentos/Cargo.toml -p ravenrs-deck --all-targets -- -D warnings
+cargo check --manifest-path camadas/documentos/Cargo.toml -p ravenrs-deck --target wasm32-unknown-unknown
+cargo tree --manifest-path camadas/documentos/Cargo.toml -p ravenrs-deck | grep -c 'git+'   # tem de dar 0
 cargo deny check
 cargo xtask pr
 ```

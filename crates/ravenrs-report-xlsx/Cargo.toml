@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-report-xlsx"
+workspace = "../../camadas/documentos"
 description = "XLSX and CSV export for RavenRS Reporting: real numbers and dates in cells, laid out as on the page."
 version.workspace = true
 edition.workspace = true

@@ -52,7 +52,7 @@ Each run ends with the time per step, slowest first, saved to `<target>/check-ti
 | `cargo run --release --manifest-path crates/ravenrs-perf/Cargo.toml -- gate`, only with `RAVENRS_GATE=1` | Performance regressions: the exact work of every scene against `perf/baseline.json`. It runs when asked for, not on every check |
 | Web builds | The examples build and bind for WebAssembly |
 
-GPU tests skip themselves, with a message, on machines without a GPU adapter. To accept an intended visual change, regenerate the golden images with `RAVENRS_UPDATE_GOLDEN=1 cargo test -p ravenrs --test suite visual::`, then review the PNG diff in the commit. A failing run writes `*.actual.png` next to the golden image.
+GPU tests skip themselves, with a message, on machines without a GPU adapter. To accept an intended visual change, regenerate the golden images with `RAVENRS_UPDATE_GOLDEN=1 cargo test --manifest-path camadas/plataforma/Cargo.toml -p ravenrs --test suite visual::`, then review the PNG diff in the commit. A failing run writes `*.actual.png` next to the golden image.
 
 Release checks, run by hand before each publish:
 - `cargo semver-checks` against the previous release.

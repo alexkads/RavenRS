@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-e2e-wire"
+workspace = "../../camadas/widgets"
 description = "The test channel of RavenRS apps: a tool such as Raven Test Studio opens the app in a child process with no window and drives it, one JSON line per step, with ravenrs-e2e on the other side."
 version.workspace = true
 edition.workspace = true

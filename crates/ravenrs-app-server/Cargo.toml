@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-app-server"
+workspace = "../../camadas/servicos"
 description = "Web API for RavenRS applications: protected CRUD, filters, batches and OpenAPI over the model and the permissions."
 version.workspace = true
 edition.workspace = true

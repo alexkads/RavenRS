@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-app-derive"
+workspace = "../../camadas/app"
 description = "The derives of ravenrs-app: declare a business object as a Rust struct."
 version.workspace = true
 edition.workspace = true

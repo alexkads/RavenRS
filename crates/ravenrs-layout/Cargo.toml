@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-layout"
+workspace = "../../camadas/nucleo"
 description = "RavenRS layout: a small, typed facade over Taffy's flexbox."
 version.workspace = true
 edition.workspace = true

@@ -45,6 +45,9 @@ pub fn project_files(name: &str, template: &str, target: &str) -> Result<Vec<Pro
             file.contents = file.contents.replace(&from, &to);
         }
     }
+    // An example is a workspace of its own and ends with the copy of the root's sections that
+    // scripts/camadas.py writes (#1084): a new project starts without it.
+    let manifest = manifest.split("# >>> camadas.py").next().unwrap_or(manifest);
     let mut manifest: DocumentMut = manifest.parse().map_err(|e| format!("Modelo: {e}"))?;
     let workspace: DocumentMut = WORKSPACE.parse().map_err(|e| format!("Workspace: {e}"))?;
     manifest["package"]["name"] = value(name);

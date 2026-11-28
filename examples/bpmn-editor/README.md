@@ -27,7 +27,7 @@ cargo run --manifest-path examples/bpmn-editor/Cargo.toml --release
 
 ## Tested
 
-- `cargo test -p ravenrs-flow-bpmn`: the XML against itself and against another tool's file,
+- `cargo test --manifest-path camadas/automacao/Cargo.toml -p ravenrs-flow-bpmn`: the XML against itself and against another tool's file,
   the checks, the plans and the debugger through the screen.
 - `cargo test --manifest-path examples/bpmn-editor/Cargo.toml`: the editor through its interface.
 - With a local model on disk, `RAVENRS_MODELS=<folder> cargo test --manifest-path examples/bpmn-editor/Cargo.toml --test local_ai

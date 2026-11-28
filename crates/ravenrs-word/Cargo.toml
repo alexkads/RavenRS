@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-word"
+workspace = "../../camadas/documentos"
 description = "Headless word-processing engine for RavenRS: a document model with styles, lists, tables, notes and tracked changes, and DOCX, DOC, RTF, ODT, HTML, Markdown, LaTeX and plain text reading and writing."
 version.workspace = true
 edition.workspace = true

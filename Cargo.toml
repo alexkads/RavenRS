@@ -1,11 +1,26 @@
 [workspace]
 resolver = "3"
-# The library and the tooling. The showcase, the applications and Raven CI are workspaces of their
-# own (camadas.toml, #1080): `python3 scripts/camadas.py workspaces` lists them, and
-# `python3 scripts/camadas.py deps --write` copies the sections below into each one.
-members = ["crates/*", "xtask"]
-# Applications of their own, opened and built apart: they prove a package works outside this workspace.
-exclude = ["examples/contracts", "crates/ravenrs-perf"]
+# The tooling, and the canonical list of versions, dependencies, lints and profiles. Every layer of
+# camadas.toml is a workspace of its own (#1080): the library's in camadas/<layer>/ with their crates
+# in crates/ (#1086), the showcase, the applications and Raven CI in their folders.
+# `python3 scripts/camadas.py workspaces` lists them, and `python3 scripts/camadas.py deps --write`
+# copies the sections below into each one and writes `members` and `exclude` here.
+members = [
+    "crates/cargo-ravenrs",
+    "crates/ravenrs-agent-cli",
+    "crates/ravenrs-e2e-runner",
+    "crates/ravenrs-junit",
+    "crates/ravenrs-lint",
+    "crates/ravenrs-mcp",
+    "crates/ravenrs-xcache",
+    "xtask",
+]
+# `crates` holds the library's layers, workspaces of their own: excluded, so a path dependency of the
+# tooling does not make one of them a member here.
+exclude = [
+    "crates",
+    "examples/contracts",
+]
 
 [workspace.package]
 version = "27.1.28"
@@ -145,6 +160,11 @@ missing_docs = "warn"
 [workspace.lints.clippy]
 unwrap_used = "warn"
 expect_used = "warn"
+
+# Each workspace apart carries the whole list of the root's dependencies (camadas.toml, #1080) and
+# uses part of it: without this, Cargo warns about every entry the workspace does not use.
+[workspace.lints.cargo]
+unused_workspace_dependencies = "allow"
 
 [profile.dev]
 # Each worktree has its own target/; keep backtraces with file and line, drop the rest.

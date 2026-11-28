@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-barcode"
+workspace = "../../camadas/nucleo"
 description = "Barcodes as plain data for RavenRS: EAN, UPC, Code 128, Code 39, ITF, QR Code and GTIN checks, with nothing about drawing."
 version.workspace = true
 edition.workspace = true

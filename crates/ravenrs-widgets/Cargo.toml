@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-widgets"
+workspace = "../../camadas/widgets"
 description = "RavenRS declarative views, the extension API for custom components, and the UI runtime."
 version.workspace = true
 edition.workspace = true

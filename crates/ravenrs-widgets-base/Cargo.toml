@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-widgets-base"
+workspace = "../../camadas/widgets"
 description = "The base of the RavenRS widgets: the UI runtime, motion, platform services and the basic controls. Applications use it through ravenrs-widgets."
 version.workspace = true
 edition.workspace = true

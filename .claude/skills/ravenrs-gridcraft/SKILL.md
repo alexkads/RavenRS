@@ -97,10 +97,10 @@ E, como para todos:
 ## Testar
 
 ```bash
-cargo clippy -p ravenrs-sheet --all-features --tests -- -D warnings
-cargo test -p ravenrs-sheet --all-features
-cargo clippy -p ravenrs-sheet -p ravenrs-spreadsheet --target wasm32-unknown-unknown -- -D warnings
-cargo test -p ravenrs-spreadsheet
+cargo clippy --manifest-path camadas/documentos/Cargo.toml -p ravenrs-sheet --all-features --tests -- -D warnings
+cargo test --manifest-path camadas/documentos/Cargo.toml -p ravenrs-sheet --all-features
+cargo clippy --manifest-path camadas/documentos/Cargo.toml -p ravenrs-sheet -p ravenrs-spreadsheet --target wasm32-unknown-unknown -- -D warnings
+cargo test --manifest-path camadas/telas/Cargo.toml -p ravenrs-spreadsheet
 cargo xtask pr
 ```
 

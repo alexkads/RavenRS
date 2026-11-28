@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-spreadsheet"
+workspace = "../../camadas/telas"
 description = "Spreadsheet component for RavenRS: opens, edits and saves XLSX workbooks with formulas that recalculate, on the desktop and the web."
 version.workspace = true
 edition.workspace = true

@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-perifericos"
+workspace = "../../camadas/nucleo"
 description = "Commercial automation peripherals for RavenRS as data: versioned driver manifests for printers, label printers, pinpads and scanners, with signed catalogs and rollback. Drivers carry no code."
 version.workspace = true
 edition.workspace = true

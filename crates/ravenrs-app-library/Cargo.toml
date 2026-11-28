@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-app-library"
+workspace = "../../camadas/telas"
 description = "Records most RavenRS business applications need: people, organizations, addresses, tasks, events, notes and files, ready to use or extend."
 version.workspace = true
 edition.workspace = true

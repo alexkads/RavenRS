@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-deck"
+workspace = "../../camadas/documentos"
 description = "Headless presentation engine for RavenRS: a slide model with masters, layouts, shapes, text, tables, charts and animations; PPTX and native-format reading and writing; slide rendering to pixels; PDF export; and the commands and undo history an editor drives."
 version.workspace = true
 edition.workspace = true

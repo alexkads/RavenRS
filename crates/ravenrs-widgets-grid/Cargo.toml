@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-widgets-grid"
+workspace = "../../camadas/widgets"
 description = "The RavenRS DataGrid: sorting, filters, grouping, summaries, editing, export and remote rows. Applications use it through ravenrs-widgets."
 version.workspace = true
 edition.workspace = true

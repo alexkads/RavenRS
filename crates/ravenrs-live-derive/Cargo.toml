@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-live-derive"
+workspace = "../../camadas/nucleo"
 description = "#[ravenrs_live::expose]: registers what an impl block or an enum offers with the interpreter of ravenrs-live."
 version.workspace = true
 edition.workspace = true

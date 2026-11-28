@@ -69,7 +69,7 @@ Um comando novo entra por mudança no programa, não por manifesto.
 
 Hoje `report-label` usa `corte_total`, `corte_parcial`, `bipe`, `gaveta`, `comando_modo` e `tamanho_bloco` em ESC/POS, e `polaridade_invertida` em todas as linguagens. `codepage` é aceito e não é usado, porque tudo sai como imagem.
 
-O id no arquivo embutido precisa constar em `src/embutidos.rs`, e `cargo test -p ravenrs-perifericos` valida cada um.
+O id no arquivo embutido precisa constar em `src/embutidos.rs`, e `cargo test --manifest-path camadas/nucleo/Cargo.toml -p ravenrs-perifericos` valida cada um.
 
 ## Situação
 
@@ -122,7 +122,7 @@ A chave privada fica fora do repositório.
 
 ```sh
 openssl rand -hex 32 > ~/chaves/perifericos.chave
-cargo run -p ravenrs-perifericos --example assinar_catalogo -- ~/chaves/perifericos.chave catalogo.json catalogo.assinado.json
+cargo run --manifest-path camadas/nucleo/Cargo.toml -p ravenrs-perifericos --example assinar_catalogo -- ~/chaves/perifericos.chave catalogo.json catalogo.assinado.json
 ```
 
 A ferramenta abre o resultado com as mesmas verificações do cliente antes de gravar, e imprime a chave pública. Essa chave entra no programa ao compilar:

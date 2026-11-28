@@ -38,12 +38,26 @@ KINDS = {
 }
 
 
+def layer_manifest(package: str) -> list:
+    """`--manifest-path` of the workspace that has `package`: the library's layers are workspaces of
+    their own (camadas.toml, #1086). Nothing when it is the root's."""
+    listed = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "camadas.py"), "workspaces"],
+        cwd=ROOT, capture_output=True, text=True, check=True,
+    ).stdout
+    for line in listed.splitlines():
+        folder, *own = line.split()
+        if package in own:
+            return ["--manifest-path", f"{folder}/Cargo.toml"]
+    return []
+
+
 def rustdoc_json(package: str, hidden: bool = False) -> dict:
     """rustdoc's JSON of a package. `hidden` keeps the items of hidden modules, which a crate the
     package re-exports from has: its public names live there."""
     target = Path(os.environ.get("CARGO_TARGET_DIR") or ROOT / "target")
     command = [
-        "cargo", "+nightly", "rustdoc", "-q", "-p", package, "--all-features",
+        "cargo", "+nightly", "rustdoc", "-q", *layer_manifest(package), "-p", package, "--all-features",
         "--", "-Z", "unstable-options", "--output-format", "json",
     ]
     if hidden:

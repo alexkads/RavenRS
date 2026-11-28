@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-report-server"
+workspace = "../../camadas/servicos"
 description = "Report server for RavenRS Reporting: stores layouts, renders over HTTP and delivers scheduled reports as PDF, XLSX or CSV."
 version.workspace = true
 edition.workspace = true

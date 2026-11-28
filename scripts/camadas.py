@@ -152,10 +152,46 @@ def workspaces(camadas):
     return [pasta for pasta, _ in separados(camadas)]
 
 
+def pastas_do_workspace(pasta, membros):
+    """As pastas, relativas à raiz, que são do workspace em `pasta`: ela e a de cada membro. Os
+    membros de uma camada da biblioteca ficam fora dela, em `crates/` (F3, #1086)."""
+    return [pasta] + [os.path.normpath(os.path.join(pasta, m)) for m in membros]
+
+
 def pacotes_de(camadas, pasta, pastas=None):
-    """Os pacotes do workspace em `pasta`: o dela e os dos membros."""
+    """Os pacotes do workspace em `pasta`: o dela, os de dentro dela e os dos membros de fora."""
     pastas = pastas if pastas is not None else pastas_dos_pacotes()
-    return sorted(nome for nome, lugar in pastas.items() if lugar == pasta or lugar.startswith(pasta + "/"))
+    membros = dict(separados(camadas, pastas)).get(pasta, [])
+    fora = set(pastas_do_workspace(pasta, membros)[1:])
+    return sorted(
+        nome for nome, lugar in pastas.items() if lugar == pasta or lugar.startswith(pasta + "/") or lugar in fora
+    )
+
+
+def membros_da_raiz(camadas, pastas):
+    """As pastas dos pacotes que ficam no workspace da raiz: os das camadas não separadas."""
+    return sorted(pastas[p] for _, campos in camadas if not campos.get("separada") for p in campos.get("pacotes", []))
+
+
+def raiz_com_membros(raiz_toml, membros, excluidos):
+    """O Cargo.toml da raiz com `members` e `exclude` da seção `[workspace]` trocados. Com `members`
+    explícito e `crates` em `exclude`, um crate de camada separada não vira membro da raiz, nem
+    quando um membro dela o usa por caminho (o Cargo junta à raiz toda dependência de caminho de
+    dentro da pasta dela que não esteja excluída)."""
+    lista = lambda nomes: "[\n" + "".join(f'    "{n}",\n' for n in nomes) + "]"
+    cabeca, resto = raiz_toml.split("\n[workspace.", 1)
+    cabeca = re.sub(r"^members = \[.*?\]", lambda _: "members = " + lista(membros), cabeca, count=1, flags=re.M | re.S)
+    cabeca = re.sub(r"^exclude = \[.*?\]", lambda _: "exclude = " + lista(excluidos), cabeca, count=1, flags=re.M | re.S)
+    return cabeca + "\n[workspace." + resto
+
+
+def com_workspace(manifesto, relativo):
+    """O Cargo.toml de um membro com `workspace = "<relativo>"` logo depois do `name` do `[package]`."""
+    sem = re.sub(r'^workspace = "[^"]*"\n', "", manifesto, count=1, flags=re.M)
+    return re.sub(
+        r'^(\[package\]\s*\n(?:.*\n)*?name\s*=\s*"[^"]+"\n)', lambda m: m.group(1) + f'workspace = "{relativo}"\n',
+        sem, count=1, flags=re.M,
+    )
 
 
 def secoes(texto):
@@ -233,9 +269,40 @@ def divergencias(locks):
 def deps(camadas, escrever):
     raiz_toml = (root / "Cargo.toml").read_text(encoding="utf-8")
     problemas = []
-    for pasta, membros in separados(camadas):
+    pastas = pastas_dos_pacotes()
+    lista = separados(camadas, pastas)
+    # A raiz: só o que não saiu, e nenhum crate de camada separada como membro dela.
+    membros = membros_da_raiz(camadas, pastas)
+    fora_de_crates = any(m.startswith("../") for _, ms in lista for m in ms)
+    # `crates/ravenrs-perf` é um app (um workspace dele); `crates` inteiro o cobre.
+    excluidos = sorted({"examples/contracts", "crates" if fora_de_crates else "crates/ravenrs-perf"})
+    esperada = raiz_com_membros(raiz_toml, membros, excluidos)
+    if esperada != raiz_toml:
+        if escrever:
+            (root / "Cargo.toml").write_text(esperada, encoding="utf-8")
+            raiz_toml = esperada
+            print("Cargo.toml: members e exclude da raiz escritos")
+        else:
+            problemas.append("Cargo.toml: members ou exclude da raiz não batem com camadas.toml; rode `python3 scripts/camadas.py deps --write`")
+    for pasta, membros in lista:
         manifesto = root / pasta / "Cargo.toml"
-        atual = manifesto.read_text(encoding="utf-8")
+        if not manifesto.exists() and escrever:
+            manifesto.parent.mkdir(parents=True, exist_ok=True)
+            manifesto.write_text(
+                f"# A camada {pasta.split('/')[-1]} do RavenRS, um workspace Cargo (camadas.toml, #1086).\n"
+                "# Os membros ficam em crates/; abra este workspace para trabalhar nela.\n",
+                encoding="utf-8",
+            )
+        for membro in (m for m in membros if m.startswith("../")):
+            arquivo = root / os.path.normpath(os.path.join(pasta, membro)) / "Cargo.toml"
+            texto = arquivo.read_text(encoding="utf-8")
+            certo = com_workspace(texto, os.path.relpath(pasta, os.path.normpath(os.path.join(pasta, membro))))
+            if certo != texto:
+                if escrever:
+                    arquivo.write_text(certo, encoding="utf-8")
+                else:
+                    problemas.append(f"{arquivo.relative_to(root)}: falta `workspace = ...` apontando para {pasta}; rode `python3 scripts/camadas.py deps --write`")
+        atual = manifesto.read_text(encoding="utf-8") if manifesto.exists() else ""
         esperado = com_bloco(atual, bloco(raiz_toml, pasta, membros))
         if atual != esperado:
             if escrever:
@@ -269,18 +336,20 @@ def mudados(camadas):
     git = lambda *a: subprocess.run(["git", *a], cwd=root, check=True, capture_output=True, text=True).stdout
     fork = git("merge-base", "HEAD", base).strip()
     arquivos = set(git("diff", "--name-only", fork).split("\n")) | set(git("ls-files", "--others", "--exclude-standard").split("\n"))
-    return workspaces_de([f for f in arquivos if f], workspaces(camadas))
+    donas = {pasta: pastas_do_workspace(pasta, membros) for pasta, membros in separados(camadas)}
+    return workspaces_de([f for f in arquivos if f], donas)
 
 
-def workspaces_de(arquivos, pastas):
-    """As pastas de workspace que algum arquivo toca, na ordem de `pastas`. Um arquivo vai para a
-    pasta mais funda que o contém."""
+def workspaces_de(arquivos, donas):
+    """As pastas de workspace que algum arquivo toca, na ordem de `donas` ({workspace: [pastas
+    dele]}). Um arquivo vai para o workspace da pasta mais funda que o contém."""
+    pares = [(lugar, pasta) for pasta, lugares in donas.items() for lugar in lugares]
     tocadas = set()
     for arquivo in arquivos:
-        donas = [p for p in pastas if arquivo.startswith(p + "/")]
-        if donas:
-            tocadas.add(max(donas, key=len))
-    return [p for p in pastas if p in tocadas]
+        contem = [(lugar, pasta) for lugar, pasta in pares if arquivo.startswith(lugar + "/")]
+        if contem:
+            tocadas.add(max(contem, key=lambda par: len(par[0]))[1])
+    return [p for p in donas if p in tocadas]
 
 
 # --- autoteste -----------------------------------------------------------------------------------
@@ -334,8 +403,23 @@ def autoteste():
     assert [serie(v) for v in ("1.2.3", "0.10.7", "0.0.4", "2.0.0-rc.1")] == ["1", "0.10", "0.0.4", "2"]
 
     assert pacotes_de(camadas, "tools/ci", pastas) == ["ci", "ci-core"], pacotes_de(camadas, "tools/ci", pastas)
-    assert workspaces_de(["tools/ci/crates/x/src/lib.rs", "crates/a/x.rs"], ["examples/c", "tools/ci"]) == ["tools/ci"]
-    assert workspaces_de(["examples/c/Cargo.toml", "examples/cd/x"], ["examples/c", "tools/ci"]) == ["examples/c"]
+    donas = {"examples/c": ["examples/c"], "tools/ci": ["tools/ci", "tools/ci/crates/ci-core"]}
+    assert workspaces_de(["tools/ci/crates/x/src/lib.rs", "crates/a/x.rs"], donas) == ["tools/ci"]
+    assert workspaces_de(["examples/c/Cargo.toml", "examples/cd/x"], donas) == ["examples/c"]
+
+    # Uma camada da biblioteca: o workspace em camadas/, os membros em crates/ (F3, #1086).
+    biblioteca = ler_camadas('[base]\nseparada = true\npasta = "camadas/base"\npacotes = ["a", "b"]\n[topo]\npacotes = ["x"]\n')
+    lugares = {"a": "crates/a", "b": "crates/b", "x": "crates/x"}
+    assert separados(biblioteca, lugares) == [("camadas/base", ["../../crates/a", "../../crates/b"])], separados(biblioteca, lugares)
+    assert pacotes_de(biblioteca, "camadas/base", lugares) == ["a", "b"]
+    assert membros_da_raiz(biblioteca, lugares) == ["crates/x"]
+    assert workspaces_de(["crates/b/src/lib.rs"], {"camadas/base": pastas_do_workspace("camadas/base", ["../../crates/a", "../../crates/b"])}) == ["camadas/base"]
+    assert workspaces_de(["crates/x/src/lib.rs"], {"camadas/base": ["camadas/base", "crates/a"]}) == []
+    membro = '[package]\nname = "a"\nversion.workspace = true\n'
+    assert com_workspace(membro, "../../camadas/base") == '[package]\nname = "a"\nworkspace = "../../camadas/base"\nversion.workspace = true\n'
+    assert com_workspace(com_workspace(membro, "../../camadas/x"), "../../camadas/base") == com_workspace(membro, "../../camadas/base")
+    raiz_nova = raiz_com_membros(raiz, ["crates/x", "xtask"], ["crates"])
+    assert 'members = [\n    "crates/x",\n    "xtask",\n]' in raiz_nova and "[workspace.package]" in raiz_nova, raiz_nova
     print("camadas.py: autoteste passou")
 
 

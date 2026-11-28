@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-app-postgrest"
+workspace = "../../camadas/servicos"
 description = "PostgREST for RavenRS applications: records through the database's HTTP API, as an ObjectSpace."
 version.workspace = true
 edition.workspace = true

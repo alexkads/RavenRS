@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-flow-export"
+workspace = "../../camadas/automacao"
 description = "Saves a RavenRS FlowCanvas diagram as a PNG picture, an SVG drawing or a PDF page."
 version.workspace = true
 edition.workspace = true

@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-reactive"
+workspace = "../../camadas/nucleo"
 description = "Single-threaded reactive state for RavenRS: State, Binding, Derived and dependency-tracking observers."
 version.workspace = true
 edition.workspace = true

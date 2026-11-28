@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-metrics"
+workspace = "../../camadas/servicos"
 description = "Metrics for RavenRS services in the Prometheus text format: counters, gauges and histograms with labels, safe from any thread, and the memory the process holds."
 version.workspace = true
 edition.workspace = true

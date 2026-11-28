@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-grid-export"
+workspace = "../../camadas/documentos"
 description = "Turns what a RavenRS DataGrid shows into an Excel, PDF or CSV file, through the same exporters as reports."
 version.workspace = true
 edition.workspace = true
