@@ -129,6 +129,32 @@ The commit checks it all with `check_closing`, in every space here (memory, SQL 
 
 What waits: the precondition runs in `approve`, not in the commit, so a record written as the period is approved can slip through it; the generated actions and screen (`ClosingModule`) come next (#855). In PostgreSQL the documents go to `PostgresAttachmentStore`, as `BYTEA` in a table apart from the records.
 
+### Access for a while and revoking a user
+
+An administrator gives someone, such as support, access with a reason and a deadline:
+
+```rust
+let policy = TemporaryAccessPolicy::new("Support") // the role the user gets, not administrative
+    .max_hours(72)                                  // the longest it lasts
+    .min_reason(10)                                 // characters the reason needs
+    .name_prefix("support-");                       // how the user is named
+let access = context.grant_temporary_access(&policy, "cash register support", 2)?;
+// access.user_name, access.password (shown once, never kept or audited), access.expires_at
+```
+
+In one commit, written to the audit trail when the context has one, it creates the user with `expires_at`, links the role and keeps a `SecurityTemporaryAccess` with the reason, who granted it, when and until when. The password is random, from the same source as the salt of the hash, and `TemporaryAccess` does not show it in `Debug`.
+
+- Past `expires_at` the user is not active: `authenticate` turns them off first (`UserDirectory::end_expired`) and refuses with the same `AuthError::Rejected` as a wrong password, and `identity_by_key` gives nobody, so the next `reload` of an open session leaves it no permission. The access ends with `ACCESS_EXPIRED`.
+- `revoke_user(&key)` turns the user off, with their API keys, and ends their open accesses with "Revoked by <name>", in one commit. Nobody revokes themselves (`AccessError::OwnUser`), nor the last active administrator (`AccessError::LastAdministrator`).
+- Only an administrator does either (`AccessError::NotAllowed`). An access that ended is sealed: it does not change again.
+- `TemporaryAccessPolicy::clock` reads the time from elsewhere, so a test moves past the deadline without waiting.
+
+`SecuredApp::temporary_access(policy)` checks, when it is built, that the role is there and not administrative; it ends who expired before each sign in and, at most every `check_every` by the policy's clock, when a screen of an open session opens.
+
+With a policy, the list of users has Grant temporary access, which asks the reason and the hours and shows the user, the deadline and the password once, and Revoke access, which asks first.
+
+The web API reads who a session is on each call, so a user expired or revoked gets 401 on the next one.
+
 ## Scenarios
 
 Each scenario has one owner issue, where its checklist lives. The text of the interface may change; the observable result is the contract. Sketches V01–V16 and diagrams D01–D03 are in the [visual appendix of #253](https://github.com/alexkads/RavenRS/issues/253#issuecomment-6828194062).
