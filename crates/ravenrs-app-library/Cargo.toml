@@ -14,10 +14,16 @@ documentation = "https://docs.rs/ravenrs-app-library"
 keywords = ["application", "framework", "crud", "entities"]
 categories = ["gui", "data-structures"]
 
+[features]
+default = ["finance"]
+# Bills to pay and to receive, settlements and the cash book (`finance`). On by default; an
+# application without finances leaves it off with `default-features = false`.
+finance = ["dep:ravenrs-criteria"]
+
 [dependencies]
 ravenrs-app.workspace = true
 # Dates and splitting money to the cent, for the finances.
-ravenrs-criteria.workspace = true
+ravenrs-criteria = { workspace = true, optional = true }
 
 [dev-dependencies]
 ravenrs-app-postgres.workspace = true
@@ -28,6 +34,14 @@ ravenrs-app-ui.workspace = true
 ravenrs-core.workspace = true
 ravenrs-style.workspace = true
 ravenrs-widgets.workspace = true
+
+[[test]]
+name = "finance"
+required-features = ["finance"]
+
+[[test]]
+name = "finance_screen"
+required-features = ["finance"]
 
 [lints]
 workspace = true

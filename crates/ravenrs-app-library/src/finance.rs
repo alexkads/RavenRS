@@ -31,8 +31,8 @@
 //! ```
 
 use ravenrs_app::{
-    EntityInfo, EnumOption, FieldInfo, FieldKind, Object, ObjectSpace, Query, Seal, SpaceError, StateMachine,
-    Value, key_text,
+    AuditMode, AuditSettings, DueDigest, EntityInfo, EnumOption, FieldInfo, FieldKind, Object, ObjectSpace, Query,
+    Seal, SpaceError, StateMachine, Value, key_text,
 };
 use ravenrs_criteria::{DateTime, Remainder, allocate};
 
@@ -46,6 +46,8 @@ pub const COMMITMENT: &str = "Commitment";
 pub const SETTLEMENT: &str = "Settlement";
 /// The review of a settlement before it is kept: no storage keeps it.
 pub const SETTLE_REVIEW: &str = "SettleReview";
+/// The review of a split before it is made: no storage keeps it.
+pub const INSTALLMENT_PLAN: &str = "InstallmentPlan";
 
 /// The most installments a bill is split in.
 pub const MOST_INSTALLMENTS: u32 = 120;
@@ -163,6 +165,13 @@ pub fn commitment() -> EntityInfo {
         .field(FieldInfo::new("installments", FieldKind::Integer).read_only())
         .rule(ravenrs_app::Rule::required("description"))
         .state_machine(commitment_states())
+        .due_digest(
+            DueDigest::new("due_on")
+                .pending("[status] = 'open' Or [status] = 'partial'")
+                .label("description")
+                .amount("balance")
+                .words("bill", "bills"),
+        )
 }
 
 /// A settlement of a bill, with what was added and taken off. Once reversed it is sealed.
@@ -206,9 +215,41 @@ pub fn settle_review() -> EntityInfo {
         )
 }
 
-/// Every entity of the finances, for a database to know. The review of a settlement is not kept.
+/// What the person checks before splitting a bill: the bill, in how many installments, from 2 to
+/// [`MOST_INSTALLMENTS`], and when the first is due; the others fall due on the same day of the
+/// months after. No storage keeps it; Split opens it on a window, filled with two installments
+/// from the due date of the bill, and splits what it says on OK.
+pub fn installment_plan() -> EntityInfo {
+    EntityInfo::new(INSTALLMENT_PLAN)
+        .caption("Split")
+        .transient()
+        .field(key())
+        .field(reference("origin_id", COMMITMENT).caption("Bill").read_only())
+        .field(FieldInfo::new("installments", FieldKind::Integer).caption("Installments").default_value(2.0))
+        .field(FieldInfo::new("first_due", FieldKind::Date).caption("First due"))
+        .rule(ravenrs_app::Rule::required("first_due"))
+        .rule(ravenrs_app::Rule::range("installments", Some(2.0), Some(f64::from(MOST_INSTALLMENTS))))
+}
+
+/// Every entity of the finances, for a database to know. The reviews of a settlement and of a
+/// split are not kept.
 pub fn entities() -> Vec<EntityInfo> {
-    vec![finance_category(), ledger_entry(), commitment(), settlement(), settle_review()]
+    vec![finance_category(), ledger_entry(), commitment(), settlement(), settle_review(), installment_plan()]
+}
+
+/// The audit trail the finances ask for, over what the application already writes: settlements
+/// and cash book entries in full, with every field before and after. So the line of a settlement
+/// names its bill and its entry, and the line of a reversal names the entry it reverses.
+///
+/// ```
+/// use ravenrs_app::{AuditMode, AuditSettings};
+/// use ravenrs_app_library::finance;
+///
+/// let settings = finance::audit(AuditSettings::new(AuditMode::Lightweight));
+/// # let _ = settings;
+/// ```
+pub fn audit(settings: AuditSettings) -> AuditSettings {
+    settings.entity(SETTLEMENT, AuditMode::Full).entity(LEDGER_ENTRY, AuditMode::Full)
 }
 
 /// What a settlement takes: the date, how much of the bill, and what is added or taken off, in
@@ -785,26 +826,39 @@ impl ravenrs_app::ViewController for FinanceActions {
                         .map(|_| ())
                         .map_err(|e| e.to_string())
                 }),
-            Action::parametrized(SPLIT_BILL, "Split", FieldKind::Integer)
+            // A window to check in how many installments and from when, then OK splits it.
+            Action::popup(SPLIT_BILL, "Split", format!("{INSTALLMENT_PLAN}_DetailView"))
                 .category(ActionCategory::Edit)
                 .target_entity(COMMITMENT)
                 .selection(Selection::RequireSingle)
                 .requires(Operation::Write)
                 .target_criteria("[status] = 'open' And [settled] = 0", CriteriaMode::TrueForAll)
                 .icon("split")
-                .on_execute(move |cx| {
-                    let bill = cx.selected.first().ok_or("this action needs a bill")?;
-                    let ActionInput::Parameter(Value::Number(parts)) = &cx.input else {
-                        return Err("say in how many installments".to_owned());
-                    };
+                .on_prepare(move |cx, plan| {
+                    let Some(bill) = cx.selected.first() else { return };
+                    plan.set("origin_id", bill.get("id"));
+                    plan.set("installments", 2.0);
                     let first = match bill.get("due_on") {
                         Value::Date(due) => due,
                         _ => today(),
                     };
+                    plan.set("first_due", Value::Date(first));
+                })
+                .on_execute(move |cx| {
+                    let bill = cx.selected.first().ok_or("this action needs a bill")?;
+                    let ActionInput::Record(plan) = &cx.input else {
+                        return Err("check the installments first".to_owned());
+                    };
+                    let parts = plan
+                        .integer("installments")
+                        .and_then(|parts| u32::try_from(parts).ok())
+                        .ok_or("say in how many installments")?;
+                    let first = match plan.get("first_due") {
+                        Value::Date(due) => due,
+                        _ => return Err("say when the first installment is due".to_owned()),
+                    };
                     let mut space = cx.space.borrow_mut();
-                    split(&mut *space, &bill.get("id"), *parts as u32, first)
-                        .map(|_| ())
-                        .map_err(|e| e.to_string())
+                    split(&mut *space, &bill.get("id"), parts, first).map(|_| ()).map_err(|e| e.to_string())
                 }),
             Action::parametrized(REVERSE_SETTLEMENT, "Reverse", FieldKind::LongText)
                 .category(ActionCategory::Edit)
