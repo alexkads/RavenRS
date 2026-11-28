@@ -2735,11 +2735,28 @@ fn a_panel_shows_each_number_with_its_level() {
     let said = c.texts().join(" | ");
     // number_in, filtered and level: 410 needs attention, one late is critical, four records are fine.
     for caption in
-        ["Valor em aberto", "Atrasados", "Registros", "Produtos do caixa", "Valor por situação", "Por mês"]
+        ["Valor em aberto", "Atrasados", "Registros", "Com observação", "Valor por situação", "Por mês"]
     {
         assert!(said.contains(caption), "{caption}: {said}");
     }
     assert!(said.contains("Atenção") && said.contains("Crítico") && said.contains("Em dia"), "{said}");
+    // group, group_note and number_with: one late in four is 25 %, attention.
+    assert!(
+        said.contains("Situações") && said.contains("Parte atrasada (%)") && said.contains("25"),
+        "{said}"
+    );
+    assert!(said.contains("qualquer atrasado é crítico"), "{said}");
+    // document, and the print the panel brings.
+    let paper = format!("{:?}", raven_feature_center::painel::document(&c.session()));
+    assert!(paper.contains("Valor em aberto") && paper.contains("Atenção"), "{paper}");
+    c.press("Imprimir painel");
+    let printed = c.texts().join(" ");
+    assert!(printed.contains("ÁREA") && printed.contains("Parte atrasada (%) 25 Atenção"), "{printed}");
+    assert!(!printed.contains("precisa de"), "every number reads: {printed}");
+    c.press("Fechar");
+    // group_view.
+    c.press("Ver registros");
+    assert!(c.says("Atrasado"), "{:?}", c.texts());
 }
 
 #[test]

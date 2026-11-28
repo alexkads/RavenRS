@@ -454,7 +454,7 @@ fn a_panel_names_one_control_per_tile_from_the_struct_of_the_record() {
         .pie::<Sale>("Divisão", "item", "amount:Sum")
         .info();
     let captions: Vec<_> = info.items.iter().map(|item| (item.caption.as_str(), item.id.as_str())).collect();
-    assert_eq!(captions, [("Total", "Shop.tile0"), ("Divisão", "Shop.tile1")]);
+    assert_eq!(captions, [("Total", "Shop.tile0"), ("Divisão", "Shop.tile1"), ("Loja", "Shop.print")]);
     assert_eq!(info.icon.as_deref(), Some("layout-dashboard"));
 }
 
@@ -536,4 +536,85 @@ fn a_number_its_reader_may_not_see_is_restricted_never_zero() {
     let mut world = secured_with(&database, nothing, move |builder| builder.dashboard(info.clone()));
     let said = open_levels(&mut world);
     assert!(!said.contains(" 0 ") && !said.contains("R$ 0") && !said.contains("Critical"), "{said}");
+}
+
+/// Two areas: sales, which a role without `cost` may not read, and orders, which needs nothing.
+fn grouped_panel() -> AnalyticsPanel {
+    AnalyticsPanel::new("Areas", "Gestão à vista")
+        .group("Vendas")
+        .group_note("Em dia a partir de R$ 120,00 vendidos.")
+        .group_view("Order_ListView", "Ver pedidos")
+        .number_in("Order", "Total vendido", "cost:Sum")
+        .level(Thresholds::at_least(120.0, 60.0))
+        .number_with("Ticket médio", &["Order.cost"], |space| {
+            let orders = space.query("Order", &Query::all()).map_err(|e| e.to_string())?;
+            let total: f64 = orders.iter().filter_map(|order| order.number("cost")).sum();
+            Ok(total / 100.0 / orders.len().max(1) as f64)
+        })
+        .level(Thresholds::at_least(100.0, 50.0))
+        .group("Pedidos")
+        .number_in("Order", "Pedidos abertos", "")
+        .level(Thresholds::at_most(0.0, 0.0))
+}
+
+fn open_grouped(world: &mut World) -> String {
+    grouped_panel().register(&world.session);
+    world.settle();
+    world.session.open_view("Areas_DashboardView");
+    world.texts().join(" | ")
+}
+
+#[test]
+fn a_group_shows_the_worst_level_its_rule_and_its_view() {
+    let database = database();
+    let info = grouped_panel().info();
+    let captions: Vec<_> = info.items.iter().map(|item| item.id.as_str()).collect();
+    assert_eq!(captions, ["Areas.group0", "Areas.group1", "Areas.print"]);
+    let source = database.clone();
+    let mut world = World::over(move || source.space(), move |builder| builder.dashboard(info), None);
+    let said = open_grouped(&mut world);
+    // 150 sold is on track, 75 on average needs attention: the group is at attention.
+    assert!(
+        said.contains("Vendas") && said.contains("Total vendido") && said.contains("Ticket médio"),
+        "{said}"
+    );
+    assert!(said.contains("Em dia a partir de R$ 120,00 vendidos."), "{said}");
+    assert!(said.contains("75"), "the computed number: {said}");
+    let tree = world.ui.access_tree();
+    let named = |name: &str| tree.nodes.iter().filter(|node| node.name.as_deref() == Some(name)).count();
+    assert_eq!(named("Attention"), 2, "the average and its group: {said}");
+    assert_eq!(named("Critical"), 2, "two open orders and their group: {said}");
+    world.press("Ver pedidos");
+    assert!(world.says("Mesa") && world.says("Cadeira"), "the button opens the list: {:?}", world.texts());
+}
+
+#[test]
+fn a_group_all_restricted_says_only_that_and_the_print_follows_the_screen() {
+    let database = database();
+    let info = grouped_panel().info();
+    let no_cost = Role::new("Secretaria").policy(PermissionPolicy::ReadOnlyAll).member_permission(
+        "Order",
+        ["cost"],
+        None,
+        [Operation::Read],
+        Access::Deny,
+    );
+    let mut world = secured_with(&database, no_cost, move |builder| builder.dashboard(info.clone()));
+    let said = open_grouped(&mut world);
+    assert!(said.contains("Restricted to your role"), "{said}");
+    assert!(!said.contains("Em dia a partir") && !said.contains("Ver pedidos"), "no rule nor button: {said}");
+    assert!(said.contains("Pedidos abertos") && said.contains("Critical"), "the other group stays: {said}");
+
+    let document = grouped_panel().document(&world.session);
+    let text = format!("{document:?}");
+    assert!(text.contains("Restricted to your role") && text.contains("Pedidos abertos"), "{text}");
+    assert!(!text.contains("150"), "no value of a restricted number on paper");
+    world.press("Print panel");
+    let shown = world.texts().join(" ");
+    assert!(shown.contains("Page 1 of 1") && shown.contains("Print"), "the viewer opens: {shown}");
+    assert!(
+        shown.contains("Vendas Total vendido Restricted to your role")
+            && shown.contains("Pedidos abertos 2 Critical"),
+        "the same reading as the screen: {shown}"
+    );
 }

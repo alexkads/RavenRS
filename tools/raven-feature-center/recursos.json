@@ -38,7 +38,7 @@
 {"crate": "ravenrs-app-postgres", "tipo": "PostgresOptions", "pendente": true, "issue": 579, "conhecidos": ["connect_timeout", "new", "root_certificate_pem", "statements"]},
 {"crate": "ravenrs-app-postgrest", "tipo": "PostgrestBuilder", "pendente": true, "issue": 579, "conhecidos": ["api_key", "bearer", "build", "http", "page_size", "resource", "schema", "token_source", "words"]},
 {"crate": "ravenrs-app-postgrest", "tipo": "ResourceMap", "pendente": true, "issue": 579, "conhecidos": ["column", "new"]},
-{"crate": "ravenrs-app-report", "tipo": "AnalyticsPanel", "pagina": "Painel com níveis", "recursos": ["bar", "by", "chart_in", "doughnut", "filtered", "icon", "info", "level", "line", "navigation", "new", "number", "number_in", "pie", "register"]},
+{"crate": "ravenrs-app-report", "tipo": "AnalyticsPanel", "pagina": "Painel com níveis", "recursos": ["bar", "by", "chart_in", "document", "doughnut", "filtered", "group", "group_note", "group_view", "icon", "info", "level", "line", "navigation", "new", "number", "number_in", "number_with", "pie", "register"]},
 {"crate": "ravenrs-app-report", "tipo": "StoredReportsModule", "pendente": true, "issue": 579, "conhecidos": ["new", "predefined"]},
 {"crate": "ravenrs-app-requests", "tipo": "RequestsModule", "pendente": true, "issue": 579, "conhecidos": ["decide", "declared_entities", "delegate", "delegated_roles", "new", "policy", "roles_of", "steps", "submit", "tasks_for"]},
 {"crate": "ravenrs-app-requests", "tipo": "Step", "pendente": true, "issue": 579, "conhecidos": ["due_in", "new", "when"]},

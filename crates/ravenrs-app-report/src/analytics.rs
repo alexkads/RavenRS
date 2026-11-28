@@ -169,6 +169,76 @@ impl Thresholds {
     }
 }
 
+/// A number worked out in code, from the person's own unit of work.
+#[derive(Clone)]
+pub(crate) struct Computed(pub(crate) Rc<ComputeFn>);
+
+/// How a computed number is worked out.
+pub(crate) type ComputeFn = dyn Fn(&dyn ravenrs_app::ObjectSpace) -> Result<f64, String>;
+
+impl std::fmt::Debug for Computed {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Computed(..)")
+    }
+}
+
+impl PartialEq for Computed {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl Eq for Computed {}
+
+/// What a number tile reads now, for the screen and for the printed panel alike.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum Reading {
+    /// Its reader may not read what it needs.
+    Restricted,
+    /// It cannot be worked out, and why.
+    Problem(String),
+    /// The number as shown, and its level when it has thresholds.
+    Number(String, Option<IndicatorLevel>),
+}
+
+fn shown_number(value: f64) -> String {
+    if value.fract() == 0.0 { format!("{value:.0}") } else { format!("{value:.2}") }
+}
+
+/// Reads a number tile as the person signed in can.
+pub(crate) fn reading(session: &Session, tile: &TileSpec) -> Reading {
+    if !readable(session, tile) {
+        return Reading::Restricted;
+    }
+    let level = |value: Option<f64>| tile.thresholds.as_ref().and_then(|thresholds| thresholds.level(value?));
+    if let Some(computed) = &tile.computed {
+        let space = session.frame().space();
+        let space = space.borrow();
+        return match (computed.0)(&*space) {
+            Ok(value) => Reading::Number(shown_number(value), level(Some(value))),
+            Err(why) => Reading::Problem(why),
+        };
+    }
+    let Some(entity) = session.entity(&tile.target) else {
+        return Reading::Problem(format!("{} {}", session.words().list_editor_needs, tile.target));
+    };
+    let mut query = Query::all();
+    if !tile.filter.trim().is_empty() {
+        match Criteria::parse(&tile.filter) {
+            Ok(criteria) => query = query.filter(criteria),
+            Err(error) => return Reading::Problem(error.to_string()),
+        }
+    }
+    let objects = match session.frame().space().borrow().query(&tile.target, &query) {
+        Ok(objects) => objects,
+        Err(error) => return Reading::Problem(error.to_string()),
+    };
+    match summary_text(session, &entity, &objects, &tile.series) {
+        Ok(value) => Reading::Number(value, level(series_number(&entity, &objects, &tile.series))),
+        Err(why) => Reading::Problem(why),
+    }
+}
+
 /// The number a series gives over these records, in whole units: money comes in cents.
 pub(crate) fn series_number(entity: &EntityInfo, objects: &[Object], series: &str) -> Option<f64> {
     let series = series.trim();
@@ -213,8 +283,18 @@ fn fields_read(tile: &TileSpec) -> Vec<String> {
 /// Whether the person signed in may read all a tile needs: the entity and each field it reads.
 pub(crate) fn readable(session: &Session, tile: &TileSpec) -> bool {
     let Some(security) = session.frame().security() else { return true };
-    let fields = fields_read(tile);
     security.with(|permissions| {
+        if tile.computed.is_some() {
+            // What it declared it reads, as `Entity` or `Entity.field`.
+            return tile.requires.iter().all(|need| match need.split_once('.') {
+                Some((entity, field)) => {
+                    permissions.can(Operation::Read, entity, None)
+                        && permissions.can_field(Operation::Read, entity, field, None)
+                }
+                None => permissions.can(Operation::Read, need, None),
+            });
+        }
+        let fields = fields_read(tile);
         permissions.can(Operation::Read, &tile.target, None)
             && fields.iter().all(|field| permissions.can_field(Operation::Read, &tile.target, field, None))
     })
@@ -234,6 +314,12 @@ pub(crate) struct TileSpec {
     pub(crate) filter: String,
     /// How its number becomes a level, if it does.
     pub(crate) thresholds: Option<Thresholds>,
+    /// The group of its panel it is in, by its place among the groups.
+    pub(crate) group: Option<usize>,
+    /// A number worked out in code instead of over `target`.
+    pub(crate) computed: Option<Computed>,
+    /// What a computed number reads, as `Entity` or `Entity.field`.
+    pub(crate) requires: Vec<String>,
 }
 
 impl TileSpec {
@@ -246,20 +332,42 @@ impl TileSpec {
             series: tile.text("series"),
             interval: tile.text("interval"),
             filter: tile.text("filter"),
-            thresholds: None,
+            ..Self::default()
         }
+    }
+}
+
+/// A number with its level beside it, as a tile and a row of a group show it.
+pub(crate) fn number_view(value: String, level: Option<IndicatorLevel>, words: &ReportWords) -> AnyView {
+    let number = Text::new(value).style(TextStyle::Metric);
+    match level {
+        Some(level) => Box::new(
+            HStack::new((number, Badge::new(level.caption(words)).tone(level.tone())))
+                .spacing(8.0)
+                .align(Align::Center),
+        ),
+        None => Box::new(number),
     }
 }
 
 /// What a tile shows, read now, as the person can read it.
 pub(crate) fn tile_content(session: &Session, tile: &TileSpec) -> AnyView {
     let title = &tile.title;
+    let words = ReportWords::from_texts(&session.texts());
+    if tile.kind == "number" {
+        return match reading(session, tile) {
+            // A number its reader may not see is not shown as zero.
+            Reading::Restricted => {
+                Box::new(Text::new(words.restricted.clone()).foreground(Semantic::InkMuted))
+            }
+            Reading::Problem(why) => problem(title, why),
+            Reading::Number(value, level) => number_view(value, level, &words),
+        };
+    }
     let target = &tile.target;
     let Some(entity) = session.entity(target) else {
         return problem(title, format!("{} {target}", session.words().list_editor_needs));
     };
-    let words = ReportWords::from_texts(&session.texts());
-    // A number its reader may not see is not shown as zero.
     if !readable(session, tile) {
         return Box::new(Text::new(words.restricted.clone()).foreground(Semantic::InkMuted));
     }
@@ -274,25 +382,6 @@ pub(crate) fn tile_content(session: &Session, tile: &TileSpec) -> AnyView {
         Ok(objects) => objects,
         Err(error) => return problem(title, error.to_string()),
     };
-    if tile.kind == "number" {
-        let value = match summary_text(session, &entity, &objects, &tile.series) {
-            Ok(value) => value,
-            Err(why) => return problem(title, why),
-        };
-        let level = tile
-            .thresholds
-            .as_ref()
-            .and_then(|thresholds| thresholds.level(series_number(&entity, &objects, &tile.series)?));
-        let number = Text::new(value).style(TextStyle::Metric);
-        return match level {
-            Some(level) => Box::new(
-                HStack::new((number, Badge::new(level.caption(&words)).tone(level.tone())))
-                    .spacing(8.0)
-                    .align(Align::Center),
-            ),
-            None => Box::new(number),
-        };
-    }
     let mut settings = BTreeMap::new();
     let chart_kind = match tile.kind.as_str() {
         "line" => "Line",
