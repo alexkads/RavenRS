@@ -51,6 +51,7 @@ Uma tabela por coluna, com link para cada item (`[#N](https://github.com/alexkad
 ## Limites (não negociáveis)
 
 - **Nunca apague trabalho não commitado.** Uma worktree assim é só apontada, com o que tem nela.
+- **Os slots fixos `slot-a` e `slot-b` nunca entram na limpeza**: nem a worktree, nem o `target` (regra permanente, #1075). Na triagem, só se confere se cada um está livre e limpo em `--detach origin/master`. Um slot com branch e sem agente trabalhando é apontado como pendência, sem limpar.
 - **Nunca faça merge sem o ok explícito do Alex** (exceção: PRs do Matheus, conforme a memória).
 - **Coisa de outra sessão ativa** (processo `cargo`/`rustc` rodando, arquivos escritos na última hora) é só informada.
 - **Item sem informação suficiente vira pergunta, não issue rasa** (regra global de work items).

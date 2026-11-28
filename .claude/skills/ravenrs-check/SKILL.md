@@ -102,24 +102,42 @@ Para ver a escolha sem compilar nada:
 ./scripts/changed-packages.py --shell
 ```
 
-## Um CARGO_TARGET_DIR por worktree
+## Slots fixos e aquecidos (slot-a e slot-b)
 
-O Cargo não põe o caminho de um crate local no hash dos artefatos. Por isso, duas worktrees que dividem o mesmo `CARGO_TARGET_DIR` reaproveitam o build uma da outra. Isso já deu dois sintomas:
+Desde 28/11/2026, por regra permanente do Alex (*"não tem como seguir nessa lentidão"*), tudo o que compila no RavenRS roda num de dois slots fixos (#1075):
+
+- `/Users/alexkads/Projects/RavenRS/.claude/worktrees/slot-a`
+- `/Users/alexkads/Projects/RavenRS/.claude/worktrees/slot-b`
+
+Cada slot usa o `target` padrão dentro dele, sem `CARGO_TARGET_DIR`, e esse **target não se apaga** ao fim da tarefa (a exceção está na regra global de limpeza). Antes, cada tarefa abria uma worktree com um diretório de build novo e o apagava ao terminar. Cada PR chegava a passar por 3 a 4 builds de 9 a 21 minutos, de 15 a 19 GB cada.
+
+Para trabalhar:
+
+```bash
+git -C <slot> fetch -q
+git -C <slot> switch -c claude/<tarefa> origin/master   # ou: git -C <slot> switch <branch-do-PR>
+# ... editar, cargo nextest run -p <pacote>, cargo xtask dev ...
+git -C <slot> switch --detach origin/master             # ao terminar, slot limpo
+```
+
+- Como o caminho não muda, o Cargo recompila só o que a troca de branch mexeu.
+- **Um agente por slot.** Se os dois estiverem ocupados, a tarefa espera. Não se cria uma worktree avulsa para compilar.
+- O branch preso numa worktree de outra sessão vem para o slot com `git switch --detach origin/<branch>` e volta com `git push origin HEAD:<branch>`.
+- O revisor não compila: lê o diff e o retorno de quem implementou. O `cargo xtask pr` roda uma vez por lote, num slot.
+- O trabalho que não compila (issues, docs, conferências) não ocupa slot.
+
+**Nunca dois checkouts no mesmo target.** O Cargo não põe o caminho de um crate local no hash dos artefatos, então duas pastas que dividem um `CARGO_TARGET_DIR` trocam artefatos. Isso já deu dois sintomas:
 
 - "can't find crate for `ravenrs`" num doctest;
 - um derive compilado com um `ravenrs-app-spec` antigo, de outro branch.
 
-Na worktree, use um diretório próprio no scratchpad da sessão, sempre por caminho absoluto, e apague-o ao terminar:
+O script grava a pasta da checkout em `<target>/.ravenrs-checkout` e avisa em amarelo quando o diretório foi usado por outra. Diante desse aviso, ou de um dos sintomas, confira se alguém apontou um `CARGO_TARGET_DIR` para o target de um slot. O target de um slot com o workspace inteiro compilado passa de 20 GB: confira o disco antes de um `pr` ou `release` (`df -h /System/Volumes/Data`).
 
-```bash
-CARGO_TARGET_DIR=/private/tmp/claude-501/<projeto>/<sessão>/scratchpad/target cargo xtask pr
-```
-
-O script grava a pasta da checkout em `<target>/.ravenrs-checkout` e avisa em amarelo quando o diretório foi usado por outra. Diante desse aviso, ou de um dos sintomas acima, troque o diretório antes de culpar o código. Um diretório de build passa fácil de 20 GB: confira o disco antes (`df -h /System/Volumes/Data`).
+Fora dos slots, só numa checkout avulsa de outra máquina ou de quem contribui, vale o jeito antigo: um `CARGO_TARGET_DIR` próprio, por caminho absoluto, apagado ao terminar.
 
 ## Cache do compilador entre worktrees (xcache por padrão, Kache como alternativa)
 
-Cada worktree tem o seu diretório de build, então uma worktree nova compilava tudo de novo. Desde a #358, o `cargo xtask pr` põe o `ravenrs-xcache` na frente do `rustc` (seção abaixo). Com `RAVENRS_XCACHE=0` e o [Kache](https://github.com/kunobi-ninja/kache) instalado, o script usa o Kache como `RUSTC_WRAPPER`, e o que outra worktree já compilou volta do cache. A instalação é uma vez por máquina:
+Com os slots, o caminho principal é o target que fica. O cache vale para uma worktree avulsa ou para o primeiro build de um slot. No macOS, os proc macros não são reaproveitados entre pastas diferentes (#1072). Cada worktree tem o seu diretório de build, então uma worktree nova compilava tudo de novo. Desde a #358, o `cargo xtask pr` põe o `ravenrs-xcache` na frente do `rustc` (seção abaixo). Com `RAVENRS_XCACHE=0` e o [Kache](https://github.com/kunobi-ninja/kache) instalado, o script usa o Kache como `RUSTC_WRAPPER`, e o que outra worktree já compilou volta do cache. A instalação é uma vez por máquina:
 
 ```bash
 cargo install kache --locked --version 2.1.1
