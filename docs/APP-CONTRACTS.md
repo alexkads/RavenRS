@@ -150,7 +150,7 @@ In one commit, written to the audit trail when the context has one, it creates t
 
 With a policy, the list of users has Grant temporary access, which asks the reason and the hours and shows the user, the deadline and the password once, and Revoke access, which asks first.
 
-What waits (#857): the same check on the web API.
+The web API reads who a session is on each call, so a user expired or revoked gets 401 on the next one.
 
 ## Scenarios
 
