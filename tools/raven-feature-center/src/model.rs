@@ -160,7 +160,7 @@ fn actions() -> EntityInfo {
         "ActionDemo",
         "Tipos de Action",
         ACTIONS,
-        "Selecione um registro e use a barra: Action simples, com confirmação, com valor digitado, com escolha, com janela e abrindo um endereço. \
+        "Cada linha aberta tem Fechar no fim, que fecha só aquela. Selecione um registro e use a barra: Action simples, com confirmação, com valor digitado, com escolha, com janela e abrindo um endereço. \
          Só para abertos só acende quando todos os selecionados estão abertos, e dentro do formulário há uma Action no próprio layout. \
          Fechar e dobrar não tem código: é declarada com o que muda em cada registro, passa pelas regras e grava todos ou nenhum.",
     )
@@ -529,6 +529,63 @@ fn cell_shapes() -> EntityInfo {
     .field(FieldInfo::new("rank", FieldKind::Text).caption("Nível").badge())
 }
 
+/// The period of the closing demonstration, which `ClosingModule` approves and reopens.
+pub const CLOSING_TERM: &str = "ClosingTerm";
+
+/// A term approved with its document, and the lessons it freezes, for `ClosingModule`.
+fn closing_demo() -> Vec<EntityInfo> {
+    let closing = ravenrs_app::PeriodClosing::new("ClosingTermVersion")
+        .freezes("ClosingLesson", "[term_id]")
+        .requires_none("ClosingLesson", "[status] = 'Rascunho'")
+        .reopen_reason(10);
+    let term = demo(
+        CLOSING_TERM,
+        "Semestres aprovados",
+        PROCESSES,
+        "Escolha um semestre e use Aprovar fechamento: com aula em rascunho, a gravação recusa. Com tudo lançado, a versão 1 guarda o PDF e o hash, \
+         e as aulas do semestre ficam congeladas. Reabrir fechamento pede a justificativa; Versões arquivadas mostra cada versão e abre o documento conferido.",
+    )
+    .field(title())
+    .period_closing(closing.clone());
+    let lesson =
+        demo("ClosingLesson", "Aulas do semestre", PROCESSES, "As aulas que o semestre aprovado congela.")
+            .field(title())
+            .field(FieldInfo::new("term_id", FieldKind::Reference(CLOSING_TERM.into())).caption("Semestre"))
+            .field(text("status", "Situação").predefined(["Rascunho", "Lançada"]));
+    let versions = closing.versions_entity(&term).caption("Versões do semestre");
+    vec![term, lesson, versions]
+}
+
+/// A sealed lesson and its correction, which the action generated for the correction amends.
+fn amend_demo() -> Vec<EntityInfo> {
+    let lesson = demo(
+        "SealedLesson",
+        "Aulas encerradas",
+        PROCESSES,
+        "Uma aula encerrada não muda direto. Escolha a Aula 1 e use Correções de aula: o formulário da correção já vem ligado a ela e pede a \
+         justificativa. Ao salvar, a gravação copia as presenças para a aula, na mesma transação. Na Aula 2, ainda aberta, a ação fica apagada.",
+    )
+    .field(title())
+    .field(text("status", "Situação").predefined(["Aberta", "Encerrada"]))
+    .field(FieldInfo::new("present", FieldKind::Integer).caption("Presentes"))
+    .sealed(ravenrs_app::Seal::when("[status] = 'Encerrada'"));
+    let correction = demo(
+        "SealedLessonCorrection",
+        "Correções de aula",
+        PROCESSES,
+        "As correções feitas nas aulas encerradas.",
+    )
+    .field(FieldInfo::new("lesson_id", FieldKind::Reference("SealedLesson".into())).caption("Aula"))
+    .field(FieldInfo::new("present", FieldKind::Integer).caption("Presentes"))
+    .field(FieldInfo::new("reason", FieldKind::LongText).caption("Justificativa"))
+    .amends(
+        ravenrs_app::Amendment::correction("SealedLesson", "lesson_id")
+            .copies(["present"])
+            .reason("reason", 10),
+    );
+    vec![lesson, correction]
+}
+
 /// Every entity of the center that is not from a module.
 pub fn entities() -> Vec<EntityInfo> {
     let mut all = vec![
@@ -555,5 +612,7 @@ pub fn entities() -> Vec<EntityInfo> {
     all.push(store_settings());
     all.push(accessibility());
     all.push(cell_shapes());
+    all.extend(closing_demo());
+    all.extend(amend_demo());
     all
 }

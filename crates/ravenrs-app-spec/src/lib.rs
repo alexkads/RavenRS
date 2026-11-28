@@ -64,6 +64,8 @@ pub struct ObjectSettings {
     pub icon: Option<LitStr>,
     /// `empty_text = "..."`, what its list says with no records.
     pub empty_text: Option<LitStr>,
+    /// `empty_hint = "..."`, what an empty list tells whoever can add records.
+    pub empty_hint: Option<LitStr>,
     /// `list_criteria = "..."`, checked to parse.
     pub list_criteria: Option<LitStr>,
     /// `form_columns = 2`.
@@ -480,6 +482,8 @@ fn object_settings(input: &DeriveInput) -> Result<(ObjectSettings, Option<LitStr
                 attrs.icon = Some(meta.value()?.parse()?);
             } else if meta.path.is_ident("empty_text") {
                 attrs.empty_text = Some(meta.value()?.parse()?);
+            } else if meta.path.is_ident("empty_hint") {
+                attrs.empty_hint = Some(meta.value()?.parse()?);
             } else if meta.path.is_ident("list_criteria") {
                 let text: LitStr = meta.value()?.parse()?;
                 Criteria::parse(&text.value()).map_err(|e| Error::new(text.span(), e.to_string()))?;
@@ -510,7 +514,7 @@ fn object_settings(input: &DeriveInput) -> Result<(ObjectSettings, Option<LitStr
                 focus_order = Some(meta.value()?.parse()?);
             } else {
                 return Err(meta.error(
-                    "unknown setting: use caption, navigation, icon, empty_text, list_criteria, form_columns, cloneable, \
+                    "unknown setting: use caption, navigation, icon, empty_text, empty_hint, list_criteria, form_columns, cloneable, \
                      singleton, transient, checks_on_leave, list_editable, data_access, form_actions or focus_order",
                 ));
             }

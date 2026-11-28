@@ -386,6 +386,9 @@ impl ApplicationBuilder {
         if !with_actions.is_empty() {
             modules.push(Box::new(crate::record_action::RecordActionModule(with_actions)));
         }
+        if entities.iter().any(|entity| entity.amendment.is_some()) {
+            modules.push(Box::new(crate::record_action::AmendmentActionModule(entities.clone())));
+        }
         let mut zero = generate_model(&entities)?;
         for dashboard in &self.dashboards {
             crate::model::add_dashboard(&mut zero, dashboard);

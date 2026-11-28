@@ -56,7 +56,7 @@ fn main() -> Result<(), ravenrs::native::PlatformError> {
 }
 ```
 
-That is the whole application: navigation, a list with search, filters and export to Excel, PDF and CSV, a form, and New, Save, Save and close, Save and new, Cancel, Delete, Refresh, Back, Previous and Next. [`examples/quick-app`](../examples/quick-app) is this with a second record and a reference between them, in under 100 lines, in a window with `cargo run -p quick-app` and in the browser with `scripts/build-web.sh quick-app`.
+That is the whole application: navigation, a list with search, filters and export to Excel, PDF and CSV, a form, and New, Save, Save and close, Save and new, Cancel, Delete, Refresh, Back, Previous and Next. [`examples/quick-app`](../examples/quick-app) is this with a second record and a reference between them, in under 100 lines, in a window with `cargo run -p quick-app` and in the browser with `cargo xtask web quick-app`.
 
 Records live in memory for now, so they are gone when the application closes. `seed` puts some in when it opens. A wrong attribute is a compile error that points at it.
 
@@ -171,7 +171,7 @@ EntityInfo::new("Order")
 - `data_access` picks how a list reads: `Client`, all of it; `Server`, as needed; `DataView`, only its columns and with no editing, finding the whole record when one is selected.
 - A difference can add fields under `Members`, each with `"$new": true`, `Kind` and `Caption`, `Expression` for one worked out, and `Options` for a list. They come in order of name, and get a column and a place on the form. `App::administrator_settings` gives them before storage opens, and `App::storage_for` hands a database the entities with them.
 - `FieldKind::Guid` makes up a key. `FieldKind::Tags` holds several options. `predefined`, `edit_mask`, `criteria_of`, `display_format` and `group` shape a field, and the `Progress` editor shows a number from 0 to 100.
-- `ActionContext::message` tells people something, with `Message::action` and `Message::on_close`. `ActionCategory::InForm` with `EntityInfo::form_actions` puts an action inside a form's layout.
+- `ActionContext::message` tells people something, with `Message::action` and `Message::on_close`. `ActionCategory::InForm` with `EntityInfo::form_actions` puts an action inside a form's layout. `ActionCategory::InRow` puts it on each row of the entity's lists instead of above them: the button lights up only on the rows that meet its `target_criteria`, runs with that row as the selection (rules, confirmation, audit and message as usual), and is not there for whoever lacks the operation it `requires`.
 - `use_records` and `use_collection`, or the same on `App`, give records no storage keeps. A navigation item can open a form directly: on a new record, or with `ObjectKey` on one by its key.
 - `DashboardInfo::variant` lets people change a dashboard to another; it lists itself too, since a menu takes two.
 - `export_captions` writes what people see as CSV, with an empty column to fill in, and `import_captions` takes it back as a language.
@@ -504,7 +504,7 @@ Limits to know:
 - `TIMESTAMPTZ` comes in UTC, with no time zone of its own, since `DateTime` has none.
 - Reading entities from a schema, and keeping the model and attachments in the database, are only in SQLite for now.
 
-Its tests run when `RAVENRS_POSTGRES_URL` says where a database is, and otherwise have nothing to run against: `scripts/check.sh` does not start one. `RAVENRS_POSTGRES_STATEMENTS=unprepared` runs them all with statements as they go to a pooler. `tests/managed.rs` takes `RAVENRS_POSTGRES_TLS_URL` with `RAVENRS_POSTGRES_CA` (a server whose certificate an authority of its own signed) and `RAVENRS_POSTGRES_POOLER_URL` (PgBouncer in transaction mode with `max_prepared_statements = 0`).
+Its tests run when `RAVENRS_POSTGRES_URL` says where a database is, and otherwise have nothing to run against: `cargo xtask pr` does not start one. `RAVENRS_POSTGRES_STATEMENTS=unprepared` runs them all with statements as they go to a pooler. `tests/managed.rs` takes `RAVENRS_POSTGRES_TLS_URL` with `RAVENRS_POSTGRES_CA` (a server whose certificate an authority of its own signed) and `RAVENRS_POSTGRES_POOLER_URL` (PgBouncer in transaction mode with `max_prepared_statements = 0`).
 
 ## PostgREST, Supabase and Neon's Data API
 
@@ -593,7 +593,7 @@ Other systems sign in with a **key**, in the same `Authorization: Bearer` header
 
 An application with a look of its own gives its themes with `App::themes([light, dark])`. The Theme menu then offers only those, under their names, and starts on the first; the one someone chooses is kept as above. With a light and a dark one among them, "Follow the system" switches between the first of each instead of Raven Light and Raven Dark. Each theme is kept as what differs from the built-in theme it is `based_on`, so a theme made with `Theme { name: "Mine", ..Theme::raven_light() }`, or read from tokens with a `"name"`, comes back under its own name and colors. A kept theme that fails `is_readable`, as white text on a light accent, is not brought back.
 
-The top of the navigation can carry the application's brand: `App::brand(IconTile::new(IconName::Church))` with `brand_subtitle("Central Church")`. Reduced to icons, only the mark stays, and screen readers hear the title and the line. `App::navigation_count("Lesson", |session| ...)` puts a count beside that item of the navigation, read again whenever records change, with `NavigationCount::spoken` for what screen readers hear ("1 with attendance to take"). Cmd/Ctrl+K opens a command palette with the places the person can open. The list report of `ReportModule` comes out in the colors on screen: the accent and its text for the headers, and the theme's text where it is dark enough for white paper.
+The top of the navigation can carry the application's brand: `App::brand(IconTile::new(IconName::Church))` with `brand_subtitle("Central Church")`. Reduced to icons, only the mark stays, and screen readers hear the title and the line. `App::navigation_count("Lesson", |session| ...)` puts a count beside that item of the navigation, read again whenever records change, with `NavigationCount::spoken` for what screen readers hear ("1 with attendance to take"). `NavigationCount::tone(Tone::Danger)` draws it as a badge of that tone, as overdue bills in red. Cmd/Ctrl+K opens a command palette with the places the person can open. Three options, all off unless asked, draw the navigation the way Raven Finanças does: `App::compact_navigation(true)` makes each item one short row, `navigation_search(true)` puts "Search commands" first, with ⌘K, and `navigation_collapse(true)` puts "Collapse menu" at the foot, with ⌘B, which says "Open menu" once it is folded to its icons. The list report of `ReportModule` comes out in the colors on screen: the accent and its text for the headers, and the theme's text where it is dark enough for white paper.
 
 It is not OData: the query options are its own, which is the difference to keep in mind for clients made for OData. Money travels in cents, as it is stored, and dates as text. Users, roles and the audit trail are not exposed, whatever the permissions say.
 
@@ -639,7 +639,7 @@ Limits to know:
 - A record that refers to another one created in the same commit does not work, since the server gives the key. Keep them in two commits.
 - An address comes from the build (`RAVEN_API_URL` in the center), and never from the page's own address, so a link cannot make a page send a password somewhere else.
 
-Try it: `RAVEN_API_ORIGIN=http://localhost:8099 cargo run -p raven-feature-center --bin api`, and `RAVEN_API_URL=http://127.0.0.1:8090 scripts/build-web.sh raven-feature-center`, served on that port.
+Try it: `RAVEN_API_ORIGIN=http://localhost:8099 cargo run -p raven-feature-center --bin api`, and `RAVEN_API_URL=http://127.0.0.1:8090 cargo xtask web raven-feature-center`, served on that port.
 
 ## Known gaps
 

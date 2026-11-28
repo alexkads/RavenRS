@@ -4,6 +4,7 @@
 //! dependency graph; one binary links once. Add a new test file here as a module.
 
 mod accessibility;
+mod amend;
 mod cell_shapes;
 mod center;
 mod counter;
@@ -14,6 +15,7 @@ mod e2e;
 mod empty;
 mod jobs;
 mod kept;
+mod list_cells;
 mod list_editors;
 mod list_strip;
 mod narrow;

@@ -28,7 +28,7 @@ out; a real bot would answer through the app.
 In the browser, the diagrams are kept in the browser's own storage:
 
 ```bash
-scripts/build-web.sh flow-chat-bot
+cargo xtask web flow-chat-bot
 python3 -m http.server -d examples/flow-chat-bot/web 8080
 ```
 

@@ -90,7 +90,7 @@ Today `ravenrs-report`, `ravenrs-criteria`, `ravenrs-graphics`, `ravenrs-report-
 
 ## Delivery phases
 
-Each phase ends with tests, docs, demos and `scripts/check.sh` green, like every RavenRS feature. [REPORTING-PARITY.md](REPORTING-PARITY.md) tracks every feature of a complete reporting suite against these phases.
+Each phase ends with tests, docs, demos and `cargo xtask pr` green, like every RavenRS feature. [REPORTING-PARITY.md](REPORTING-PARITY.md) tracks every feature of a complete reporting suite against these phases.
 
 | Phase | Delivers | Status |
 |---|---|---|

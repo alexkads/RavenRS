@@ -241,9 +241,9 @@ fn plugin_switch_removes_only_the_unmodified_managed_skill() {
     assert!(fs::read_to_string(path).unwrap().ends_with("My notes\n"));
 }
 
-/// This is deliberately an explicit check.sh step: it runs Cargo 20 times.
+/// This is deliberately an explicit cargo xtask release step: it runs Cargo 20 times.
 #[test]
-#[ignore = "compiles every template × target; run via scripts/check.sh or --ignored"]
+#[ignore = "compiles every template × target; run via cargo xtask release or --ignored"]
 fn every_template_and_target_compiles() {
     let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").canonicalize().unwrap();
     let target_dir = workspace.join("target/generated-projects");

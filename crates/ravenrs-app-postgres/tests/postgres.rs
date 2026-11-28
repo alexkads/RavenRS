@@ -358,3 +358,63 @@ fn client_in(_: &mut Client, schema: &str) -> Client {
     client.batch_execute(&format!("SET search_path TO {schema}")).unwrap();
     client
 }
+
+#[test]
+fn with_the_guards_postgres_itself_refuses_a_closed_lesson_written_directly() {
+    use ravenrs_app::{Amendment, Seal};
+    if url().is_none() {
+        return;
+    }
+    let lesson = EntityInfo::new("Lesson")
+        .field(FieldInfo::new("id", FieldKind::Integer).key())
+        .field(FieldInfo::new("status", FieldKind::Text))
+        .field(FieldInfo::new("present", FieldKind::Integer))
+        .sealed(Seal::when("[status] = 'closed'"));
+    let correction = EntityInfo::new("LessonCorrection")
+        .field(FieldInfo::new("id", FieldKind::Integer).key())
+        .field(FieldInfo::new("lesson_id", FieldKind::Reference("Lesson".into())))
+        .field(FieldInfo::new("present", FieldKind::Integer))
+        .field(FieldInfo::new("reason", FieldKind::LongText))
+        .amends(Amendment::correction("Lesson", "lesson_id").copies(["present"]).reason("reason", 10));
+    let database = PostgresDatabase::builder(backend(client("guards")))
+        .managed(lesson, TableMap::new("lessons"))
+        .unwrap()
+        .managed(correction, TableMap::new("lesson_corrections"))
+        .unwrap()
+        .sealed_guards()
+        .unwrap()
+        .build();
+    let mut space = database.space();
+    add(&mut space, "Lesson", &[("id", 1.0.into()), ("status", "closed".into()), ("present", 3.0.into())]);
+    add(&mut space, "Lesson", &[("id", 2.0.into()), ("status", "open".into()), ("present", 3.0.into())]);
+    space.commit().unwrap();
+
+    // Whoever writes by other ways than the framework is refused by the database, with 23514.
+    let mut direct = by_hand("guards");
+    let refused = direct.batch_execute("UPDATE lessons SET present = 9 WHERE id = 1").unwrap_err();
+    assert_eq!(refused.code().map(|code| code.code()), Some("23514"), "{refused}");
+    assert!(
+        direct.batch_execute("DELETE FROM lessons WHERE id = 1").is_err(),
+        "a direct delete went through"
+    );
+    direct.batch_execute("UPDATE lessons SET present = 4 WHERE id = 2").expect("an open lesson changes");
+
+    // The framework's correction goes through the guard, in one commit, and leaves no mark.
+    add(
+        &mut space,
+        "LessonCorrection",
+        &[("lesson_id", 1.0.into()), ("present", 5.0.into()), ("reason", "lista de presença errada".into())],
+    );
+    space.commit().expect("the correction goes through the guard");
+    let after = database.space().find("Lesson", &Value::Number(1.0)).unwrap().unwrap();
+    assert_eq!(after.integer("present"), Some(5));
+    let marks: i64 = direct.query_one("SELECT count(*) FROM raven_amending", &[]).unwrap().get(0);
+    assert_eq!(marks, 0, "the commit took its marks away");
+}
+
+/// Another connection to a schema a test made, as someone writing by hand.
+fn by_hand(schema: &str) -> Client {
+    let mut client = support::raw(&url().unwrap());
+    client.batch_execute(&format!("SET search_path TO {schema}")).unwrap();
+    client
+}

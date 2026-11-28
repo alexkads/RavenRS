@@ -2,15 +2,17 @@
 //! with what to try on its own list. People sign in as ana, bia or caio, with [`seed::PASSWORD`].
 //! Behind the `app` feature: what only shows components or examples does not pay for it.
 
+use std::rc::Rc;
+
 use ravenrs::prelude::{AnyView, ThemeEditor};
 use ravenrs_app::{
-    Access, Application, AuditMode, AuditSettings, DashboardInfo, Diff, EntityInfo, MemoryDatabase,
-    ModelLayer, ObjectSpace, Operation, PermissionPolicy, Role, audit_entity, register_function,
-    security_entities,
+    Access, Application, AuditMode, AuditSettings, DashboardInfo, Diff, EntityInfo, MemoryAttachmentStore,
+    MemoryDatabase, ModelLayer, ObjectSpace, Operation, PermissionPolicy, Role, audit_entity,
+    register_function, security_entities,
 };
 use ravenrs_app_library::LibraryModule;
 use ravenrs_app_report::{
-    AnalyticsApp, AnalyticsModule, AnalyticsPanel, PanelChart, ReportModule, ReportWords,
+    AnalyticsApp, AnalyticsModule, AnalyticsPanel, ClosingModule, PanelChart, ReportModule, ReportWords,
     StoredReportsModule, analytics_entities, report_entity,
 };
 use ravenrs_app_ui::{App, CloneModule, Language, SecuredApp, Session, Words};
@@ -56,6 +58,32 @@ pub fn storage_entities() -> Result<Vec<EntityInfo>, String> {
     Ok(entities)
 }
 
+/// Approving and reopening the terms of the demonstration, with their documents in memory.
+fn closing_module() -> ClosingModule {
+    ClosingModule::new(model::CLOSING_TERM, Rc::new(MemoryAttachmentStore::default()), closing_document)
+        .approver(|| "Coordenação".to_owned())
+        .words(ReportWords::pt_br())
+}
+
+/// The document a term of the demonstration is approved with: its name and lessons.
+fn closing_document(
+    space: &dyn ObjectSpace,
+    term: &ravenrs_app::Object,
+) -> Result<ravenrs_report::Document, String> {
+    let lessons = space.query("ClosingLesson", &ravenrs_app::Query::all()).map_err(|e| e.to_string())?;
+    use ravenrs::prelude::grid::{GridColumn, GridQuery, Value as Cell, to_table};
+    let rows: Vec<Vec<Cell>> = lessons
+        .iter()
+        .filter(|lesson| lesson.get("term_id") == term.get("id"))
+        .map(|lesson| vec![Cell::Text(lesson.text("name")), Cell::Text(lesson.text("status"))])
+        .collect();
+    let columns = [GridColumn::text("Aula"), GridColumn::text("Situação")];
+    let every: Vec<usize> = (0..rows.len()).collect();
+    let title = format!("Fechamento de {}", term.text("name"));
+    let table = to_table(&title, "", &columns, &rows, &GridQuery::default(), &every);
+    Ok(ravenrs_grid_export::document_of(&table))
+}
+
 /// Who can do what. Administrators come with every installation.
 fn roles() -> Vec<Role> {
     let document = "SecuredDocument";
@@ -69,7 +97,9 @@ fn roles() -> Vec<Role> {
                 "[owner] <> ?CurrentUserName",
                 [Operation::Write, Operation::Delete],
                 Access::Deny,
-            ),
+            )
+            // Sales posts the lessons but does not approve a term; reopening one stays theirs.
+            .action_permission(closing_module().action_ids()[0].clone(), Access::Deny),
         Role::new("Leitura")
             .policy(PermissionPolicy::ReadOnlyAll)
             .object_permission(document, "[owner] = 'ana'", [Operation::Read], Access::Deny)
@@ -118,6 +148,7 @@ fn application() -> App {
         .module(ReportModule::new("Relatório da lista"))
         .module(StoredReportsModule::new(words()))
         .module(AnalyticsModule::new(words()))
+        .module(closing_module())
         .administrator_settings(model::CUSTOM_FIELDS)
         .translation("pt-BR", ravenrs_app_library::PT_BR)
         .translation("pt-BR", ravenrs_app_report::PT_BR)

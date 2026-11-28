@@ -31,7 +31,7 @@ Behavior that a user can observe is documented publicly. A private comment can k
 
 ## Enforced checks
 
-`scripts/check.sh --full` runs every check below, and nothing ships unless it passes. The project uses no hosted CI, so this script is the gate. Without `--full` it is the quick check for each pull request: rustfmt, clippy on every package the change reaches, and the tests of the packages changed and of their direct dependents (`scripts/changed-packages.py`). A direct dependent that was not changed and pulls in a heavy crate the change does not reach (the local AI in `ravenrs-ai`, the video encoder in `ravenrs-movie-video`) is only linted, and `--full` runs its tests.
+`cargo xtask release` runs every check below, and nothing ships unless it passes. The project uses no hosted CI, so the checks of `cargo xtask` are the gate. `cargo xtask pr` is the check for each pull request: rustfmt, clippy on every package the change reaches, and the tests of the packages changed and of their direct dependents (`scripts/changed-packages.py`). A direct dependent that was not changed and pulls in a heavy crate the change does not reach (the local AI in `ravenrs-ai`, the video encoder in `ravenrs-movie-video`) is only linted, and `--full` runs its tests.
 
 The script uses a compiler cache that worktrees share, so a new worktree restores what another one compiled instead of building it again: [`ravenrs-xcache`](../crates/ravenrs-xcache/README.md), this repository's own, which keeps libraries, reports what went past it and why, and is cut down to 20 GB after each run. `RAVENRS_XCACHE=0` turns it off, and [Kache](https://github.com/kunobi-ninja/kache) takes its place when it is installed. Neither changes what is checked; each worktree keeps its own build directory.
 
