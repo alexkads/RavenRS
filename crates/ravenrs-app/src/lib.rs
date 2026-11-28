@@ -30,6 +30,7 @@ mod action;
 mod action_types;
 mod appearance;
 mod controller;
+mod due_digest;
 mod entity;
 mod files;
 mod frame;
@@ -101,6 +102,10 @@ pub use ravenrs_core::FileStorage;
 pub use ravenrs_core::{MemoryStorage, Storage};
 pub use ravenrs_criteria::{Criteria, Culture, MoneyError, Remainder, Value, allocate, allocate_by};
 
+pub use due_digest::{
+    DIGEST_ADVANCE_DAYS, Digest, DigestPreference, DigestWords, DueDigest, digest_of, digest_preference,
+    due_digest_for, set_digest_preference,
+};
 pub use records::{
     AppRecordsModule, DRAFT_ENTITY, Draft, SEQUENCE_ENTITY, draft_entity, drafts, next_number, save_draft,
     sequence_entity, take_draft,
