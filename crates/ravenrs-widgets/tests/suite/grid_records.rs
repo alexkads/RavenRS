@@ -419,3 +419,24 @@ fn the_filter_can_be_written_as_text_and_only_what_reads_filters() {
     let filters = layout.get().filters.iter().map(|f| f.text.clone()).collect::<Vec<_>>();
     assert!(filters.contains(&"[Category] In ('Home')".to_owned()), "{filters:?}");
 }
+
+#[test]
+fn a_template_can_take_the_color_its_row_gives_the_cell() {
+    use ravenrs_style::Semantic;
+    let data = GridData::new(vec![vec!["low".into(), 1.0.into()], vec!["high".into(), 9.0.into()]]);
+    type Seen = Vec<(String, Option<Semantic>)>;
+    let seen: Rc<RefCell<Seen>> = Rc::default();
+    let record = seen.clone();
+    let column = GridColumn::text("Name").template_inked(move |value, ink| {
+        record.borrow_mut().push((value.key_text(), ink));
+        Box::new(Badge::new(value.key_text()))
+    });
+    let grid = DataGrid::new(data, [column, GridColumn::number("N")]).height(300.0).cell_style(|row, _| {
+        let high = row[1].as_f64().is_some_and(|n| n > 5.0);
+        GridCellStyle::new(high.then_some(Semantic::Danger), None, false)
+    });
+    let _ui = ui(grid);
+    let seen = seen.borrow();
+    assert!(seen.contains(&("high".to_owned(), Some(Semantic::Danger))), "the high row in danger: {seen:?}");
+    assert!(seen.contains(&("low".to_owned(), None)), "the other with no color: {seen:?}");
+}

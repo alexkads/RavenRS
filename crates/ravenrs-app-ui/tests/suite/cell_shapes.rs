@@ -106,3 +106,103 @@ fn whoever_cannot_read_the_phone_sees_only_the_name() {
         "the phone shows to whoever cannot read it: {texts:?}"
     );
 }
+
+/// A list of bills whose situation is a badge, in danger by an appearance rule when overdue, and
+/// how many badges in danger it draws.
+fn danger_badges(situations: &[&str], model: Option<(&str, &str)>) -> usize {
+    use ravenrs_app::{AppearanceRule, ModelLayer};
+    use ravenrs_widgets::Tone;
+    let bill = EntityInfo::new("Bill")
+        .caption("Contas")
+        .navigation("Finanças")
+        .field(FieldInfo::new("id", FieldKind::Integer).key())
+        .field(FieldInfo::new("description", FieldKind::Text).default_property())
+        .field(FieldInfo::new("situation", FieldKind::Text).badge())
+        .appearance(AppearanceRule::new("late", ["situation"]).criteria("[situation] = 'Vencida'").font(Tint::Danger));
+    let mut all = vec![bill.clone()];
+    all.extend(security_entities());
+    let database = MemoryDatabase::new(all).expect("valid");
+    let mut space = database.space();
+    for (at, situation) in situations.iter().enumerate() {
+        let mut record = space.new_object("Bill").expect("known");
+        record.set("id", at as f64 + 1.0);
+        record.set("description", format!("Conta {at}"));
+        record.set("situation", *situation);
+        space.save(record).expect("waits");
+    }
+    space.commit().expect("keeps");
+    let mut application =
+        Application::builder("Casa").module(SystemModule::new()).entity(bill).build().expect("valid");
+    if let Some((name, value)) = model {
+        application.layers_mut().set(
+            &ModelLayer::User,
+            &["Views", "Bill_ListView", "Columns", "situation"],
+            name,
+            value.into(),
+        );
+        application.refresh_model().expect("valid");
+    }
+    let shell = AppShell::new(application, move || database.space());
+    let session = shell.session();
+    let theme = Theme::raven_dark();
+    let mut ui = Ui::new(shell, theme);
+    session.open_view("Bill_ListView");
+    for _ in 0..6 {
+        ui.update();
+    }
+    let edge = format!("{:?}", Tone::Danger.color(&theme).with_alpha(0.28));
+    format!("{:?}", ui.scene()).matches(&edge).count()
+}
+
+#[test]
+fn a_badge_on_a_plain_field_takes_the_tone_of_its_record() {
+    assert_eq!(danger_badges(&["Em dia", "Em dia"], None), 0, "no record overdue, no badge in danger");
+    assert_eq!(danger_badges(&["Vencida", "Em dia"], None), 1, "only the overdue one");
+    assert_eq!(danger_badges(&["Vencida", "Vencida"], None), 2);
+}
+
+#[test]
+fn the_model_turns_the_badge_of_a_column_off_and_on() {
+    assert_eq!(danger_badges(&["Vencida"], Some(("Display", "Text"))), 0, "the column in the model wins");
+    assert_eq!(danger_badges(&["Vencida"], Some(("Display", "Badge"))), 1);
+}
+
+#[test]
+fn the_model_says_which_field_goes_under_another() {
+    use ravenrs_app::ModelLayer;
+    let texts = |detail: &str| {
+        let mut all = vec![member()];
+        all.extend(security_entities());
+        let database = MemoryDatabase::new(all).expect("valid");
+        let mut space = database.space();
+        let mut ana = space.new_object("Member").expect("known");
+        ana.set("id", 1.0);
+        ana.set("name", "Ana");
+        ana.set("phone", "(11) 9999-0000");
+        ana.set("status", "active");
+        space.save(ana).expect("waits");
+        space.commit().expect("keeps");
+        let mut application =
+            Application::builder("Igreja").module(SystemModule::new()).entity(member()).build().expect("valid");
+        application.layers_mut().set(
+            &ModelLayer::User,
+            &["Views", "Member_ListView", "Columns", "name"],
+            "Detail",
+            detail.into(),
+        );
+        application.refresh_model().expect("valid");
+        let shell = AppShell::new(application, move || database.space());
+        let session = shell.session();
+        let mut ui = Ui::new(shell, Theme::raven_dark());
+        session.open_view("Member_ListView");
+        for _ in 0..6 {
+            ui.update();
+        }
+        said(&mut ui)
+    };
+    let none = texts("");
+    assert!(none.iter().any(|t| t == "Ana"), "an empty Detail takes the line away: {none:?}");
+    assert!(!none.iter().any(|t| t.contains("Ana · ")), "{none:?}");
+    let status = texts("status");
+    assert!(status.iter().any(|t| t.contains("Ana · Ativo")), "the status under the name: {status:?}");
+}

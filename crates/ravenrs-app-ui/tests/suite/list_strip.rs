@@ -223,3 +223,23 @@ fn whom_may_not_read_the_amount_sees_restricted_never_zero_and_no_next_step() {
     assert!(said.contains("Nenhuma nota. Records show up here once someone allowed to adds them."), "{said}");
     assert!(!said.contains("Comece pelo título"), "{said}");
 }
+
+#[test]
+fn the_numbers_go_one_under_the_other_in_a_narrow_window() {
+    let mut world = plain();
+    world.click("Bills");
+    let tops = |world: &mut World| {
+        world.settle();
+        let tree = world.ui.access_tree();
+        let top = |name: &str| {
+            let node = tree.nodes.iter().find(|n| n.name.as_deref() == Some(name));
+            node.unwrap_or_else(|| panic!("no {name}")).bounds.origin.y
+        };
+        (top("ABERTAS"), top("TOTAL ABERTO"))
+    };
+    let (first, second) = tops(&mut world);
+    assert!((first - second).abs() < 1.0, "side by side in a wide window: {first} and {second}");
+    world.ui.set_viewport(Size::new(600.0, 900.0), 1.0);
+    let (first, second) = tops(&mut world);
+    assert!(second > first + 20.0, "one under the other below 720: {first} and {second}");
+}

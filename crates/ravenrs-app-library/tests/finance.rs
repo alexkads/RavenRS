@@ -364,9 +364,23 @@ fn the_actions_settle_split_and_reverse_from_a_form() {
     assert_eq!(entry.cents("amount").map(i64::abs), Some(10_100), "principal, interest and discount");
     let frame = frame_on(COMMITMENT, read(&maker, COMMITMENT, &first));
     assert!(!frame.action(SETTLE_BILL).expect("there").is_enabled(), "a paid bill is not settled again");
+    // Split opens the plan, filled with two installments from the due date; OK splits what it says.
     let frame = frame_on(COMMITMENT, read(&maker, COMMITMENT, &second));
-    frame.execute(SPLIT_BILL, ActionInput::Parameter(Value::Number(3.0))).expect("split");
+    frame.execute(SPLIT_BILL, ActionInput::None).expect("the plan opens");
+    let mut plan = finance::installment_plan().new_object();
+    frame.prepare_popup(&mut plan);
+    assert_eq!(plan.integer("installments"), Some(2), "two by default");
+    assert_eq!(plan.get("first_due"), Value::Date(today()), "from the due date of the bill");
+    plan.set("installments", 3.0);
+    frame.accept_popup(ActionInput::Record(plan)).expect("split");
     assert_eq!(read(&maker, COMMITMENT, &second).text("status"), "split");
+    let parts: Vec<Object> = all(&maker, COMMITMENT)
+        .into_iter()
+        .filter(|part| part.key("origin_id") == ravenrs_app::key_text(&second))
+        .collect();
+    assert_eq!(parts.iter().map(|part| part.cents("amount").expect("cents")).collect::<Vec<_>>(), [
+        3_000, 3_000, 3_000
+    ]);
     let settlement = all(&maker, SETTLEMENT).remove(0);
     let frame = frame_on(SETTLEMENT, settlement.clone());
     assert!(frame.execute(REVERSE_SETTLEMENT, ActionInput::Parameter(Value::Text(String::new()))).is_err());
@@ -374,4 +388,74 @@ fn the_actions_settle_split_and_reverse_from_a_form() {
         .execute(REVERSE_SETTLEMENT, ActionInput::Parameter(Value::Text("pago em duplicidade".into())))
         .expect("reversed");
     assert_eq!(read(&maker, COMMITMENT, &first).text("status"), "open");
+}
+
+#[test]
+fn the_plan_of_a_split_refuses_fewer_than_two_and_more_than_the_most() {
+    use ravenrs_app::{RuleWords, validate};
+    let entity = finance::installment_plan();
+    let database = MemoryDatabase::new(finance::entities()).expect("entities fit");
+    let space = database.space();
+    let words = RuleWords::default();
+    let fits = |plan: &Object| validate(&entity, plan, "Save", &space, &words).is_empty();
+    let mut plan = entity.new_object();
+    plan.set("first_due", Value::Date(today()));
+    for (parts, expected) in [(1.0, false), (2.0, true), (120.0, true), (121.0, false)] {
+        plan.set("installments", parts);
+        assert_eq!(fits(&plan), expected, "{parts} installments");
+    }
+    plan.set("installments", 3.0);
+    plan.set("first_due", Value::Null);
+    assert!(!fits(&plan), "the first due date is needed");
+}
+
+#[test]
+fn the_finances_ask_the_audit_trail_for_settlements_and_entries_in_full() {
+    use ravenrs_app::{
+        AuditMode, AuditSettings, AuditTrail, AuditedObjectSpace, SECURITY_AUDIT_ENTRY, audit_entity,
+    };
+    let mut entities = finance::entities();
+    entities.push(audit_entity());
+    let database = MemoryDatabase::new(entities).expect("entities fit");
+    let plain: Maker = {
+        let database = database.clone();
+        Rc::new(move || Box::new(database.space()) as Box<dyn ObjectSpace>)
+    };
+    let key = bill(&plain, 10_000.0);
+    let trail = Rc::new(AuditTrail::new(finance::audit(AuditSettings::new(AuditMode::Lightweight)), || {
+        "ana".to_owned()
+    }));
+    let mut space = AuditedObjectSpace::new(Box::new(database.space()), trail);
+    settle(&mut space, &key, SettleInput::new(today(), 10_000), today()).expect("settled");
+    let lines = all(&plain, SECURITY_AUDIT_ENTRY);
+    let of = |entity: &str| -> Vec<&Object> {
+        lines.iter().filter(|line| line.text("target_entity") == entity).collect()
+    };
+    let settlement = of(SETTLEMENT);
+    let bill_key = ravenrs_app::key_text(&key).expect("a key");
+    assert!(
+        settlement.iter().any(|line| line.text("field") == "commitment_id" && line.text("new_value") == bill_key),
+        "the settlement names its bill: {settlement:?}"
+    );
+    assert!(settlement.iter().any(|line| line.text("field") == "entry_id"), "and its entry: {settlement:?}");
+    assert!(of(LEDGER_ENTRY).iter().any(|line| line.text("field") == "amount"), "the entry in full");
+    let bill_lines = of(COMMITMENT);
+    assert!(!bill_lines.is_empty(), "the bill changed");
+    assert!(bill_lines.iter().all(|line| line.text("field").is_empty()), "and stays lightweight: {bill_lines:?}");
+}
+
+#[test]
+fn the_bills_still_open_are_in_the_digest_of_what_falls_due() {
+    use ravenrs_app::{DigestWords, digest_of};
+    both(|maker| {
+        let open = bill(maker, 10_000.0);
+        let paid = bill(maker, 5_000.0);
+        let mut space = maker();
+        settle(&mut *space, &paid, SettleInput::new(today(), 5_000), today()).expect("settled");
+        let records = all(maker, COMMITMENT);
+        let digest =
+            digest_of(&finance::commitment(), &records, today(), 3, true, &DigestWords::english()).expect("one");
+        assert_eq!(digest.keys, std::slice::from_ref(&open), "only the open bill");
+        assert!(digest.body.contains("Luz"), "{}", digest.body);
+    });
 }
