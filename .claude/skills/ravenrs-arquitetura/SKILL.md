@@ -129,7 +129,7 @@ cargo test -p ravenrs-widgets
 cargo clippy -p ravenrs-platform-web --target wasm32-unknown-unknown -- -D warnings
 ```
 
-O portão são as checagens do `cargo xtask`, porque o projeto não tem CI hospedado (skill `ravenrs-check`). `cargo xtask dev` confere os pacotes alterados enquanto se trabalha. `cargo xtask pr` é o gate do PR: formatação, clippy em tudo o que a mudança atinge e testes dos pacotes alterados e dos dependentes diretos. `cargo xtask release` roda antes de publicar e cobre clippy em desktop e wasm32, todos os testes com as imagens de referência, documentação e builds web.
+O portão são as checagens do `cargo xtask`, porque o projeto não tem CI hospedado (skill `ravenrs-check`). `cargo xtask lint` itera rápido, sem testes (rustfmt, conferências baratas e clippy dos alterados). `cargo xtask dev` confere os pacotes alterados, com testes, antes do commit. `cargo xtask pr` é o gate do PR: formatação, clippy em tudo o que a mudança atinge e testes dos pacotes alterados e dos dependentes diretos. `cargo xtask release` roda antes de publicar e cobre clippy em desktop e wasm32, todos os testes com as imagens de referência, documentação e builds web.
 
 Mudança visual intencional exige regenerar as imagens de referência e revisar o diff dos PNGs:
 

@@ -1,6 +1,6 @@
 ---
 name: ravenrs-check
-description: Como rodar, ler e manter as checagens do RavenRS (não há CI hospedado), feitas pelo cargo xtask - dev enquanto se trabalha, pr como gate do PR na máquina de quem desenvolve, release antes de publicar, cargo-nextest obrigatório, um CARGO_TARGET_DIR por worktree, o que o seletor de pacotes testa e o que deixa para o release. Use sempre que for validar um PR ou branch, rodar ou interpretar o cargo xtask dev, pr ou release, investigar teste que falha só no check, um check lento ou "can't find crate", instalar o ambiente de quem contribui, ou mexer no xtask/, no changed-packages.py ou nos perfis do Cargo.toml, mesmo que o pedido não cite esta skill.
+description: Como rodar, ler e manter as checagens do RavenRS (não há CI hospedado), feitas pelo cargo xtask - lint para iterar rápido sem testes, dev enquanto se trabalha, pr como gate do PR na máquina de quem desenvolve, release antes de publicar, cargo-nextest obrigatório, um CARGO_TARGET_DIR por worktree, o que o seletor de pacotes testa e o que deixa para o release. Use sempre que for validar um PR ou branch, rodar ou interpretar o cargo xtask lint, dev, pr ou release, investigar teste que falha só no check, um check lento ou "can't find crate", instalar o ambiente de quem contribui, ou mexer no xtask/, no changed-packages.py ou nos perfis do Cargo.toml, mesmo que o pedido não cite esta skill.
 ---
 
 # As checagens do RavenRS (`cargo xtask`)
@@ -28,6 +28,12 @@ cargo install cargo-nextest --locked
 Vale para todas as máquinas: a do Alex, a do Matheus, as de Linux e Windows, e as worktrees dos agentes. Para conferir, rode `cargo nextest --version`. O nextest roda todos os binários de teste ao mesmo tempo, enquanto o `cargo test` roda um depois do outro, e põe cada teste num processo próprio. Os doctests ele não roda, e por isso o script os passa ao `cargo test --doc`.
 
 ## Rodar
+
+```bash
+cargo xtask lint
+```
+
+Para iterar rápido entre uma edição e outra, **sem nenhum teste**: rustfmt, as conferências baratas e o clippy dos pacotes alterados. Não exige o `cargo-nextest`. Nunca vale como prova: antes do commit vem o `dev` e antes do merge o `pr`, e a mensagem final lembra isso.
 
 ```bash
 cargo xtask dev
