@@ -88,6 +88,9 @@ fn entity(
     if let Some(text) = &settings.empty_text {
         info = info.empty_text(text.value());
     }
+    if let Some(text) = &settings.empty_hint {
+        info = info.empty_hint(text.value());
+    }
     if let Some(text) = &settings.list_criteria {
         info = info.list_criteria(text.value());
     }
@@ -366,6 +369,12 @@ fn field_info(
     }
     if attrs.secret {
         info = info.secret();
+    }
+    if attrs.badge {
+        info = info.badge();
+    }
+    if let Some(field) = &attrs.list_detail {
+        info = info.list_detail(field.value());
     }
     if attrs.non_cloneable {
         info = info.non_cloneable();

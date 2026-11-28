@@ -129,3 +129,69 @@ impl Module for RecordActionModule {
         vec![Box::new(Declared { actions })]
     }
 }
+
+/// The action that amends a record, for each entity that amends another: "Correção de aula" on a
+/// closed lesson, "Transferência" on an enrollment still open. It opens a new amendment on its
+/// form, already pointing to the record, for the reason to be written; the commit applies it.
+/// It is on only while the record can take it, and only for whoever can create the amendment.
+fn amend_action(amending: &EntityInfo, amendment: &crate::Amendment, target: Option<&EntityInfo>) -> Action {
+    let key_field = target.and_then(EntityInfo::key_field).map(|field| field.name.clone());
+    let (entity, reference) = (amending.name.clone(), amendment.reference.clone());
+    let mut action = Action::simple(format!("{}.Amend", amending.name), amending.caption.clone())
+        .category(ActionCategory::Edit)
+        .target_entity(amendment.target.clone())
+        .selection(Selection::RequireSingle)
+        .icon("pencil")
+        .requires_on(amending.name.clone(), Operation::Create)
+        .on_execute(move |cx| {
+            let record = cx.selected.first().ok_or("this action needs a record")?;
+            let field = key_field.as_deref().ok_or("the record has no key")?;
+            cx.open_new(entity.clone(), vec![(reference.clone(), record.get(field))]);
+            Ok(())
+        });
+    if let Some(seal) = target.and_then(|target| target.seal.as_ref()) {
+        let when = match amendment.kind {
+            crate::AmendmentKind::Correction => seal.when.clone(),
+            crate::AmendmentKind::Closing => format!("Not ({})", seal.when),
+        };
+        action = action.target_criteria(when, CriteriaMode::TrueForAll);
+    }
+    action
+}
+
+/// What gives each sealed entity the actions of its amendments. It comes by itself.
+#[derive(Debug)]
+pub(crate) struct AmendmentActionModule(pub(crate) Vec<EntityInfo>);
+
+impl Module for AmendmentActionModule {
+    fn name(&self) -> &str {
+        "AmendmentActions"
+    }
+
+    fn view_controllers(&self) -> Vec<Box<dyn ViewController>> {
+        let actions = self
+            .0
+            .iter()
+            .filter_map(|amending| {
+                let amendment = amending.amendment.as_ref()?;
+                let target = self.0.iter().find(|entity| entity.name == amendment.target);
+                Some(amend_action(amending, amendment, target))
+            })
+            .collect();
+        vec![Box::new(Amending { actions })]
+    }
+}
+
+struct Amending {
+    actions: Vec<Action>,
+}
+
+impl ViewController for Amending {
+    fn id(&self) -> &str {
+        "AmendmentActions"
+    }
+
+    fn actions(&self) -> Vec<Action> {
+        self.actions.clone()
+    }
+}

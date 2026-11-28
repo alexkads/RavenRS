@@ -4,8 +4,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 use ravenrs_app::{
-    AppearanceTarget, CONTEXT_SAVE, Criteria, DataAccess, EntityInfo, FieldInfo, FieldKind, Frame, Message,
-    MessageKind, ModelNode, Object, Query, Severity, Value, ViewInfo, validate_in_place,
+    ActionCategory, ActionInput, AppearanceTarget, CONTEXT_SAVE, Criteria, DataAccess, EntityInfo, FieldInfo,
+    FieldKind, Frame, Message, MessageKind, ModelNode, Object, Query, Severity, Value, ViewInfo,
+    validate_in_place,
 };
 use ravenrs_grid_export::export;
 use ravenrs_layout::Align;
@@ -13,8 +14,8 @@ use ravenrs_reactive::{Binding, State};
 use ravenrs_widgets::grid::{GridQuery, Row, Value as Cell, to_table};
 use ravenrs_widgets::{
     AnyView, BuildCx, Button, Card, CellEdit, DataGrid, EmptyState, GridCellStyle, GridColumn, GridCurrent,
-    GridData, GridPage, GridRequest, GridResponder, GridRowAction, GridTable, HStack, Keyed, NodeId,
-    RemoteRows, SelectionMode, SortDirection, Stat, Text, VStack, View, ViewExt,
+    GridData, GridPage, GridRequest, GridResponder, GridRowAction, GridTable, HStack, IconName, Keyed,
+    NodeId, RemoteRows, SelectionMode, SortDirection, Stat, Text, VStack, View, ViewExt,
 };
 
 use crate::session::Session;
@@ -163,10 +164,28 @@ impl Reader {
             let text = display(field, &value);
             return Cell::Text(known.get(&text).cloned().unwrap_or(text));
         }
-        match self.cell_text.as_ref().and_then(|text| text(&field.name, object)) {
+        let cell = match self.cell_text.as_ref().and_then(|text| text(&field.name, object)) {
             Some(text) if text.is_empty() => Cell::Empty,
             Some(text) => Cell::Text(text),
             None => cell_of(field, &value),
+        };
+        // The field shown under it goes in the same text, so export and filter read both.
+        let under = field.list_detail.as_deref().and_then(|name| {
+            let entity = self.session.entity(object.entity())?;
+            let detail = entity.field_named(name)?;
+            let shown = display(detail, &object.get(name));
+            (!shown.is_empty()).then_some(shown)
+        });
+        match under {
+            Some(under) => {
+                let main = match &cell {
+                    Cell::Empty => String::new(),
+                    Cell::Text(text) => text.clone(),
+                    _ => display(field, &value),
+                };
+                Cell::Text(format!("{main}{}{under}", crate::values::DETAIL_BETWEEN))
+            }
+            None => cell,
         }
     }
 
@@ -311,6 +330,48 @@ fn answer_remote(
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ListView {
+    /// The actions of the entity that go on each row: each runs on its row's record, the way the
+    /// others run on what is selected, and lights up only where its criteria hold. Whoever cannot
+    /// do what one does to the records does not see it.
+    fn in_row(
+        &self,
+        entity: &EntityInfo,
+        objects: &Rc<BTreeMap<String, Object>>,
+        key_at: usize,
+    ) -> Vec<GridRowAction> {
+        let security = self.frame.security();
+        self.frame
+            .actions()
+            .into_iter()
+            .filter(|action| matches!(action.action_category(), ActionCategory::InRow) && action.is_active())
+            .filter(|action| match (action.required_operation(), &security) {
+                (Some(operation), Some(security)) => {
+                    security.with(|permissions| permissions.can(operation, &entity.name, None))
+                }
+                _ => true,
+            })
+            .map(|action| {
+                let icon =
+                    action.icon_name().and_then(crate::container::icon_named).unwrap_or(IconName::Play);
+                let record_of = {
+                    let known = objects.clone();
+                    move |row: &Row| row.get(key_at).and_then(|cell| known.get(&cell.key_text())).cloned()
+                };
+                let (session, frame, running, find) =
+                    (self.session.clone(), self.frame.clone(), action.clone(), record_of.clone());
+                GridRowAction::new(action.caption().to_owned(), icon, move |row| {
+                    let Some(record) = find(row) else { return };
+                    frame.set_selected(vec![record]);
+                    session.run_action(&running, ActionInput::None);
+                })
+                .show_text()
+                .enabled(move |row| {
+                    record_of(row).is_some_and(|record| action.fits(&record, &ravenrs_app::environment()))
+                })
+            })
+            .collect()
+    }
+
     /// The list of this view in the model, reading through this frame.
     pub fn new(session: Session, frame: Frame, view: ViewInfo) -> Self {
         Self {
@@ -778,6 +839,7 @@ impl View for ListView {
             None => grid,
         };
         let grid = self.row_actions.iter().cloned().fold(grid, DataGrid::row_action);
+        let grid = self.in_row(&entity, &objects, key_at).into_iter().fold(grid, DataGrid::row_action);
         let grid = if in_place {
             let (session, frame, named, shown) =
                 (session.clone(), self.frame.clone(), entity.clone(), infos.clone());

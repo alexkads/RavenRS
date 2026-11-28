@@ -132,7 +132,10 @@ impl Demo {
                 self.preference.advance_days
             ),
         ];
-        let words = DigestWords::portuguese();
+        // The words of the catalog, with its money format, as the session takes them.
+        let words = DigestWords::from_texts(&ravenrs_app_i18n::Texts::new(
+            ravenrs_app_i18n::Language::BrazilianPortuguese,
+        ));
         match due_digest_for(&space, &invoice(), &permissions, day(21), self.preference, &words) {
             Some(digest) => {
                 lines.push(format!("Aviso: {}", digest.title));

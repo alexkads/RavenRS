@@ -13,7 +13,7 @@ use syn::{DeriveInput, Error, Result, parse_macro_input};
 /// Declares a struct as a business object: an entity for the model, and the way to and from
 /// a record.
 ///
-/// On the struct, `#[object(caption = "...", navigation = "...", icon = "...", empty_text = "...",
+/// On the struct, `#[object(caption = "...", navigation = "...", icon = "...", empty_text = "...", empty_hint = "...",
 /// list_criteria = "...", form_columns = 2, cloneable, singleton, transient, checks_on_leave, list_editable,
 /// data_access = "server", form_actions = "name", focus_order = "a,b")]`, where `data_access` is
 /// `client`, `server` or `data_view`, and `focus_order` the fields the form goes through first.
@@ -37,7 +37,7 @@ use syn::{DeriveInput, Error, Result, parse_macro_input};
 ///   `accessible_description = "..."` instead of the hint.
 /// * `display_format = "{:.2} %"`, how its value shows when it is not being edited.
 /// * On a reference: `lookup_filter = "[flow] = ?flow"`, `none_caption = "..."`. On a collection:
-///   `back_reference = "..."`, `aggregated`. `secret` never leaves a secured space. `non_cloneable` stays behind on cloning, and
+///   `back_reference = "..."`, `aggregated`. `secret` never leaves a secured space. `badge` shows the value as a badge in a list, and `list_detail = "..."` another field under it. `non_cloneable` stays behind on cloning, and
 ///   `most_bytes = 1024` limits a picture or a file.
 ///
 /// On the struct, as many as needed:
@@ -240,6 +240,12 @@ fn field_tokens(field: &FieldSpec) -> Tokens {
     if attrs.secret {
         then(quote!(.secret()));
     }
+    if attrs.badge {
+        then(quote!(.badge()));
+    }
+    if let Some(field) = &attrs.list_detail {
+        then(quote!(.list_detail(#field)));
+    }
     if attrs.non_cloneable {
         then(quote!(.non_cloneable()));
     }
@@ -340,6 +346,9 @@ fn business_object(input: &DeriveInput) -> Result<Tokens> {
     }
     if let Some(text) = &object.empty_text {
         info = quote!(#info.empty_text(#text));
+    }
+    if let Some(text) = &object.empty_hint {
+        info = quote!(#info.empty_hint(#text));
     }
     if let Some(text) = &object.list_criteria {
         info = quote!(#info.list_criteria(#text));

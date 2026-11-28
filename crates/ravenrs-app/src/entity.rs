@@ -22,9 +22,9 @@ pub use amendment_types::{
 };
 pub use appearance_types::{AppearanceContext, AppearanceRule, AppearanceTarget, Tint};
 pub use closing_types::{
-    CLOSING_CURRENT, CLOSING_REOPENED, ClosingError, PeriodClosing, approve, archived_document,
+    CLOSING_CURRENT, CLOSING_REOPENED, ClosingError, PeriodClosing, StoredList, approve, archived_document,
     check_closing, check_closing_model, closing_digest, closing_key, closing_versions,
-    missing_closing_entities, reopen,
+    closing_versions_entity, missing_closing_entities, reopen,
 };
 pub use due_digest_types::DueDigest;
 pub use record_actions::{RecordAction, Selection};
@@ -133,13 +133,22 @@ pub struct EnumOption {
     pub code: String,
     /// What people see.
     pub caption: String,
+    /// Its tone in a list, where the column shows each value as a badge.
+    pub tint: Option<Tint>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl EnumOption {
     /// An option stored as `code` and shown as `caption`.
     pub fn new(code: impl Into<String>, caption: impl Into<String>) -> Self {
-        Self { code: code.into(), caption: caption.into() }
+        Self { code: code.into(), caption: caption.into(), tint: None }
+    }
+
+    /// Shows it in a list as a badge of this tone: a column of options with a tone shows each
+    /// value as a badge, neutral for those with none.
+    pub fn tint(mut self, tint: Tint) -> Self {
+        self.tint = Some(tint);
+        self
     }
 }
 
@@ -211,6 +220,10 @@ pub struct FieldInfo {
     pub accessible_name: Option<String>,
     /// What screen readers say after its name, such as what goes in it. The hint by default.
     pub accessible_description: Option<String>,
+    /// A list shows its value as a badge, as for a status worked out by an expression.
+    pub badge: bool,
+    /// The field a list shows under its value, smaller and muted, in the same cell.
+    pub list_detail: Option<String>,
 }
 
 /// `opening_cents` as `Opening cents`.
@@ -260,6 +273,8 @@ impl FieldInfo {
             secret: false,
             accessible_name: None,
             accessible_description: None,
+            badge: false,
+            list_detail: None,
             kind,
         }
     }
@@ -437,6 +452,21 @@ impl FieldInfo {
     /// For text: the values offered to pick from.
     pub fn predefined(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
         self.predefined = values.into_iter().map(Into::into).collect();
+        self
+    }
+
+    /// Shows its value in a list as a badge. The tone comes from the options of an enumeration,
+    /// with [`EnumOption::tint`]; other values show neutral.
+    pub fn badge(mut self) -> Self {
+        self.badge = true;
+        self
+    }
+
+    /// Shows `field` under its value in a list, smaller and muted, in the same cell: a person's
+    /// phone under their name. Exported and filtered, the two go on one line with " · " between.
+    /// Whoever cannot read `field` sees only the value.
+    pub fn list_detail(mut self, field: impl Into<String>) -> Self {
+        self.list_detail = Some(field.into());
         self
     }
 
@@ -1023,6 +1053,14 @@ impl EntityInfo {
         for (i, field) in self.fields.iter().enumerate() {
             if self.fields[..i].iter().any(|f| f.name == field.name) {
                 return wrong(format!("the field {} is declared twice", field.name));
+            }
+            if let Some(detail) = &field.list_detail
+                && self.field_named(detail).is_none()
+            {
+                return wrong(format!(
+                    "the field {} shows {detail} under it, which is not a field",
+                    field.name
+                ));
             }
             if let Some(expression) = &field.calculated {
                 let parsed = Criteria::parse(expression)

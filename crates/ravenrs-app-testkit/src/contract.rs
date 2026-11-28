@@ -621,6 +621,35 @@ fn period_closing(adapter: &dyn Adapter) -> Result<Outcome, String> {
     space.save(found).map_err(wrong)?;
     space.commit().map_err(wrong)?;
 
+    // The commit asks what the closing requires none of too, not only `approve`: a version written
+    // with a draft lesson of the term waiting, or one written straight past `approve`, is refused.
+    let direct = |space: &mut dyn ObjectSpace| -> Result<(), String> {
+        let mut version = space.new_object("TermClosing").map_err(wrong)?;
+        version.set("id", Value::Text(closing_key(&term_key, 1).ok_or("the key")?));
+        version.set("period", term_key.clone());
+        version.set("version", 1.0);
+        version.set("digest", "b".repeat(64));
+        version.set("document", "1");
+        version.set("status", "current");
+        space.insert(version).map_err(wrong)
+    };
+    let mut space = (store.space)();
+    add(&mut *space, "Lesson", &[("term_id", term_key.clone()), ("status", "draft".into())])?;
+    direct(&mut *space)?;
+    ensure!(space.commit().is_err(), "a version was kept with a draft lesson waiting in the same commit");
+    space.rollback();
+    same!(count(&*(store.space)(), "TermClosing")?, 0, "a refused commit left a version");
+    let mut space = (store.space)();
+    let late = add(&mut *space, "Lesson", &[("term_id", term_key.clone()), ("status", "draft".into())])?;
+    space.commit().map_err(wrong)?;
+    let mut space = (store.space)();
+    direct(&mut *space)?;
+    ensure!(space.commit().is_err(), "a version written past approve was kept with a draft lesson stored");
+    space.rollback();
+    let mut space = (store.space)();
+    space.delete("Lesson", &late).map_err(wrong)?;
+    space.commit().map_err(wrong)?;
+
     let mut space = (store.space)();
     let first = approve(&mut *space, &files, "Term", &term_key, b"pdf da 1", "ana")
         .map_err(|e| format!("approving a term with nothing open: {e}"))?;
