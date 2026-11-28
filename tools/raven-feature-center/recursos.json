@@ -47,7 +47,7 @@
 {"crate": "ravenrs-app-server", "tipo": "ApiRequest", "pendente": true, "issue": 579, "conhecidos": ["bearer", "bytes", "client", "header", "json", "new", "query"]},
 {"crate": "ravenrs-app-server", "tipo": "ApiService", "pagina": "Serviço da API", "recursos": ["audit", "authenticator", "endpoint", "fallback", "handle", "hide", "new", "role_merge", "rule_words", "session_lifetime", "setting", "sign_ins_a_minute", "title", "webhook"]},
 {"crate": "ravenrs-app-server", "tipo": "Webhook", "pendente": true, "issue": 579, "conhecidos": ["new", "secret"]},
-{"crate": "ravenrs-app-sql", "tipo": "SqlBuilder", "pendente": true, "issue": 579, "conhecidos": ["build", "managed", "mapped", "migration", "words"]},
+{"crate": "ravenrs-app-sql", "tipo": "SqlBuilder", "pendente": true, "issue": 579, "conhecidos": ["build", "managed", "mapped", "migration", "sealed_guards", "words"]},
 {"crate": "ravenrs-app-sql", "tipo": "TableMap", "pendente": true, "issue": 579, "conhecidos": ["after_load", "before_save", "column", "computed", "new"]},
 {"crate": "ravenrs-app-sqlite", "tipo": "BackupStamp", "pendente": true, "issue": 579, "conhecidos": ["new", "tenant", "version"]},
 {"crate": "ravenrs-app-sqlite", "tipo": "Backups", "pendente": true, "issue": 579, "conhecidos": ["copies", "copies_in", "inspect", "keep", "keep_copy", "restore", "save"]},
