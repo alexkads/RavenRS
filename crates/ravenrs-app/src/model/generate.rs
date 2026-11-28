@@ -20,8 +20,13 @@ fn list_view(entity: &EntityInfo, id: String, shown: impl Fn(&FieldInfo) -> bool
         } else {
             -1
         };
-        columns = columns
-            .child(ModelNode::new(&field.name).with("Caption", field.caption.as_str()).with("Index", index));
+        let column = ModelNode::new(&field.name).with("Caption", field.caption.as_str()).with("Index", index);
+        let column = if field.badge { column.with("Display", "Badge") } else { column };
+        let column = match &field.list_detail {
+            Some(detail) => column.with("Detail", detail.as_str()),
+            None => column,
+        };
+        columns = columns.child(column);
     }
     let node = ModelNode::new(id)
         .with("Kind", "ListView")
@@ -531,6 +536,21 @@ mod tests {
 
     fn visible(view: &ModelNode) -> Vec<&str> {
         view.get("Columns").map_or(vec![], |c| c.in_order().iter().map(|n| n.id.as_str()).collect())
+    }
+
+    #[test]
+    fn a_column_says_it_is_a_badge_and_what_goes_under_it() {
+        let entity = EntityInfo::new("Member")
+            .field(FieldInfo::new("id", crate::FieldKind::Integer).key())
+            .field(FieldInfo::new("name", crate::FieldKind::Text).list_detail("phone"))
+            .field(FieldInfo::new("phone", crate::FieldKind::Text))
+            .field(FieldInfo::new("situation", crate::FieldKind::Text).badge());
+        let root = generate_model(&[entity]).expect("valid");
+        let column = |name: &str| root.at(&["Views", "Member_ListView", "Columns", name]).expect("a column");
+        assert_eq!(column("situation").text("Display"), Some("Badge"));
+        assert_eq!(column("name").text("Detail"), Some("phone"));
+        assert_eq!(column("phone").text("Display"), None, "a plain column says nothing");
+        assert_eq!(column("phone").text("Detail"), None);
     }
 
     #[test]

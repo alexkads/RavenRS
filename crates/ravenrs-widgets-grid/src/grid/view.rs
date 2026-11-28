@@ -2274,7 +2274,7 @@ impl View for DataRow<'_> {
                         }),
                 )
             } else if let Some(template) = &col.template {
-                let view = template(&value);
+                let view = template(&value, looks.ink);
                 let inner = cx.keyed_child(c as u64, view.as_ref());
                 // A neutral box, so the template's own cross-axis alignment cannot pull it off center.
                 cx.container(LayoutStyle::stack(Axis::Horizontal), &[inner], Paint::None)

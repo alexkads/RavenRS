@@ -181,3 +181,19 @@ fn a_badge_and_the_field_under_another_come_from_the_struct() {
     assert!(entity.field_named("phone").is_some_and(|field| !field.badge && field.list_detail.is_none()));
     assert!(entity.check().is_ok());
 }
+
+#[derive(BusinessEnum, Clone, Debug, PartialEq)]
+enum Situation {
+    #[option(caption = "Ativo", code = "active", tint = "success")]
+    Active,
+    #[option(caption = "Afastado", code = "away", tint = "warning")]
+    Away,
+    Gone,
+}
+
+#[test]
+fn an_option_takes_the_tone_it_shows_in() {
+    let FieldKind::Enum(options) = <Situation as FieldValue>::kind() else { panic!("an enum") };
+    let tints: Vec<Option<Tint>> = options.iter().map(|option| option.tint).collect();
+    assert_eq!(tints, [Some(Tint::Success), Some(Tint::Warning), None]);
+}

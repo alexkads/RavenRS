@@ -411,6 +411,8 @@ pub struct OptionSpec {
     pub code: String,
     /// What people see.
     pub caption: String,
+    /// The tone it shows in, as a badge on a list: `tint = "success"`.
+    pub tint: Option<TintSpec>,
 }
 
 /// An enum with `#[derive(BusinessEnum)]`.
@@ -1038,23 +1040,25 @@ pub fn parse_enum(input: &DeriveInput) -> Result<EnumSpec> {
             return Err(Error::new(variant.ident.span(), "an option of a business enum cannot hold data"));
         }
         let ident = &variant.ident;
-        let (mut caption, mut code) = (ident.to_string(), ident.to_string());
+        let (mut caption, mut code, mut color) = (ident.to_string(), ident.to_string(), None);
         for attr in variant.attrs.iter().filter(|a| a.path().is_ident("option")) {
             attr.parse_nested_meta(|meta| {
-                let value: LitStr = if meta.path.is_ident("caption") || meta.path.is_ident("code") {
-                    meta.value()?.parse()?
-                } else {
-                    return Err(meta.error("unknown setting: use caption or code"));
-                };
+                let known = ["caption", "code", "tint"].iter().any(|name| meta.path.is_ident(name));
+                if !known {
+                    return Err(meta.error("unknown setting: use caption, code or tint"));
+                }
+                let value: LitStr = meta.value()?.parse()?;
                 if meta.path.is_ident("caption") {
                     caption = value.value();
-                } else {
+                } else if meta.path.is_ident("code") {
                     code = value.value();
+                } else {
+                    color = Some(tint(&value)?);
                 }
                 Ok(())
             })?;
         }
-        options.push(OptionSpec { ident: ident.clone(), code, caption });
+        options.push(OptionSpec { ident: ident.clone(), code, caption, tint: color });
     }
     Ok(EnumSpec { name: name.clone(), options })
 }

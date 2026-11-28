@@ -194,8 +194,11 @@ impl NumberFormat {
 
 /// Turns a cell value into its display text.
 pub type CellFormat = Rc<dyn Fn(&Value) -> String>;
-/// Builds a custom view for a cell value.
-pub type CellTemplate = Rc<dyn Fn(&Value) -> AnyView>;
+/// Builds a custom view for a cell value, with the color of text [`DataGrid::cell_style`] gives the
+/// cell, if any.
+///
+/// [`DataGrid::cell_style`]: crate::DataGrid::cell_style
+pub type CellTemplate = Rc<dyn Fn(&Value, Option<ravenrs_style::Semantic>) -> AnyView>;
 
 /// A data grid column: title, width, alignment, formatting and capabilities.
 #[derive(Clone)]
@@ -413,6 +416,19 @@ impl GridColumn {
 
     /// Custom view for each cell (a badge, an avatar...).
     pub fn template(mut self, f: impl Fn(&Value) -> AnyView + 'static) -> Self {
+        self.template = Some(Rc::new(move |value, _| f(value)));
+        self
+    }
+
+    /// Custom view for each cell that also takes the color of text the row gives it by
+    /// [`DataGrid::cell_style`], so a badge can take the tone of its record: a bill overdue in
+    /// danger, the others neutral. Without a style, or one with no color, it gets `None`.
+    ///
+    /// [`DataGrid::cell_style`]: crate::DataGrid::cell_style
+    pub fn template_inked(
+        mut self,
+        f: impl Fn(&Value, Option<ravenrs_style::Semantic>) -> AnyView + 'static,
+    ) -> Self {
         self.template = Some(Rc::new(f));
         self
     }
