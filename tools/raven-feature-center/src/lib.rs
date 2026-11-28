@@ -53,6 +53,8 @@ mod centro;
 #[cfg(feature = "app")]
 pub mod contas;
 #[cfg(feature = "app")]
+pub mod entrada;
+#[cfg(feature = "app")]
 pub mod fechamento;
 #[cfg(feature = "app")]
 pub mod menu;

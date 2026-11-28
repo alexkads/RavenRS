@@ -20,8 +20,8 @@ mod temporary;
 
 pub use audit::{AuditMode, AuditSettings, AuditTrail, AuditedObjectSpace};
 pub use directory::{
-    AuthError, Authenticator, Credentials, MIN_PASSWORD_CHARS, PasswordError, SecurityContext, SpaceMaker,
-    UserDirectory,
+    AuthError, Authenticator, Credentials, MIN_PASSWORD_CHARS, PasswordError, PasswordPolicy,
+    SecurityContext, SpaceMaker, UserDirectory,
 };
 pub use external::{Claims, ExternalSignIn, IdentityProvider, SECURITY_EXTERNAL_LOGIN};
 pub use password::{hash_password, verify_password};

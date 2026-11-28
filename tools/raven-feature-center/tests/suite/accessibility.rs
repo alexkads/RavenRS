@@ -134,6 +134,7 @@ demonstrations! {
     selo_e_linha_de_apoio => "Selo e linha de apoio",
     fechamento => "Fechamento de período",
     acesso_temporario => "Acesso temporário",
+    entrada_segura => "Entrada segura",
     semestres_aprovados => "Semestres aprovados",
     aulas_do_semestre => "Aulas do semestre",
     aulas_encerradas => "Aulas encerradas",

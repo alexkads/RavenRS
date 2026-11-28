@@ -261,7 +261,7 @@ pub struct Ui {
     closer: crate::WindowCloser,
     /// Where the focus was before this build moved it.
     moved_focus_from: Option<Option<WidgetId>>,
-    activity: Option<crate::context::ActivityObserver>,
+    activity: Vec<crate::context::ActivityObserver>,
     access_tree_asked: bool,
     /// Earliest time a widget asked to be rebuilt at.
     wake: Option<f64>,
@@ -386,7 +386,7 @@ impl Ui {
             close_guards: Vec::new(),
             closer: crate::WindowCloser::default(),
             moved_focus_from: None,
-            activity: None,
+            activity: Vec::new(),
             access_tree_asked: false,
             wake: None,
             hold_at: None,
@@ -913,7 +913,7 @@ impl Ui {
     }
 
     fn tell_activity(&self, activity: crate::context::UiActivity<'_>) {
-        if let Some(observer) = self.activity.clone() {
+        for observer in self.activity.clone() {
             observer(activity, self.time);
         }
     }
@@ -1044,6 +1044,7 @@ impl Ui {
                 }
             }
             Event::Scroll { position, delta } => {
+                self.tell_activity(crate::context::UiActivity::Scrolled(*position));
                 if self.scroll(*position, *delta) {
                     if !self.needs_build {
                         self.place_and_paint();
@@ -1081,6 +1082,7 @@ impl Ui {
             }
             Event::KeyUp { modifiers, .. } => self.set_modifiers(*modifiers),
             Event::KeyDown { key, modifiers } => {
+                self.tell_activity(crate::context::UiActivity::KeyPressed);
                 self.set_modifiers(*modifiers);
                 if modifiers.alt {
                     let base = modifiers.base_key.map(|c| Key::Character(c.to_string()));
@@ -1769,7 +1771,7 @@ impl Ui {
                 cx.focus_request.take(),
                 cx.wake.take(),
                 std::mem::take(&mut cx.shortcuts),
-                cx.activity.take(),
+                std::mem::take(&mut cx.activity),
                 cx.access_tree_asked,
                 cx.error.take(),
                 std::mem::take(&mut cx.motions),
