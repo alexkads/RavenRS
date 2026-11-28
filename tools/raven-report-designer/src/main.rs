@@ -20,6 +20,43 @@ fn self_test() -> Result<String, String> {
     Ok("Autoteste: o designer abre sem janela".to_owned())
 }
 
+/// The designer of the report in `path`, opened from it and saved back to it with Salvar, with no
+/// file dialog: what `raven-report-designer relatorio.json` opens, and what a test drives.
+#[cfg(not(target_arch = "wasm32"))]
+fn designer_of(
+    path: std::path::PathBuf,
+    on_close: impl Fn() + 'static,
+) -> Result<raven_report_designer::Designer, String> {
+    let json =
+        std::fs::read_to_string(&path).map_err(|e| format!("não deu para ler {}: {e}", path.display()))?;
+    let report = ravenrs_report::Report::from_json(&json)
+        .map_err(|e| format!("{} não é um relatório: {e}", path.display()))?;
+    let save = move |report: ravenrs_report::Report| {
+        if let Err(e) = std::fs::write(&path, report.to_json()) {
+            eprintln!("não deu para salvar {}: {e}", path.display());
+        }
+    };
+    Ok(raven_report_designer::Designer::embedded(report, "Salvar", "Fechar", save, on_close))
+}
+
+/// The report a test edits: the sample invoice, written once into the folder that
+/// `RAVEN_REPORT_DESIGNER_E2E_DIR` names, or into one of this process under the temporary folder.
+/// Opened again on the same folder, it is the copy saved before.
+#[cfg(not(target_arch = "wasm32"))]
+fn e2e_report() -> Result<std::path::PathBuf, String> {
+    let folder = std::env::var_os("RAVEN_REPORT_DESIGNER_E2E_DIR").map_or_else(
+        || std::env::temp_dir().join(format!("raven-report-designer-e2e-{}", std::process::id())),
+        std::path::PathBuf::from,
+    );
+    std::fs::create_dir_all(&folder).map_err(|e| format!("{}: {e}", folder.display()))?;
+    let path = folder.join("fatura.json");
+    if !path.exists() {
+        std::fs::write(&path, ravenrs_report::samples::invoice().to_json())
+            .map_err(|e| format!("{}: {e}", path.display()))?;
+    }
+    Ok(path)
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<(), ravenrs::native::PlatformError> {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
@@ -28,12 +65,18 @@ fn main() -> Result<(), ravenrs::native::PlatformError> {
         println!("{}", versao::VERSION);
         return Ok(());
     }
-    // A test tool such as Raven Test Studio drives the app with no window (`--e2e-serve`), in
-    // memory: nothing the person keeps on disk is opened.
+    // A test tool such as Raven Test Studio drives the app with no window (`--e2e-serve`), on a
+    // copy of the sample invoice in a folder of its own: nothing the person keeps is opened.
     if arguments.iter().any(|arg| arg == ravenrs_e2e_wire::SERVE_FLAG) {
-        let session =
-            ravenrs_e2e::E2e::new(raven_report_designer::app(), ravenrs::prelude::Theme::raven_dark())
-                .viewport(ravenrs::prelude::Size::new(1440.0, 900.0), 1.0);
+        let designer = match e2e_report().and_then(|path| designer_of(path, || {})) {
+            Ok(designer) => designer,
+            Err(why) => {
+                eprintln!("{why}");
+                std::process::exit(1);
+            }
+        };
+        let session = ravenrs_e2e::E2e::new(designer, ravenrs::prelude::Theme::raven_dark())
+            .viewport(ravenrs::prelude::Size::new(1440.0, 900.0), 1.0);
         let hello =
             ravenrs_e2e_wire::Hello::of("Raven Report Designer").scenarios(raven_report_designer::SCENARIOS);
         if let Err(error) =
@@ -71,6 +114,16 @@ fn main() -> Result<(), ravenrs::native::PlatformError> {
         .labels(ravenrs::prelude::Labels::pt_br())
         .new_issue_url("https://github.com/alexkads/RavenRS/issues/new")
         .close_to_tray(tray);
+    // A report file on the command line (or opened with the designer) is edited in place.
+    if let Some(file) = arguments.iter().find(|a| !a.starts_with("--")) {
+        return match designer_of(std::path::PathBuf::from(file), || std::process::exit(0)) {
+            Ok(designer) => ravenrs::native::run_as(designer, options, identity),
+            Err(why) => {
+                eprintln!("{why}");
+                std::process::exit(2);
+            }
+        };
+    }
     ravenrs::native::run_as(raven_report_designer::app(), options, identity)
 }
 

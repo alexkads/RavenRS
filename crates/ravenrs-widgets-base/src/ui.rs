@@ -261,7 +261,7 @@ pub struct Ui {
     closer: crate::WindowCloser,
     /// Where the focus was before this build moved it.
     moved_focus_from: Option<Option<WidgetId>>,
-    activity: Option<crate::context::ActivityObserver>,
+    activity: Vec<crate::context::ActivityObserver>,
     access_tree_asked: bool,
     /// Earliest time a widget asked to be rebuilt at.
     wake: Option<f64>,
@@ -386,7 +386,7 @@ impl Ui {
             close_guards: Vec::new(),
             closer: crate::WindowCloser::default(),
             moved_focus_from: None,
-            activity: None,
+            activity: Vec::new(),
             access_tree_asked: false,
             wake: None,
             hold_at: None,
@@ -913,7 +913,7 @@ impl Ui {
     }
 
     fn tell_activity(&self, activity: crate::context::UiActivity<'_>) {
-        if let Some(observer) = self.activity.clone() {
+        for observer in self.activity.clone() {
             observer(activity, self.time);
         }
     }
@@ -1044,6 +1044,7 @@ impl Ui {
                 }
             }
             Event::Scroll { position, delta } => {
+                self.tell_activity(crate::context::UiActivity::Scrolled(*position));
                 if self.scroll(*position, *delta) {
                     if !self.needs_build {
                         self.place_and_paint();
@@ -1081,6 +1082,7 @@ impl Ui {
             }
             Event::KeyUp { modifiers, .. } => self.set_modifiers(*modifiers),
             Event::KeyDown { key, modifiers } => {
+                self.tell_activity(crate::context::UiActivity::KeyPressed);
                 self.set_modifiers(*modifiers);
                 if modifiers.alt {
                     let base = modifiers.base_key.map(|c| Key::Character(c.to_string()));
@@ -1769,7 +1771,7 @@ impl Ui {
                 cx.focus_request.take(),
                 cx.wake.take(),
                 std::mem::take(&mut cx.shortcuts),
-                cx.activity.take(),
+                std::mem::take(&mut cx.activity),
                 cx.access_tree_asked,
                 cx.error.take(),
                 std::mem::take(&mut cx.motions),
@@ -2566,5 +2568,50 @@ fn same_key(wanted: &Key, pressed: &Key) -> bool {
     match (wanted, pressed) {
         (Key::Character(a), Key::Character(b)) => a.eq_ignore_ascii_case(b),
         (a, b) => a == b,
+    }
+}
+
+#[cfg(test)]
+mod activity_tests {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    use ravenrs_core::{Event, Key, Modifiers, Point, Size};
+
+    use crate::context::UiActivity;
+    use crate::{BuildCx, NodeId, Text, Ui, View};
+
+    /// Writes down, under its own name, every key and scroll it is told about.
+    struct Watching {
+        log: Rc<RefCell<Vec<String>>>,
+    }
+
+    impl View for Watching {
+        fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+            for name in ["first", "second"] {
+                let log = self.log.clone();
+                cx.observe_activity(Rc::new(move |activity, _| match activity {
+                    UiActivity::KeyPressed => log.borrow_mut().push(format!("{name}: key")),
+                    UiActivity::Scrolled(at) => log.borrow_mut().push(format!("{name}: scroll {}", at.x)),
+                    _ => {}
+                }));
+            }
+            cx.child(&Text::new("watched"))
+        }
+    }
+
+    #[test]
+    fn every_observer_hears_keys_and_scrolling_in_the_order_they_asked() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let mut ui = Ui::new(Watching { log: log.clone() }, ravenrs_style::Theme::raven_dark());
+        ui.set_viewport(Size::new(200.0, 100.0), 1.0);
+        ui.update();
+        ui.handle_event(&Event::KeyDown { key: Key::Character("a".into()), modifiers: Modifiers::default() });
+        ui.handle_event(&Event::Scroll { position: Point::new(12.0, 5.0), delta: Point::new(0.0, 3.0) });
+        assert_eq!(
+            *log.borrow(),
+            ["first: key", "second: key", "first: scroll 12", "second: scroll 12"],
+            "both observers are told, and which key is never said"
+        );
     }
 }

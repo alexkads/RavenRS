@@ -134,6 +134,8 @@ pub struct Words {
     pub repeat_password: String,
     /// Signing in could not be tried.
     pub sign_in_unavailable: String,
+    /// The session ended because nothing was done for the time of `SecuredApp::idle_timeout`.
+    pub session_idle: String,
     /// The two are not the same.
     pub passwords_differ: String,
     /// It is too short.
@@ -150,6 +152,10 @@ pub struct Words {
     pub change_password: String,
     /// Gives someone a password.
     pub set_password: String,
+    /// The action that lets someone waiting after too many wrong passwords sign in again.
+    pub unlock_user: String,
+    /// Said once they can.
+    pub user_unlocked: String,
     /// Why they have to choose one now.
     pub must_change_password: String,
     /// What the first screen of a new installation says.
@@ -286,6 +292,7 @@ impl Words {
             new_password: texts.get("ui.new_password"),
             repeat_password: texts.get("ui.repeat_password"),
             sign_in_unavailable: texts.get("ui.sign_in_unavailable"),
+            session_idle: texts.get("ui.session_idle"),
             passwords_differ: texts.get("ui.passwords_differ"),
             password_too_short: texts.get("ui.password_too_short"),
             password_same: texts.get("ui.password_same"),
@@ -294,6 +301,8 @@ impl Words {
             save_password: texts.get("ui.save_password"),
             change_password: texts.get("ui.change_password"),
             set_password: texts.get("ui.set_password"),
+            unlock_user: texts.get("ui.unlock_user"),
+            user_unlocked: texts.get("ui.user_unlocked"),
             must_change_password: texts.get("ui.must_change_password"),
             first_user: texts.get("ui.first_user"),
             create_user: texts.get("ui.create_user"),

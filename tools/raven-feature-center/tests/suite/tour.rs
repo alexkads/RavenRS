@@ -2710,6 +2710,51 @@ fn a_temporary_access_ends_by_itself_and_revoking_never_takes_oneself() {
 }
 
 #[test]
+fn the_secure_door_refuses_weak_passwords_waits_after_wrong_ones_and_ends_idle_sessions() {
+    let mut c = Center::memory("ana");
+    c.press("Entrada segura");
+    c.settle();
+    // new, aside and into_view: a door of its own, with nobody in it yet.
+    assert!(c.says("Portaria nova: crie o administrador."), "{:?}", c.texts());
+    assert!(c.says("Regras desta portaria"), "{:?}", c.texts());
+    // password_policy: the first administrator is refused in the page's own words.
+    c.type_into("Nome", "bia");
+    c.type_into("Nova senha", "senhafraca");
+    c.type_into("Repita a senha", "senhafraca");
+    c.press("Criar administrador");
+    assert!(c.says("Use ao menos um número."), "{:?}", c.texts());
+    c.type_into("Nova senha", " 1");
+    c.type_into("Repita a senha", " 1");
+    c.press("Criar administrador");
+    // role, merge and temporary_access: bia is in, as the administrator of the door.
+    assert!(c.says("Recados"), "{:?}", c.texts());
+    // idle_timeout: a key renews the time; then nothing for longer goes back to the door.
+    c.ui.set_time(100.0);
+    c.key(ravenrs_core::Key::Escape);
+    c.ui.set_time(200.0);
+    assert!(c.says("Recados"), "{:?}", c.texts());
+    c.ui.set_time(400.0);
+    assert!(c.says("A sessão foi encerrada por inatividade."), "{:?}", c.texts());
+    assert!(!c.says("Recados"), "{:?}", c.texts());
+    // door: the page arranges the screen of signing in.
+    assert!(c.says("PORTARIA DE DEMONSTRAÇÃO"), "{:?}", c.texts());
+    // lockout: three wrong passwords and even the right one waits.
+    c.type_into("Nome", "bia");
+    for wrong in ["errada 1", "errada 2", "errada 3"] {
+        c.type_into("Senha", wrong);
+        c.press("Entrar");
+    }
+    c.type_into("Senha", "senhafraca 1");
+    c.press("Entrar");
+    assert!(c.says("aguardando depois de muitas tentativas"), "{:?}", c.texts());
+    assert!(!c.says("Recados"), "{:?}", c.texts());
+    // sign_in_action: start the door over, with nobody in it.
+    c.press("Recomeçar a portaria");
+    assert!(c.says("Portaria recomeçada 1 vez(es): ninguém cadastrado."), "{:?}", c.texts());
+    assert!(c.says("Criar administrador"), "{:?}", c.texts());
+}
+
+#[test]
 fn the_due_digest_follows_the_profile_and_the_days_ahead() {
     let mut c = Center::memory("ana");
     c.press("Resumo de vencimentos");

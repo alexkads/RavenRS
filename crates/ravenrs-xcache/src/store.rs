@@ -288,6 +288,14 @@ pub(crate) fn entry_text(entry: &Entry) -> String {
     if let Some(roots) = &entry.pinned {
         text.push_str(&format!("P {roots}\n"));
     }
+    text.push_str(&inputs_text(entry));
+    text
+}
+
+/// What an entry was built from as text: its source files and variables, without its result and
+/// without the roots it is pinned to, so it reads the same in every worktree.
+pub(crate) fn inputs_text(entry: &Entry) -> String {
+    let mut text = String::new();
     for (sha, path) in &entry.files {
         text.push_str(&format!("F {sha} {path}\n"));
     }

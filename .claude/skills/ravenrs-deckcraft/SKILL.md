@@ -121,7 +121,7 @@ scripts/storytold/merge.py deckcraft $S/old $S/new
 ## Testar
 
 ```bash
-export CARGO_TARGET_DIR=<scratchpad>/target   # absoluto, um por worktree
+# num slot fixo (slot-a ou slot-b), com o target dele: sem CARGO_TARGET_DIR
 cargo nextest run -p ravenrs-deck
 cargo test -p ravenrs-deck --doc
 cargo clippy -p ravenrs-deck --all-targets -- -D warnings

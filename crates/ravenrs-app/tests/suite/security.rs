@@ -1082,3 +1082,131 @@ fn someone_turned_off_cannot_change_their_password() {
     space.commit().expect("committed");
     assert_eq!(context.change_own_password("correct horse", "brand new one"), Err(PasswordError::NotAllowed));
 }
+
+/// A directory whose policy wants a digit and not the name in the password.
+fn with_policy(world: &World) -> UserDirectory {
+    world.directory.clone().with_password_policy(|name, password| {
+        if !password.chars().any(|c| c.is_ascii_digit()) {
+            return Err("Use ao menos um número.".to_owned());
+        }
+        if password.to_lowercase().contains(&name.to_lowercase()) {
+            return Err("A senha não pode conter o nome.".to_owned());
+        }
+        Ok(())
+    })
+}
+
+#[test]
+fn the_password_policy_refuses_at_every_door_in_its_own_words() {
+    let world = world();
+    let directory = with_policy(&world);
+    let refused = |words: &str| Some(PasswordError::Refused(words.to_owned()));
+    // The first administrator.
+    assert_eq!(
+        directory.create_first_administrator("ana", "no digits here").err(),
+        refused("Use ao menos um número.")
+    );
+    assert_eq!(
+        directory.create_first_administrator("ana", "ana-is-1-great").err(),
+        refused("A senha não pode conter o nome.")
+    );
+    assert_eq!(directory.create_first_administrator("ana", "short1").err(), Some(PasswordError::TooShort));
+    let ana = directory.create_first_administrator("ana", "correct horse 1").expect("created");
+    // Changing one's own.
+    let context = Rc::new(SecurityContext::new(ana, directory.clone(), entities(), RoleMerge::AnyRole));
+    assert_eq!(
+        context.change_own_password("correct horse 1", "no digits at all"),
+        Err(PasswordError::Refused("Use ao menos um número.".to_owned()))
+    );
+    assert!(directory.authenticate(&Credentials::new("ana", "correct horse 1")).is_ok(), "the old one stays");
+    // An administrator giving one: the name checked is the user's, not the administrator's.
+    let bia = add_user(&world, "bia", "Readers", false);
+    assert_eq!(
+        context.set_password_of(&bia, "bia-2026-pass"),
+        Err(PasswordError::Refused("A senha não pode conter o nome.".to_owned()))
+    );
+    context.set_password_of(&bia, "given 2 bia").expect_err("still has the name");
+    context.set_password_of(&bia, "given by 2 people").expect("set");
+    assert_eq!(
+        directory.check_password("bia", "plain words"),
+        Err(PasswordError::Refused("Use ao menos um número.".to_owned()))
+    );
+    assert_eq!(
+        PasswordError::Refused("Use ao menos um número.".to_owned()).to_string(),
+        "Use ao menos um número."
+    );
+}
+
+#[test]
+fn the_lockout_follows_its_limits_and_an_administrator_unlocks_without_the_password() {
+    let world = world();
+    let directory = world.directory.clone().with_lockout(3, 30);
+    let ana = directory.create_first_administrator("ana", "correct horse").expect("created");
+    let bia = add_user(&world, "bia", "Readers", false);
+    let admin = Rc::new(
+        SecurityContext::new(ana, directory.clone(), entities(), RoleMerge::AnyRole).with_audit_trail({
+            let trail = Rc::new(AuditTrail::new(AuditSettings::new(AuditMode::Full), || "ana".to_owned()));
+            trail.write_with(raw_maker(&world.database));
+            trail
+        }),
+    );
+    admin.set_password_of(&bia, "given by ana").expect("set");
+    for _ in 0..2 {
+        assert!(directory.authenticate(&Credentials::new("bia", "wrong one")).is_err());
+    }
+    assert_eq!(directory.locked_until(&bia).expect("reads"), None, "two are under the limit of three");
+    assert!(directory.authenticate(&Credentials::new("bia", "wrong one")).is_err());
+    let until = directory.locked_until(&bia).expect("reads").expect("waits after the third");
+    let now = ravenrs_app::local_now();
+    let minutes = ((until.days - now.days) * 86_400 + i64::from(until.seconds) - i64::from(now.seconds)) / 60;
+    assert!((29..=30).contains(&minutes), "waits the minutes asked for: {minutes}");
+    assert!(
+        directory.authenticate(&Credentials::new("bia", "given by ana")).is_err(),
+        "even the right one waits"
+    );
+
+    // Bia herself cannot unlock anyone.
+    let bia_identity = Identity::new(bia.clone(), "bia", Vec::new());
+    let reader = SecurityContext::new(bia_identity, directory.clone(), entities(), RoleMerge::AnyRole);
+    assert!(matches!(directory.unlock(&reader, &bia), Err(SpaceError::Denied(_))));
+    assert!(directory.locked_until(&bia).expect("reads").is_some());
+
+    directory.unlock(&admin, &bia).expect("unlocked");
+    assert_eq!(directory.locked_until(&bia).expect("reads"), None);
+    assert!(directory.authenticate(&Credentials::new("bia", "given by ana")).is_ok(), "the same password");
+    let lines = trail_of(&world);
+    assert!(
+        lines.iter().any(|line| line.3 == Value::Null && line.4 == Value::Text("Unlocked".to_owned())),
+        "{lines:?}"
+    );
+    assert!(!format!("{lines:?}").contains("given by ana"));
+}
+
+#[test]
+fn a_lockout_of_zero_still_locks_for_a_minute_after_one_wrong_password() {
+    let world = world();
+    let directory = world.directory.clone().with_lockout(0, 0);
+    let ana = directory.create_first_administrator("ana", "correct horse").expect("created");
+    assert!(directory.authenticate(&Credentials::new("ana", "wrong one")).is_err());
+    let until = directory.locked_until(&ana.key).expect("reads").expect("0 attempts counts as 1");
+    let now = ravenrs_app::local_now();
+    let seconds = (until.days - now.days) * 86_400 + i64::from(until.seconds) - i64::from(now.seconds);
+    assert!((59..=60).contains(&seconds), "0 minutes counts as 1: {seconds}");
+    assert!(
+        directory.authenticate(&Credentials::new("ana", "correct horse")).is_err(),
+        "the wait is real, even for the right password"
+    );
+}
+
+#[test]
+fn the_usual_lockout_is_still_five_wrong_passwords() {
+    let world = world();
+    signed_up(&world, "ana");
+    let key = world.directory.identity_of("ana").expect("reads").expect("there").key;
+    for _ in 0..4 {
+        assert!(world.directory.authenticate(&Credentials::new("ana", "wrong one")).is_err());
+    }
+    assert_eq!(world.directory.locked_until(&key).expect("reads"), None);
+    assert!(world.directory.authenticate(&Credentials::new("ana", "wrong one")).is_err());
+    assert!(world.directory.locked_until(&key).expect("reads").is_some());
+}

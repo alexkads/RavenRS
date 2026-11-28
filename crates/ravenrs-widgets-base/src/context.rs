@@ -270,6 +270,10 @@ pub enum UiActivity<'a> {
     PointerMoved(Point),
     /// The primary button went down here.
     Clicked(Point),
+    /// A key went down. Which one is not said, so watching this never records what is typed.
+    KeyPressed,
+    /// The wheel or the trackpad scrolled here.
+    Scrolled(Point),
     /// What is on screen, as asked for with [`BuildCx::ask_for_access_tree`].
     Described(&'a AccessTree),
 }
@@ -810,7 +814,7 @@ pub struct BuildCx<'a> {
     #[doc(hidden)]
     pub closer: crate::WindowCloser,
     #[doc(hidden)]
-    pub activity: Option<ActivityObserver>,
+    pub activity: Vec<ActivityObserver>,
     #[doc(hidden)]
     pub access_tree_asked: bool,
     #[doc(hidden)]
@@ -908,7 +912,7 @@ impl<'a> BuildCx<'a> {
             shortcuts: Vec::new(),
             close_guards: Vec::new(),
             closer: crate::WindowCloser::default(),
-            activity: None,
+            activity: Vec::new(),
             access_tree_asked: false,
             wake: None,
             modifiers,
@@ -1508,10 +1512,12 @@ impl<'a> BuildCx<'a> {
     }
 
     /// Watches the whole UI while this view is built: each painted frame, the
-    /// pointer and clicks. For recording what happens, as a flight recorder does.
-    /// It runs on every frame, so it has to be quick. The last call of a build wins.
+    /// pointer, clicks, keys and scrolling. For recording what happens, as a flight
+    /// recorder does, or for noticing nobody is there, as a session that ends when
+    /// idle does. It runs on every frame, so it has to be quick. Every view that asks
+    /// in a build is told, in the order they asked.
     pub fn observe_activity(&mut self, observer: ActivityObserver) {
-        self.activity = Some(observer);
+        self.activity.push(observer);
     }
 
     /// Asks that [`Self::observe_activity`] be told what is on screen once this frame

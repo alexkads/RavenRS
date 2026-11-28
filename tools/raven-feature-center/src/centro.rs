@@ -195,6 +195,12 @@ fn application() -> App {
             .control(crate::acesso::PAGE, crate::acesso::ID),
     );
     app = app.dashboard(
+        DashboardInfo::new(crate::entrada::ID, crate::entrada::PAGE)
+            .navigation("Aplicação")
+            .icon("shield")
+            .control(crate::entrada::PAGE, crate::entrada::ID),
+    );
+    app = app.dashboard(
         DashboardInfo::new(crate::vencimentos::ID, crate::vencimentos::PAGE)
             .navigation("Aplicação")
             .icon("calendar")
@@ -248,6 +254,7 @@ fn register_controls(session: &Session) {
     });
     session.register_control(crate::fechamento::ID, || Box::new(crate::fechamento::ClosingPage) as AnyView);
     session.register_control(crate::acesso::ID, || Box::new(crate::acesso::TemporaryAccessPage) as AnyView);
+    session.register_control(crate::entrada::ID, || Box::new(crate::entrada::SecureDoorPage) as AnyView);
     session
         .register_control(crate::vencimentos::ID, || Box::new(crate::vencimentos::DueDigestPage) as AnyView);
     session.register_control(crate::contas::ID, || Box::new(crate::contas::FinancePage) as AnyView);

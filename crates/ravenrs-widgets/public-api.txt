@@ -6074,8 +6074,10 @@ variant Turn::Clockwise
 variant Turn::CounterClockwise
 variant UiActivity::Clicked
 variant UiActivity::Described
+variant UiActivity::KeyPressed
 variant UiActivity::Painted
 variant UiActivity::PointerMoved
+variant UiActivity::Scrolled
 variant Value::Bool
 variant Value::Date
 variant Value::Empty
