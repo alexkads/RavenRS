@@ -2666,6 +2666,9 @@ fn a_temporary_access_ends_by_itself_and_revoking_never_takes_oneself() {
     c.press("Acessos temporários");
     c.settle();
     assert!(c.says("Motivo") && c.says("Vence em") && c.says("Autorizado por"), "{:?}", c.texts());
+}
+
+#[test]
 fn the_due_digest_follows_the_profile_and_the_days_ahead() {
     let mut c = Center::memory("ana");
     c.press("Resumo de vencimentos");
