@@ -30,7 +30,8 @@ fn number_binding(value: &State<Value>) -> Binding<Option<f64>> {
 fn cents_binding(value: &State<Value>) -> Binding<Option<i64>> {
     let (read, write) = (value.clone(), value.clone());
     Binding::new(
-        move || if let Value::Number(cents) = read.get() { Some(cents.round() as i64) } else { None },
+        // The framework's reading of cents: none past what an i64 holds, instead of saturating.
+        move || if let Value::Number(cents) = read.get() { Value::Number(cents.round()).cents() } else { None },
         move |cents: Option<i64>| write.set(cents.map_or(Value::Null, |c| Value::Number(c as f64))),
     )
 }

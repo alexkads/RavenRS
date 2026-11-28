@@ -3282,6 +3282,7 @@ name = "ravenrs-pos"
 version = "27.1.28"
 dependencies = [
  "ravenrs-barcode",
+ "ravenrs-criteria",
  "rust_decimal",
  "serde",
  "serde_json",
