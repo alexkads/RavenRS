@@ -15,6 +15,12 @@ use ravenrs_app::{
 };
 use ravenrs_criteria::{DateTime, Dialect, Environment, SqlParam, to_sql};
 
+mod migrate;
+
+pub use migrate::{
+    BackupStamp, BrokenReference, MigrationError, MigrationReport, TableCheck, TenantExport, TenantImport,
+};
+
 type Hook = Rc<dyn Fn(&mut Object)>;
 
 /// How an entity lands on a table.
@@ -232,6 +238,7 @@ fn quoted(name: &str) -> String {
 /// Where migrations that ran are written down.
 pub const MIGRATIONS: &str = "ravenrs_app_migrations";
 
+#[derive(Clone)]
 struct Entity {
     info: EntityInfo,
     map: TableMap,
@@ -465,6 +472,18 @@ impl<B> SqlDatabase<B> {
     /// The database itself, for what only one kind of database does, such as a backup.
     pub fn backend(&self) -> &B {
         &self.0.backend
+    }
+
+    /// The same entities over another connection, whose schema is not touched: to read a copy of
+    /// the database, such as a backup, as this one reads its own.
+    pub fn reopened(&self, backend: B) -> Self {
+        SqlDatabase(Rc::new(Shared {
+            backend,
+            entities: self.0.entities.clone(),
+            words: self.0.words.clone(),
+            next_keys: RefCell::default(),
+            guarded: self.0.guarded,
+        }))
     }
 
     /// Forgets the next keys it handed out, so they are counted again from what is stored: after

@@ -37,7 +37,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::{Connection, OpenFlags, OptionalExtension};
 
-use crate::{MIGRATIONS, SqliteDatabase, quoted};
+use ravenrs_app_sql::TenantExport;
+
+use crate::{MIGRATIONS, SqliteBackend, SqliteDatabase, quoted};
 
 /// The table in a backup that says what it is. Only backups have it.
 const STAMP: &str = "ravenrs_backup";
@@ -45,38 +47,7 @@ const STAMP: &str = "ravenrs_backup";
 /// How many copies stay in the folder unless said otherwise; the oldest go first.
 pub const COPIES_KEPT: usize = 14;
 
-/// What a backup says about where it came from.
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[non_exhaustive]
-pub struct BackupStamp {
-    /// The application, which a backup has to be of to be restored.
-    pub application: String,
-    /// The tenant, such as one organization of many, which a backup has to be of too.
-    pub tenant: Option<String>,
-    /// The version of the application that made it, to show; it is not compared.
-    pub version: Option<String>,
-    /// The migrations the database had, in order. Filled in when a backup is made.
-    pub migrations: Vec<String>,
-}
-
-impl BackupStamp {
-    /// Backups of this application.
-    pub fn new(application: impl Into<String>) -> Self {
-        Self { application: application.into(), tenant: None, version: None, migrations: Vec::new() }
-    }
-
-    /// Of this tenant only: one of another is refused.
-    pub fn tenant(mut self, tenant: impl Into<String>) -> Self {
-        self.tenant = Some(tenant.into());
-        self
-    }
-
-    /// Made by this version of the application.
-    pub fn version(mut self, version: impl Into<String>) -> Self {
-        self.version = Some(version.into());
-        self
-    }
-}
+pub use ravenrs_app_sql::BackupStamp;
 
 /// What a backup holds, read without changing it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -375,14 +346,12 @@ impl Backups {
                 .map(Option::flatten)
         };
         let application = read("application")?.ok_or(BackupError::NotABackup)?;
-        let stamp = BackupStamp {
-            application,
-            tenant: read("tenant")?,
-            version: read("version")?,
-            migrations: read("migrations")?
-                .map(|text| text.lines().filter(|line| !line.is_empty()).map(str::to_owned).collect())
-                .unwrap_or_default(),
-        };
+        let mut stamp = BackupStamp::new(application);
+        stamp.tenant = read("tenant")?;
+        stamp.version = read("version")?;
+        stamp.migrations = read("migrations")?
+            .map(|text| text.lines().filter(|line| !line.is_empty()).map(str::to_owned).collect())
+            .unwrap_or_default();
         if stamp.application != self.stamp.application {
             return Err(BackupError::OtherApplication(stamp.application));
         }
@@ -410,6 +379,20 @@ impl Backups {
             .collect::<Result<_, _>>()?;
         let made = read("made")?.and_then(|text| text.parse().ok()).unwrap_or(0);
         Ok(BackupInfo { stamp, made, rows })
+    }
+
+    /// Reads every record of the backup at `path`, to move the tenant to another database with
+    /// [`TenantImport`](ravenrs_app_sql::TenantImport): checked first as [`inspect`](Self::inspect)
+    /// does, then read as it is, without changing it or the database in use. Only backups of a
+    /// [`SqliteDatabase`] can be exported, as the entities come from it.
+    pub fn export(&self, path: &Path) -> Result<TenantExport, BackupError> {
+        let info = self.inspect(path)?;
+        let Source::Database(database) = &self.source else {
+            return Err(storage("only the backups of a database with entities can be exported"));
+        };
+        let file = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(storage)?;
+        let copy = database.reopened(SqliteBackend::from(Rc::new(file)));
+        TenantExport::read(&copy, info.stamp).map_err(storage)
     }
 
     /// Replaces everything in the database with the backup at `path`, or changes nothing. A copy

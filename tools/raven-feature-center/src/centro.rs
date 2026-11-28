@@ -222,6 +222,12 @@ fn application() -> App {
                 .icon("server")
                 .control(crate::servico::PAGE, crate::servico::ID),
         );
+        app = app.dashboard(
+            DashboardInfo::new(crate::migracao::ID, crate::migracao::PAGE)
+                .navigation("Servidor")
+                .icon("database")
+                .control(crate::migracao::PAGE, crate::migracao::ID),
+        );
     }
     app.dashboard(
         DashboardInfo::new(model::COUNTER_WINDOW, "Caixa de exemplo")
@@ -248,6 +254,9 @@ fn register_controls(session: &Session) {
     session.register_control(crate::servidor::ID, || Box::new(crate::servidor::ApiOptionsPage) as AnyView);
     #[cfg(not(target_arch = "wasm32"))]
     session.register_control(crate::servico::ID, || Box::new(crate::servico::ApiServicePage) as AnyView);
+    #[cfg(not(target_arch = "wasm32"))]
+    session
+        .register_control(crate::migracao::ID, || Box::new(crate::migracao::TenantMigrationPage) as AnyView);
     widgets::register(session);
 }
 

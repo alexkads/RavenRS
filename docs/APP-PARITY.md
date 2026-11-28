@@ -104,7 +104,7 @@ replace the API statuses and adapter guarantees below.
 | Remote object space, so the web has real storage | ✅ `ravenrs-app-remote`: a copy in memory of what the person can see, written back in batches | F12 |
 | API keys for other systems; settings kept by scope | ✅ `/api/auth/keys`, `SettingsStore` and `/api/settings/{name}`; the theme someone chose comes back | F12 |
 | Scheduled tasks that run once across processes, and a worker in a process of its own | ⬜ work in the background and events in the same commit are above; what runs on a schedule is not | #66 |
-| Multi-tenancy | 🟡 events, webhooks and the test kit keep an organization; resolving the tenant, a database per tenant and moving one between databases are not there | #225, #243 |
+| Multi-tenancy | 🟡 events, webhooks and the test kit keep an organization; a tenant moves between SQLite and PostgreSQL from its stamped backup, checked table by table (`TenantImport`); resolving the tenant and a database per tenant are not there | #225, #243 |
 | AI: natural language filters, writing help, smart paste | ⬜ local by default; a paid provider with the person's own key, account or cloud credentials only by an explicit choice | #28, #549 |
 | A command-line tool that creates projects step by step from templates; deployment and diagnostics guides | ⬜ | F15 |
 | An installer with Zed as the editor for projects, its extension and skills, and a graphical viewer of a project | ⬜ | F16 |

@@ -357,8 +357,15 @@
    }
   },
   {
-   "crate": "ravenrs-app-sqlite",
+   "crate": "ravenrs-app-sql",
    "tipo": "BackupStamp",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-sql",
+   "tipo": "TenantImport",
    "rts": {
     "sem_tela": true
    }
