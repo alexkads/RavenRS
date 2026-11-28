@@ -106,7 +106,7 @@ wasm-bindgen --target web --no-typescript --out-dir web/pkg \
 python3 -m http.server -d web 8080
 ```
 
-Inside the RavenRS repository, `scripts/build-web.sh <example>` does these steps for any example in `examples/`, with the size-tuned `wasm-release` profile and `wasm-opt` when it is installed.
+Inside the RavenRS repository, `cargo xtask web <example>` does these steps for any example in `examples/`, with the size-tuned `wasm-release` profile and `wasm-opt` when it is installed.
 
 ## How it works
 

@@ -7,9 +7,9 @@ description: Roteiro completo para testar o desempenho gráfico do RavenRS - gat
 
 Tudo aqui se repete com um comando. A regra é medir antes de otimizar, e nunca aceitar uma mudança sem o número de antes e o de depois.
 
-**Só quando o Alex pedir.** Nenhum passo desta skill é regra fixa. Não rode o gate (nem tempos, frames frios, capacidade ou regressões plantadas) por iniciativa própria: nem depois de mexer no core ou num componente, nem antes de abrir PR ou publicar. Quando uma mudança puder afetar desempenho, diga isso em uma linha e ofereça a medição; ela só roda se ele pedir. O `scripts/check.sh --full` também não roda o gate nem compila os benchmarks, a menos que seja chamado com `RAVENRS_GATE=1`.
+**Só quando o Alex pedir.** Nenhum passo desta skill é regra fixa. Não rode o gate (nem tempos, frames frios, capacidade ou regressões plantadas) por iniciativa própria: nem depois de mexer no core ou num componente, nem antes de abrir PR ou publicar. Quando uma mudança puder afetar desempenho, diga isso em uma linha e ofereça a medição; ela só roda se ele pedir. O `cargo xtask release` também não roda o gate nem compila os benchmarks, a menos que seja chamado com `RAVENRS_GATE=1`.
 
-Compile com `CARGO_TARGET_DIR` no scratchpad quando estiver num worktree, **um por worktree**. O Cargo não põe o caminho de um crate local no hash dos artefatos. Duas worktrees que dividem o mesmo diretório reaproveitam o build uma da outra: já deu "can't find crate for `ravenrs`" num doctest e um derive compilado com um `ravenrs-app-spec` antigo. Uma medição feita assim não vale. O `scripts/check.sh` avisa quando o diretório foi usado por outra checkout.
+Compile com `CARGO_TARGET_DIR` no scratchpad quando estiver num worktree, **um por worktree**. O Cargo não põe o caminho de um crate local no hash dos artefatos. Duas worktrees que dividem o mesmo diretório reaproveitam o build uma da outra: já deu "can't find crate for `ravenrs`" num doctest e um derive compilado com um `ravenrs-app-spec` antigo. Uma medição feita assim não vale. O `cargo xtask pr` avisa quando o diretório foi usado por outra checkout.
 
 ## Quando rodar o quê (quando ele pedir)
 
@@ -29,7 +29,7 @@ Compile com `CARGO_TARGET_DIR` no scratchpad quando estiver num worktree, **um p
 cargo run --release -p ravenrs-perf -- gate
 ```
 
-Conta o trabalho de cada cena e compara com `perf/baseline.json`: builds, layouts, paints, shapings, alocações, draw calls, instâncias e bytes enviados à GPU. Roda duas vezes e reprova se as rodadas divergirem. Leva cerca de 40 s. Só entra no `scripts/check.sh --full` com `RAVENRS_GATE=1 ./scripts/check.sh --full`.
+Conta o trabalho de cada cena e compara com `perf/baseline.json`: builds, layouts, paints, shapings, alocações, draw calls, instâncias e bytes enviados à GPU. Roda duas vezes e reprova se as rodadas divergirem. Leva cerca de 40 s. Só entra no `cargo xtask release` com `RAVENRS_GATE=1 cargo xtask release`.
 
 Se reprovar, descubra a causa antes de qualquer outra coisa. Só atualize a baseline se a mudança for intencional, e revise o diff:
 
@@ -63,7 +63,7 @@ Na tomada, no Mac de referência (MacBook Pro 14" M2 Pro, `Mac14,9`). Na bateria
 ./scripts/perf-time.sh
 ```
 
-Roda 3 processos, fica com o melhor p99 e compara com as metas de `docs/QUALITY.md`: CPU ≤ 4 ms em interação, ≤ 16,67 ms em rebuild e GPU ≤ 3 ms. As cenas `curve-large` são só mostradas, nunca reprovam. Tempo não entra no `check.sh`, porque é ruidoso em laptop.
+Roda 3 processos, fica com o melhor p99 e compara com as metas de `docs/QUALITY.md`: CPU ≤ 4 ms em interação, ≤ 16,67 ms em rebuild e GPU ≤ 3 ms. As cenas `curve-large` são só mostradas, nunca reprovam. Tempo não entra no `cargo xtask pr`, porque é ruidoso em laptop.
 
 O relógio de GPU do Metal é grosseiro: passes curtos costumam vir como 0. Compare ordens de grandeza, não décimos.
 

@@ -1,4 +1,4 @@
-# cargo-nextest settings for scripts/check.sh (skill ravenrs-check).
+# cargo-nextest settings for the checks, cargo xtask dev, pr and release (skill ravenrs-check).
 
 [profile.default]
 # A test that runs past 30s is marked SLOW, and the slow ones are listed again in the final summary,

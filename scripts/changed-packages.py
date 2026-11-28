@@ -3,20 +3,20 @@
 committed or not.
 
     scripts/changed-packages.py           # every package reached, one name per line; ALL or nothing
-    scripts/changed-packages.py --shell   # the sets scripts/check.sh uses, as shell assignments
+    scripts/changed-packages.py --shell   # the sets cargo xtask pr uses, as shell assignments
 
 The sets:
 
 - touched: packages whose own files changed, plus those a dependency change reaches (an external
   crate that moved in Cargo.lock, a [workspace.dependencies] entry that changed);
-- tested: touched and the packages that depend on them directly; the quick check runs their tests
+- tested: touched and the packages that depend on them directly; cargo xtask pr runs their tests
   (and documented, those of them with a library, their doctests);
-- reached: touched and every package that depends on them, at any depth; the quick check lints
+- reached: touched and every package that depends on them, at any depth; cargo xtask pr lints
   them, which also proves they still compile;
 - lint: whether ravenrs-lint has something new to read (its own crate, the examples it checks, its
   configuration in a Cargo.toml);
 - deferred: direct dependents left out of tested because building their tests means compiling a
-  heavy crate (HEAVY) the change does not reach; the quick check still lints them, and --full tests
+  heavy crate (HEAVY) the change does not reach; cargo xtask pr still lints them, and cargo xtask release tests
   them.
 
 The root Cargo.toml and Cargo.lock are compared section by section and package by package, so a new
@@ -33,9 +33,9 @@ import sys
 root = pathlib.Path(__file__).resolve().parent.parent
 # What every package builds with: a change here reaches all of them.
 SHARED = (".cargo/", "rust-toolchain", "rust-toolchain.toml", "clippy.toml")
-# Read only by steps that cover the whole workspace anyway (rustfmt, cargo-deny in --full).
+# Read only by steps that cover the whole workspace anyway (rustfmt, cargo-deny in cargo xtask release).
 IGNORED = ("rustfmt.toml", "deny.toml")
-# What ravenrs-lint reads in the quick check: its crate and the examples it runs on.
+# What ravenrs-lint reads in cargo xtask pr: its crate and the examples it runs on.
 LINTED = ("ravenrs-lint", "family-finance", "component-gallery")
 # Crates whose dependencies take minutes to compile into a fresh build directory (#348): candle and
 # tokenizers come with ravenrs-ai, openh264 with ravenrs-movie-video.
@@ -170,7 +170,7 @@ def lock_changes(old, new, members):
     return touched & members
 
 
-# --- what the quick check tests -----------------------------------------------------------------
+# --- what cargo xtask pr tests -----------------------------------------------------------------
 
 
 def closure(name, graph):
