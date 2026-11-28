@@ -265,6 +265,19 @@ pub(crate) fn tone_of(tint: Tint) -> ravenrs_widgets::Tone {
     }
 }
 
+/// The tone of a badge for the color of text an appearance rule gives its record.
+fn tone_of_ink(ink: ravenrs_style::Semantic) -> ravenrs_widgets::Tone {
+    use ravenrs_style::Semantic;
+    use ravenrs_widgets::Tone;
+    match ink {
+        Semantic::Danger => Tone::Danger,
+        Semantic::Warning => Tone::Warning,
+        Semantic::Success => Tone::Success,
+        Semantic::Accent => Tone::Accent,
+        _ => Tone::Neutral,
+    }
+}
+
 /// A column drawn as the field asks: its value as a badge, and the field under it in a second line.
 fn shaped(field: &FieldInfo, column: GridColumn) -> GridColumn {
     use ravenrs_style::{Semantic, TextStyle};
@@ -284,7 +297,9 @@ fn shaped(field: &FieldInfo, column: GridColumn) -> GridColumn {
         return column;
     }
     let detailed = field.list_detail.is_some();
-    column.template(move |value| {
+    // A badge on a field with no tinted options takes the tone of its record, by appearance.
+    let by_record = field.badge && !tinted;
+    column.template_inked(move |value, ink| {
         let text = match value {
             Cell::Text(text) => text.clone(),
             Cell::Empty => String::new(),
@@ -295,10 +310,14 @@ fn shaped(field: &FieldInfo, column: GridColumn) -> GridColumn {
             _ => (text, None),
         };
         let top: ravenrs_widgets::AnyView = if badge && !main.is_empty() {
-            let tone = tones
-                .iter()
-                .find(|(caption, _)| *caption == main)
-                .map_or(ravenrs_widgets::Tone::Neutral, |(_, tone)| *tone);
+            let tone = if by_record {
+                ink.map_or(ravenrs_widgets::Tone::Neutral, tone_of_ink)
+            } else {
+                tones
+                    .iter()
+                    .find(|(caption, _)| *caption == main)
+                    .map_or(ravenrs_widgets::Tone::Neutral, |(_, tone)| *tone)
+            };
             Box::new(Badge::new(main).tone(tone))
         } else {
             Box::new(Text::new(main).style(TextStyle::Callout))

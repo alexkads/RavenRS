@@ -17,6 +17,7 @@ use ravenrs_app::{
     Comparison, EntityInfo, EnumOption, FieldInfo, FieldKind, Module, Operand, Rule, RuleKind,
 };
 
+#[cfg(feature = "finance")]
 pub mod finance;
 
 /// What an email address looks like, loosely, so it only catches slips.
@@ -261,6 +262,7 @@ impl LibraryModule {
     }
 
     /// Brings in the finances: categories, cash book, bills and settlements ([`finance`]).
+    #[cfg(feature = "finance")]
     pub fn finance(self) -> Self {
         finance::entities().into_iter().fold(self, Self::entity)
     }
@@ -283,11 +285,11 @@ impl Module for LibraryModule {
     }
 
     fn view_controllers(&self) -> Vec<Box<dyn ravenrs_app::ViewController>> {
+        #[cfg(feature = "finance")]
         if self.entities.iter().any(|entity| entity.name == finance::COMMITMENT) {
-            vec![Box::new(finance::FinanceActions)]
-        } else {
-            Vec::new()
+            return vec![Box::new(finance::FinanceActions)];
         }
+        Vec::new()
     }
 
     fn entities(&self) -> Vec<EntityInfo> {

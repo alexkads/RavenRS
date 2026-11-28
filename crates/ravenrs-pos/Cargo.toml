@@ -16,6 +16,8 @@ categories = ["finance"]
 
 [dependencies]
 ravenrs-barcode.workspace = true
+# Splitting money to the cent by the framework's rule, the same in the finances (#858).
+ravenrs-criteria.workspace = true
 rust_decimal = { version = "1", default-features = false, features = ["std", "serde-str"] }
 serde.workspace = true
 serde_json.workspace = true

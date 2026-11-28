@@ -50,12 +50,26 @@ struct Remote {
     rows: RemoteRows,
 }
 
-/// A field a list shows, what its column says, and whether the column shows.
-type Shown<'a> = (&'a FieldInfo, String, bool);
+/// A field a list shows, as its column draws it, what the column says, and whether it shows.
+type Shown = (FieldInfo, String, bool);
+
+/// The field as its column in the model says to draw it: `Display = "Badge"` as a badge, and
+/// `Detail` the field shown under it, over what the entity declares.
+fn as_the_column_says(field: &FieldInfo, column: Option<&ModelNode>) -> FieldInfo {
+    let mut field = field.clone();
+    let Some(column) = column else { return field };
+    if let Some(display) = column.text("Display") {
+        field.badge = display.eq_ignore_ascii_case("Badge");
+    }
+    if let Some(detail) = column.text("Detail") {
+        field.list_detail = (!detail.is_empty()).then(|| detail.to_owned());
+    }
+    field
+}
 
 /// The fields a list shows, in the order to show them, with the key last and out of sight, so
 /// a row can always be found.
-fn shown_fields<'a>(entity: &'a EntityInfo, view: &'a ModelNode, only: Option<&[String]>) -> Vec<Shown<'a>> {
+fn shown_fields(entity: &EntityInfo, view: &ModelNode, only: Option<&[String]>) -> Vec<Shown> {
     let all = view.get("Columns");
     let caption = |id: &str, field: &FieldInfo| {
         all.and_then(|columns| columns.get(id))
@@ -72,14 +86,19 @@ fn shown_fields<'a>(entity: &'a EntityInfo, view: &'a ModelNode, only: Option<&[
             .map(|column| column.id.as_str())
             .collect(),
     };
-    let mut fields: Vec<Shown<'a>> = chosen
+    let mut fields: Vec<Shown> = chosen
         .into_iter()
-        .filter_map(|id| entity.field_named(id).map(|field| (field, caption(id, field), true)))
+        .filter_map(|id| {
+            entity.field_named(id).map(|field| {
+                let column = all.and_then(|columns| columns.get(id));
+                (as_the_column_says(field, column), caption(id, field), true)
+            })
+        })
         .collect();
     if let Some(key) = entity.key_field()
         && !fields.iter().any(|(field, ..)| field.is_key)
     {
-        fields.push((key, key.caption.clone(), false));
+        fields.push((key.clone(), key.caption.clone(), false));
     }
     fields
 }
@@ -643,7 +662,7 @@ impl View for ListView {
                 *visible = false;
             }
         }
-        let infos: Vec<FieldInfo> = fields.iter().map(|(field, ..)| (*field).clone()).collect();
+        let infos: Vec<FieldInfo> = fields.iter().map(|(field, ..)| field.clone()).collect();
         let revision = session.revision();
         let filter = self.active_filter();
         let asked =
@@ -861,7 +880,8 @@ impl View for ListView {
             Some(shape) => shape(grid),
             None => grid,
         };
-        let strip = if self.compact { None } else { indicator_strip(session, &entity, node) };
+        let narrow = cx.viewport().width < STACKED_BELOW;
+        let strip = if self.compact { None } else { indicator_strip(session, &entity, node, narrow) };
         // Nothing yet, and whoever looks may create: the next step, with the button that takes it.
         if !self.compact
             && access != DataAccess::Server
@@ -917,10 +937,18 @@ fn empty_text_for(session: &Session, entity: &EntityInfo, node: &ravenrs_app::Mo
     })
 }
 
+/// A window narrower than this shows the numbers above a list one under the other.
+const STACKED_BELOW: f32 = 720.0;
+
 /// The numbers above a list, read over all the records of its entity as the person may read
-/// them. One whose reader may not read the entity or the field it sums says it is restricted,
-/// never zero.
-fn indicator_strip(session: &Session, entity: &EntityInfo, node: &ravenrs_app::ModelNode) -> Option<AnyView> {
+/// them, side by side, or one under the other in a `narrow` window. One whose reader may not read
+/// the entity or the field it sums says it is restricted, never zero.
+fn indicator_strip(
+    session: &Session,
+    entity: &EntityInfo,
+    node: &ravenrs_app::ModelNode,
+    narrow: bool,
+) -> Option<AnyView> {
     let indicators = node.get("Indicators")?;
     let mut items: Vec<&ravenrs_app::ModelNode> = indicators.children.iter().collect();
     items.sort_by_key(|item| item.integer("Index").unwrap_or(0));
@@ -961,7 +989,14 @@ fn indicator_strip(session: &Session, entity: &EntityInfo, node: &ravenrs_app::M
             Box::new(Card::new(stat).grow(1.0)) as AnyView
         })
         .collect();
-    (!stats.is_empty()).then(|| Box::new(HStack::new(stats).spacing(12.0).align(Align::Stretch)) as AnyView)
+    if stats.is_empty() {
+        return None;
+    }
+    Some(if narrow {
+        Box::new(VStack::new(stats).spacing(8.0).align(Align::Stretch))
+    } else {
+        Box::new(HStack::new(stats).spacing(12.0).align(Align::Stretch))
+    })
 }
 
 /// Keeps a value changed right on a list, in the record as storage has it now, if its rules let it
@@ -1046,7 +1081,7 @@ impl Session {
         let shown: Vec<(FieldInfo, String)> = shown_fields(&entity, node, only.as_deref())
             .into_iter()
             .filter(|(_, _, visible)| *visible)
-            .map(|(field, caption, _)| (field.clone(), caption))
+            .map(|(field, caption, _)| (field, caption))
             .collect();
         let infos: Vec<FieldInfo> = shown.iter().map(|(field, _)| field.clone()).collect();
         let reader = Reader { session: self.clone(), frame: self.frame(), cell_text: None };

@@ -3779,6 +3779,7 @@ method GridColumn::sortable
 method GridColumn::summary
 method GridColumn::summary_formula
 method GridColumn::template
+method GridColumn::template_inked
 method GridColumn::text
 method GridColumn::title
 method GridColumn::width
@@ -5035,6 +5036,7 @@ method grid::GridColumn::sortable
 method grid::GridColumn::summary
 method grid::GridColumn::summary_formula
 method grid::GridColumn::template
+method grid::GridColumn::template_inked
 method grid::GridColumn::text
 method grid::GridColumn::title
 method grid::GridColumn::width
