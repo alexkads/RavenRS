@@ -57,6 +57,8 @@ pub mod fechamento;
 #[cfg(feature = "app")]
 pub mod model;
 #[cfg(feature = "app")]
+pub mod painel;
+#[cfg(feature = "app")]
 pub mod registro;
 #[cfg(feature = "app")]
 pub mod seed;
