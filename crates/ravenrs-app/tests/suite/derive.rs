@@ -161,3 +161,23 @@ fn what_an_empty_list_says_comes_from_the_struct_and_reaches_the_model() {
     );
     assert_eq!(Account::entity_info().empty_hint, None);
 }
+
+#[derive(BusinessObject, Clone, Debug, PartialEq)]
+struct Person {
+    #[field(key)]
+    id: i64,
+    #[field(default_property, list_detail = "phone")]
+    name: String,
+    phone: String,
+    #[field(badge)]
+    rank: String,
+}
+
+#[test]
+fn a_badge_and_the_field_under_another_come_from_the_struct() {
+    let entity = Person::entity_info();
+    assert!(entity.field_named("rank").is_some_and(|field| field.badge));
+    assert_eq!(entity.field_named("name").and_then(|field| field.list_detail.as_deref()), Some("phone"));
+    assert!(entity.field_named("phone").is_some_and(|field| !field.badge && field.list_detail.is_none()));
+    assert!(entity.check().is_ok());
+}

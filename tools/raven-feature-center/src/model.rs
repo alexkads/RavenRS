@@ -509,6 +509,26 @@ fn accessibility() -> EntityInfo {
     .focus_order(["name", "amount"])
 }
 
+/// A list whose status shows as a badge of its tone and whose name carries the phone under it.
+fn cell_shapes() -> EntityInfo {
+    let status = FieldKind::Enum(vec![
+        EnumOption::new("active", "Ativo").tint(Tint::Success),
+        EnumOption::new("away", "Afastado").tint(Tint::Warning),
+        EnumOption::new("gone", "Desligado"),
+    ]);
+    demo(
+        "CellShapesDemo",
+        "Selo e linha de apoio",
+        LISTS,
+        "A situação aparece como selo, no tom de cada opção, e o telefone vem embaixo do nome, menor. Exporte a lista: as duas partes saem \
+         numa linha só, com um ponto entre elas. Quem não pode ler o telefone vê só o nome.",
+    )
+    .field(title().list_detail("phone"))
+    .field(text("phone", "Telefone"))
+    .field(FieldInfo::new("status", status).caption("Situação"))
+    .field(FieldInfo::new("rank", FieldKind::Text).caption("Nível").badge())
+}
+
 /// The period of the closing demonstration, which `ClosingModule` approves and reopens.
 pub const CLOSING_TERM: &str = "ClosingTerm";
 
@@ -591,6 +611,7 @@ pub fn entities() -> Vec<EntityInfo> {
     all.extend(audits());
     all.push(store_settings());
     all.push(accessibility());
+    all.push(cell_shapes());
     all.extend(closing_demo());
     all.extend(amend_demo());
     all

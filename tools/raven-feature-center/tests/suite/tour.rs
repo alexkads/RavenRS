@@ -2794,6 +2794,18 @@ fn a_chronology_shows_the_milestones_in_order_and_opens_one() {
 }
 
 #[test]
+fn a_status_shows_as_a_badge_and_the_phone_goes_under_the_name() {
+    let mut c = Center::memory("ana");
+    c.press("Selo e linha de apoio");
+    c.settle();
+    // EnumOption::tint and FieldInfo::badge: the status and the rank as badges.
+    assert!(c.says("Ativo") && c.says("Afastado") && c.says("Líder"), "{:?}", c.texts());
+    // FieldInfo::list_detail: the phone under the name, in the same cell.
+    assert!(c.texts().iter().any(|t| t == "Ana (11) 9999-0000"), "{:?}", c.texts());
+    assert!(c.texts().iter().any(|t| t == "Caio"), "no phone, no second line: {:?}", c.texts());
+}
+
+#[test]
 fn an_action_in_row_closes_only_its_row_and_stays_off_on_the_closed_ones() {
     let mut c = Center::memory("ana");
     c.press("Tipos de Action");

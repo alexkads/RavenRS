@@ -5,6 +5,7 @@
 
 mod accessibility;
 mod amend;
+mod cell_shapes;
 mod center;
 mod counter;
 mod dates;
