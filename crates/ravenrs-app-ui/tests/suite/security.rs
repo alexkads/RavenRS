@@ -1,13 +1,15 @@
 //! Signing in and what each person sees, driven through the accessibility tree.
 #![allow(clippy::expect_used, clippy::panic)]
 
+use std::time::Duration;
+
 use ravenrs_app::{
     Access, AuditMode, AuditSettings, EntityInfo, FieldInfo, FieldKind, MemoryDatabase, ObjectSpace,
     Operation, PermissionPolicy, Query, Role, SECURITY_AUDIT_ENTRY, SECURITY_ROLE, SECURITY_USER,
     SECURITY_USER_ROLE, Value, audit_entity, security_entities,
 };
 use ravenrs_app_ui::{App, Language, SecuredApp, SignInAction};
-use ravenrs_core::{AccessAction, Event, Key, Modifiers, Role as AccessRole};
+use ravenrs_core::{AccessAction, Event, Key, Modifiers, Point, Role as AccessRole};
 use ravenrs_style::Theme;
 use ravenrs_widgets::Ui;
 
@@ -760,4 +762,138 @@ fn an_administrator_grants_access_on_the_users_and_revokes_it_with_a_confirmatio
     assert!(world.says("Access revoked."));
     let user = database.space().find(SECURITY_USER, &support.get("id")).expect("reads").expect("there");
     assert_eq!(user.get("active"), Value::Bool(false));
+}
+
+/// Another try at the door: the name typed before stays, so only the password is typed again.
+fn try_password(world: &mut World, password: &str) {
+    world.type_into("Password", password);
+    world.press("Sign in");
+}
+
+/// Wants a digit in every password, in the words of the application.
+fn digits(_name: &str, password: &str) -> Result<(), String> {
+    if password.chars().any(|c| c.is_ascii_digit()) { Ok(()) } else { Err("Put a digit in it.".to_owned()) }
+}
+
+#[test]
+fn the_password_policy_shows_its_words_on_the_first_and_the_forced_change() {
+    let database = database();
+    let mut world = World::over(secured(&database, Language::English).password_policy(digits));
+    first_administrator(&mut world);
+    assert!(world.says("Put a digit in it."), "the first administrator is refused");
+    assert!(database.space().query(SECURITY_USER, &Query::all()).expect("reads").is_empty());
+    world.type_into("New password", " 1");
+    world.type_into("Repeat the password", " 1");
+    world.press("Create administrator");
+    assert!(world.says("Orders"));
+    world.press("Sign out");
+
+    add_reader(&database, |_, _| {});
+    let mut space = database.space();
+    let mut user = space
+        .query(SECURITY_USER, &Query::all())
+        .expect("reads")
+        .into_iter()
+        .find(|user| user.get("name") == Value::Text("bia".into()))
+        .expect("there");
+    user.set("must_change_password", true);
+    space.save(user).expect("saved");
+    space.commit().expect("committed");
+    world.sign_in("bia", "bia's password");
+    world.type_into("Current password", "bia's password");
+    world.type_into("New password", "bia chose this");
+    world.type_into("Repeat the password", "bia chose this");
+    world.press("Save password");
+    assert!(world.says("Put a digit in it."), "a weak one does not end the forced change");
+    assert!(!world.says("Orders"));
+}
+
+#[test]
+fn the_lockout_takes_the_limits_of_the_application() {
+    let database = database();
+    let mut world = World::over(secured(&database, Language::English).lockout(2, 10));
+    first_administrator(&mut world);
+    world.press("Sign out");
+    world.sign_in("ana", "wrong one");
+    try_password(&mut world, "wrong two");
+    try_password(&mut world, "correct horse");
+    assert!(!world.says("Orders"), "two wrong ones are enough to wait");
+    assert!(world.says("waiting after too many attempts"));
+}
+
+#[test]
+fn a_session_with_nothing_done_goes_back_to_the_door_and_doing_something_keeps_it() {
+    let database = database();
+    let app = secured(&database, Language::English).idle_timeout(Duration::from_secs(600));
+    let mut world = World::over(app);
+    world.ui.set_time(0.0);
+    first_administrator(&mut world);
+    assert!(world.says("Orders"));
+    // Activity at 500 s starts the time again: at 900 s it is still open.
+    world.ui.set_time(500.0);
+    world.ui.handle_event(&Event::PointerMove { position: Point::new(10.0, 10.0) });
+    world.ui.set_time(900.0);
+    assert!(world.says("Orders"), "moving the pointer renewed it");
+    world.ui.set_time(1000.0);
+    world.ui.handle_event(&Event::KeyDown { key: Key::Escape, modifiers: Modifiers::default() });
+    world.ui.set_time(1500.0);
+    assert!(world.says("Orders"), "a key renewed it");
+    // Then nothing for longer than the time.
+    world.ui.set_time(1601.0);
+    assert!(world.has_button("Sign in"), "back at the door");
+    assert!(!world.says("Orders"));
+    assert!(world.says("Sign in again"));
+    // The door took nothing over, and signing in again opens a fresh session.
+    world.sign_in("ana", "correct horse");
+    assert!(world.says("Orders"));
+    world.ui.set_time(2000.0);
+    assert!(world.says("Orders"), "the time starts again on signing in");
+}
+
+#[test]
+fn an_administrator_unlocks_someone_who_keeps_their_password() {
+    let database = database();
+    let source = database.clone();
+    let shown = std::rc::Rc::new(std::cell::RefCell::new(None));
+    let keep = shown.clone();
+    let app = SecuredApp::new(
+        "Shop",
+        move || source.space(),
+        move |_| {
+            let keep = keep.clone();
+            App::new("Shop").entity_info(order()).with_session(move |session| {
+                *keep.borrow_mut() = Some(session.clone());
+            })
+        },
+    )
+    .audit(AuditSettings::new(AuditMode::Full))
+    .lockout(2, 60);
+    let mut world = World::over(app);
+    first_administrator(&mut world);
+    add_reader(&database, |_, _| {});
+    // Bia tries at another door over the same storage, so this one keeps ana inside.
+    let mut other = World::over(secured(&database, Language::English).lockout(2, 60));
+    other.sign_in("bia", "wrong one");
+    try_password(&mut other, "wrong two");
+    try_password(&mut other, "bia's password");
+    assert!(!other.says("Orders"), "bia waits");
+    let session = shown.borrow().clone().expect("opened");
+    let bia = database
+        .space()
+        .query(SECURITY_USER, &Query::all())
+        .expect("reads")
+        .into_iter()
+        .find(|user| user.get("name") == Value::Text("bia".into()))
+        .expect("there");
+    session.open_detail(SECURITY_USER, &bia.get("id"));
+    world.settle();
+    let action = session.frame().action("UnlockUser").expect("there");
+    session.run_action(&action, ravenrs_app::ActionInput::None);
+    world.settle();
+    assert!(world.says("User unlocked"));
+    let trail = database.space().query(SECURITY_AUDIT_ENTRY, &Query::all()).expect("reads");
+    assert!(trail.iter().any(|entry| entry.get("new_value") == Value::Text("Unlocked".into())));
+    assert!(!format!("{trail:?}").contains("bia's password"));
+    try_password(&mut other, "bia's password");
+    assert!(other.says("Orders"), "the same password works again");
 }
