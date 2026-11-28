@@ -6,6 +6,7 @@
 mod amendments;
 mod behavior;
 mod center;
+mod closing;
 mod derive;
 mod external;
 mod jobs;

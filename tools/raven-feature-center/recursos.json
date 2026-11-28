@@ -1,4 +1,5 @@
 {"componentes": [
+{"crate": "ravenrs-app", "tipo": "Amendment", "pagina": "Fechamento de período", "recursos": ["apply", "before", "closing", "copies", "correction", "marks", "reason"]},
 {"crate": "ravenrs-app", "tipo": "AppearanceRule", "pendente": true, "issue": 579, "conhecidos": ["back", "bold", "context", "criteria", "enabled", "font", "new", "priority", "target", "visible", "when"]},
 {"crate": "ravenrs-app", "tipo": "ApplicationBuilder", "pendente": true, "issue": 579, "conhecidos": ["build", "capability", "dashboard", "database", "entity", "entity_of", "module", "service", "switch_off", "target", "translation"]},
 {"crate": "ravenrs-app", "tipo": "AuditSettings", "pendente": true, "issue": 579, "conhecidos": ["entity", "new", "without_field"]},
@@ -6,7 +7,7 @@
 {"crate": "ravenrs-app", "tipo": "Claims", "pendente": true, "issue": 579, "conhecidos": ["email", "new"]},
 {"crate": "ravenrs-app", "tipo": "DashboardInfo", "pendente": true, "issue": 579, "conhecidos": ["control", "icon", "navigation", "new", "variant", "view"]},
 {"crate": "ravenrs-app", "tipo": "Dispatcher", "pendente": true, "issue": 579, "conhecidos": ["backoff", "lease", "new", "run", "run_as", "run_at"]},
-{"crate": "ravenrs-app", "tipo": "EntityInfo", "pendente": true, "issue": 579, "conhecidos": ["action", "appearance", "appearance_of", "caption", "check", "checks_on_leave", "cloneable", "compute", "data_access", "default_property", "description", "editor_setting", "empty_text", "field", "field_named", "filter", "focus_order", "form_actions", "form_columns", "icon", "key_field", "list_criteria", "list_editable", "navigation", "new", "new_object", "reminder", "rule", "schema", "singleton", "state_appearance", "state_machine", "strip_calculated", "transient", "variant"]},
+{"crate": "ravenrs-app", "tipo": "EntityInfo", "pendente": true, "issue": 579, "conhecidos": ["action", "amends", "appearance", "appearance_of", "caption", "check", "checks_on_leave", "cloneable", "compute", "data_access", "default_property", "description", "editor_setting", "empty_text", "field", "field_named", "filter", "focus_order", "form_actions", "form_columns", "icon", "key_field", "list_criteria", "list_editable", "navigation", "new", "new_object", "period_closing", "reminder", "rule", "schema", "sealed", "singleton", "state_appearance", "state_machine", "strip_calculated", "transient", "variant"]},
 {"crate": "ravenrs-app", "tipo": "Event", "pendente": true, "issue": 579, "conhecidos": ["at", "id", "new", "version"]},
 {"crate": "ravenrs-app", "tipo": "ExternalSignIn", "pendente": true, "issue": 579, "conhecidos": ["issuer", "new"]},
 {"crate": "ravenrs-app", "tipo": "FieldInfo", "pendente": true, "issue": 579, "conhecidos": ["accepted", "accessible_description", "accessible_name", "aggregated", "autofocus", "back_reference", "calculated", "caption", "criteria_of", "default_property", "default_value", "display_format", "edit_mask", "editor", "group", "hint", "in_detail", "in_list", "in_lookup", "key", "lookup_filter", "most_bytes", "new", "non_cloneable", "none_caption", "placeholder", "predefined", "read_only", "secret", "typed_key", "wide"]},
@@ -16,6 +17,7 @@
 {"crate": "ravenrs-app", "tipo": "ModelNode", "pendente": true, "issue": 579, "conhecidos": ["at", "child", "flag", "get", "in_order", "integer", "new", "number", "text", "typed", "with"]},
 {"crate": "ravenrs-app", "tipo": "ModuleManifest", "pendente": true, "issue": 579, "conhecidos": ["capability", "database", "job", "migration", "new", "requires", "role", "target", "version"]},
 {"crate": "ravenrs-app", "tipo": "Object", "pagina": "Registro", "recursos": ["cents", "date", "entity", "from_values", "get", "integer", "keep_only", "key", "number", "set", "text", "values", "without_paths"]},
+{"crate": "ravenrs-app", "tipo": "PeriodClosing", "pagina": "Fechamento de período", "recursos": ["freezes", "new", "reopen_reason", "requires_none", "versions_entity"]},
 {"crate": "ravenrs-app", "tipo": "Query", "pendente": true, "issue": 579, "conhecidos": ["all", "filter", "only", "page", "sort"]},
 {"crate": "ravenrs-app", "tipo": "RecordAction", "pendente": true, "issue": 579, "conhecidos": ["confirm", "confirm_detail", "enabled", "id", "id_on", "new", "selection", "set", "to_action"]},
 {"crate": "ravenrs-app", "tipo": "Reminder", "pendente": true, "issue": 579, "conhecidos": ["criteria", "message", "new"]},

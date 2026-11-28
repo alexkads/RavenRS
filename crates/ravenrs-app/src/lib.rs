@@ -67,11 +67,13 @@ pub use appearance::Appearance;
 pub use controller::{ViewController, WindowController};
 pub use entity::{
     Amendment, AmendmentApply, AmendmentKind, AppearanceContext, AppearanceRule, AppearanceTarget,
-    Comparison, DataAccess, EXACT_DIGITS, EntityInfo, EnumOption, FieldInfo, FieldKind, ListFilter,
-    ModelError, ModelNode, Object, Operand, RecordAction, Reminder, Rule, RuleKind, Seal, Selection,
-    Severity, StateMachine, StoredLookup, TextComparison, Tint, Transition, ViewVariant, apply_amendment,
-    check_amendment_model, check_amendments, check_transitions, exact_decimal, exact_decimals, local_now,
-    local_today,
+    CLOSING_CURRENT, CLOSING_REOPENED, ClosingError, Comparison, DataAccess, EXACT_DIGITS, EntityInfo,
+    EnumOption, FieldInfo, FieldKind, ListFilter, ModelError, ModelNode, Object, Operand, PeriodClosing,
+    RecordAction, Reminder, Rule, RuleKind, Seal, Selection, Severity, StateMachine, StoredLookup,
+    TextComparison, Tint, Transition, ViewVariant, apply_amendment, approve, archived_document,
+    check_amendment_model, check_amendments, check_closing, check_closing_model, check_transitions,
+    closing_digest, closing_key, closing_versions, exact_decimal, exact_decimals, local_now, local_today,
+    missing_closing_entities, reopen,
 };
 pub use files::{AttachmentStore, MemoryAttachmentStore};
 pub use frame::{Frame, FrameContext, FrameEvent, ViewInfo, ViewKind};

@@ -739,6 +739,10 @@ impl ObjectSpace for PostgrestObjectSpace {
                 let mut stored = |info: &EntityInfo, key: &Value| self.by_key(self.entity(&info.name)?, key);
                 ravenrs_app::check_amendments(&entities, &changes, &mut stored)?;
             }
+            if entities.iter().any(|entity| entity.period_closing.is_some()) {
+                let mut stored = |info: &EntityInfo, key: &Value| self.by_key(self.entity(&info.name)?, key);
+                ravenrs_app::check_closing(&entities, &changes, &mut stored)?;
+            }
             let mut described = Vec::with_capacity(changes.len());
             for change in &changes {
                 if let Some(said) = self.described(change)? {

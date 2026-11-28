@@ -9,6 +9,7 @@ use ravenrs_criteria::{Criteria, Environment, FieldType, Record, Schema, Scope, 
 // lives in its own module and imports them from here, so it can stand on the entity.
 pub(crate) mod amendment_types;
 pub(crate) mod appearance_types;
+pub(crate) mod closing_types;
 pub(crate) mod record_actions;
 pub(crate) mod rules;
 pub(crate) mod workflow_types;
@@ -19,6 +20,11 @@ pub use amendment_types::{
     check_amendments,
 };
 pub use appearance_types::{AppearanceContext, AppearanceRule, AppearanceTarget, Tint};
+pub use closing_types::{
+    CLOSING_CURRENT, CLOSING_REOPENED, ClosingError, PeriodClosing, approve, archived_document,
+    check_closing, check_closing_model, closing_digest, closing_key, closing_versions,
+    missing_closing_entities, reopen,
+};
 pub use record_actions::{RecordAction, Selection};
 pub use rules::{Comparison, Operand, Rule, RuleKind, Severity, TextComparison};
 pub use workflow_types::{Reminder, StateMachine, Transition, check_transitions, local_now, local_today};
@@ -669,6 +675,8 @@ pub struct EntityInfo {
     pub seal: Option<crate::Seal>,
     /// The closed records of another entity its records amend.
     pub amendment: Option<crate::Amendment>,
+    /// How it is approved as a period, freezing the records that belong to it.
+    pub period_closing: Option<crate::PeriodClosing>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
@@ -704,6 +712,7 @@ impl EntityInfo {
             focus_order: Vec::new(),
             seal: None,
             amendment: None,
+            period_closing: None,
         }
     }
 
@@ -851,6 +860,13 @@ impl EntityInfo {
         self
     }
 
+    /// It is a period that is approved and closed: approving keeps a numbered version with the
+    /// document and its hash, and freezes the records that belong to it until it is reopened.
+    pub fn period_closing(mut self, closing: crate::PeriodClosing) -> Self {
+        self.period_closing = Some(closing);
+        self
+    }
+
     /// An appearance that holds while its field is in this state.
     pub fn state_appearance(self, field: &str, state: &str, rule: crate::AppearanceRule) -> Self {
         let state = state.replace('\'', "''");
@@ -951,6 +967,9 @@ impl EntityInfo {
             return wrong(format!("its seal does not read: {e}"));
         }
         if let Some(problem) = self.amendment.as_ref().and_then(|amendment| amendment.problem(self)) {
+            return wrong(problem);
+        }
+        if let Some(problem) = self.period_closing.as_ref().and_then(|closing| closing.problem()) {
             return wrong(problem);
         }
         for machine in &self.state_machines {
