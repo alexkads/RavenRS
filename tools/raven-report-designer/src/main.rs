@@ -27,7 +27,8 @@ fn designer_of(
     path: std::path::PathBuf,
     on_close: impl Fn() + 'static,
 ) -> Result<raven_report_designer::Designer, String> {
-    let json = std::fs::read_to_string(&path).map_err(|e| format!("não deu para ler {}: {e}", path.display()))?;
+    let json =
+        std::fs::read_to_string(&path).map_err(|e| format!("não deu para ler {}: {e}", path.display()))?;
     let report = ravenrs_report::Report::from_json(&json)
         .map_err(|e| format!("{} não é um relatório: {e}", path.display()))?;
     let save = move |report: ravenrs_report::Report| {
