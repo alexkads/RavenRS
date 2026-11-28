@@ -235,15 +235,9 @@ fn openssl_reads_the_certificate_and_the_chain_closes() {
     std::fs::write(&folha, certificado.pem()).expect("write");
     std::fs::write(&ac, pem_certificado(certificado.cadeia())).expect("write");
     let saida = std::process::Command::new(&openssl)
-        .args([
-            "x509",
-            "-noout",
-            "-subject",
-            "-issuer",
-            "-ext",
-            "subjectAltName,extendedKeyUsage,keyUsage",
-            "-in",
-        ])
+        // `-text`, not `-ext`: the LibreSSL of macOS has no `-ext`, and both print the
+        // subject, the issuer and the extensions with it.
+        .args(["x509", "-noout", "-text", "-in"])
         .arg(&folha)
         .output()
         .expect("openssl");

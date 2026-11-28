@@ -30,12 +30,12 @@ Hugs its content: 300 × 170 pt in a parent of 760 pt.
 The pointer over the first control, the focus brought to it with Tab and the button held down on it, measured in Raven Dark on the story Example:
 
 - **Hover** on "Pick a color": fill transparent → ink@7; adds a rect (ink); adds a text (null).
-- **Focus** on "Pick a color": adds a rect (border 2.0 focus-ring).
+- **Focus** on "Pick a color": adds a rect (border 2.0 focus-ring); adds a rect (ink); adds a text (null).
 - **Pressed** on "Pick a color": adds a rect (ink@12); adds a icon (null); adds a rect (ink); adds a text (null).
 
 ## Behavior
 
-- **Keys** its first control handles once focused: `Enter`, `Space`.
+- **Keys** its first control handles once focused: `Enter`, `Space`, `Escape`.
 - **Accessibility**: role `Button` "Pick a color".
 - **Focus order** (Tab): Button "Pick a color".
 

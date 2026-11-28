@@ -7,7 +7,7 @@ per component and pattern, its card, its preview and its JSON with the anatomy o
 Whoever needs the design system (a person, an agent, the Claude Design project) reads it from git
 instead of building RCB and measuring every component again.
 
-Run it after changing a component, a story or a token: scripts/check.sh fails while the copy is
+Run it after changing a component, a story or a token: cargo xtask pr fails while the copy is
 out of date (`--check`, which runs RCB's `--verify` and ignores the time and the commit the index
 and the tokens carry). `--self-test` checks how the report of `--verify` is read."""
 import pathlib

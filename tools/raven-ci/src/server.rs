@@ -65,7 +65,7 @@ fn stopping() -> Result<impl std::future::Future<Output = ()>, CiError> {
 
 /// `raven-ci servir [--endereco HOST:PORTA] [--executores N] [--config ARQUIVO] [--painel PASTA]
 /// [--tolerancia-agente SEGUNDOS] [--url-agentes URL]`. With `--executores 0` the server runs no
-/// build itself: agents do. With `--painel`, the panel for the browser (`scripts/build-web.sh
+/// build itself: agents do. With `--painel`, the panel for the browser (`cargo xtask web
 /// raven-ci`) is served at `/painel/`.
 pub fn serve(ci: Ci, data: &Path, args: &[&str], out: &mut dyn Write) -> Result<i32, CiError> {
     // One server per folder of data, and no restore under it (#917): held until this returns.

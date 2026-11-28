@@ -32,7 +32,7 @@ tracing-subscriber.workspace = true
 image.workspace = true
 pollster.workspace = true
 
-# The house follows its own rules: `cargo run -p ravenrs-lint -- -p raven-flows` (scripts/check.sh runs it).
+# The house follows its own rules: `cargo run -p ravenrs-lint -- -p raven-flows` (cargo xtask pr runs it).
 [package.metadata.ravenrs-lint]
 language = "pt-BR"
 
