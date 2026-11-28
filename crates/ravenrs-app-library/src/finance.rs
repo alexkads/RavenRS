@@ -549,3 +549,87 @@ pub fn statement(space: &dyn ObjectSpace, from: DateTime, to: DateTime) -> Resul
         .collect();
     Ok(Statement { opening, lines, closing: balance })
 }
+
+/// What came in and went out in a month of a year, in cents, by category.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct MonthTotals {
+    /// The month, from 1 to 12.
+    pub month: u32,
+    /// What came in.
+    pub income: i64,
+    /// What went out.
+    pub expense: i64,
+    /// By the key of the category, as text, what came in less what went out; empty for none.
+    pub by_category: std::collections::BTreeMap<String, i64>,
+}
+
+/// The cash book of a year, month by month, as the space shows it: twelve months, the empty ones
+/// with zeros.
+pub fn annual(space: &dyn ObjectSpace, year: i32) -> Result<Vec<MonthTotals>, SpaceError> {
+    let mut months: Vec<MonthTotals> =
+        (1..=12).map(|month| MonthTotals { month, ..MonthTotals::default() }).collect();
+    for entry in space.query(LEDGER_ENTRY, &Query::all())? {
+        let Value::Date(on) = entry.get("on") else { continue };
+        let (at, month, _) = on.ymd();
+        if at != year {
+            continue;
+        }
+        let Some(totals) = months.get_mut(month as usize - 1) else { continue };
+        let amount = cents(&entry, "amount");
+        let income = entry.text("kind") == "income";
+        if income {
+            totals.income += amount;
+        } else {
+            totals.expense += amount;
+        }
+        let category = entry.key("category_id").unwrap_or_default();
+        *totals.by_category.entry(category).or_default() += if income { amount } else { -amount };
+    }
+    Ok(months)
+}
+
+/// What falls due in a month: the bills still open, by due date, and of them, those already
+/// overdue at `today`.
+#[derive(Clone, Debug, Default, PartialEq)]
+#[non_exhaustive]
+pub struct Forecast {
+    /// The open bills due in the month, by due date.
+    pub due: Vec<Object>,
+    /// What is left of them to pay, in cents.
+    pub payable: i64,
+    /// What is left of them to receive, in cents.
+    pub receivable: i64,
+    /// How many of them were due before `today`.
+    pub overdue: usize,
+}
+
+/// The open bills due in the month of `month` (any day of it), as the space shows them.
+pub fn forecast(space: &dyn ObjectSpace, month: DateTime, today: DateTime) -> Result<Forecast, SpaceError> {
+    let (year, number, _) = month.ymd();
+    let mut found = Forecast::default();
+    let mut due: Vec<(i64, Object)> = space
+        .query(COMMITMENT, &Query::all())?
+        .into_iter()
+        .filter(|bill| matches!(bill.text("status").as_str(), "open" | "partial"))
+        .filter_map(|bill| {
+            let Value::Date(on) = bill.get("due_on") else { return None };
+            let (y, m, _) = on.ymd();
+            (y == year && m == number).then_some((on.days, bill))
+        })
+        .collect();
+    due.sort_by_key(|(day, _)| *day);
+    for (day, bill) in due {
+        let left = cents(&bill, "amount") - cents(&bill, "settled");
+        if bill.text("kind") == "receivable" {
+            found.receivable += left;
+        } else {
+            found.payable += left;
+        }
+        if day < today.days {
+            found.overdue += 1;
+        }
+        found.due.push(bill);
+    }
+    Ok(found)
+}

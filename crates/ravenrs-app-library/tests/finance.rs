@@ -261,3 +261,24 @@ fn the_position_and_the_statement_agree_with_the_cash_book() {
         assert!(split_off.is_err(), "a bill already paid is not split");
     });
 }
+
+#[test]
+fn the_year_goes_by_month_and_the_month_says_what_falls_due() {
+    use ravenrs_app_library::finance::{annual, forecast};
+    both(|maker| {
+        let first = bill(maker, 10_000.0);
+        let second = bill(maker, 3_000.0);
+        settle(&mut *maker(), &first, SettleInput::new(today(), 10_000).interest(500), today())
+            .expect("paid");
+        let year = annual(&*maker(), 2026).expect("reads");
+        assert_eq!(year.len(), 12);
+        assert_eq!((year[10].income, year[10].expense), (0, 10_500));
+        assert_eq!(year[10].by_category.values().sum::<i64>(), -10_500);
+        assert!(year.iter().filter(|month| month.month != 11).all(|month| month.expense == 0));
+        let november = forecast(&*maker(), today(), day(2026, 11, 25)).expect("reads");
+        assert_eq!(november.due.len(), 1, "the paid one is not due");
+        assert_eq!(november.due[0].get("id"), second);
+        assert_eq!((november.payable, november.overdue), (3_000, 1));
+        assert!(forecast(&*maker(), day(2026, 12, 1), today()).expect("reads").due.is_empty());
+    });
+}

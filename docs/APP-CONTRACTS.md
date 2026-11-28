@@ -191,7 +191,9 @@ The rules hold wherever records are kept: the status moves only by the declared 
 
 `position(space, today)` gives what is open to pay and to receive and how much of each is overdue; `statement(space, from, to)` gives the cash book with the balance before, each line with its balance, and the balance at the end; both read as the space shows the records.
 
-What waits (#859): `annual`, `forecast` and the printed documents of the reports, the form actions, and the rule between category and kind. The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
+`annual(space, year)` gives the twelve months with what came in, went out and the balance by category; `forecast(space, month, today)` gives the open bills due in the month, what is left of them and how many are overdue.
+
+What waits (#859): the printed documents of the reports, the form actions, and the rule between category and kind. The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
 
 ## Scenarios
 
