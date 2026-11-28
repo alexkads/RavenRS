@@ -6667,6 +6667,7 @@ dependencies = [
  "regex-lite",
  "rust_decimal",
  "serde_json",
+ "sha2 0.10.9",
  "syn 2.0.119",
  "trybuild",
  "uuid",
@@ -6706,11 +6707,15 @@ name = "ravenrs-app-library"
 version = "27.1.28"
 dependencies = [
  "ravenrs-app",
+ "ravenrs-app-postgres",
+ "ravenrs-app-sql",
+ "ravenrs-app-sqlite",
  "ravenrs-app-ui",
  "ravenrs-core",
  "ravenrs-criteria",
  "ravenrs-style",
  "ravenrs-widgets",
+ "rusqlite",
 ]
 
 [[package]]
@@ -11461,6 +11466,10 @@ name = "xmp-writer"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9440ea3e5aeabb0ac63af70daf835274065238cdd0cec83418f417eae38bacee"
+
+[[package]]
+name = "xtask"
+version = "27.1.28"
 
 [[package]]
 name = "yazi"

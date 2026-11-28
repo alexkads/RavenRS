@@ -8,7 +8,7 @@ use ravenrs_app::{
     Action, ActionCategory, AuditSettings, AuditTrail, AuditedObjectSpace, AuthError, Authenticator,
     Credentials, EntityInfo, Identity, Message, MessageKind, ModelError, Module, ObjectSpace, PasswordError,
     Role, RoleMerge, SECURITY_USER, SecuredObjectSpace, SecurityContext, Selection, SpaceMaker,
-    UserDirectory, Value, ViewController, audit_entity, security_entities,
+    TemporaryAccessPolicy, UserDirectory, Value, ViewController, audit_entity, security_entities,
 };
 use ravenrs_layout::{Align, Justify};
 use ravenrs_reactive::State;
@@ -36,6 +36,7 @@ const DOOR_GUTTER: f32 = 16.0;
 pub(crate) struct SecurityModule {
     words: Words,
     audited: bool,
+    temporary: Option<TemporaryAccessPolicy>,
 }
 
 impl Module for SecurityModule {
@@ -52,11 +53,27 @@ impl Module for SecurityModule {
     }
 
     fn view_controllers(&self) -> Vec<Box<dyn ViewController>> {
-        vec![Box::new(PasswordsController(self.words.clone()))]
+        vec![
+            Box::new(PasswordsController(self.words.clone())),
+            Box::new(AccessController(self.words.clone(), self.temporary.clone())),
+        ]
     }
 }
 
 struct PasswordsController(Words);
+
+/// Granting access for a while and revoking a user, on the list of users.
+struct AccessController(Words, Option<TemporaryAccessPolicy>);
+
+impl ViewController for AccessController {
+    fn id(&self) -> &str {
+        "TemporaryAccess"
+    }
+
+    fn actions(&self) -> Vec<Action> {
+        crate::temporary::actions(&self.0, self.1.as_ref())
+    }
+}
 
 impl ViewController for PasswordsController {
     fn id(&self) -> &str {
@@ -306,6 +323,7 @@ pub struct SecuredApp {
     seed: Option<Seed>,
     title: String,
     door: Door,
+    temporary: Option<TemporaryAccessPolicy>,
 }
 
 impl std::fmt::Debug for SecuredApp {
@@ -335,7 +353,17 @@ impl SecuredApp {
             seed: None,
             title: title.into(),
             door: Door::default(),
+            temporary: None,
         }
+    }
+
+    /// Access for a while, as this policy gives it: before each sign in, and in an open session at
+    /// most every [`TemporaryAccessPolicy::check_every`], the users whose deadline passed are
+    /// turned off, so the next screen of such a session reads nothing. Its role has to be there
+    /// and not administrative, or building refuses.
+    pub fn temporary_access(mut self, policy: TemporaryAccessPolicy) -> Self {
+        self.temporary = Some(policy);
+        self
     }
 
     /// A line under the title of the screen of signing in, such as which organization this is.
@@ -445,6 +473,31 @@ impl SecuredApp {
             }
         }
         let directory = UserDirectory::new(self.space.clone(), self.roles.clone()).map_err(wrong)?;
+        if let Some(policy) = &self.temporary {
+            let roles = (self.space)()
+                .query(ravenrs_app::SECURITY_ROLE, &ravenrs_app::Query::all())
+                .map_err(wrong)?;
+            let found = roles.iter().find(|role| role.text("name") == policy.role);
+            let code = self.roles.iter().find(|role| role.name() == policy.role);
+            match found {
+                None => {
+                    return Err(ModelError(format!(
+                        "the role {} of temporary access is not there",
+                        policy.role
+                    )));
+                }
+                Some(role)
+                    if role.get("administrative") == Value::Bool(true)
+                        || code.is_some_and(Role::is_administrative) =>
+                {
+                    return Err(ModelError(format!(
+                        "the role {} of temporary access is administrative",
+                        policy.role
+                    )));
+                }
+                Some(_) => {}
+            }
+        }
         if let Some(seed) = self.seed {
             let mut space = (self.space)();
             seed(&mut *space).map_err(ModelError)?;
@@ -478,6 +531,8 @@ impl SecuredApp {
             entered: RefCell::new(0),
             door_theme: std::cell::Cell::new(None),
             door: self.door,
+            temporary: self.temporary,
+            checked: std::cell::Cell::new(None),
         }));
         gate.fill_demo();
         Ok(Box::new(Localized::new(gate.0.labels.clone(), gate)))
@@ -521,6 +576,9 @@ struct GateInner {
     error: State<Option<String>>,
     entered: RefCell<u64>,
     door: Door,
+    temporary: Option<TemporaryAccessPolicy>,
+    /// When the open session last looked for what expired, by the clock of the policy.
+    checked: std::cell::Cell<Option<ravenrs_criteria::DateTime>>,
 }
 
 /// What stands between people and the application.
@@ -588,6 +646,9 @@ impl Gate {
     fn sign_in(&self) {
         let inner = &self.0;
         let credentials = Credentials::new(inner.name.peek().clone(), inner.password.peek().clone());
+        if let Some(policy) = &inner.temporary {
+            let _ = inner.directory.end_expired(policy.now());
+        }
         let result = inner.authenticator.authenticate(&credentials);
         self.forget_typed();
         match result {
@@ -644,11 +705,27 @@ impl Gate {
         }
     }
 
+    /// Turns off who expired, once every `check_every` of the policy at most.
+    fn end_expired_now_and_then(&self) {
+        let inner = &self.0;
+        let Some(policy) = &inner.temporary else { return };
+        let now = policy.now();
+        let seconds = |at: ravenrs_criteria::DateTime| at.days * 86_400 + i64::from(at.seconds);
+        let every = i64::try_from(policy.check_every.as_secs()).unwrap_or(i64::MAX);
+        let due = inner.checked.get().is_none_or(|last| seconds(now) - seconds(last) >= every);
+        if due {
+            let _ = inner.directory.end_expired(now);
+            inner.checked.set(Some(now));
+        }
+    }
+
     fn open_application(&self, context: Rc<SecurityContext>, trail: Option<Rc<AuditTrail>>) {
         let inner = &self.0;
         let identity = context.identity();
         let (raw, secured_context, secured_trail) = (inner.space.clone(), context.clone(), trail.clone());
+        let watcher = self.clone();
         let storage = move || {
+            watcher.end_expired_now_and_then();
             // Each view reads who they are again, so what someone else changed about them counts.
             // If that fails they keep what they had, and storage is failing for the view too.
             let _ = secured_context.reload();
@@ -665,7 +742,7 @@ impl Gate {
             app = app.texts(language.clone(), json.clone());
         }
         let app = app
-            .module(SecurityModule { words: words.clone(), audited })
+            .module(SecurityModule { words: words.clone(), audited, temporary: inner.temporary.clone() })
             .translation("pt-BR", ravenrs_app_i18n::model::SECURITY_PT_BR)
             .dashboard(
                 ravenrs_app::DashboardInfo::new(MODEL_EDITOR, words.model_editor.clone())

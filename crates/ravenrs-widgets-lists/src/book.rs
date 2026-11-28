@@ -11,6 +11,7 @@ pub fn stories() -> Vec<Meta> {
 }
 
 // rcb-scaffold: begin
+mod chronology;
 mod data_inspector;
 mod document_tabs;
 mod file_browser;
@@ -31,6 +32,7 @@ use ravenrs_widgets_base::AnyView;
 )]
 pub(crate) fn generated() -> Vec<Meta> {
     let mut all = Vec::new();
+    all.push(<crate::Chronology as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::DataInspector as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::DocumentTabs as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::FileBrowser as ravenrs_widgets_base::book::ComponentBook>::book());

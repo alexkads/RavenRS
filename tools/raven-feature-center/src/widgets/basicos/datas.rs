@@ -1,5 +1,6 @@
 //! Calendar, DatePicker, DateRangePicker, TimePicker and DateTimePicker: a day, a period and a
 //! time, with limits, blocked days and why, ready-made periods, and the states that keep them.
+//! DateTile: a day in a small block, in its tones and sizes, and outlined over a band.
 use std::rc::Rc;
 
 use ravenrs::prelude::*;
@@ -43,6 +44,21 @@ impl View for DatesPage {
                     "Um dia, um período e uma hora, com limites e dias que não dá para escolher, e o motivo.",
                 )
                 .foreground(Semantic::InkMuted),
+                VStack::new((
+                    Text::new("Bloco de data").style(TextStyle::Headline),
+                    HStack::new((
+                        DateTile::new(day(14)),
+                        DateTile::new(day(15)).tone(Tone::Accent),
+                        DateTile::new(day(21)).tone(Tone::Success).size(72.0),
+                        HStack::new((DateTile::new(day(28)).tone(Tone::Accent).outlined(),))
+                            .padding(8.0)
+                            .background(Semantic::Accent),
+                    ))
+                    .spacing(12.0)
+                    .align(Align::Center),
+                ))
+                .spacing(8.0)
+                .align(Align::Start),
                 VStack::new((
                     Text::new("Calendário").style(TextStyle::Headline),
                     Calendar::new(picked.binding(), day(1))

@@ -334,6 +334,10 @@ fn appearance_follows_the_record() {
     c.open_record("AppearanceRules", 3.0);
     let delete = c.session().frame().action("Delete").expect("there");
     assert!(!delete.is_enabled(), "and the action");
+    // ListIndicator: the numbers above the list, over every record.
+    c.open_list("AppearanceRules");
+    assert!(c.says("EM ATRASO") && c.says("Pintados de vermelho"), "{:?}", c.texts());
+    assert!(c.says("R$ 410,00"), "{:?}", c.texts());
 }
 
 #[test]
@@ -2464,6 +2468,15 @@ fn dates_and_times_offer_only_what_their_limits_allow_and_say_why_a_day_is_off()
     let mut c = Center::memory("ana");
     c.press("Datas e horas");
     c.settle();
+    // DateTile: new, tone, size and outlined, each heard as the whole date.
+    for name in [
+        "sábado, 14 de novembro de 2026",
+        "domingo, 15 de novembro de 2026",
+        "sábado, 21 de novembro de 2026",
+        "sábado, 28 de novembro de 2026",
+    ] {
+        assert!(c.ui.access_tree().find(Role::Image, name).is_some(), "{name}: {:?}", c.texts());
+    }
     // Calendar: new, today, range, blocked and on_pick.
     let holiday =
         c.ui.access_tree()
@@ -2566,4 +2579,213 @@ fn a_record_reads_each_field_in_its_type_and_changes_by_field() {
     assert!(c.says("Conta (key): vazio"), "{:?}", c.texts());
     c.press("Recomeçar");
     assert!(c.says("Parcelas (integer): 3"), "{:?}", c.texts());
+}
+
+#[test]
+fn a_closed_lesson_changes_by_correction_and_an_approved_term_freezes_it() {
+    let mut c = Center::memory("ana");
+    c.press("Fechamento de período");
+    c.settle();
+    let says_start = |c: &mut Center, start: &str| c.texts().iter().any(|t| t.starts_with(start));
+    assert!(c.says("Aula: draft, 3 presentes"), "{:?}", c.texts());
+    // PeriodClosing::versions_entity.
+    assert!(
+        c.says("Campos das versões: id, period, version, approved_at, approved_by, digest, document, status, reopen_reason"),
+        "{:?}",
+        c.texts()
+    );
+    // requires_none: a draft lesson keeps the term open.
+    c.press("Aprovar o semestre");
+    assert!(says_start(&mut c, "Recusado: Semestre: 1 still has Aula"), "{:?}", c.texts());
+    // Seal: a closed lesson does not change directly.
+    c.press("Fechar a aula");
+    c.press("Mudar a aula direto");
+    assert!(says_start(&mut c, "Recusado: Aula: it is closed: use Correção de aula"), "{:?}", c.texts());
+    // Amendment::correction, reason, copies, marks and before.
+    c.press("Corrigir sem motivo");
+    assert!(
+        says_start(&mut c, "Recusado: Correção de aula: the reason needs at least 10"),
+        "{:?}",
+        c.texts()
+    );
+    c.press("Corrigir a aula");
+    assert!(c.says("Aula: closed, 5 presentes, corrigida"), "{:?}", c.texts());
+    // Amendment::closing and apply.
+    c.press("Transferir");
+    assert!(c.says("Matrículas encerradas: 1"), "{:?}", c.texts());
+    // PeriodClosing::new and freezes: approving freezes the lesson, even for a correction.
+    c.press("Aprovar o semestre");
+    assert!(c.says("Semestre aprovado: versão 1."), "{:?}", c.texts());
+    assert!(says_start(&mut c, "Versão 1: vigente, hash "), "{:?}", c.texts());
+    c.press("Corrigir a aula");
+    assert!(says_start(&mut c, "Recusado: Semestre: 1 is approved"), "{:?}", c.texts());
+    // reopen_reason.
+    c.press("Reabrir sem motivo");
+    assert!(
+        says_start(&mut c, "Recusado: Semestre approval: the reason to reopen needs at least 10"),
+        "{:?}",
+        c.texts()
+    );
+    c.press("Reabrir o semestre");
+    assert!(says_start(&mut c, "Versão 1: reaberta"), "{:?}", c.texts());
+    c.press("Aprovar o semestre");
+    assert!(c.says("Semestre aprovado: versão 2."), "{:?}", c.texts());
+    c.press("Recomeçar");
+    assert!(c.says("Versões: nenhuma"), "{:?}", c.texts());
+}
+
+#[test]
+fn a_temporary_access_ends_by_itself_and_revoking_never_takes_oneself() {
+    let mut c = Center::memory("ana");
+    c.press("Acesso temporário");
+    c.settle();
+    let says_start = |c: &mut Center, start: &str| c.texts().iter().any(|t| t.starts_with(start));
+    assert!(c.says("Usuário ana: ativo"), "{:?}", c.texts());
+    // min_reason.
+    c.press("Conceder sem motivo");
+    assert!(c.says("Recusado: the reason needs at least 10 characters"), "{:?}", c.texts());
+    // new, max_hours, name_prefix, check_every and clock.
+    c.press("Conceder 2 horas");
+    assert!(says_start(&mut c, "Concedido a suporte-"), "{:?}", c.texts());
+    assert!(c.says("Acesso de ana: suporte do caixa, por 2 h, em aberto"), "{:?}", c.texts());
+    c.press("Entrar como suporte");
+    assert!(
+        says_start(&mut c, "suporte-") && c.texts().iter().any(|t| t.ends_with(" entrou.")),
+        "{:?}",
+        c.texts()
+    );
+    // now: the clock moves past the deadline.
+    c.press("Passar 3 horas");
+    assert!(c.says("Passaram 3 horas: 1 acesso(s) vencido(s)."), "{:?}", c.texts());
+    assert!(c.says("Acesso de ana: suporte do caixa, por 2 h, encerrado: Expired"), "{:?}", c.texts());
+    c.press("Entrar como suporte");
+    assert!(c.texts().iter().any(|t| t.ends_with(" não entrou.")), "{:?}", c.texts());
+    c.press("Revogar a si mesma");
+    assert!(c.says("Recusado: nobody revokes their own user"), "{:?}", c.texts());
+    c.press("Recomeçar");
+    c.press("Conceder 2 horas");
+    c.press("Revogar o suporte");
+    assert!(c.says("Acesso de ana: suporte do caixa, por 2 h, encerrado: Revoked by ana"), "{:?}", c.texts());
+    // The list of the center's own temporary accesses, in Administração.
+    c.press("Acessos temporários");
+    c.settle();
+    assert!(c.says("Motivo") && c.says("Vence em") && c.says("Autorizado por"), "{:?}", c.texts());
+}
+
+#[test]
+fn the_due_digest_follows_the_profile_and_the_days_ahead() {
+    let mut c = Center::memory("ana");
+    c.press("Resumo de vencimentos");
+    c.settle();
+    // new, pending, label, amount, words and named: Gás is paid and stays out.
+    assert!(c.says("Aviso: 2 contas vencidas e 2 a vencer"), "{:?}", c.texts());
+    assert!(
+        c.says(
+            "Texto: Aluguel (R$ 1.500,00), Luz (R$ 480,00), Seguro (R$ 300,00), mais 1. Total: R$ 2.370,00."
+        ),
+        "{:?}",
+        c.texts()
+    );
+    c.press("7 dias antes");
+    assert!(c.says("Aviso: 2 contas vencidas e 3 a vencer"), "{:?}", c.texts());
+    c.press("No dia");
+    assert!(c.says("Aviso: 2 contas vencidas"), "{:?}", c.texts());
+    // hidden_amounts: a role that does not read the amount.
+    c.press("Secretaria");
+    assert!(c.says("Texto: Aluguel, Luz. Os valores ficam com a Tesouraria."), "{:?}", c.texts());
+    c.press("Visitante");
+    assert!(c.says("Aviso: nenhum"), "{:?}", c.texts());
+    c.press("Tesouraria");
+    c.press("Desligar");
+    assert!(c.says("Aviso: nenhum"), "{:?}", c.texts());
+}
+
+#[test]
+fn a_bill_is_settled_in_part_reversed_and_split_to_the_cent() {
+    let mut c = Center::memory("ana");
+    c.press("Contas a pagar e receber");
+    c.settle();
+    assert!(c.says("Luz: open, R$ 100,00, saldo R$ 100,00"), "{:?}", c.texts());
+    assert!(c.says("Prévia em 3: 31/01 R$ 33,33, 28/02 R$ 33,33, 31/03 R$ 33,34"), "{:?}", c.texts());
+    // SettleInput::new, and a date after today.
+    c.press("Baixa com data de amanhã");
+    assert!(c.says("Recusado: the settlement date cannot be after today"), "{:?}", c.texts());
+    c.press("Baixa parcial de 40");
+    assert!(c.says("Luz: partial, R$ 100,00, saldo R$ 60,00"), "{:?}", c.texts());
+    // interest, fine, discount and total.
+    c.press("Baixar com juros, multa e desconto");
+    assert!(c.says("Baixa de R$ 64,00 no caixa."), "{:?}", c.texts());
+    assert!(c.says("Caixa: 2 lançamento(s), R$ 104,00"), "{:?}", c.texts());
+    c.press("Mudar o valor da conta");
+    assert!(c.texts().iter().any(|t| t.starts_with("Recusado: Bills: it is Paid")), "{:?}", c.texts());
+    c.press("Estornar sem motivo");
+    assert!(c.says("Recusado: a reversal says why"), "{:?}", c.texts());
+    c.press("Estornar a última baixa");
+    assert!(c.says("Luz: partial, R$ 100,00, saldo R$ 60,00"), "{:?}", c.texts());
+    assert!(c.says("Caixa: 3 lançamento(s), R$ 40,00"), "{:?}", c.texts());
+    c.press("Recomeçar");
+    c.press("Parcelar em 3");
+    assert!(c.says("Parcelada em 3."), "{:?}", c.texts());
+    assert!(c.says("Luz (3/3): open, R$ 33,34, saldo R$ 33,34"), "{:?}", c.texts());
+    c.press("Cancelar a conta");
+    assert!(c.says("Luz (1/3): cancelled, R$ 33,33, saldo R$ 33,33"), "{:?}", c.texts());
+}
+
+#[test]
+fn a_panel_shows_each_number_with_its_level() {
+    let mut c = Center::memory("ana");
+    c.press("Painel com níveis");
+    c.settle();
+    let said = c.texts().join(" | ");
+    // number_in, filtered and level: 410 needs attention, one late is critical, four records are fine.
+    for caption in
+        ["Valor em aberto", "Atrasados", "Registros", "Com observação", "Valor por situação", "Por mês"]
+    {
+        assert!(said.contains(caption), "{caption}: {said}");
+    }
+    assert!(said.contains("Atenção") && said.contains("Crítico") && said.contains("Em dia"), "{said}");
+    // group, group_note and number_with: one late in four is 25 %, attention.
+    assert!(
+        said.contains("Situações") && said.contains("Parte atrasada (%)") && said.contains("25"),
+        "{said}"
+    );
+    assert!(said.contains("qualquer atrasado é crítico"), "{said}");
+    // document, and the print the panel brings.
+    let paper = format!("{:?}", raven_feature_center::painel::document(&c.session()));
+    assert!(paper.contains("Valor em aberto") && paper.contains("Atenção"), "{paper}");
+    c.press("Imprimir painel");
+    let printed = c.texts().join(" ");
+    assert!(printed.contains("ÁREA") && printed.contains("Parte atrasada (%) 25 Atenção"), "{printed}");
+    assert!(!printed.contains("precisa de"), "every number reads: {printed}");
+    c.press("Fechar");
+    // group_view.
+    c.press("Ver registros");
+    assert!(c.says("Atrasado"), "{:?}", c.texts());
+}
+
+#[test]
+fn a_chronology_shows_the_milestones_in_order_and_opens_one() {
+    let mut c = Center::memory("ana");
+    c.press("Cronologia");
+    c.settle();
+    // Chronology::new, label; ChronologyItem::new, detail, badge and tone.
+    let tree = c.ui.access_tree();
+    assert!(tree.find(Role::List, "Marcos de Lucas Oliveira").is_some(), "{:?}", c.texts());
+    let items: Vec<(String, String)> = tree
+        .nodes
+        .iter()
+        .filter(|n| n.role == Role::ListItem)
+        .filter_map(|n| Some((n.name.clone()?, n.description.clone().unwrap_or_default())))
+        .collect();
+    let titles: Vec<&str> = items.iter().map(|(t, _)| t.as_str()).collect();
+    assert_eq!(
+        titles,
+        ["Batismo", "Membro ativo", "Afastamento", "Transferência recusada", "Visita marcada"]
+    );
+    assert_eq!(items[1].1, "10/08/2025 · Aprovado pela assembleia · Aprovado");
+    // on_open, by a click.
+    let id = c.ui.access_tree().find(Role::ListItem, "Afastamento").map(|n| n.id).expect("there");
+    c.ui.perform_action(id, AccessAction::Click);
+    c.settle();
+    assert!(c.says("Aberto: Afastamento"), "{:?}", c.texts());
 }

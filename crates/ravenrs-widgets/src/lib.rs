@@ -261,8 +261,8 @@ pub use labels::Labels;
 pub use link_service::{LinkOpener, Links};
 pub use links::Link;
 pub use lists::{
-    DocumentTab, DocumentTabs, FileBrowser, FileEntry, FileSort, FileSortColumn, Filmstrip, FilmstripCell,
-    LogBuffer, LogView, PagedDocumentView, SortableList, VirtualList,
+    Chronology, ChronologyItem, DocumentTab, DocumentTabs, FileBrowser, FileEntry, FileSort, FileSortColumn,
+    Filmstrip, FilmstripCell, LogBuffer, LogView, PagedDocumentView, SortableList, VirtualList,
 };
 #[cfg(feature = "live")]
 #[doc(hidden)]
@@ -319,7 +319,8 @@ pub use stack::{
     ToolRail, ToolRailItem, VStack, ZStack,
 };
 pub use status::{
-    DaySeparator, Dot, EmptyState, HeroBanner, IconTile, MultiProgress, OverlayBadge, Rating, ShimmerText,
+    DateTile, DaySeparator, Dot, EmptyState, HeroBanner, IconTile, MultiProgress, OverlayBadge, Rating,
+    ShimmerText,
 };
 pub use summary::Summary;
 pub use system_appearance::SystemAppearance;

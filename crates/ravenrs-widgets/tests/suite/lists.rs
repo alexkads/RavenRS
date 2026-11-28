@@ -435,3 +435,63 @@ fn a_measured_list_does_not_remember_every_row_it_ever_showed() {
     let scrolled = ui.scroll_state().viewports.len();
     assert!(scrolled <= at_rest + 4, "{scrolled} frames kept, {at_rest} at rest");
 }
+
+fn history(opened: &Rc<RefCell<Vec<u64>>>) -> Chronology {
+    let log = opened.clone();
+    Chronology::new(vec![
+        ChronologyItem::new(1, "02/03/2024", "Batismo").tone(Tone::Accent),
+        ChronologyItem::new(2, "10/08/2025", "Membro ativo")
+            .detail("Pela assembleia")
+            .badge("Aprovado")
+            .tone(Tone::Success),
+        ChronologyItem::new(3, "14/11/2026", "Transferência"),
+    ])
+    .label("Marcos")
+    .on_open(move |id| log.borrow_mut().push(id))
+}
+
+#[test]
+fn a_chronology_is_a_list_of_moments_that_open_and_go_by_the_arrows() {
+    let opened = Rc::new(RefCell::new(Vec::new()));
+    let mut ui = ui(history(&opened));
+    let list = of_role(&mut ui, Role::List);
+    assert_eq!(list[0].name.as_deref(), Some("Marcos"));
+    let items = of_role(&mut ui, Role::ListItem);
+    let names: Vec<_> = items.iter().filter_map(|n| n.name.clone()).collect();
+    assert_eq!(names, ["Batismo", "Membro ativo", "Transferência"], "in the order given");
+    assert_eq!(items[1].description.as_deref(), Some("10/08/2025 · Pela assembleia · Aprovado"));
+    assert!(!has(&mut ui, "Aprovado"), "the parts are heard with their item, not apart");
+    // The dates go down the left, each above the next.
+    assert!(items[0].bounds.y() < items[1].bounds.y() && items[1].bounds.y() < items[2].bounds.y());
+
+    click_at(&mut ui, center(&items[1]), Modifiers::default());
+    assert_eq!(*opened.borrow(), [2], "a click opens it");
+    tab_to(&mut ui, "Batismo");
+    press(&mut ui, Key::ArrowDown, Modifiers::default());
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("Membro ativo"));
+    press(&mut ui, Key::ArrowDown, Modifiers::default());
+    press(&mut ui, Key::ArrowDown, Modifiers::default());
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("Transferência"), "it stops at the last");
+    press(&mut ui, Key::ArrowUp, Modifiers::default());
+    press(&mut ui, Key::Enter, Modifiers::default());
+    assert_eq!(*opened.borrow(), [2, 2], "Enter opens the one with the focus");
+}
+
+#[test]
+fn a_chronology_draws_a_mark_in_each_tone_and_a_line_between_them() {
+    let opened = Rc::new(RefCell::new(Vec::new()));
+    let ui = ui(history(&opened));
+    let theme = ravenrs_style::Theme::raven_dark();
+    let quads: Vec<_> = ui
+        .scene()
+        .primitives()
+        .iter()
+        .filter_map(|p| if let Primitive::Quad(q) = p { Some(*q) } else { None })
+        .collect();
+    let marks: Vec<_> = quads.iter().filter(|q| q.rect.width() == 10.0 && q.rect.height() == 10.0).collect();
+    assert_eq!(marks.len(), 3, "one mark each");
+    assert_eq!(marks[0].fill, Tone::Accent.color(&theme).into());
+    assert_eq!(marks[2].fill, Tone::Neutral.color(&theme).into());
+    let lines = quads.iter().filter(|q| q.rect.width() == 2.0 && q.rect.height() > 4.0).count();
+    assert_eq!(lines, 2, "a line between each two, none after the last");
+}

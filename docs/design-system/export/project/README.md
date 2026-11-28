@@ -2,7 +2,7 @@
 
 Beautiful native interfaces, powered by Rust. RavenRS draws every pixel itself on the GPU (wgpu), on the desktop and in the browser (WebAssembly + WebGPU), so this system is the single source of truth for how a RavenRS app looks everywhere. The Rust crate `ravenrs-style` mirrors these tokens value for value; when a token changes here, it changes there.
 
-This system, as RavenComponentBook measures it (the index, the tokens, the fonts and, per component, its card, its preview and the anatomy of every story), is kept in the RavenRS repository in `docs/design-system/export/project/`, current with the code: `scripts/gen-design-system.py` rewrites it when a component changes, and `scripts/check.sh` refuses it out of date.
+This system, as RavenComponentBook measures it (the index, the tokens, the fonts and, per component, its card, its preview and the anatomy of every story), is kept in the RavenRS repository in `docs/design-system/export/project/`, current with the code: `scripts/gen-design-system.py` rewrites it when a component changes, and `cargo xtask pr` refuses it out of date.
 
 ## Principles
 
@@ -255,6 +255,7 @@ RavenComponentBook writes every file of this system from the RavenRS code, and t
 | Display and feedback | `Dot` | Small round mark of state, such as not saved | 5 |
 | Display and feedback | `EmptyState` | What an area shows when it has nothing: icon, title, sentence and actions | 2 |
 | Display and feedback | `HeroBanner` | Wide band in a strong color, readable from across the room | 6 |
+| Display and feedback | `DateTile` | A day in a small block: the day over the month, and the whole date for screen readers | 7 |
 | Display and feedback | `IconTile` | An icon in a square tinted with its color | 7 |
 | Display and feedback | `KeyBar` | The function keys of a counter, each with what it does, the main one stressed | 3 |
 | Display and feedback | `MultiProgress` | Several progress bars stacked, for work with more than one part | 1 |
@@ -287,6 +288,7 @@ RavenComponentBook writes every file of this system from the RavenRS code, and t
 | Media | `Ruler` | Horizontal or vertical ruler in your units, with a round step for any zoom | 1 |
 | Media | `TransformHandles` | Eight handles, a turn and a pivot over a box, returning its geometry | 2 |
 | Media | `ZoomPanView` | Zoom and pan with pinch, wheel, drag, keys and inertia, within limits | 1 |
+| Lists and trees | `Chronology` | Moments down a line: a date, a mark joined to the next, a title, a detail and a badge | 6 |
 | Application | `AppShell` | The window of an application made from its model: navigation by module, lists, forms and the theme menu | 3 |
 | Application | `EntityForm` | A form made from an entity of the model, in a window: each field with the editor its kind asks for, the rules checked on save | 5 |
 | Application | `MoviePlayer` | Plays a film of the app, drawn as vectors, with chapters, captions and the sound it computes | 2 |

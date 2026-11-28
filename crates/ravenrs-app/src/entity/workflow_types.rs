@@ -51,6 +51,10 @@ pub struct StateMachine {
     pub start: Option<String>,
     /// The ways between states.
     pub transitions: Vec<Transition>,
+    /// States in which a stored record changes in nothing but its state.
+    pub locked: Vec<String>,
+    /// Fields that may change with the state when a record leaves a locked one.
+    pub unlocked_with: Vec<String>,
 }
 
 /// The field of a record that says when to remind people of it, and what to say.
@@ -119,6 +123,24 @@ impl StateMachine {
             };
         };
         let from = text(old);
+        if self.locked.contains(&from) {
+            let moved = entity
+                .fields
+                .iter()
+                .filter(|field| {
+                    field.calculated.is_none() && !matches!(field.kind, crate::FieldKind::Collection(_))
+                })
+                .filter(|field| field.name != self.field)
+                .filter(|field| from == to || !self.unlocked_with.contains(&field.name))
+                .find(|field| old.get(&field.name) != new.get(&field.name));
+            if let Some(field) = moved {
+                return refused(format!(
+                    "it is {}: {} does not change",
+                    self.caption_of(&from),
+                    field.caption
+                ));
+            }
+        }
         if from == to {
             return Ok(());
         }

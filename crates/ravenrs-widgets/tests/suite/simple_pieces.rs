@@ -782,3 +782,40 @@ fn screens_and_reports_write_a_date_alike() {
         assert_eq!(labels.full_date(day), format_value(&moment, "D", &culture), "{}", culture.name);
     }
 }
+
+fn glyph_counts(ui: &Ui) -> Vec<usize> {
+    ui.scene()
+        .primitives()
+        .iter()
+        .filter_map(|p| if let Primitive::Glyphs(g) = p { Some(g.glyphs.len()) } else { None })
+        .collect()
+}
+
+#[test]
+fn date_tile_shows_the_day_over_the_month_and_says_the_whole_date() {
+    let day = Date::new(2026, 11, 14).expect("a day");
+    let mut pt = ui(Localized::new(Labels::pt_br(), DateTile::new(day)));
+    let tile = quads(&pt).into_iter().find(|q| q.rect.width() == 56.0).expect("the square of 56");
+    assert_eq!(tile.rect.height(), 56.0);
+    assert_eq!(tile.fill, theme().color(Semantic::Control).into(), "neutral sits on the control's ground");
+    assert_eq!(glyph_counts(&pt), [2, 3], "\"14\" over \"NOV\"");
+    assert_eq!(glyph_runs(&pt), [theme().color(Semantic::Ink); 2]);
+    named(&pt.access_tree(), Role::Image, "sábado, 14 de novembro de 2026");
+    let read: Vec<_> = pt.access_tree().nodes.iter().filter_map(|n| n.name.clone()).collect();
+    assert!(!read.iter().any(|n| n == "14" || n == "NOV"), "only the whole date is heard: {read:?}");
+
+    // Accent, larger: the accent's ground and the ink that goes on it.
+    let ui2 = ui(DateTile::new(day).tone(Tone::Accent).size(72.0));
+    let tile = quads(&ui2).into_iter().find(|q| q.rect.width() == 72.0).expect("the square of 72");
+    assert_eq!(tile.fill, theme().color(Semantic::Accent).into());
+    assert_eq!(glyph_runs(&ui2), [theme().color(Semantic::OnAccent); 2]);
+
+    // Outlined: no ground, a border in the ink.
+    let ui3 = ui(DateTile::new(day).outlined());
+    let tile = quads(&ui3).into_iter().find(|q| q.rect.width() == 56.0).expect("the square");
+    assert_eq!(tile.border.map(|b| b.color), Some(theme().color(Semantic::Ink)));
+    assert_eq!(tile.fill, Color::TRANSPARENT.into());
+    // In English, the whole date as people write it there.
+    let mut en = ui(DateTile::new(day));
+    named(&en.access_tree(), Role::Image, "Saturday, November 14, 2026");
+}

@@ -668,6 +668,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Rating::__live_expose(registry);
     crate::IconTile::__live_expose_fields(registry);
     crate::IconTile::__live_expose(registry);
+    crate::DateTile::__live_expose_fields(registry);
+    crate::DateTile::__live_expose(registry);
     crate::EmptyState::__live_expose_fields(registry);
     crate::EmptyState::__live_expose(registry);
     crate::HeroBanner::__live_expose_fields(registry);
@@ -966,6 +968,10 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::PathStep::__live_expose_variants(registry);
     crate::DataInspector::__live_expose_fields(registry);
     crate::DataInspector::__live_expose(registry);
+    crate::ChronologyItem::__live_expose_fields(registry);
+    crate::ChronologyItem::__live_expose(registry);
+    crate::Chronology::__live_expose_fields(registry);
+    crate::Chronology::__live_expose(registry);
     crate::DocumentTab::__live_expose_fields(registry);
     crate::DocumentTab::__live_expose(registry);
     crate::DocumentTabs::__live_expose_fields(registry);
@@ -1086,6 +1092,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::Chat>(registry);
     crate::live::view::<crate::ChatMedia>(registry);
     crate::live::view::<crate::Checkbox>(registry);
+    crate::live::view::<crate::Chronology>(registry);
     crate::live::view::<crate::CodeBlock>(registry);
     #[cfg(feature = "code")]
     crate::live::view::<crate::CodeEditor>(registry);
@@ -1106,6 +1113,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::DataInspector>(registry);
     crate::live::view::<crate::DatePicker>(registry);
     crate::live::view::<crate::DateRangePicker>(registry);
+    crate::live::view::<crate::DateTile>(registry);
     crate::live::view::<crate::DateTimePicker>(registry);
     crate::live::view::<crate::DaySeparator>(registry);
     crate::live::view::<crate::DiagnosticsHost<crate::AnyView>>(registry);

@@ -58,6 +58,31 @@ fn list_view(entity: &EntityInfo, id: String, shown: impl Fn(&FieldInfo) -> bool
         Some(text) => node.with("EmptyText", text.as_str()),
         None => node,
     };
+    let node = match &entity.empty_hint {
+        Some(text) => node.with("EmptyHint", text.as_str()),
+        None => node,
+    };
+    let node = if entity.indicators.is_empty() {
+        node
+    } else {
+        node.child(entity.indicators.iter().enumerate().fold(
+            ModelNode::new("Indicators"),
+            |all, (i, found)| {
+                let item = ModelNode::new(i.to_string())
+                    .with("Caption", found.caption.as_str())
+                    .with("Series", found.series.as_str())
+                    .with("Index", i as i64);
+                let item = match &found.filter {
+                    Some(filter) => item.with("Filter", filter.as_str()),
+                    None => item,
+                };
+                all.child(match &found.note {
+                    Some(note) => item.with("Note", note.as_str()),
+                    None => item,
+                })
+            },
+        ))
+    };
     let node = entity.editor_settings.iter().fold(node, |mut node, (settings, name, value)| {
         if node.get(settings).is_none() {
             node = node.child(ModelNode::new(settings));

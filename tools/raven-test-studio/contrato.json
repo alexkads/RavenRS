@@ -183,6 +183,41 @@
    }
   },
   {
+   "crate": "ravenrs-app",
+   "tipo": "Amendment",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "DueDigest",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "ListIndicator",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "PeriodClosing",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
+   "tipo": "TemporaryAccessPolicy",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
    "crate": "ravenrs-app-a11y",
    "tipo": "Audit",
    "rts": {
@@ -199,6 +234,13 @@
   {
    "crate": "ravenrs-app-library",
    "tipo": "LibraryModule",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-library",
+   "tipo": "SettleInput",
    "rts": {
     "sem_tela": true
    }
@@ -1723,6 +1765,14 @@
   },
   {
    "crate": "ravenrs-widgets-kit",
+   "tipo": "DateTile",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
    "tipo": "DateTimePicker",
    "rts": {
     "ids": [],
@@ -2341,6 +2391,16 @@
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "ParameterForm",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-lists",
+   "tipo": "Chronology",
    "rts": {
     "ids": [],
     "acoes": [

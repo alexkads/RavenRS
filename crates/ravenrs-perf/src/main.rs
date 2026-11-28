@@ -1,4 +1,4 @@
-//! `ravenrs-perf gate`: the exact counters against the baseline, for `scripts/check.sh`.
+//! `ravenrs-perf gate`: the exact counters against the baseline, for `RAVENRS_GATE=1 cargo xtask release`.
 //! `ravenrs-perf report`: the counters, to look at.
 //! `ravenrs-perf time`: how long frames take, for `scripts/perf-time.sh`.
 

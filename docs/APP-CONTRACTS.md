@@ -93,6 +93,112 @@ The result distinguishes six meanings, all of them in `SpaceError` (`crates/rave
 
 Messages never reveal that data the person cannot reach exists.
 
+### Sealed records and amendments
+
+A sealed entity (`EntityInfo::sealed(Seal::when("[status] = 'closed'"))`) says, by an expression over the record **as stored**, when a record is closed. A closed record is not changed or deleted directly: the commit refuses it with `SpaceError::Refused`, naming the entity that amends it. The only way in is an amendment, a record of another entity declared with `EntityInfo::amends`:
+
+- `Amendment::correction(target, reference)` corrects a closed target, which stays closed. A correction of an open target is refused ("correct it on its own form").
+- `Amendment::closing(target, reference)` closes, ends or transfers an open target, which has to be closed after it. A target has one closing at most: a second is refused because the target is closed already.
+- `.copies([..])` writes fields of the same name on the target, `.marks(field)` sets a yes-or-no field there, `.reason(field, n)` asks for a reason of at least `n` characters, `.before(field)` keeps, as JSON, the target's values that change, and `.apply(|amendment, target, space| ..)` does the rest in the same unit of work, such as creating the record a transfer goes to.
+
+The amendment is written on its target as it is inserted (`apply_amendment`, called by every space here: memory, SQL and PostgREST), so whatever wraps the space sees the change to the target: `AuditedObjectSpace` keeps both, the amendment and the target's old and new values, in the same commit. If `apply` fails, nothing it did waits. The commit checks it all with `check_amendments`, reading what storage has inside the transaction: an amendment that is kept is never changed or deleted.
+
+Permissions: creating an amendment needs `Create` on the amendment entity and `Read` on the target, not `Write` on the target. An `object_permission` that denies `Write` on closed records still holds for direct edits.
+
+### Period closing
+
+A period entity, such as a month, a term or a payroll, declares with `EntityInfo::period_closing` how it is approved:
+
+```rust
+EntityInfo::new("Term").period_closing(
+    PeriodClosing::new("TermClosing")                  // the entity of the versions
+        .freezes("Lesson", "[term_id]")                // a record and the reference to the period
+        .freezes("Presence", "[lesson_id.term_id]")    // the path may go through other records
+        .requires_none("Lesson", "[status] = 'draft'") // nothing of this to approve
+        .reopen_reason(10),                            // characters a reason to reopen needs
+)
+```
+
+`PeriodClosing::versions_entity` makes the entity of the versions: `period`, `version`, `approved_at`, `approved_by`, `digest` (sha256 in hexadecimal), `document` (the key in an `AttachmentStore`), `status` (`current` or `reopened`) and `reopen_reason`. Its key is the period's key and the version, as `7/2`, so two versions with the same number cannot be kept, and the commit finds the last one by key, without a query. `MemoryDatabase` adds it alone; a SQL database takes it with `managed`, like any entity.
+
+- `approve(space, files, period, key, document, approver)` refuses while a record meets a `requires_none`, keeps the document, and writes the next version, current, with the hash, in one commit. If the commit fails, the document is removed.
+- `reopen(space, period, key, reason)` turns the current version into reopened, with the reason.
+- `archived_document(space, files, versions, key)` reads the version through the space, so a `SecuredObjectSpace` denies it to whom cannot read, and gives the document only if it matches the hash; otherwise `ClosingError::Tampered`.
+
+The commit checks it all with `check_closing`, in every space here (memory, SQL and PostgREST), reading what storage has inside the transaction: a record of a period whose last version is current is not added, changed or deleted, by its new values or by those stored; a new version comes next in sequence, current, with its hash and document, while the period has none current; a version kept changes only from current to reopened, with the reason, and is never deleted. `check_closing_model` refuses, when the model is made, a path that does not lead to the period by references.
+
+What waits: the precondition runs in `approve`, not in the commit, so a record written as the period is approved can slip through it; the generated actions and screen (`ClosingModule`) come next (#855). In PostgreSQL the documents go to `PostgresAttachmentStore`, as `BYTEA` in a table apart from the records.
+
+### Access for a while and revoking a user
+
+An administrator gives someone, such as support, access with a reason and a deadline:
+
+```rust
+let policy = TemporaryAccessPolicy::new("Support") // the role the user gets, not administrative
+    .max_hours(72)                                  // the longest it lasts
+    .min_reason(10)                                 // characters the reason needs
+    .name_prefix("support-");                       // how the user is named
+let access = context.grant_temporary_access(&policy, "cash register support", 2)?;
+// access.user_name, access.password (shown once, never kept or audited), access.expires_at
+```
+
+In one commit, written to the audit trail when the context has one, it creates the user with `expires_at`, links the role and keeps a `SecurityTemporaryAccess` with the reason, who granted it, when and until when. The password is random, from the same source as the salt of the hash, and `TemporaryAccess` does not show it in `Debug`.
+
+- Past `expires_at` the user is not active: `authenticate` turns them off first (`UserDirectory::end_expired`) and refuses with the same `AuthError::Rejected` as a wrong password, and `identity_by_key` gives nobody, so the next `reload` of an open session leaves it no permission. The access ends with `ACCESS_EXPIRED`.
+- `revoke_user(&key)` turns the user off, with their API keys, and ends their open accesses with "Revoked by <name>", in one commit. Nobody revokes themselves (`AccessError::OwnUser`), nor the last active administrator (`AccessError::LastAdministrator`).
+- Only an administrator does either (`AccessError::NotAllowed`). An access that ended is sealed: it does not change again.
+- `TemporaryAccessPolicy::clock` reads the time from elsewhere, so a test moves past the deadline without waiting.
+
+`SecuredApp::temporary_access(policy)` checks, when it is built, that the role is there and not administrative; it ends who expired before each sign in and, at most every `check_every` by the policy's clock, when a screen of an open session opens.
+
+With a policy, the list of users has Grant temporary access, which asks the reason and the hours and shows the user, the deadline and the password once, and Revoke access, which asks first.
+
+The web API reads who a session is on each call, so a user expired or revoked gets 401 on the next one.
+
+### Due dates summed up for each person
+
+An entity with a due date declares how it is summed up, apart from `Reminder`, whose field is put off and dismissed: a `DueDigest` never writes to its field.
+
+```rust
+EntityInfo::new("Invoice").due_digest(
+    DueDigest::new("due_on")            // a Date or DateTime field
+        .pending("[status] = 'open'")   // only what is still pending
+        .label("description")           // what names a record; the default property otherwise
+        .amount("amount")               // a Money field, added up for whom reads it
+        .words("conta", "contas")       // the word for one and for several
+        .named(3)                       // how many it names; the rest it counts
+        .hidden_amounts("Os valores ficam com a Tesouraria."),
+)
+```
+
+- `digest_of(entity, records, today, advance_days, show_amounts, words)` is the plain calculation: overdue is before `today`, coming is up to `advance_days` after it, in due order, naming `named` and "more N". Without `show_amounts` no amount is in the text, and the `hidden_amounts` sentence goes in its place. A record whose amount came empty, as a record permission leaves it, takes the total out instead of adding nothing. `DigestWords::portuguese()` and `english()` give the words around the entity's own and how money is written.
+- `due_digest_for(space, entity, permissions, today, preference, words)` gives nothing to whom cannot read the entity or turned it off, reads through their space (only records they read), and shows amounts only if `permissions.can_field(Read, entity, amount, None)`.
+- `digest_preference` and `set_digest_preference` keep `{ enabled, advance_days }` under `due-digest/<Entity>` for the person (`SettingScope::User`): on, three days ahead, by default; 0, 1, 3 or 7 days; nobody keeps someone else's.
+
+On opening, a session shows a message per entity with a `DueDigest`, by the person's preference and permissions, with a button that opens its list; `App::due_digest_notice(false)` turns it off, and `show_due_digests(session)` shows it where an application wants.
+
+What waits (#860): the list filtered by what is pending and the days, the choice in `AppShell`, and the texts in `ravenrs-app-i18n`.
+
+### Bills, settlements and installments
+
+`ravenrs_app_library::finance` brings the entities (`finance_category`, `ledger_entry`, `commitment`, `settlement`, or `LibraryModule::finance()`) and services over `&mut dyn ObjectSpace` that write all they do in one unit of work and commit it, or roll it back:
+
+- `settle(space, bill, SettleInput::new(on, principal).interest(..).fine(..).discount(..), today)` writes the settlement, the cash book entry of the total and the bill as `partial` or `paid`. A date after `today`, an amount below zero, a discount that leaves nothing and more than what is open are refused, and nothing is written.
+- `reverse(space, settlement, reason, today)` needs a reason; it writes an entry of the opposite sign that points to the first, marks the settlement reversed and gives the bill back what it settled. Nothing is deleted.
+- `split(space, bill, n, first_due)` and `plan(amount, n, first_due)` divide with `allocate`, the rest in the last, on the same day of the following months or the last day of a shorter one; the bill becomes `split`. `cancel` on it cancels only the installments still open.
+
+The rules hold wherever records are kept: the status moves only by the declared ways, each while `settled` agrees with it; `paid`, `cancelled` and `split` are `StateMachine::locked`, so nothing but the status changes, and `settled` only together with it (`unlocked_with`); an entry written by a settlement and a reversed settlement are sealed.
+
+`position(space, today)` gives what is open to pay and to receive and how much of each is overdue; `statement(space, from, to)` gives the cash book with the balance before, each line with its balance, and the balance at the end; both read as the space shows the records.
+
+`annual(space, year)` gives the twelve months with what came in, went out and the balance by category; `forecast(space, month, today)` gives the open bills due in the month, what is left of them and how many are overdue.
+
+`category_guard(stored)` is a watcher for each unit of work: a bill or an entry with a category of the other kind is refused, and so are deleting a category in use and changing it to a kind its movements do not have.
+
+`LibraryModule::finance()` brings `FinanceActions`: Settle (what is left, today), Split (in the installments typed) and Reverse (with the reason typed), each with its id and needing `Write`, enabled only on the records they fit.
+
+What waits (#859): the printed documents of the reports and the review screen of a settlement with interest, fine and discount. The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
+
 ## Scenarios
 
 Each scenario has one owner issue, where its checklist lives. The text of the interface may change; the observable result is the contract. Sketches V01–V16 and diagrams D01–D03 are in the [visual appendix of #253](https://github.com/alexkads/RavenRS/issues/253#issuecomment-6828194062).
