@@ -155,7 +155,7 @@ impl View for ApiOptionsPage {
                 }),
                 Text::new("Como abrir").style(TextStyle::Headline),
                 Text::new(format!(
-                    "cargo run -p raven-feature-center --bin api -- centro.db abre a API sobre um arquivo, com \
+                    "cargo run --manifest-path tools/raven-feature-center/Cargo.toml --bin api -- centro.db abre a API sobre um arquivo, com \
                      {WORKERS_WITH_A_FILE} threads. Sem o arquivo, ela guarda tudo em memória e fica com uma."
                 )),
                 ))

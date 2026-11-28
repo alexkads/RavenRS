@@ -1,15 +1,9 @@
 [workspace]
 resolver = "3"
-# The library, the showcase and the tooling. The applications and Raven CI are workspaces of their
+# The library and the tooling. The showcase, the applications and Raven CI are workspaces of their
 # own (camadas.toml, #1080): `python3 scripts/camadas.py workspaces` lists them, and
 # `python3 scripts/camadas.py deps --write` copies the sections below into each one.
-members = [
-    "crates/*",
-    "examples/component-gallery",
-    "tools/raven-feature-center",
-    "tools/raven-component-book",
-    "xtask",
-]
+members = ["crates/*", "xtask"]
 # Applications of their own, opened and built apart: they prove a package works outside this workspace.
 exclude = ["examples/contracts", "crates/ravenrs-perf"]
 

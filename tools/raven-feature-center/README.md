@@ -3,7 +3,7 @@
 Every feature of the application framework, one small demonstration each, in the navigation by what it shows. Each list says what it is there to show and what to try. It is how to see what the framework does, how to review its screens, and how to know it all still works.
 
 ```bash
-cargo run -p raven-feature-center
+cargo run --manifest-path tools/raven-feature-center/Cargo.toml
 ```
 
 ```bash
@@ -37,7 +37,7 @@ These accounts exist only here. The password of all three is `raven-demo`.
 | Kit | `Receipt` (Cupom): the receipt of a sale on the screen, empty with its own text, a line added at a time with how many at what price, the subtotal, a discount row and the total in a band. `ExpressionEditor` with every feature: fields and parameters offered, the lines shown, and the preview over a sample order, a result or why it failed. `ParameterForm` with every feature: a schema of text, number, yes or no, choice, a field shown in one mode, an expression, a group, a list of headers, and options of the account that arrive, load or fail, and a form inside a dialog that gives back each change at once, with no Aplicar (`live`) |
 | Kit | `Tabs` (Abas): a view per tab or the bar alone, underline and segmented, three sizes, the bar kept from changing, and six channels in a narrow column with the tabs that do not fit in a menu at the end of the bar. `ExpressionEditor` with every feature: fields and parameters offered, the lines shown, and the preview over a sample order, a result or why it failed. `ParameterForm` with every feature: a schema of text, number, yes or no, choice, a field shown in one mode, an expression, a group, a list of headers, and options of the account that arrive, load or fail, and a form inside a dialog that gives back each change at once, with no Aplicar (`live`) |
 | Listas e árvores | `Chronology` (Cronologia): the milestones of a member down a line, each with its date, a mark in its tone joined to the next, a title, a detail and a badge, opened by a click or Enter and gone through with the arrows (`new`, `label`, `on_open`; `ChronologyItem::new`, `detail`, `badge`, `tone`); `DataInspector` with every feature: orders as table, tree, JSON and schema, the item and field chosen kept between them, absent told from null, a 19-digit number exact, five thousand rows cut with a notice; Log de build, a `LogView` over a `LogBuffer`: ANSI colors, follows the end, search, stages that fold, a line pointed at by its number, and a long line that runs on as in a terminal, with the list scrolling across |
-| Gráficos e fluxos | `FlowCanvas` with every feature (options, rules, events, check, run, export, connections as cables), and `CablePlug` in eight uses (flow, processes, a rack, a switchboard, a synthesizer, a network rack, matching columns, a tip tied to a button) and a lab with every knob. `CABLE_SNAPSHOTS=<folder> cargo test -p raven-feature-center --test cabos -- --ignored` draws each with the GPU into PNGs. `PatchPanel` in three uses: the back of a rack with a front that turns around, a switchboard whose cords go home and work in pairs, and a panel with its own rule |
+| Gráficos e fluxos | `FlowCanvas` with every feature (options, rules, events, check, run, export, connections as cables), and `CablePlug` in eight uses (flow, processes, a rack, a switchboard, a synthesizer, a network rack, matching columns, a tip tied to a button) and a lab with every knob. `CABLE_SNAPSHOTS=<folder> cargo test --manifest-path tools/raven-feature-center/Cargo.toml --test cabos -- --ignored` draws each with the GPU into PNGs. `PatchPanel` in three uses: the back of a rack with a front that turns around, a switchboard whose cords go home and work in pairs, and a panel with its own rule |
 | Atualização | `NewsDialog` of `ravenrs-app-update` (feature `ui`): the news of an example app with a newer version, the one installed and an older one, opened on the version running, on the newest and as the details of a failed update, with the version button and the notice of the status bar every RavenRS app shows | `ServiceSpec` and `ServiceManager` (Serviço do sistema): the unit of systemd, the plist of launchd and the task of Windows of the example app, with and without the memory limit, for a user or the whole system, and the commands each would run to install, see and remove it, in a dry run.
 | Doca e faixa | `DockArea` in three uses: an editor whose documents stay in the center, with a document that will not close while unsaved, one that closes for good, the arrangement kept as text and restored; a photo desk where anything goes anywhere, floats or hides at an edge; and a fixed page of columns that only the app opens and closes. `Ribbon` over a report: the app menu, quick access, large, small and icon-only commands, toggles, a drop-down, a command turned off, a dialog launcher, the contextual page of a table, the search and the open page |
 | Sem armazenamento | A form with no storage behind it |
@@ -50,7 +50,7 @@ These accounts exist only here. The password of all three is `raven-demo`.
 | Servidor | API web: the options of the web API, `ApiOptions`, with the origins a browser may call from and how many threads answer at the same time and the live channel, with an event published on it and the webhooks of other services let in with no token, with their headers (`new`, `allow_origin`, `workers`, `live`, `open`, `pass_header`); desktop only |
 | Servidor | Serviço da API: the service of the web API, `ApiService`, each feature asked through `handle` as a request from outside: signing in with the lifetime of a session and the limit of tries, a guest let in by an invitation (`authenticator`), a setting per person, an endpoint, a signed webhook, the description with its title and an entity hidden, how roles add up, the words of the rules, the audit, and a route that changes while it runs (`fallback`, answered with `ApiResponse::raw`) (`new`, `title`, `rule_words`, `role_merge`, `audit`, `authenticator`, `hide`, `session_lifetime`, `sign_ins_a_minute`, `setting`, `webhook`, `endpoint`, `fallback`, `handle`); desktop only |
 | Servidor | Mover para outro banco: a stamped backup of the tenant T1 (`BackupStamp` with `new`, `tenant` and `version`; `Backups` with `save`, `inspect`, `copies_in`, `keep`, `keep_copy`, `copies` and `restore`), read with `Backups::export` and moved into a new database by `TenantImport` (`new`, `audit`, `run`), compared table by table and written in the audit trail; refused to an operator and to the database of T2; desktop only |
-| Balcão | Dados da loja, a record that is one of a kind and opens on its form, and Caixa de exemplo, a counter window with its notice and function keys inside the center (`cargo run -p raven-feature-center -- caixa` opens it on its own) |
+| Balcão | Dados da loja, a record that is one of a kind and opens on its form, and Caixa de exemplo, a counter window with its notice and function keys inside the center (`cargo run --manifest-path tools/raven-feature-center/Cargo.toml -- caixa` opens it on its own) |
 | Registros prontos | Pessoas, Eventos, Países and Endereços from `ravenrs-app-library`, with their rules |
 | Relatórios | Reports people design and keep, and panels |
 | Administração | Users, roles, the audit trail and the model editor, for `ana`; Trocar senha, for everyone |
@@ -72,11 +72,11 @@ The same center opens in four modes, with the same parameters on the command lin
 | `idioma` | `pt-BR`, `en` | The language of the screens |
 
 ```bash
-cargo run -p raven-feature-center -- --modo vitrine --pagina AuditFull_ListView
+cargo run --manifest-path tools/raven-feature-center/Cargo.toml -- --modo vitrine --pagina AuditFull_ListView
 ```
 
 ```bash
-cargo run -p raven-feature-center -- --modo componentes --pagina CablePlugDemo --incorporado --tema claro
+cargo run --manifest-path tools/raven-feature-center/Cargo.toml -- --modo componentes --pagina CablePlugDemo --incorporado --tema claro
 ```
 
 On the web, `index.html?modo=componentes&pagina=CablePlugDemo&incorporado`. A wrong value is refused, saying what it takes; a name it does not know in the address is left alone.
@@ -90,7 +90,7 @@ cargo xtask web raven-feature-center --no-default-features --features widgets,pl
 ## Over a web API
 
 ```bash
-cargo run -p raven-feature-center --bin api
+cargo run --manifest-path tools/raven-feature-center/Cargo.toml --bin api
 ```
 
 The same center, with the same roles, people and audit trail, answers as a web API on `127.0.0.1:8090`, in memory or in the SQLite file given after `--`. It prints the address of its OpenAPI document. Sign in at `/api/auth/token` with the accounts above. To let a page on another origin call it, set `RAVEN_API_ORIGIN` to that origin.

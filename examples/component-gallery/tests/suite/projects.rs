@@ -1,7 +1,7 @@
 //! Every example, downloaded as a project from the playground, builds with Cargo.
 //!
 //! It runs Cargo once over all of them, against the crates of this checkout, so it takes a few
-//! minutes: `cargo test -p component-gallery --test suite projects:: -- --ignored`, which
+//! minutes: `cargo test --manifest-path examples/component-gallery/Cargo.toml --test suite projects:: -- --ignored`, which
 //! `cargo xtask release` runs.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 

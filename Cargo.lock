@@ -1324,42 +1324,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "component-gallery"
-version = "27.1.28"
-dependencies = [
- "console_error_panic_hook",
- "image",
- "pollster",
- "ravenrs",
- "ravenrs-app",
- "ravenrs-app-ui",
- "ravenrs-e2e",
- "ravenrs-e2e-wire",
- "ravenrs-grid-export",
- "ravenrs-project",
- "tracing-subscriber",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
-]
-
-[[package]]
 name = "concurrent-queue"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ca0197aee26d1ae37445ee532fefce43251d24cc7c166799f4d46817f1d3973"
 dependencies = [
  "crossbeam-utils",
-]
-
-[[package]]
-name = "console_error_panic_hook"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a06aeb73f470f66dcdbf7223caeebb85984942f22f1adb2a088cf9668146bbbc"
-dependencies = [
- "cfg-if",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -5661,60 +5631,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0cf0be3d050525f0f7d37af55a443d7648c222ccc617639950e3de1f8e6f9900"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "raven-component-book"
-version = "0.1.2"
-dependencies = [
- "component-gallery",
- "ravenrs",
- "ravenrs-app-ui",
- "ravenrs-app-update",
- "ravenrs-e2e",
- "ravenrs-e2e-wire",
- "ravenrs-movie",
- "serde_json",
- "swash",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "raven-feature-center"
-version = "0.1.1"
-dependencies = [
- "component-gallery",
- "console_error_panic_hook",
- "image",
- "pollster",
- "ravenrs",
- "ravenrs-app",
- "ravenrs-app-a11y",
- "ravenrs-app-i18n",
- "ravenrs-app-library",
- "ravenrs-app-remote",
- "ravenrs-app-report",
- "ravenrs-app-server",
- "ravenrs-app-sqlite",
- "ravenrs-app-ui",
- "ravenrs-app-update",
- "ravenrs-core",
- "ravenrs-criteria",
- "ravenrs-e2e",
- "ravenrs-e2e-wire",
- "ravenrs-grid-export",
- "ravenrs-render",
- "ravenrs-report",
- "ravenrs-report-label",
- "ravenrs-style",
- "ravenrs-widgets",
- "rusqlite",
- "rust_decimal",
- "serde_json",
- "tokio",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
 ]
 
 [[package]]

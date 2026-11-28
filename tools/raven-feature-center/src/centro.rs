@@ -419,7 +419,7 @@ pub fn sqlite_database(file: &std::path::Path) -> Result<ravenrs_app_sqlite::Sql
     Ok(builder.build())
 }
 
-/// The counter window on its own, with a look of its own: `cargo run -p raven-feature-center -- caixa`.
+/// The counter window on its own, with a look of its own: `cargo run --manifest-path tools/raven-feature-center/Cargo.toml -- caixa`.
 pub fn counter_window() -> AnyView {
     actions::counter_app().theme(ravenrs::prelude::Theme::raven_light()).into_view()
 }

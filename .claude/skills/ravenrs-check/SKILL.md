@@ -104,7 +104,7 @@ Para ver a escolha sem compilar nada:
 
 ## Workspaces separados (#1080, F1 #1084)
 
-Os apps (`examples/*` e `tools/*`, menos a vitrine) e o Raven CI são workspaces Cargo próprios, com `Cargo.lock` próprio. A raiz tem a biblioteca, a vitrine e a infra. Quem diz qual é qual é o `camadas.toml` (`separada = true`), e tudo passa por `scripts/camadas.py`:
+Os apps (`examples/*` e `tools/*`), a vitrine (feature-center, galeria e ComponentBook, F2 #1085) e o Raven CI são workspaces Cargo próprios, com `Cargo.lock` próprio. A raiz tem a biblioteca e a infra. Quando a mudança toca a vitrine, o `pr` roda também a cobertura do feature-center, a do RCB e o design system (o PR de lote, skill `ravenrs-feature-center`). Quem diz qual é qual é o `camadas.toml` (`separada = true`), e tudo passa por `scripts/camadas.py`:
 
 - `camadas.py workspaces` lista as pastas; `--mudados` dá só as que a mudança toca. O `lint`, o `dev` e o `pr` rodam rustfmt, clippy e (menos no `lint`) os testes só nos workspaces tocados. Uma mudança na biblioteca não compila app nenhum; o `release` percorre todos.
 - `camadas.py deps` confere que cada workspace separado tem a cópia em dia do `Cargo.toml` da raiz: versão, `[workspace.dependencies]` com os `path` reescritos, lints e perfis, entre as marcas `>>> camadas.py` e `<<< camadas.py`. Confere também que dois `Cargo.lock` não resolvem versões diferentes da mesma série de um crate externo. Depois de mudar a raiz (versão nova, dependência nova), rode `python3 scripts/camadas.py deps --write`. Ele também cria o `Cargo.lock` que faltar, copiando o da raiz para as versões serem as mesmas.

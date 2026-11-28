@@ -68,7 +68,7 @@ From there it grows with you:
 - **Views:** dashboards, charts, trees, calendars and timelines over a list, and reports your users design and keep as records.
 - **Customization at run time:** a model in layers, so a module, an administrator or a user can change the application as a JSON difference, and even add fields.
 
-Status: usable today, with the API still moving, and shipped as separate crates: `cargo add ravenrs ravenrs-app ravenrs-app-ui`. See [docs/APP-FRAMEWORK.md](https://github.com/alexkads/RavenRS/blob/master/docs/APP-FRAMEWORK.md), and run `cargo run -p raven-feature-center` for a demonstration of every feature.
+Status: usable today, with the API still moving, and shipped as separate crates: `cargo add ravenrs ravenrs-app ravenrs-app-ui`. See [docs/APP-FRAMEWORK.md](https://github.com/alexkads/RavenRS/blob/master/docs/APP-FRAMEWORK.md), and run `cargo run --manifest-path tools/raven-feature-center/Cargo.toml` for a demonstration of every feature.
 
 ## Install a real app
 
@@ -264,7 +264,7 @@ See [the CLI guide](crates/cargo-ravenrs/README.md).
 Requirements: Rust stable 1.88+. For the browser: the `wasm32-unknown-unknown` target and `wasm-bindgen-cli` **0.2.130** (it must match the crate version).
 
 ```bash
-cargo run -p component-gallery --release
+cargo run --manifest-path examples/component-gallery/Cargo.toml --release
 ```
 
 ```bash

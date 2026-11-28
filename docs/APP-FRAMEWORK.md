@@ -296,7 +296,7 @@ A record with a time in its reminder field comes up when that is due, for whoeve
 
 ## At a counter
 
-An application used all day from the keyboard needs little of its own. These come with the framework, and `raven-feature-center` shows them in "Caixa de exemplo", or alone with `cargo run -p raven-feature-center -- caixa`.
+An application used all day from the keyboard needs little of its own. These come with the framework, and `raven-feature-center` shows them in "Caixa de exemplo", or alone with `cargo run --manifest-path tools/raven-feature-center/Cargo.toml -- caixa`.
 
 ```rust
 App::new("Caixa")
@@ -633,7 +633,7 @@ Limits to know:
 - A key's expiry goes by the server's clock, in its local time, so a change of time zone moves it.
 - Two people changing the same field: the last one stays, since `PATCH` carries no version. Different fields do not get in each other's way.
 
-Try it with `cargo run -p raven-feature-center --bin api`.
+Try it with `cargo run --manifest-path tools/raven-feature-center/Cargo.toml --bin api`.
 
 ## An application over a server
 
@@ -659,7 +659,7 @@ Limits to know:
 - A record that refers to another one created in the same commit does not work, since the server gives the key. Keep them in two commits.
 - An address comes from the build (`RAVEN_API_URL` in the center), and never from the page's own address, so a link cannot make a page send a password somewhere else.
 
-Try it: `RAVEN_API_ORIGIN=http://localhost:8099 cargo run -p raven-feature-center --bin api`, and `RAVEN_API_URL=http://127.0.0.1:8090 cargo xtask web raven-feature-center`, served on that port.
+Try it: `RAVEN_API_ORIGIN=http://localhost:8099 cargo run --manifest-path tools/raven-feature-center/Cargo.toml --bin api`, and `RAVEN_API_URL=http://127.0.0.1:8090 cargo xtask web raven-feature-center`, served on that port.
 
 ## Known gaps
 

@@ -187,7 +187,7 @@ fn the_tip_hangs_from_its_button_and_falls_when_hidden() {
 }
 
 /// Draws every use with the GPU world, as a window would, into PNGs in the folder that
-/// `CABLE_SNAPSHOTS` names: `CABLE_SNAPSHOTS=/tmp/x cargo test -p raven-feature-center --test cabos -- --ignored`.
+/// `CABLE_SNAPSHOTS` names: `CABLE_SNAPSHOTS=/tmp/x cargo test --manifest-path tools/raven-feature-center/Cargo.toml --test cabos -- --ignored`.
 #[test]
 #[ignore = "writes pictures; run by hand"]
 fn snapshots() {
