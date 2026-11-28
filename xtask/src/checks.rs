@@ -74,6 +74,12 @@ pub fn cheap(check: &mut Check) -> Done {
     check.step("the widgets' crates keep their layers: no family depends on another");
     check.run(PYTHON, &["scripts/check-widget-layers.py"])?;
 
+    check.step(
+        "every package is in one layer of camadas.toml, and none depends on a layer above its own (#1080)",
+    );
+    check.run(PYTHON, &["scripts/check-camadas.py", "--self-test"])?;
+    check.run(PYTHON, &["scripts/check-camadas.py"])?;
+
     check.step("every test file runs: tests/suite/ modules are declared");
     check.run(PYTHON, &["scripts/check-test-suites.py"])?;
 
