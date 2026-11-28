@@ -19,6 +19,8 @@ ravenrs-app.workspace = true
 ravenrs-criteria.workspace = true
 
 [dev-dependencies]
+ravenrs-app-postgres.workspace = true
+ravenrs-app-sql.workspace = true
 ravenrs-app-sqlite.workspace = true
 rusqlite.workspace = true
 ravenrs-app-ui.workspace = true

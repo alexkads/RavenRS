@@ -1,13 +1,17 @@
-//! Bills, settlements, reversals and installments, the same in memory and in SQLite (#859).
+//! Bills, settlements, reversals and installments, the same in memory, in SQLite and, when
+//! `RAVENRS_POSTGRES_URL` says where one is, in PostgreSQL, each run in a schema of its own (#859).
 #![allow(clippy::expect_used)]
 
 use std::rc::Rc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use ravenrs_app::{MemoryDatabase, Object, ObjectSpace, Query, SpaceError, SpaceEvent, Value};
 use ravenrs_app_library::finance::{
     self, COMMITMENT, FINANCE_CATEGORY, LEDGER_ENTRY, SETTLEMENT, SettleInput, cancel, plan, reverse, settle,
     split,
 };
+use ravenrs_app_postgres::{PostgresBackend, PostgresDatabase};
+use ravenrs_app_sql::SqlBackend;
 use ravenrs_app_sqlite::{SqliteDatabase, TableMap};
 use ravenrs_criteria::DateTime;
 use rusqlite::Connection;
@@ -30,9 +34,31 @@ fn sqlite() -> Maker {
     Rc::new(move || Box::new(database.space()) as Box<dyn ObjectSpace>)
 }
 
+fn postgres(url: &str) -> Maker {
+    static RUNS: AtomicUsize = AtomicUsize::new(0);
+    let schema = format!("finance_{}_{}", std::process::id(), RUNS.fetch_add(1, Ordering::Relaxed));
+    let backend = PostgresBackend::connect(url).expect("connects");
+    backend
+        .batch(&format!(
+            "DROP SCHEMA IF EXISTS {schema} CASCADE; CREATE SCHEMA {schema}; SET search_path TO {schema}"
+        ))
+        .expect("a schema");
+    let mut builder = PostgresDatabase::builder(backend);
+    for entity in finance::entities() {
+        let table = entity.name.to_lowercase();
+        builder = builder.managed(entity, TableMap::new(table)).expect("a table");
+    }
+    let database = builder.build();
+    Rc::new(move || Box::new(database.space()) as Box<dyn ObjectSpace>)
+}
+
+/// In memory, in SQLite and, when there is one, in PostgreSQL.
 fn both(test: impl Fn(&Maker)) {
     test(&memory());
     test(&sqlite());
+    if let Ok(url) = std::env::var("RAVENRS_POSTGRES_URL") {
+        test(&postgres(&url));
+    }
 }
 
 fn day(year: i32, month: u32, day: u32) -> DateTime {

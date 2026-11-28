@@ -6707,6 +6707,8 @@ name = "ravenrs-app-library"
 version = "27.1.28"
 dependencies = [
  "ravenrs-app",
+ "ravenrs-app-postgres",
+ "ravenrs-app-sql",
  "ravenrs-app-sqlite",
  "ravenrs-app-ui",
  "ravenrs-core",

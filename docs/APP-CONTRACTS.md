@@ -189,7 +189,7 @@ What waits (#860): the list filtered by what is pending and the days, the choice
 
 The rules hold wherever records are kept: the status moves only by the declared ways, each while `settled` agrees with it; `paid`, `cancelled` and `split` are `StateMachine::locked`, so nothing but the status changes, and `settled` only together with it (`unlocked_with`); an entry written by a settlement and a reversed settlement are sealed.
 
-What waits (#859): reports (`position`, `statement`, `annual`, `forecast`), the form actions, the rule between category and kind, and the contract against PostgreSQL.
+What waits (#859): reports (`position`, `statement`, `annual`, `forecast`), the form actions, and the rule between category and kind. The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
 
 ## Scenarios
 
