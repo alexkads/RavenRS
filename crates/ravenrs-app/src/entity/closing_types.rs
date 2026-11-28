@@ -20,6 +20,10 @@ use crate::{
     SpaceError, StoredLookup,
 };
 
+/// Reads the stored records of an entity that meet a query, as storage has them without what
+/// waits. A closing reads with it what keeps a period open.
+pub type StoredList<'a> = dyn FnMut(&EntityInfo, &Query) -> Result<Vec<Object>, SpaceError> + 'a;
+
 /// The status of a version that holds its period closed.
 pub const CLOSING_CURRENT: &str = "current";
 /// The status of a version whose period was opened again.
@@ -277,6 +281,55 @@ fn closed_after(
     })
 }
 
+/// The caption of the first entity with a record of the period that meets what the closing
+/// requires none of, once these changes are kept.
+fn holds_open(
+    entities: &[EntityInfo],
+    closing: &PeriodClosing,
+    period: &str,
+    changes: &[Change],
+    stored: &mut StoredLookup<'_>,
+    listed: &mut StoredList<'_>,
+) -> Result<Option<String>, SpaceError> {
+    for (name, expression) in &closing.requires_none {
+        let entity = entity_of(entities, name)?;
+        let Some((_, path)) = closing.freezes.iter().find(|(frozen, _)| frozen == name) else { continue };
+        let filter = Criteria::parse(expression).map_err(|e| SpaceError::Refused(e.to_string()))?;
+        let query = Query { filter: Some(filter), ..Query::default() };
+        // What storage has, less what these changes touch, and what they leave, filtered again.
+        let touched = |object: &Object| {
+            let key = key_text(&key_value(entity, object));
+            changes.iter().any(|change| match change {
+                Change::New(waiting) | Change::Updated(waiting) => {
+                    waiting.entity() == entity.name && key_text(&key_value(entity, waiting)) == key
+                }
+                Change::Deleted { entity: gone, key: deleted } => {
+                    *gone == entity.name && key_text(deleted) == key
+                }
+            })
+        };
+        let mut open: Vec<Object> =
+            listed(entity, &query)?.into_iter().filter(|object| !touched(object)).collect();
+        let waiting: Vec<Object> = changes
+            .iter()
+            .filter_map(|change| match change {
+                Change::New(object) | Change::Updated(object) if object.entity() == entity.name => {
+                    Some(object.clone())
+                }
+                _ => None,
+            })
+            .collect();
+        open.extend(crate::run_query(entity, waiting, &query, &crate::environment())?);
+        for record in open {
+            let belongs = period_of(entities, entity, &record, path, changes, stored)?;
+            if key_text(&belongs).as_deref() == Some(period) {
+                return Ok(Some(entity.caption.clone()));
+            }
+        }
+    }
+    Ok(None)
+}
+
 fn is_digest(text: &str) -> bool {
     text.len() == 64 && text.chars().all(|c| c.is_ascii_hexdigit())
 }
@@ -288,11 +341,17 @@ fn is_digest(text: &str) -> bool {
 /// A record of a period whose last version is current is not added, changed or deleted. A new
 /// version comes next in sequence, current, with its hash and document, while the period has none
 /// current. A version kept changes only from current to reopened, with the reason, and is never
-/// deleted.
+/// deleted. A new version is refused while a record of the period meets what the closing
+/// requires none of, read with `listed` in the same transaction.
+///
+/// Before deciding about a period, it reads the period with `stored`: a space whose storage can
+/// lock the row there, as PostgreSQL does, makes approving and writing a record of the period at
+/// the same time wait for each other.
 pub fn check_closing(
     entities: &[EntityInfo],
     changes: &[Change],
     stored: &mut StoredLookup<'_>,
+    listed: &mut StoredList<'_>,
 ) -> Result<(), SpaceError> {
     let periods: Vec<(&EntityInfo, &PeriodClosing)> = entities
         .iter()
@@ -311,7 +370,8 @@ pub fn check_closing(
         for (period, closing) in &periods {
             let versions = entity_of(entities, &closing.versions)?;
             if closing.versions == entity.name {
-                check_version(period, closing, versions, change, changes, stored, &mut approving)?;
+                let rules = VersionRules { entities, period, closing, versions };
+                rules.check(change, changes, stored, listed, &mut approving)?;
             }
             for (_, path) in closing.freezes.iter().filter(|(frozen, _)| *frozen == entity.name) {
                 let mut touched = Vec::new();
@@ -333,6 +393,7 @@ pub fn check_closing(
                 }
                 for key in touched {
                     let Some(text) = key_text(&key) else { continue };
+                    stored(period, &key)?;
                     if closed_after(versions, &key, changes, stored)? {
                         return Err(refused(
                             period,
@@ -346,76 +407,90 @@ pub fn check_closing(
     Ok(())
 }
 
-/// The rules of one change to a version.
-fn check_version(
-    period: &EntityInfo,
-    closing: &PeriodClosing,
-    versions: &EntityInfo,
-    change: &Change,
-    changes: &[Change],
-    stored: &mut StoredLookup<'_>,
-    approving: &mut BTreeSet<(String, String)>,
-) -> Result<(), SpaceError> {
-    match change {
-        Change::Deleted { .. } => Err(refused(versions, "an approval that is kept is not deleted")),
-        Change::New(object) => {
-            let key = object.get("period");
-            let Some(text) = key_text(&key) else {
-                return Err(refused(versions, format!("it says no {}", period.caption)));
-            };
-            if !approving.insert((period.name.clone(), text.clone())) {
-                return Err(refused(period, format!("{text} is approved once at a time")));
-            }
-            if record_after(period, &key, changes, stored)?.is_none() {
-                return Err(refused(versions, format!("there is no {} {text}", period.caption)));
-            }
-            let (count, _) = last_version(versions, &key, &[], stored)?;
-            let next = count + 1;
-            let own_key = key_text(&key_value(versions, object));
-            if object.number("version") != Some(f64::from(next)) || own_key != closing_key(&key, next) {
-                return Err(refused(versions, format!("the next version of {text} is {next}")));
-            }
-            if object.text("status") != CLOSING_CURRENT {
-                return Err(refused(versions, "a new approval is current"));
-            }
-            if !is_digest(&object.text("digest")) || object.text("document").is_empty() {
-                return Err(refused(versions, "an approval keeps its document and its hash"));
-            }
-            let still_current = match closing_key(&key, count) {
-                Some(last_key) if count > 0 => {
-                    record_after(versions, &Value::Text(last_key), changes, stored)?
-                        .is_some_and(|after| after.text("status") == CLOSING_CURRENT)
+/// What the rules of a change to a version look at.
+struct VersionRules<'a> {
+    entities: &'a [EntityInfo],
+    period: &'a EntityInfo,
+    closing: &'a PeriodClosing,
+    versions: &'a EntityInfo,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl VersionRules<'_> {
+    /// The rules of one change to a version.
+    fn check(
+        &self,
+        change: &Change,
+        changes: &[Change],
+        stored: &mut StoredLookup<'_>,
+        listed: &mut StoredList<'_>,
+        approving: &mut BTreeSet<(String, String)>,
+    ) -> Result<(), SpaceError> {
+        let Self { entities, period, closing, versions } = *self;
+        match change {
+            Change::Deleted { .. } => Err(refused(versions, "an approval that is kept is not deleted")),
+            Change::New(object) => {
+                let key = object.get("period");
+                let Some(text) = key_text(&key) else {
+                    return Err(refused(versions, format!("it says no {}", period.caption)));
+                };
+                if !approving.insert((period.name.clone(), text.clone())) {
+                    return Err(refused(period, format!("{text} is approved once at a time")));
                 }
-                _ => false,
-            };
-            if still_current {
-                return Err(refused(period, format!("{text} is approved already: reopen it first")));
+                if record_after(period, &key, changes, stored)?.is_none() {
+                    return Err(refused(versions, format!("there is no {} {text}", period.caption)));
+                }
+                let (count, _) = last_version(versions, &key, &[], stored)?;
+                let next = count + 1;
+                let own_key = key_text(&key_value(versions, object));
+                if object.number("version") != Some(f64::from(next)) || own_key != closing_key(&key, next) {
+                    return Err(refused(versions, format!("the next version of {text} is {next}")));
+                }
+                if object.text("status") != CLOSING_CURRENT {
+                    return Err(refused(versions, "a new approval is current"));
+                }
+                if !is_digest(&object.text("digest")) || object.text("document").is_empty() {
+                    return Err(refused(versions, "an approval keeps its document and its hash"));
+                }
+                let still_current = match closing_key(&key, count) {
+                    Some(last_key) if count > 0 => {
+                        record_after(versions, &Value::Text(last_key), changes, stored)?
+                            .is_some_and(|after| after.text("status") == CLOSING_CURRENT)
+                    }
+                    _ => false,
+                };
+                if still_current {
+                    return Err(refused(period, format!("{text} is approved already: reopen it first")));
+                }
+                if let Some(caption) = holds_open(entities, closing, &text, changes, stored, listed)? {
+                    return Err(refused(period, format!("{text} still has {caption} that keep it open")));
+                }
+                Ok(())
             }
-            Ok(())
-        }
-        Change::Updated(object) => {
-            let Some(kept) = stored(versions, &key_value(versions, object))? else { return Ok(()) };
-            let other_changed = versions
-                .fields
-                .iter()
-                .filter(|field| field.name != "status" && field.name != "reopen_reason")
-                .any(|field| kept.get(&field.name) != object.get(&field.name));
-            let was = kept.text("status");
-            let is = object.text("status");
-            let reason_changed = kept.get("reopen_reason") != object.get("reopen_reason");
-            if !other_changed && was == is && !reason_changed {
-                return Ok(());
+            Change::Updated(object) => {
+                let Some(kept) = stored(versions, &key_value(versions, object))? else { return Ok(()) };
+                let other_changed = versions
+                    .fields
+                    .iter()
+                    .filter(|field| field.name != "status" && field.name != "reopen_reason")
+                    .any(|field| kept.get(&field.name) != object.get(&field.name));
+                let was = kept.text("status");
+                let is = object.text("status");
+                let reason_changed = kept.get("reopen_reason") != object.get("reopen_reason");
+                if !other_changed && was == is && !reason_changed {
+                    return Ok(());
+                }
+                if other_changed || was != CLOSING_CURRENT || is != CLOSING_REOPENED {
+                    return Err(refused(versions, "an approval that is kept changes only to reopened"));
+                }
+                if object.text("reopen_reason").trim().chars().count() < closing.reopen_reason {
+                    return Err(refused(
+                        versions,
+                        format!("the reason to reopen needs at least {} characters", closing.reopen_reason),
+                    ));
+                }
+                Ok(())
             }
-            if other_changed || was != CLOSING_CURRENT || is != CLOSING_REOPENED {
-                return Err(refused(versions, "an approval that is kept changes only to reopened"));
-            }
-            if object.text("reopen_reason").trim().chars().count() < closing.reopen_reason {
-                return Err(refused(
-                    versions,
-                    format!("the reason to reopen needs at least {} characters", closing.reopen_reason),
-                ));
-            }
-            Ok(())
         }
     }
 }
@@ -472,6 +547,11 @@ fn closing_of(space: &dyn ObjectSpace, period: &str) -> Result<(EntityInfo, Peri
     Ok((info.clone(), closing))
 }
 
+/// The name of the entity that keeps the versions of `period`.
+pub fn closing_versions_entity(space: &dyn ObjectSpace, period: &str) -> Result<String, ClosingError> {
+    closing_of(space, period).map(|(_, closing)| closing.versions)
+}
+
 /// The versions of a period, first to last, as the space reads them.
 pub fn closing_versions(
     space: &dyn ObjectSpace,
@@ -505,23 +585,16 @@ pub fn approve(
     if space.find(period, key)?.is_none() {
         return Err(ClosingError::Missing(format!("{} {text}", info.caption)));
     }
+    // Asked here too, before the document is kept; the commit asks again, in its transaction.
     let entities = space.entities();
-    for (name, expression) in &closing.requires_none {
-        let entity = entity_of(&entities, name)?;
-        let filter = Criteria::parse(expression).map_err(|e| SpaceError::Refused(e.to_string()))?;
-        let open = space.query(name, &Query { filter: Some(filter), ..Query::default() })?;
-        let path = closing.freezes.iter().find(|(frozen, _)| frozen == name).map(|(_, path)| path.clone());
-        let Some(path) = path else { continue };
-        for record in open {
-            let mut read = |entity: &EntityInfo, key: &Value| space.find(&entity.name, key);
-            let belongs = period_of(&entities, entity, &record, &path, &[], &mut read)?;
-            if key_text(&belongs).as_deref() == Some(text.as_str()) {
-                return Err(ClosingError::Space(refused(
-                    &info,
-                    format!("{text} still has {} that keep it open", entity.caption),
-                )));
-            }
-        }
+    let reader: &dyn ObjectSpace = &*space;
+    let mut read = |entity: &EntityInfo, key: &Value| reader.find(&entity.name, key);
+    let mut list = |entity: &EntityInfo, query: &Query| reader.query(&entity.name, query);
+    if let Some(caption) = holds_open(&entities, &closing, &text, &[], &mut read, &mut list)? {
+        return Err(ClosingError::Space(refused(
+            &info,
+            format!("{text} still has {caption} that keep it open"),
+        )));
     }
     let next = u32::try_from(closing_versions(space, period, key)?.len() + 1).unwrap_or(u32::MAX);
     let digest = closing_digest(document);

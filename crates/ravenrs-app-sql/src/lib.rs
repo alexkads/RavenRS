@@ -608,8 +608,25 @@ impl<B: SqlBackend> SqlObjectSpace<B> {
     fn stored_record(&self, info: &EntityInfo, key: &Value) -> Result<Option<Object>, SpaceError> {
         let entity = self.entity(&info.name)?;
         let field = info.key_field().ok_or_else(|| SpaceError::MissingKey(info.name.clone()))?;
-        let tail = format!(" WHERE {} = {}", quoted(&field.name), self.shared.backend.slot(1));
+        let mut tail = format!(" WHERE {} = {}", quoted(&field.name), self.shared.backend.slot(1));
+        // A period is read locked, so approving it and writing one of its records wait for each other.
+        if info.period_closing.is_some()
+            && matches!(self.shared.backend.dialect(), Dialect::Postgres | Dialect::MySql)
+        {
+            tail.push_str(" FOR UPDATE");
+        }
         Ok(self.select(entity, &tail, std::slice::from_ref(key))?.into_iter().next())
+    }
+
+    /// Records as the database has them now, inside the transaction, without what waits.
+    fn stored_records(&self, info: &EntityInfo, query: &Query) -> Result<Vec<Object>, SpaceError> {
+        let reader = SqlObjectSpace {
+            shared: self.shared.clone(),
+            environment: ravenrs_app::environment(),
+            changes: ChangeSet::default(),
+            watchers: Vec::new(),
+        };
+        reader.query(&info.name, query)
     }
 
     /// Writes a new amendment on its target before it waits, all or nothing.
@@ -650,7 +667,8 @@ impl<B: SqlBackend> SqlObjectSpace<B> {
         }
         if entities.iter().any(|entity| entity.period_closing.is_some()) {
             let mut stored = |entity: &EntityInfo, key: &Value| self.stored_record(entity, key);
-            ravenrs_app::check_closing(&entities, changes, &mut stored)?;
+            let mut listed = |entity: &EntityInfo, query: &Query| self.stored_records(entity, query);
+            ravenrs_app::check_closing(&entities, changes, &mut stored, &mut listed)?;
         }
         for change in changes {
             let name = match change {

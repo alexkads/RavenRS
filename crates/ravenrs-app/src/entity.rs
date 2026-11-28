@@ -21,9 +21,9 @@ pub use amendment_types::{
 };
 pub use appearance_types::{AppearanceContext, AppearanceRule, AppearanceTarget, Tint};
 pub use closing_types::{
-    CLOSING_CURRENT, CLOSING_REOPENED, ClosingError, PeriodClosing, approve, archived_document,
+    CLOSING_CURRENT, CLOSING_REOPENED, ClosingError, PeriodClosing, StoredList, approve, archived_document,
     check_closing, check_closing_model, closing_digest, closing_key, closing_versions,
-    missing_closing_entities, reopen,
+    closing_versions_entity, missing_closing_entities, reopen,
 };
 pub use record_actions::{RecordAction, Selection};
 pub use rules::{Comparison, Operand, Rule, RuleKind, Severity, TextComparison};
