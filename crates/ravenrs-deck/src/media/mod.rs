@@ -1,6 +1,6 @@
 //! DeckCraft media: everything between embedded media bytes and the speakers / the screen.
 //!
-//! - [`probe`]: container, duration, audio channels / sample rate, video size / frame rate.
+//! - [`probe`](mod@probe): container, duration, audio channels / sample rate, video size / frame rate.
 //! - [`audio::decode`]: every common audio format to interleaved f32 [`audio::Pcm`] — MP3, AAC
 //!   (M4A, ADTS), ALAC, WAV, AIFF, CAF, FLAC, Ogg Vorbis, Opus (Ogg / WebM / Matroska) and the audio
 //!   track of MP4/MOV/WebM videos. WMA (ASF) is recognised and probed but not decoded.

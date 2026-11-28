@@ -204,24 +204,6 @@ opt-level = 1
 # recommends. Backtraces still name the workspace's own lines.
 debug = false
 
-# The spreadsheet evaluator budgets its stack for recursive LAMBDA calls; unoptimised frames are
-# several times larger, so the same formula would stop much earlier in debug builds.
-
-[profile.dev.package.ravenrs-sheet]
-opt-level = 1
-
-# The PDF engine's tests recurse as deep as hostile files do and decrypt with every key length; at
-# opt-level 0 they overflow the stack or take minutes, so it builds as PdfCraft builds it.
-
-[profile.dev.package.ravenrs-pdf]
-opt-level = 1
-
-# The presentation engine is built as DeckCraft builds it: its tests nest groups as deep as a
-# saved file may, which overflows the stack in unoptimised frames, and decode video frames.
-
-[profile.dev.package.ravenrs-deck]
-opt-level = 1
-
 [profile.release]
 # Smaller WASM binaries; native release builds benefit as well.
 lto = "thin"
@@ -233,5 +215,11 @@ inherits = "release"
 opt-level = "z"
 lto = true
 panic = "abort"
+
+[profile.dev.package.ravenrs-sheet]
+opt-level = 1
+
+# The PDF engine's tests recurse as deep as hostile files do and decrypt with every key length; at
+# opt-level 0 they overflow the stack or take minutes, so it builds as PdfCraft builds it.
 
 # <<< camadas.py

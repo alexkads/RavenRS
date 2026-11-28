@@ -5,7 +5,7 @@
 //! same names. The modules are public only so the crates of the components can reach the parts
 //! they share; they are hidden from the documentation and are not a stable API.
 
-/// The stories of the components, re-exported by `ravenrs_widgets::book`.
+// The stories of the components, re-exported by `ravenrs_widgets::book` (the module says the rest).
 pub mod book;
 #[doc(hidden)]
 pub mod button;

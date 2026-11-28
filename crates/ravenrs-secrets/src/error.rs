@@ -9,9 +9,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum Access {
-    /// Have it handed to code that uses it, with [`Vault::use_with`], without seeing it.
+    /// Have it handed to code that uses it, with [`Vault::use_with`](crate::Vault::use_with), without seeing it.
     Use,
-    /// See it, with [`Vault::reveal`].
+    /// See it, with [`Vault::reveal`](crate::Vault::reveal).
     Reveal,
     /// Rotate it, revoke it and say who may do what.
     Administer,

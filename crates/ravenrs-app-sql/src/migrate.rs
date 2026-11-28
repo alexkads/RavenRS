@@ -217,7 +217,7 @@ struct Rows {
     hash: String,
 }
 
-/// Every record of a tenant, read at once, with where it came from. See [the module](self).
+/// Every record of a tenant, read at once, with where it came from. See the module's documentation.
 #[derive(Clone, Debug)]
 pub struct TenantExport {
     stamp: BackupStamp,
@@ -406,7 +406,7 @@ impl TenantExport {
     }
 }
 
-/// Writes a [`TenantExport`] into a database. See [the module](self).
+/// Writes a [`TenantExport`] into a database. See the module's documentation.
 pub struct TenantImport<'a, B> {
     database: &'a SqlDatabase<B>,
     expected: BackupStamp,

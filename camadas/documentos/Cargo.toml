@@ -1,6 +1,23 @@
 # A camada documentos do RavenRS, um workspace Cargo (camadas.toml, #1086).
 # Os membros ficam em crates/; abra este workspace para trabalhar nela.
 
+# Profiles of this layer's engines (#1087): `scripts/camadas.py deps --write` copies them into every
+# workspace that reaches the engine, and only there.
+# The spreadsheet evaluator budgets its stack for recursive LAMBDA calls; unoptimised frames are
+# several times larger, so the same formula would stop much earlier in debug builds.
+[profile.dev.package.ravenrs-sheet]
+opt-level = 1
+
+# The PDF engine's tests recurse as deep as hostile files do and decrypt with every key length; at
+# opt-level 0 they overflow the stack or take minutes, so it builds as PdfCraft builds it.
+[profile.dev.package.ravenrs-pdf]
+opt-level = 1
+
+# The presentation engine is built as DeckCraft builds it: its tests nest groups as deep as a
+# saved file may, which overflows the stack in unoptimised frames, and decode video frames.
+[profile.dev.package.ravenrs-deck]
+opt-level = 1
+
 # >>> camadas.py: gerado do Cargo.toml da raiz por `python3 scripts/camadas.py deps --write`; não edite à mão
 [workspace]
 resolver = "3"
@@ -164,24 +181,6 @@ opt-level = 1
 # No debug information for them: less to compile and link, as Cargo's build performance guide
 # recommends. Backtraces still name the workspace's own lines.
 debug = false
-
-# The spreadsheet evaluator budgets its stack for recursive LAMBDA calls; unoptimised frames are
-# several times larger, so the same formula would stop much earlier in debug builds.
-
-[profile.dev.package.ravenrs-sheet]
-opt-level = 1
-
-# The PDF engine's tests recurse as deep as hostile files do and decrypt with every key length; at
-# opt-level 0 they overflow the stack or take minutes, so it builds as PdfCraft builds it.
-
-[profile.dev.package.ravenrs-pdf]
-opt-level = 1
-
-# The presentation engine is built as DeckCraft builds it: its tests nest groups as deep as a
-# saved file may, which overflows the stack in unoptimised frames, and decode video frames.
-
-[profile.dev.package.ravenrs-deck]
-opt-level = 1
 
 [profile.release]
 # Smaller WASM binaries; native release builds benefit as well.

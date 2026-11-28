@@ -579,10 +579,15 @@ pub fn release(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
     lint_examples(check)?;
     public_api(check)?;
 
-    check.step("clippy (native)");
-    clippy(check, &["--workspace".to_owned()])?;
+    // Every workspace, in the order of camadas.toml (#1087): the library's layers, the root (the
+    // tooling, W10), then the showcase, Raven CI and the applications.
     let every_apart = apart(check, true)?;
-    check_apart(check, &every_apart, true)?;
+    let (layers, above): (Vec<String>, Vec<String>) =
+        every_apart.iter().cloned().partition(|line| is_layer(folder_and_packages(line).0));
+    check_apart(check, &layers, true)?;
+    check.step("clippy (native), the root: the tooling (W10)");
+    clippy(check, &["--workspace".to_owned()])?;
+    check_apart(check, &above, true)?;
     // The library's packages are in their layers' workspaces (#1086): `-p` goes to the layer's manifest.
     let layer = |package: &str| layer_manifest(&every_apart, package);
 
@@ -678,7 +683,8 @@ pub fn release(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
         check.run("cargo", &["deny", "check"])?;
         for line in every_apart.iter().filter(|line| is_layer(folder_and_packages(line).0)) {
             let manifest = format!("{}/Cargo.toml", folder_and_packages(line).0);
-            check.run("cargo", &["deny", "--manifest-path", &manifest, "check"])?;
+            // The root's policy: a layer's folder has no deny.toml of its own.
+            check.run("cargo", &["deny", "--manifest-path", &manifest, "--config", "deny.toml", "check"])?;
         }
     } else {
         println!("skipped: install it with 'cargo install cargo-deny --locked'");

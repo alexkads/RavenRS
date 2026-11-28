@@ -68,4 +68,4 @@ gh issue list --state closed --search "closed:>=<data da versão anterior>" --js
 
 ## 7. Versão
 
-A publicação segue `docs/VERSIONING.md`. O commit da versão do app é o último, num PR de versão próprio, e a tag anotada `vYY.R.P` fica nesse commit. O `cargo publish --workspace` é rodado por quem mantém o projeto.
+A publicação segue `docs/VERSIONING.md`. O commit da versão do app é o último, num PR de versão próprio, e a tag anotada `vYY.R.P` fica nesse commit. A publicação vai camada por camada, na ordem do `camadas.toml` (#1087): `python3 scripts/camadas.py publicacao` lista um `cargo publish --workspace` por workspace, do núcleo à infra da raiz, e quem mantém o projeto os roda nessa ordem.

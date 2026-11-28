@@ -3,7 +3,7 @@
 //! | Feature | Module | What |
 //! |---|---|---|
 //! | `av1-decode` | [`decode`] | Decoder |
-//! | `av1-encode` | this module | Encoder ([`Encoder`]) |
+//! | `av1-encode` | this module | Encoder (`Encoder`) |
 //!
 //! Feature `av1` turns on both.
 
