@@ -714,3 +714,50 @@ fn a_temporary_access_to_a_role_that_is_not_there_or_administrative_is_refused()
         .temporary_access(ravenrs_app::TemporaryAccessPolicy::new("Support"));
     assert!(admin.build().is_err());
 }
+
+#[test]
+fn an_administrator_grants_access_on_the_users_and_revokes_it_with_a_confirmation() {
+    let database = database();
+    let source = database.clone();
+    let app = SecuredApp::new("Shop", move || source.space(), |_| App::new("Shop").entity_info(order()))
+        .role(Role::new("Support").policy(PermissionPolicy::ReadOnlyAll))
+        .temporary_access(ravenrs_app::TemporaryAccessPolicy::new("Support"));
+    let mut world = World::over(app);
+    first_administrator(&mut world);
+    world.ui.access_tree();
+    let open = |world: &mut World, name: &str| {
+        world.settle();
+        let tree = world.ui.access_tree();
+        let id = tree.nodes.iter().find(|n| n.name.as_deref() == Some(name)).expect("there").id;
+        world.ui.perform_action(id, AccessAction::Click);
+        world.settle();
+    };
+    open(&mut world, "Users");
+    world.press("More");
+    open(&mut world, "Grant temporary access");
+    world.type_into("Reason", "curto");
+    world.press("Grant temporary access");
+    assert!(world.says("the reason needs at least 10 characters"), "a short reason");
+    world.type_into("Reason", " demais para o caixa");
+    world.press("Grant temporary access");
+    assert!(world.says("Password: ") && world.says("Hand the password over now"), "the password shows once");
+    world.press("Done");
+    let users = database.space().query(SECURITY_USER, &Query::all()).expect("reads");
+    let support = users.iter().find(|user| user.text("name").starts_with("temporary-")).expect("made");
+    assert!(world.says(&support.text("name")), "the new user is on the list");
+    // Revoking asks first, then turns the user off.
+    let name = support.text("name");
+    world.settle();
+    let tree = world.ui.access_tree();
+    let row =
+        tree.nodes.iter().find(|n| n.name.as_deref() == Some(&format!("Select {name}"))).expect("its row").id;
+    world.ui.perform_action(row, AccessAction::Click);
+    world.settle();
+    world.press("More");
+    open(&mut world, "Revoke access");
+    assert!(world.says("Their API keys and open accesses end too."), "it asks first");
+    world.press("Yes, revoke");
+    assert!(world.says("Access revoked."));
+    let user = database.space().find(SECURITY_USER, &support.get("id")).expect("reads").expect("there");
+    assert_eq!(user.get("active"), Value::Bool(false));
+}

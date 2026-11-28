@@ -46,6 +46,7 @@ mod security;
 mod session;
 mod shell;
 mod system;
+mod temporary;
 mod values;
 mod words;
 // What the generated registrations name views as.

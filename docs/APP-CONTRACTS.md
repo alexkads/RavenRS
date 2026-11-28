@@ -148,7 +148,9 @@ In one commit, written to the audit trail when the context has one, it creates t
 
 `SecuredApp::temporary_access(policy)` checks, when it is built, that the role is there and not administrative; it ends who expired before each sign in and, at most every `check_every` by the policy's clock, when a screen of an open session opens.
 
-What waits (#857): the actions and screens in `SecurityModule` and the same check on the web API.
+With a policy, the list of users has Grant temporary access, which asks the reason and the hours and shows the user, the deadline and the password once, and Revoke access, which asks first.
+
+What waits (#857): the same check on the web API.
 
 ## Scenarios
 

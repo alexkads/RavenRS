@@ -36,6 +36,7 @@ const DOOR_GUTTER: f32 = 16.0;
 pub(crate) struct SecurityModule {
     words: Words,
     audited: bool,
+    temporary: Option<TemporaryAccessPolicy>,
 }
 
 impl Module for SecurityModule {
@@ -52,11 +53,27 @@ impl Module for SecurityModule {
     }
 
     fn view_controllers(&self) -> Vec<Box<dyn ViewController>> {
-        vec![Box::new(PasswordsController(self.words.clone()))]
+        vec![
+            Box::new(PasswordsController(self.words.clone())),
+            Box::new(AccessController(self.words.clone(), self.temporary.clone())),
+        ]
     }
 }
 
 struct PasswordsController(Words);
+
+/// Granting access for a while and revoking a user, on the list of users.
+struct AccessController(Words, Option<TemporaryAccessPolicy>);
+
+impl ViewController for AccessController {
+    fn id(&self) -> &str {
+        "TemporaryAccess"
+    }
+
+    fn actions(&self) -> Vec<Action> {
+        crate::temporary::actions(&self.0, self.1.as_ref())
+    }
+}
 
 impl ViewController for PasswordsController {
     fn id(&self) -> &str {
@@ -725,7 +742,7 @@ impl Gate {
             app = app.texts(language.clone(), json.clone());
         }
         let app = app
-            .module(SecurityModule { words: words.clone(), audited })
+            .module(SecurityModule { words: words.clone(), audited, temporary: inner.temporary.clone() })
             .translation("pt-BR", ravenrs_app_i18n::model::SECURITY_PT_BR)
             .dashboard(
                 ravenrs_app::DashboardInfo::new(MODEL_EDITOR, words.model_editor.clone())
