@@ -205,6 +205,13 @@
   },
   {
    "crate": "ravenrs-app",
+   "tipo": "EnumOption",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app",
    "tipo": "PeriodClosing",
    "rts": {
     "sem_tela": true
@@ -296,6 +303,13 @@
   {
    "crate": "ravenrs-app-report",
    "tipo": "StoredReportsModule",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-report",
+   "tipo": "ClosingModule",
    "rts": {
     "sem_tela": true
    }
