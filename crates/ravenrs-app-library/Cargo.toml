@@ -15,11 +15,14 @@ categories = ["gui", "data-structures"]
 
 [dependencies]
 ravenrs-app.workspace = true
+# Dates and splitting money to the cent, for the finances.
+ravenrs-criteria.workspace = true
 
 [dev-dependencies]
+ravenrs-app-sqlite.workspace = true
+rusqlite.workspace = true
 ravenrs-app-ui.workspace = true
 ravenrs-core.workspace = true
-ravenrs-criteria.workspace = true
 ravenrs-style.workspace = true
 ravenrs-widgets.workspace = true
 

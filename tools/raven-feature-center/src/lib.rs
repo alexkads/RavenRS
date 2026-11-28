@@ -51,6 +51,8 @@ pub mod actions;
 #[cfg(feature = "app")]
 mod centro;
 #[cfg(feature = "app")]
+pub mod contas;
+#[cfg(feature = "app")]
 pub mod fechamento;
 #[cfg(feature = "app")]
 pub mod model;

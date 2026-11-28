@@ -17,6 +17,8 @@ use ravenrs_app::{
     Comparison, EntityInfo, EnumOption, FieldInfo, FieldKind, Module, Operand, Rule, RuleKind,
 };
 
+pub mod finance;
+
 /// What an email address looks like, loosely, so it only catches slips.
 const EMAIL: &str = r"^[^@\s]+@[^@\s]+\.[^@\s]+$";
 
@@ -256,6 +258,11 @@ impl LibraryModule {
     /// Brings in [`file_record`].
     pub fn file_record(self) -> Self {
         self.entity(file_record())
+    }
+
+    /// Brings in the finances: categories, cash book, bills and settlements ([`finance`]).
+    pub fn finance(self) -> Self {
+        finance::entities().into_iter().fold(self, Self::entity)
     }
 }
 
