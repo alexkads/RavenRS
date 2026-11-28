@@ -54,6 +54,31 @@ impl DateRange {
 /// let mut ui = Ui::new(calendar, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+/// Which days cannot be picked, and why: the same rule for the pointer, the keyboard and the
+/// value the app sets.
+#[derive(Clone)]
+struct Blocked(Rc<dyn Fn(Date) -> Option<String>>);
+
+impl std::fmt::Debug for Blocked {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Blocked")
+    }
+}
+
+/// Why `date` cannot be picked, by the limits and the blocked days; `None` when it can.
+fn refusal(
+    date: Date,
+    min: Option<Date>,
+    max: Option<Date>,
+    blocked: Option<&Blocked>,
+    outside: &str,
+) -> Option<String> {
+    if min.is_some_and(|m| date < m) || max.is_some_and(|m| date > m) {
+        return Some(outside.to_owned());
+    }
+    blocked.and_then(|b| (b.0)(date))
+}
+
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Calendar {
     selected: Binding<Option<Date>>,
@@ -63,6 +88,7 @@ pub struct Calendar {
     max: Option<Date>,
     on_pick: Option<Rc<dyn Fn(Date)>>,
     span: Option<DateRange>,
+    blocked: Option<Blocked>,
 }
 
 impl std::fmt::Debug for Calendar {
@@ -83,7 +109,22 @@ impl Calendar {
             max: None,
             on_pick: None,
             span: None,
+            blocked: None,
         }
+    }
+
+    /// Days that cannot be picked, such as holidays: `blocked` gives why for each one (`None`
+    /// for a day that can), which screen readers hear. A click or Enter on one picks nothing;
+    /// the arrows still go through it.
+    pub fn blocked(mut self, blocked: impl Fn(Date) -> Option<String> + 'static) -> Self {
+        self.blocked = Some(Blocked(Rc::new(blocked)));
+        self
+    }
+
+    /// The same rule as [`Self::blocked`], shared with the picker that opens the calendar.
+    fn blocked_by(mut self, blocked: Option<Blocked>) -> Self {
+        self.blocked = blocked;
+        self
     }
 
     /// Marks this day with a ring.
@@ -167,7 +208,9 @@ impl View for Day<'_> {
         let is_end = c.span.is_some_and(|s| s.start == self.date || s.end == self.date);
         let inside = c.span.is_some_and(|s| s.contains(self.date));
         let selected = c.selected.get() == Some(self.date) || is_end;
-        let enabled = c.min.is_none_or(|m| self.date >= m) && c.max.is_none_or(|m| self.date <= m);
+        let labels = cx.labels();
+        let refused = refusal(self.date, c.min, c.max, c.blocked.as_ref(), &labels.date_out_of_range);
+        let enabled = refused.is_none();
         let hovered = (cx.is_hovered() && enabled) || cx.is_focus_visible();
         let ink = theme.color(Semantic::Ink);
         let color = if selected {
@@ -204,12 +247,21 @@ impl View for Day<'_> {
             Paint::Quad(QuadPaint { corner_radius: 9.0, border, ..QuadPaint::new(fill) }),
         );
         // The full date, so the day reads on its own ("31 October 2026").
-        let labels = cx.labels();
         let name = labels.long_date(self.date);
         let mut semantics =
             Semantics::new(Role::Button).name(name).selected(selected || inside).disabled(!enabled);
+        let mut notes: Vec<String> = Vec::new();
         if c.today == Some(self.date) {
-            semantics = semantics.description(labels.today.clone());
+            notes.push(labels.today.clone());
+        }
+        // Why it cannot be picked, when it is not only past the limits.
+        if let Some(why) =
+            refused.filter(|_| c.min.is_none_or(|m| self.date >= m) && c.max.is_none_or(|m| self.date <= m))
+        {
+            notes.push(why);
+        }
+        if !notes.is_empty() {
+            semantics = semantics.description(notes.join(", "));
         }
         cx.semantics(node, semantics);
         if self.keys.focus_to.get() == Some(self.date) {
@@ -359,6 +411,9 @@ pub struct DatePicker {
     fill: bool,
     label: Option<String>,
     state: util::EditorState,
+    min: Option<Date>,
+    max: Option<Date>,
+    blocked: Option<Blocked>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -374,7 +429,25 @@ impl DatePicker {
             fill: false,
             label: None,
             state: util::EditorState::default(),
+            min: None,
+            max: None,
+            blocked: None,
         }
+    }
+
+    /// The first and the last day that can be picked, both included; its calendar follows them.
+    /// A value outside them, set by the app, is shown as it is and marked wrong.
+    pub fn range(mut self, min: Option<Date>, max: Option<Date>) -> Self {
+        self.min = min;
+        self.max = max;
+        self
+    }
+
+    /// Days that cannot be picked, with why (see [`Calendar::blocked`]); its calendar follows
+    /// them. A blocked value set by the app is shown as it is and marked wrong.
+    pub fn blocked(mut self, blocked: impl Fn(Date) -> Option<String> + 'static) -> Self {
+        self.blocked = Some(Blocked(Rc::new(blocked)));
+        self
     }
 
     /// Text shown while no date is selected ("Pick a date" by default).
@@ -420,8 +493,10 @@ impl View for CalendarPanel<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let close = self.1.clone();
-        let mut cal =
-            Calendar::new(self.0.value.clone(), self.0.month).on_pick(Rc::new(move |_| close.set(false)));
+        let mut cal = Calendar::new(self.0.value.clone(), self.0.month)
+            .range(self.0.min, self.0.max)
+            .blocked_by(self.0.blocked.clone())
+            .on_pick(Rc::new(move |_| close.set(false)));
         if let Some(t) = self.0.today {
             cal = cal.today(t);
         }
@@ -433,7 +508,7 @@ impl View for CalendarPanel<'_> {
                 corner_radius: theme.radii.lg,
                 border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
                 shadow: Some(theme.elevation.raised),
-                ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
+                ..QuadPaint::new(theme.floating_surface())
             }),
         );
         cx.cursor(node, CursorIcon::Default);
@@ -468,10 +543,17 @@ impl View for DatePicker {
             }
         };
         let label = util::label(cx, &text, TextStyle::Body, None, state.ink(color));
+        // A value the app set that the rules refuse: shown, never corrected, and marked.
+        let wrong = self
+            .value
+            .get()
+            .and_then(|d| refusal(d, self.min, self.max, self.blocked.as_ref(), &labels.date_out_of_range));
         let border = if is_open {
             Border { width: 1.5, color: theme.color(Semantic::Accent) }
+        } else if wrong.is_some() {
+            Border { width: 1.5, color: theme.color(Semantic::Danger) }
         } else {
-            let base = theme.color(Semantic::Border);
+            let base = theme.color(Semantic::ControlBorder);
             Border {
                 width: 1.0,
                 color: state.ink(if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base }),
@@ -500,6 +582,9 @@ impl View for DatePicker {
         if let Some(label) = &self.label {
             semantics = semantics.name(label.clone());
         }
+        if let Some(why) = &wrong {
+            semantics = semantics.description(why.clone());
+        }
         cx.semantics(node, state.semantics(semantics));
         if state.disabled {
             return node;
@@ -510,14 +595,37 @@ impl View for DatePicker {
         }
         let toggle = open.clone();
         cx.on_click(node, Rc::new(move || toggle.update(|o| *o = !*o)));
-        // Opened and closed as by a click, and given a day as `2026-10-31`.
+        // Delete or Backspace clear it to no date.
+        let clear = self.value.clone();
+        cx.on_key(
+            node,
+            Rc::new(move |key, _| match key {
+                Key::Delete | Key::Backspace => {
+                    clear.set(None);
+                    true
+                }
+                _ => false,
+            }),
+        );
+        // Opened and closed as by a click, and given a day as `2026-10-31` (or nothing, to clear
+        // it); a day the rules refuse is not taken.
         let (shown, value) = (open.clone(), self.value.clone());
+        let (min, max, blocked, outside) =
+            (self.min, self.max, self.blocked.clone(), labels.date_out_of_range.clone());
         cx.on_access(
             node,
             &[AccessAction::Expand, AccessAction::Collapse, AccessAction::SetValue],
             move |action, text| match action {
                 AccessAction::SetValue => {
+                    if text.is_none_or(|t| t.trim().is_empty()) {
+                        value.set(None);
+                        shown.set(false);
+                        return true;
+                    }
                     let Some(day) = text.and_then(iso_date) else { return false };
+                    if refusal(day, min, max, blocked.as_ref(), &outside).is_some() {
+                        return false;
+                    }
                     value.set(Some(day));
                     shown.set(false);
                     true
@@ -569,6 +677,7 @@ pub struct DateRangePicker {
     width: f32,
     label: Option<String>,
     state: util::EditorState,
+    blocked: Option<Blocked>,
 }
 
 impl std::fmt::Debug for DateRangePicker {
@@ -592,7 +701,15 @@ impl DateRangePicker {
             width: 340.0,
             label: None,
             state: util::EditorState::default(),
+            blocked: None,
         }
+    }
+
+    /// Days that cannot be picked, with why (see [`Calendar::blocked`]). A period does not cross
+    /// one: a second click past a blocked day starts a new period there.
+    pub fn blocked(mut self, blocked: impl Fn(Date) -> Option<String> + 'static) -> Self {
+        self.blocked = Some(Blocked(Rc::new(blocked)));
+        self
     }
 
     /// A ready-made period, picked with one click.
@@ -661,11 +778,21 @@ impl View for RangePanel<'_> {
         let first = chosen.map_or(picker.month, |r| r.start).first_of_month();
         let pick: Rc<dyn Fn(Date)> = {
             let (started, value, close) = (started.clone(), picker.value.clone(), self.1.clone());
+            let blocked = picker.blocked.clone();
             Rc::new(move |day| match started.get() {
                 None => started.set(Some(day)),
                 Some(from) => {
+                    let period = DateRange::new(from, day);
+                    let crosses = blocked.as_ref().is_some_and(|b| {
+                        (0..=period.days()).any(|i| (b.0)(period.start.add_days(i)).is_some())
+                    });
+                    if crosses {
+                        // A period does not cross a blocked day: this click starts a new one.
+                        started.set(Some(day));
+                        return;
+                    }
                     started.set(None);
-                    value.set(Some(DateRange::new(from, day)));
+                    value.set(Some(period));
                     close.set(false);
                 }
             })
@@ -673,8 +800,11 @@ impl View for RangePanel<'_> {
         // A calendar's selection is the period's, which its own binding must not change.
         let inert = || Binding::new(|| None, |_: Option<Date>| {});
         let calendar = |month: Date| {
-            let mut calendar =
-                Calendar::new(inert(), month).range(picker.min, picker.max).on_pick(pick.clone()).span(span);
+            let mut calendar = Calendar::new(inert(), month)
+                .range(picker.min, picker.max)
+                .blocked_by(picker.blocked.clone())
+                .on_pick(pick.clone())
+                .span(span);
             if let Some(today) = picker.today {
                 calendar = calendar.today(today);
             }
@@ -716,7 +846,7 @@ impl View for RangePanel<'_> {
                 corner_radius: theme.radii.lg,
                 border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
                 shadow: Some(theme.elevation.raised),
-                ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
+                ..QuadPaint::new(theme.floating_surface())
             }),
         );
         cx.cursor(node, CursorIcon::Default);
@@ -766,7 +896,7 @@ impl View for DateRangePicker {
         let border = if is_open {
             Border { width: 1.5, color: theme.color(Semantic::Accent) }
         } else {
-            let base = theme.color(Semantic::Border);
+            let base = theme.color(Semantic::ControlBorder);
             Border {
                 width: 1.0,
                 color: state.ink(if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base }),

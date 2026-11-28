@@ -34,6 +34,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::BugLabels::__live_expose(registry);
     crate::BugReporter::__live_expose_fields(registry);
     crate::BugReporter::__live_expose(registry);
+    #[cfg(feature = "book")]
+    crate::BugReporter::__live_expose_part1(registry);
     crate::MovieError::__live_expose_variants(registry);
     crate::Chapter::__live_expose_fields(registry);
     crate::HotspotKind::__live_expose_variants(registry);
@@ -77,6 +79,10 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Answer::__live_expose_fields(registry);
     crate::MovieLibrary::__live_expose_fields(registry);
     crate::MovieLibrary::__live_expose(registry);
+    crate::Pace::__live_expose_variants(registry);
+    crate::SessionFilm::__live_expose_fields(registry);
+    crate::SessionFilm::__live_expose(registry);
+    crate::ChannelFilm::__live_expose_fields(registry);
     crate::SocialFrame::__live_expose_fields(registry);
     crate::SocialFrame::__live_expose(registry);
     crate::Movie::__live_expose_part1(registry);

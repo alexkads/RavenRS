@@ -1,0 +1,21 @@
+# Raven CI in a container, from its RPM (see the Dockerfile). The server answers only on the
+# loopback of the host, at 127.0.0.1:8090; publish it to the tailnet with
+# `sudo tailscale serve --bg --http=8090 http://127.0.0.1:8090`.
+name: raven-ci-teste
+services:
+  raven-ci:
+    build: .
+    image: raven-ci-teste:latest
+    container_name: raven-ci-teste
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - dados:/var/lib/raven-ci
+    mem_limit: 256m
+    restart: unless-stopped
+    labels:
+      raven-ci-teste: "true"
+volumes:
+  dados:
+    labels:
+      raven-ci-teste: "true"

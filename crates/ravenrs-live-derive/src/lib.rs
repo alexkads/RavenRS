@@ -1,5 +1,4 @@
-//! `#[ravenrs_live::expose]`: registers what an `impl` block, a struct, an enum or a module
-//! offers with a `ravenrs_live::Registry`, so a playground can call it without a compiler.
+#![doc = include_str!("../README.md")]
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as Tokens;
@@ -12,17 +11,20 @@ use syn::{
     parse_macro_input, parse_quote,
 };
 
-/// Registers the public functions and constants of an inherent `impl` block, the public fields
-/// of a struct, the variants of an enum or the public functions of an inline module, behind the
-/// `live` feature of the crate it is used in. It generates `__live_expose` (or
-/// `__live_expose_<part>` with `part = "..."`) on the type, or inside the module, which the crate
-/// calls when it builds its registry. `skip = "a, b"` leaves functions out.
+/// Registers the public functions and constants of an inherent `impl` block (every method of a
+/// trait `impl`), the public fields of a struct, the variants of an enum or the public functions
+/// of an inline module, behind the `live` feature of the crate it is used in. It generates
+/// `__live_expose` (or `__live_expose_<part>` with `part = "..."`) on the type, or inside the
+/// module, which the crate calls when it builds its registry. `skip = "a, b"` leaves functions out.
 ///
 /// Generic parameters bounded by `View` become `AnyView`, and by `ViewSeq` a `Vec<AnyView>`;
 /// `with = "A = (); A = Other"` registers a block once for each of these types. A function's
 /// own parameters bounded by `Into`, `AsRef`, `Fn` or `IntoIterator` take what those take, and
 /// ones bounded only by `Clone`, `PartialEq` or `Debug` take any value. What it cannot call with
 /// interpreter values is left out without failing the build.
+///
+/// The crate documentation says what each item gives, what is left out or refused, and how a
+/// host calls the generated functions.
 #[proc_macro_attribute]
 pub fn expose(attr: TokenStream, item: TokenStream) -> TokenStream {
     let options = parse_macro_input!(attr as Options);

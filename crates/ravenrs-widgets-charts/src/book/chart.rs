@@ -147,6 +147,17 @@ fn render(args: &Args) -> AnyView {
     })
 }
 
+/// A line in a cell, as a grid shows the durations of the last builds: no axis, no legend.
+fn sparkline(_: &Args) -> AnyView {
+    Box::new(
+        Chart::new(ChartKind::Sparkline)
+            .series("Duration (s)", [62.0, 58.0, 71.0, 64.0, 66.0, 59.0, 80.0, 72.0, 69.0, 74.0])
+            .size(120.0, 24.0)
+            .hide_legend()
+            .alt("Duration of the last builds"),
+    )
+}
+
 /// A chart with a target line, the gallery's example of `ChartReference`.
 fn with_target(_: &Args) -> AnyView {
     Box::new(
@@ -197,5 +208,6 @@ impl ComponentBook for Chart {
             .story("Example", Args::new())
             .story_with("With target line", Args::new(), with_target)
             .story("Legend at: Top", Args::new().with("legend_at", ArgValue::choice("Top")))
+            .story_with("Sparkline", Args::new(), sparkline)
     }
 }

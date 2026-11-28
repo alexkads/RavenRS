@@ -6,7 +6,8 @@
 //! Flows and Raven CI, share one engine instead of each copying the last.
 //!
 //! * [`cron`]: five cron fields, with names, ranges, steps and time zones.
-//! * [`Trigger`]: a cron schedule in a zone, or a fixed period.
+//! * [`Trigger`]: a cron schedule in a zone (or the machine's, [`Trigger::cron_local`]), or a fixed
+//!   period; [`parse_period`] reads one written as `5m` or `1h30m`.
 //! * [`check`] and [`Check`]: given the stored next run and the time now, whether to wait, run or
 //!   record a miss, and what to store as the next run.
 //! * [`Misfire`]: what to do with a run that came due while the program was not running.
@@ -23,4 +24,4 @@ mod trigger;
 pub use cron::Schedule;
 pub use jiff::{SignedDuration, Timestamp};
 pub use running::{Running, RunningGuard};
-pub use trigger::{Check, Misfire, Trigger, check};
+pub use trigger::{Check, Misfire, Trigger, check, parse_period};

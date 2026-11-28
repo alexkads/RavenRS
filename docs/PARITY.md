@@ -87,7 +87,7 @@ virtualization, editing, keyboard interaction and export.
 | Label | ✓ | ✓ | ✓ | ✅ `Label` |
 | Form, field validation | ✓ | ✓ | ✓ | ✅ `FormField` + validators |
 | Form layout (groups, columns, tabs, error list) | | ✓ | ✓ | ✅ `FormLayout`, `FormGroup` |
-| Checkbox | ✓ | ✓ | ✓ | ✅ |
+| Checkbox | ✓ | ✓ | ✓ | ✅ off, on and mixed: computed for a select all, or an answer not given (`optional`) |
 | Radio group | ✓ | ✓ | ✓ | ✅ |
 | Switch | ✓ | ✓ | ✓ | ✅ `Toggle`, with a small size |
 | Slider | ✓ | ✓ | ✓ | ✅ `Slider`: marks, colored track, fill from a neutral value that a double click returns to, value at the right |
@@ -180,7 +180,7 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Question that opens a film at the right moment | | | | ✅ `MovieAssistant`, `MovieLibrary`: words the films hold, no model |
 | Film editor with timeline | | | | ✅ `MovieEditor`; its preview has no sound |
 | Bug report with a film | | | | ✅ `FlightRecorder`, `BugReporter` |
-| Progress bar | ✓ | ✓ | ✓ | ✅ `ProgressBar`: label, percentage, detail, height, color |
+| Progress bar | ✓ | ✓ | ✓ | ✅ `ProgressBar`: label, percentage, detail, height, color, markers of reference (limit, goal) read by screen readers |
 | Loader / Spinner | | ✓ | ✓ | ✅ `Spinner` |
 | Lottie animation | | ✓ | ✓ | ✅ `Lottie`; no expressions, text layers, 3D, blend modes or effects other than Fill yet, and `.lottie` archives need unpacking first |
 | Skeleton | ✓ | ✓ | ✓ | ✅ |
@@ -192,7 +192,7 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Component | S | D | T | RavenRS |
 |---|---|---|---|---|
 | Avatar | ✓ | ✓ | ✓ | ✅ `Avatar`: initials or picture, with a ring |
-| Icon set | ✓ | ✓ | ✓ | ✅ 200 Lucide icons |
+| Icon set | ✓ | ✓ | ✓ | ✅ 205 Lucide icons |
 | Image | | ✓ | ✓ | ✅ `Image`: dissolves into the next one if asked, and asks for frames only meanwhile |
 | Carousel / Scroll view | ✓ | ✓ | ✓ | ✅ `Carousel` |
 | Kbd | ✓ | | | ✅ takes the color of what it is in, on request |
@@ -247,7 +247,7 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Keyboard navigation and focus | ✓ | ✓ | ✓ | ✅ |
 | Screen reader support | ✓ | ✓ | ✓ | ✓ AccessKit on desktop, ARIA mirror on the web |
 | Right-to-left | ✓ | ✓ | ✓ | ⬜ (Parley supports bidi; layout mirroring planned) |
-| Localization (formats, strings) | | ✓ | ✓ | 🟡 number formats; `Labels` and `Localized` for component text (Ribbon, Carousel and InputOtp still fixed) |
+| Localization (formats, strings) | | ✓ | ✓ | 🟡 number formats; `Labels` and `Localized` for every word the components show or read aloud, `scripts/check-fixed-texts.py` keeps it so (#775) |
 | Animations | ✓ | ✓ | ✓ | ✅ springs, transitions, shared layout, enter and exit; 🟡 no rotation or group opacity yet |
 | Native desktop and browser from one codebase | | | | ✅ (none of the three does both) |
 

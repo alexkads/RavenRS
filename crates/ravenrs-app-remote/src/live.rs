@@ -12,6 +12,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
+#[cfg(feature = "ui")]
 use ravenrs_widgets::UiWaker;
 use serde_json::Value as Json;
 
@@ -106,13 +107,22 @@ impl SseParser {
     }
 }
 
-#[derive(Debug)]
 struct Inner {
     events: Mutex<VecDeque<LiveEvent>>,
     state: Mutex<LiveState>,
     stop: AtomicBool,
     last: AtomicU64,
-    waker: UiWaker,
+    /// What is told that events came, or that the stream was refused.
+    wake: Box<dyn Fn() + Send + Sync>,
+}
+
+impl std::fmt::Debug for Inner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Inner")
+            .field("state", &*lock(&self.state))
+            .field("last", &self.last.load(Ordering::Acquire))
+            .finish_non_exhaustive()
+    }
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -141,7 +151,7 @@ impl Inner {
             kept.push_back(event);
         }
         drop(kept);
-        self.waker.wake();
+        (self.wake)();
         true
     }
 }
@@ -191,13 +201,26 @@ impl Drop for LiveFeed {
 impl RemoteClient {
     /// Listens to `topic` of the server's live channel, from after the event `after`, as whoever
     /// signed in. `waker` asks for a build when events come; take them with [`LiveFeed::drain`].
+    #[cfg(feature = "ui")]
     pub fn listen(&self, topic: &str, after: Option<u64>, waker: UiWaker) -> LiveFeed {
+        self.listen_with(topic, after, move || waker.wake())
+    }
+
+    /// Listens to `topic` as [`listen`](Self::listen) does, telling `wake` (from the thread that
+    /// reads the stream) when events come or the stream is refused: what a program with no window
+    /// uses, such as a build agent that waits on a channel.
+    pub fn listen_with(
+        &self,
+        topic: &str,
+        after: Option<u64>,
+        wake: impl Fn() + Send + Sync + 'static,
+    ) -> LiveFeed {
         let inner = Arc::new(Inner {
             events: Mutex::new(VecDeque::new()),
             state: Mutex::new(LiveState::Connecting),
             stop: AtomicBool::new(false),
             last: AtomicU64::new(after.unwrap_or(0)),
-            waker,
+            wake: Box::new(wake),
         });
         let url = format!("{}/api/live/{}", self.base(), topic);
         let token = self.token();
@@ -275,7 +298,7 @@ mod desktop {
                 }
                 Ok(answer) if matches!(answer.status().as_u16(), 401 | 403 | 404) => {
                     inner.set(LiveState::Refused(answer.status().as_u16()));
-                    inner.waker.wake();
+                    (inner.wake)();
                     return;
                 }
                 Ok(_) | Err(_) => {}

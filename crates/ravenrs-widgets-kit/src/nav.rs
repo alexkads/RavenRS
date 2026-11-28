@@ -13,8 +13,8 @@ use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint, Semantics, Wi
 use crate::floating::SheetLayer;
 use crate::overlay::Bubble;
 use crate::{
-    AnyView, Badge, ButtonSize, Divider, IconButton, IconName, Motion, ScrollView, Side, Skeleton, Toggle,
-    Tooltip, View, ViewSeq, motion, util,
+    AnyView, Badge, ButtonSize, Divider, DropdownMenu, IconButton, IconName, MenuItem, Motion, ScrollView,
+    Side, Skeleton, Toggle, Tooltip, View, ViewSeq, motion, util,
 };
 
 /// How a [`Tabs`] bar looks.
@@ -31,6 +31,9 @@ pub enum TabsVariant {
 
 /// A tab bar with one content view per tab; only the selected one is built.
 /// Arrow keys move between tabs and open them; Home and End jump to the ends.
+///
+/// Tabs that do not fit the width go to a button at the end of the bar ("More tabs"), whose
+/// menu lists them; the open tab always shows, and the arrows reach the ones in the menu too.
 ///
 /// With [`item`](Self::item) instead of [`tab`](Self::tab), it is only the bar, and
 /// what `selected` changes is up to the app.
@@ -232,6 +235,95 @@ impl View for TabButton {
 
 /// What separates the track of segmented tabs from the piece inside it.
 const SEGMENT_TRACK_PADDING: f32 = 3.0;
+/// The chevron of the button with the tabs that do not fit.
+const TABS_MORE_ICON: f32 = 16.0;
+
+/// The tabs a bar `room` wide shows, in order: as many as fit from the start with `gap`
+/// between them, the open one always among them, and room for the button with the rest
+/// (`more` wide) when some do not fit.
+fn tabs_that_fit(widths: &[f32], gap: f32, room: f32, more: f32, open: usize) -> Vec<usize> {
+    if widths.is_empty() {
+        return Vec::new();
+    }
+    let all = widths.iter().sum::<f32>() + gap * (widths.len() - 1) as f32;
+    if all <= room + 0.5 {
+        return (0..widths.len()).collect();
+    }
+    let open = open.min(widths.len() - 1);
+    // What is left for the tabs before the open one is placed, beside the button.
+    let budget = room - more - gap - widths[open];
+    let mut shown = Vec::with_capacity(widths.len());
+    let mut used = 0.0;
+    for (index, width) in widths.iter().enumerate() {
+        if index == open {
+            continue;
+        }
+        if used + width + gap > budget + 0.5 {
+            break;
+        }
+        used += width + gap;
+        shown.push(index);
+    }
+    shown.push(open);
+    shown.sort_unstable();
+    shown
+}
+
+/// The button at the end of a [`Tabs`] bar that opens the tabs that do not fit, drawn as a
+/// tab with a chevron.
+struct TabsMore {
+    variant: TabsVariant,
+    size: ButtonSize,
+    disabled: bool,
+}
+
+impl View for TabsMore {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let ink = if self.disabled {
+            util::faded(theme.color(Semantic::InkMuted))
+        } else if cx.is_hovered() {
+            theme.color(Semantic::Ink)
+        } else {
+            theme.color(Semantic::InkMuted)
+        };
+        let chevron = util::icon(cx, IconName::ChevronDown, TABS_MORE_ICON, ink);
+        match self.variant {
+            TabsVariant::Underline => {
+                // As tall as a tab: the label's line, the gap and the place of the line under it.
+                let line = theme.text(self.size.text_style()).line_height;
+                let (top, gap) = match self.size {
+                    ButtonSize::Small | ButtonSize::Mini => (4.0, 6.0),
+                    _ => (8.0, 10.0),
+                };
+                cx.container(
+                    LayoutStyle {
+                        height: Some(top + line + gap + 2.0),
+                        padding: Insets { top, left: 2.0, right: 2.0, ..Insets::ZERO },
+                        align: Align::Start,
+                        ..LayoutStyle::stack(Axis::Horizontal)
+                    },
+                    &[chevron],
+                    Paint::None,
+                )
+            }
+            TabsVariant::Segmented => {
+                let side = self.size.height() - 2.0 * SEGMENT_TRACK_PADDING;
+                cx.container(
+                    LayoutStyle {
+                        width: Some(side),
+                        height: Some(side),
+                        align: Align::Center,
+                        justify: Justify::Center,
+                        ..LayoutStyle::stack(Axis::Horizontal)
+                    },
+                    &[chevron],
+                    Paint::None,
+                )
+            }
+        }
+    }
+}
 
 impl View for Tabs {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
@@ -239,30 +331,63 @@ impl View for Tabs {
         let border = theme.color(Semantic::Border);
         let (count, focus_to) = (self.tabs.len(), util::roving_cell(cx, None));
         let scope = cx.widget_id();
-        let buttons: Vec<NodeId> = self
-            .tabs
+        let segmented = self.variant == TabsVariant::Segmented;
+        let open = self.selected.get().min(count.saturating_sub(1));
+        // How wide each tab is, so those that do not fit go to the menu before they are built.
+        let text = util::attrs(&theme, self.size.text_style(), Some(Weight::SEMIBOLD));
+        let (pad, gap, more) = if segmented {
+            (2.0 * theme.spacing.s3, 2.0, self.size.height() - 2.0 * SEGMENT_TRACK_PADDING)
+        } else {
+            (4.0, 24.0, TABS_MORE_ICON + 4.0)
+        };
+        let widths: Vec<f32> =
+            self.tabs.iter().map(|(label, _)| cx.measure_text(label, &text).width + pad).collect();
+        // Known from the second build on; until then every tab is there.
+        let room =
+            cx.scroll_viewport().map(|v| v.width - if segmented { 2.0 * SEGMENT_TRACK_PADDING } else { 0.0 });
+        let shown =
+            room.map_or_else(|| (0..count).collect(), |room| tabs_that_fit(&widths, gap, room, more, open));
+        let mut buttons: Vec<NodeId> = shown
             .iter()
-            .enumerate()
-            .map(|(index, (label, _))| {
+            .map(|&index| {
                 let roving = util::Roving { index, count, focus_to: focus_to.clone() };
-                cx.child(&TabButton {
-                    scope,
-                    roving,
-                    label: label.clone(),
-                    selected: self.selected.clone(),
-                    variant: self.variant,
-                    size: self.size,
-                    disabled: self.disabled,
-                })
+                cx.keyed_child(
+                    index as u64,
+                    &TabButton {
+                        scope,
+                        roving,
+                        label: self.tabs[index].0.clone(),
+                        selected: self.selected.clone(),
+                        variant: self.variant,
+                        size: self.size,
+                        disabled: self.disabled,
+                    },
+                )
             })
             .collect();
+        let hidden: Vec<usize> = (0..count).filter(|i| !shown.contains(i)).collect();
+        if !hidden.is_empty() {
+            let mut menu = DropdownMenu::new(cx.labels().tabs_more.clone()).trigger(TabsMore {
+                variant: self.variant,
+                size: self.size,
+                disabled: self.disabled,
+            });
+            for index in hidden {
+                let chosen = self.selected.clone();
+                let mut item = MenuItem::new(self.tabs[index].0.clone()).checked(false);
+                item =
+                    if self.disabled { item.disabled("") } else { item.on_select(move || chosen.set(index)) };
+                menu = menu.item(item);
+            }
+            buttons.push(cx.keyed_child(u64::MAX, &menu));
+        }
         let bar = match self.variant {
             TabsVariant::Underline => cx.container(
                 LayoutStyle {
-                    spacing: 24.0,
+                    spacing: gap,
                     align_self: Some(Align::Stretch),
-                    // Tabs that do not fit go to another line instead of running over each other.
-                    wrap: true,
+                    min_width: Some(0.0),
+                    overflow_hidden: true,
                     ..LayoutStyle::stack(Axis::Horizontal)
                 },
                 &buttons,
@@ -273,10 +398,11 @@ impl View for Tabs {
             TabsVariant::Segmented => cx.container(
                 LayoutStyle {
                     padding: Insets::uniform(SEGMENT_TRACK_PADDING),
-                    spacing: 2.0,
+                    spacing: gap,
                     align: Align::Center,
                     align_self: Some(Align::Start),
-                    wrap: true,
+                    min_width: Some(0.0),
+                    overflow_hidden: true,
                     ..LayoutStyle::stack(Axis::Horizontal)
                 },
                 &buttons,
@@ -287,11 +413,10 @@ impl View for Tabs {
             ),
         };
         cx.semantics(bar, Semantics::new(Role::TabList));
-        let selected = self.selected.get().min(self.tabs.len().saturating_sub(1));
         let mut children = vec![bar];
-        if let Some((label, Some(content))) = self.tabs.get(selected) {
+        if let Some((label, Some(content))) = self.tabs.get(open) {
             // Keyed by tab so each tab keeps its own local state.
-            let content = cx.keyed_child(selected as u64, content.as_ref());
+            let content = cx.keyed_child(open as u64, content.as_ref());
             // A box that fills the space, so content that grows still does.
             let panel = cx.container(
                 LayoutStyle {
@@ -306,11 +431,20 @@ impl View for Tabs {
             cx.semantics(panel, Semantics::new(Role::TabPanel).name(label.clone()));
             children.push(panel);
         }
-        cx.container(
-            LayoutStyle { spacing: 20.0, align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
+        // It takes the width it is given, the width the tabs are fitted to.
+        let node = cx.container(
+            LayoutStyle {
+                spacing: 20.0,
+                align: Align::Stretch,
+                align_self: Some(Align::Stretch),
+                min_width: Some(0.0),
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
             &children,
             Paint::None,
-        )
+        );
+        cx.report_frame(node);
+        node
     }
 }
 
@@ -1053,22 +1187,31 @@ impl<V: View> View for SidebarInset<V> {
 /// A button that opens and closes a [`Sidebar`], sharing its [`SidebarState`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
-pub struct SidebarTrigger(SidebarState);
+pub struct SidebarTrigger {
+    state: SidebarState,
+    icon: IconName,
+}
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SidebarTrigger {
     /// A trigger for the sidebar that uses `state`.
     pub fn new(state: SidebarState) -> Self {
-        Self(state)
+        Self { state, icon: IconName::PanelLeft }
+    }
+
+    /// Another icon than the panel's, such as [`IconName::Menu`] on a phone's bar.
+    pub fn icon(mut self, icon: IconName) -> Self {
+        self.icon = icon;
+        self
     }
 }
 
-struct SidebarTriggerButton(SidebarState);
+struct SidebarTriggerButton(SidebarState, IconName);
 
 impl View for SidebarTriggerButton {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let state = self.0.clone();
-        let button = IconButton::new(IconName::PanelLeft)
+        let button = IconButton::new(self.1)
             .label(cx.labels().toggle_sidebar.clone())
             .size(ButtonSize::Small)
             .on_click(move || state.toggle());
@@ -1082,7 +1225,7 @@ impl View for SidebarTriggerButton {
 impl View for SidebarTrigger {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let name = cx.labels().toggle_sidebar.clone();
-        cx.child(&Tooltip::new(SidebarTriggerButton(self.0.clone()), name))
+        cx.child(&Tooltip::new(SidebarTriggerButton(self.state.clone(), self.icon), name))
     }
 }
 
@@ -1855,7 +1998,7 @@ impl View for Breadcrumb {
             &children,
             Paint::None,
         );
-        cx.semantics(node, Semantics::new(Role::Group).name("Breadcrumb"));
+        cx.semantics(node, Semantics::new(Role::Group).name(cx.labels().breadcrumb.clone()));
         node
     }
 }
@@ -2084,5 +2227,24 @@ impl View for Accordion {
             &children,
             Paint::None,
         )
+    }
+}
+
+#[cfg(test)]
+mod tabs_fit {
+    use super::tabs_that_fit;
+
+    #[test]
+    fn all_tabs_show_when_they_fit_and_the_open_one_always_shows() {
+        let widths = [60.0, 70.0, 80.0, 90.0, 70.0, 40.0];
+        assert_eq!(tabs_that_fit(&widths, 24.0, 600.0, 20.0, 0), vec![0, 1, 2, 3, 4, 5], "530 fit in 600");
+        assert_eq!(tabs_that_fit(&widths, 24.0, 360.0, 20.0, 0), vec![0, 1, 2], "three and the button");
+        assert_eq!(tabs_that_fit(&widths, 24.0, 360.0, 20.0, 5), vec![0, 1, 5], "the open one joins the bar");
+        assert_eq!(
+            tabs_that_fit(&widths, 24.0, 40.0, 20.0, 3),
+            vec![3],
+            "only the open one when nothing else fits"
+        );
+        assert!(tabs_that_fit(&[], 24.0, 360.0, 20.0, 0).is_empty());
     }
 }

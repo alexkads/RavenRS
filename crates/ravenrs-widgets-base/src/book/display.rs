@@ -4,7 +4,9 @@ use ravenrs_layout::Align;
 
 use super::button::{ICONS, icon};
 use super::{ArgType, ArgValue, Args, ComponentBook, Meta};
-use crate::{Alert, AnyView, Avatar, Badge, ProgressBar, Tone, VStack};
+use ravenrs_core::{Color, ImageData};
+
+use crate::{Alert, AnyView, Avatar, AvatarShape, Badge, Image, ProgressBar, Tone, VStack};
 
 const TONES: &[&str] = &["Neutral", "Accent", "Success", "Warning", "Danger"];
 
@@ -39,11 +41,30 @@ fn alert(args: &Args) -> AnyView {
     if args.bool("compact") {
         alert = alert.compact();
     }
+    let action = args.text("action");
+    if !action.is_empty() {
+        let pressed = ravenrs_reactive::State::new(0);
+        return Box::new(alert.action(action, move || pressed.update(|n| *n += 1)));
+    }
     Box::new(alert)
 }
 
+/// A square gradient, standing in for a profile picture.
+fn portrait() -> ImageData {
+    ImageData::from_fn(64, 64, |x, y| {
+        let (u, v) = (x as f32 / 64.0, y as f32 / 64.0);
+        Color::rgb(0.25 + 0.5 * u, 0.35 + 0.3 * v, 0.85 - 0.4 * u)
+    })
+    .unwrap_or_else(|| unreachable!("the size is not zero"))
+}
+
 fn avatar(args: &Args) -> AnyView {
-    Box::new(Avatar::new(args.text("name")).size(args.number("size") as f32))
+    let shape = if args.choice("shape") == "Rounded" { AvatarShape::Rounded } else { AvatarShape::Circle };
+    let mut it = Avatar::new(args.text("name")).size(args.number("size") as f32).shape(shape);
+    if args.bool("picture") {
+        it = it.image(Image::new(portrait()));
+    }
+    Box::new(it)
 }
 
 fn progress(args: &Args) -> AnyView {
@@ -56,6 +77,14 @@ fn progress(args: &Args) -> AnyView {
     }
     if !args.text("detail").is_empty() {
         bar = bar.detail(args.text("detail"));
+    }
+    bar = bar.detail_inline(args.bool("detail_inline"));
+    let marker = args.number("marker") as f32;
+    if marker > 0.0 {
+        bar = bar.marker(marker);
+        if !args.text("marker_label").is_empty() {
+            bar = bar.marker_label(args.text("marker_label"));
+        }
     }
     Box::new(bar)
 }
@@ -100,6 +129,10 @@ impl ComponentBook for Alert {
             .arg(ArgType::text("message", "The site is live."))
             .arg(ArgType::choice("tone", TONES, "Success"))
             .arg(ArgType::bool("compact", false))
+            .arg(
+                ArgType::text("action", "")
+                    .description("A button at the end that says what to do; empty shows none."),
+            )
             .story("Success", Args::new())
             .story(
                 "Danger",
@@ -107,6 +140,14 @@ impl ComponentBook for Alert {
                     .with("title", "Payment failed")
                     .with("message", "Update your card.")
                     .with("tone", ArgValue::choice("Danger")),
+            )
+            .story(
+                "With an action",
+                Args::new()
+                    .with("title", "1 part not converted")
+                    .with("message", "Line 13 runs free Groovy, which the server does not run.")
+                    .with("tone", ArgValue::choice("Danger"))
+                    .with("action", "Go to line 13"),
             )
             .story(
                 "Message only",
@@ -123,11 +164,23 @@ impl ComponentBook for Alert {
 impl ComponentBook for Avatar {
     fn book() -> Meta {
         Meta::new("Display and feedback/Avatar", avatar)
-            .summary("A person's initials or picture in a circle.")
+            .summary("A person's initials or picture, in a circle or a rounded square.")
             .arg(ArgType::text("name", "Ana Lima").description("The initials come from it."))
             .arg(ArgType::number("size", 32.0, 20.0, 96.0, 4.0))
+            .arg(ArgType::choice("shape", &["Circle", "Rounded"], "Circle").description(
+                "A circle, or a square with radius-md corners as a profile picture is often shown.",
+            ))
+            .arg(
+                ArgType::bool("picture", false)
+                    .description("A picture in place of the initials, cropped to the shape."),
+            )
             .story("Default", Args::new())
             .story("Large", Args::new().with("name", "Carla Dias").with("size", 44.0))
+            .story("Shape: Rounded", Args::new().with("shape", ArgValue::choice("Rounded")))
+            .story(
+                "Rounded, with a picture",
+                Args::new().with("shape", ArgValue::choice("Rounded")).with("picture", true),
+            )
     }
 }
 
@@ -140,11 +193,38 @@ impl ComponentBook for ProgressBar {
             .arg(ArgType::text("label", ""))
             .arg(ArgType::bool("percent", false))
             .arg(ArgType::text("detail", ""))
+            .arg(
+                ArgType::bool("detail_inline", false)
+                    .description("The detail on the line of the label, before the percent."),
+            )
+            .arg(
+                ArgType::number("marker", 0.0, 0.0, 1.0, 0.01)
+                    .description("A value of reference on the track, such as a limit; 0 for none."),
+            )
+            .arg(ArgType::text("marker_label", "").description("The marker's name, read after the value."))
             .story("Plain", Args::new().with("value", 0.25))
             .story("Success", Args::new().with("value", 0.9).with("tone", ArgValue::choice("Success")))
             .story(
                 "With label",
                 Args::new().with("label", "Copying").with("percent", true).with("detail", "12 of 30 photos"),
+            )
+            .story(
+                "Detail inline",
+                Args::new()
+                    .with("value", 0.6)
+                    .with("label", "Stage 3 of 5 · Tests")
+                    .with("percent", true)
+                    .with("detail", "812 of 1,360 tests")
+                    .with("detail_inline", true),
+            )
+            .story(
+                "With a marker",
+                Args::new()
+                    .with("value", 0.89)
+                    .with("label", "Confidence")
+                    .with("percent", true)
+                    .with("marker", 0.85)
+                    .with("marker_label", "limit 0.85"),
             )
             .story_with("All tones", Args::new(), all_progress_tones)
     }

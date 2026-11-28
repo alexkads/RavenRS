@@ -22,7 +22,8 @@ use crate::context::{BuildCx, NodeId};
 use crate::editors::{NumberField, TextArea};
 use crate::{
     Alert, AnyView, Button, ButtonSize, ButtonStyle, FieldDrag, FormField, HStack, IconButton, IconName,
-    SegmentedControl, Select, Spacer, Spinner, Text, TextField, Toggle, Tone, VStack, View,
+    LookupItem, SegmentedControl, Select, Spacer, Spinner, TagBox, Text, TextField, Toggle, Tone, VStack,
+    View,
 };
 
 /// The key of the object a field holds when it holds an expression instead of a value.
@@ -43,6 +44,9 @@ pub enum ParamKind {
     Boolean,
     /// One of these options, each its value and the words shown.
     Choice(Vec<(String, String)>),
+    /// Several of these options, each its value and the words shown, kept as a list of the values
+    /// chosen, in a [`TagBox`](crate::TagBox): the suites of a test run, the platforms of a build.
+    MultiChoice(Vec<(String, String)>),
     /// One of the options the app loads with [`ParameterForm::on_load`] and gives with
     /// [`ParameterForm::options`].
     Loaded,
@@ -342,6 +346,7 @@ pub struct ParameterForm {
     on_load: Option<Load>,
     on_apply: Option<Apply>,
     on_discard: Option<Rc<dyn Fn()>>,
+    live: bool,
 }
 
 impl std::fmt::Debug for ParameterForm {
@@ -354,7 +359,23 @@ impl std::fmt::Debug for ParameterForm {
 impl ParameterForm {
     /// A form of `fields` over `values`. The fields' defaults fill what the values lack.
     pub fn new(fields: Vec<ParamField>, values: Binding<ParamValues>) -> Self {
-        Self { fields, values, options: BTreeMap::new(), on_load: None, on_apply: None, on_discard: None }
+        Self {
+            fields,
+            values,
+            options: BTreeMap::new(),
+            on_load: None,
+            on_apply: None,
+            on_discard: None,
+            live: false,
+        }
+    }
+
+    /// Each change goes to `values` at once, with no Aplicar or Descartar: for a form inside a
+    /// dialog whose own buttons decide, as Disparar. A required field left empty is still marked,
+    /// and [`on_apply`](Self::on_apply) hears every change.
+    pub fn live(mut self, live: bool) -> Self {
+        self.live = live;
+        self
     }
 
     /// The options the app has now for the [`ParamKind::Loaded`] field `field`; with none, it
@@ -531,6 +552,7 @@ impl Parts {
                     .label(field.label.clone()),
             ),
             ParamKind::Choice(options) => self.choice(field, value, options),
+            ParamKind::MultiChoice(options) => self.choices(field, value, options),
             ParamKind::Loaded => match self.options.get(&field.name) {
                 Some(ParamOptions::Ready(options)) => self.choice(field, value, options),
                 Some(ParamOptions::Failed(why)) => {
@@ -594,7 +616,25 @@ impl Parts {
                 }
             },
         );
-        Box::new(Select::new(selected, words).label(field.label.clone()))
+        // As wide as the form, as the text fields beside it are.
+        Box::new(Select::new(selected, words).label(field.label.clone()).fill())
+    }
+
+    /// Several of `options`, as tags. Only values of the list are kept: one typed or pasted that is
+    /// not there never reaches the values.
+    fn choices(&self, field: &ParamField, value: Binding<Value>, options: &[(String, String)]) -> AnyView {
+        let allowed: Vec<String> = options.iter().map(|(v, _)| v.clone()).collect();
+        let selected = value.map(
+            |v| v.as_array().into_iter().flatten().filter_map(Value::as_str).map(str::to_owned).collect(),
+            move |v, tags: Vec<String>| {
+                *v = Value::Array(
+                    tags.into_iter().filter(|t| allowed.contains(t)).map(Value::String).collect(),
+                );
+            },
+        );
+        let items = options.iter().map(|(v, w)| LookupItem::new(v.clone(), w.clone())).collect();
+        // As wide as the form, as the text fields beside it are.
+        Box::new(TagBox::new(selected, items).label(field.label.clone()).fill())
     }
 
     fn list(
@@ -749,6 +789,43 @@ impl View for ParameterForm {
             })
             .collect();
         let changed = parts.draft_map() != committed;
+        if self.live {
+            let now = draft.get();
+            let mut wrong = Vec::new();
+            missing(&self.fields, &now, &labels.param_required, &mut wrong);
+            if errors.get() != wrong {
+                errors.set(wrong);
+            }
+            if changed {
+                let given = ParamValues(now.as_object().cloned().unwrap_or_default());
+                seen.set(given.0.clone());
+                self.values.set(given.clone());
+                if let Some(on_apply) = &self.on_apply {
+                    on_apply(&given);
+                }
+            }
+            let rows: Vec<AnyView> = self
+                .fields
+                .iter()
+                .filter(|f| shown(f, &now))
+                .map(|f| parts.field(f, vec![Step::Key(f.name.clone())]))
+                .collect();
+            let wrong: Vec<AnyView> = errors
+                .get()
+                .into_iter()
+                .map(|e| -> AnyView {
+                    Box::new(Text::new(e).style(TextStyle::Callout).foreground(Semantic::Danger))
+                })
+                .collect();
+            return cx.child(
+                &VStack::new((
+                    VStack::new(rows).spacing(12.0).align(Align::Stretch),
+                    VStack::new(wrong).spacing(4.0),
+                ))
+                .spacing(14.0)
+                .align(Align::Stretch),
+            );
+        }
 
         let (fields, values, apply_draft, apply_errors, on_apply) =
             (self.fields.clone(), self.values.clone(), draft.clone(), errors.clone(), self.on_apply.clone());

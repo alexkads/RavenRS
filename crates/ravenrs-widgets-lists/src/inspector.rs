@@ -432,7 +432,7 @@ impl View for DataInspector {
                             _ => labels.inspector_object.clone(),
                         })
                         .collect();
-                    let mark = if selected.get().as_deref() == Some(path.as_str()) { "▸ " } else { "" };
+                    let mark = if selected.get().as_deref() == Some(path.as_str()) { "→ " } else { "" };
                     table = table.row([
                         format!("{mark}{path}"),
                         words.join(" · "),

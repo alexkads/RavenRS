@@ -7,8 +7,8 @@ use std::rc::Rc;
 
 use ravenrs_app::{ActionInput, Object, ObjectSpace, Query, SpaceError, Value};
 use ravenrs_app_ui::Session;
-use ravenrs_core::{AccessAction, Role, Size};
-use ravenrs_style::Theme;
+use ravenrs_core::{AccessAction, Primitive, Quad, Role, Size, Toggled};
+use ravenrs_style::{Semantic, Theme};
 use ravenrs_widgets::Ui;
 
 use raven_feature_center::seed::PASSWORD;
@@ -334,6 +334,10 @@ fn appearance_follows_the_record() {
     c.open_record("AppearanceRules", 3.0);
     let delete = c.session().frame().action("Delete").expect("there");
     assert!(!delete.is_enabled(), "and the action");
+    // ListIndicator: the numbers above the list, over every record.
+    c.open_list("AppearanceRules");
+    assert!(c.says("EM ATRASO") && c.says("Pintados de vermelho"), "{:?}", c.texts());
+    assert!(c.says("R$ 410,00"), "{:?}", c.texts());
 }
 
 #[test]
@@ -1256,6 +1260,15 @@ fn the_flow_diagram_shows_every_feature_and_its_connections_hang_as_cables() {
     assert!(c.says("Nós no diagrama: 6"), "the diagram itself is the same");
     c.activate("Execução de fora");
     assert!(!c.says("3 itens"));
+    // height: a strip 200 pt tall, as wide as the page.
+    c.activate("Faixa de 200 pt");
+    assert!(c.says("Nós no diagrama: 6"), "the diagram is the same in the strip");
+    // And in a row beside a text, which does not stretch it, it takes the width of its stages.
+    let tree = c.ui.access_tree();
+    let row = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Estágios do build 12"));
+    let wide = row.expect("the strip in a row").bounds.width();
+    assert!(wide > 400.0, "a strip in a row is as wide as its stages, not 0: {wide}");
+    c.activate("Faixa de 200 pt");
     // Read only: the lock is not offered.
     c.activate("Só leitura");
     assert!(!c.says("Destravar edição"), "no way out of the lock");
@@ -1286,7 +1299,7 @@ fn the_data_inspector_shows_the_orders_four_ways_and_keeps_the_field_chosen() {
     c.press("Copiar como expressão");
     assert_eq!(c.ui.clipboard().read().as_deref(), Some("[pedido]"), "or copied as one from the keyboard");
     c.activate("Esquema");
-    assert!(c.says("▸ pedido"), "the field chosen stays chosen");
+    assert!(c.says("→ pedido"), "the field chosen stays chosen");
     assert!(c.says("cliente.cidade"), "a field one order lacks");
     c.activate("JSON");
     assert!(c.says("Campo escolhido: pedido"));
@@ -1329,6 +1342,14 @@ fn the_parameter_form_builds_from_a_schema_and_gives_back_only_on_apply() {
     assert!(c.says("Não deu para carregar as opções"));
     c.press("Tentar de novo");
     assert!(c.says("Pediu as opções de account"));
+
+    // live: the form of the dialog gives back each change at once, with no buttons of its own.
+    assert!(c.says("Branch do disparo é obrigatório"), "the empty required field is marked: {:?}", c.texts());
+    c.type_into("Branch do disparo", "develop");
+    assert!(c.says("\"branch\":\"develop\""), "{:?}", c.texts());
+    assert!(!c.says("Branch do disparo é obrigatório"), "{:?}", c.texts());
+    let applies = c.ui.access_tree().nodes.iter().filter(|n| n.name.as_deref() == Some("Aplicar")).count();
+    assert_eq!(applies, 1, "only the first form has Aplicar");
 }
 
 #[test]
@@ -1417,6 +1438,264 @@ impl Center {
         self.settle();
         self.ui.access_tree().nodes.iter().any(|n| n.name.as_deref() == Some(name))
     }
+}
+
+#[test]
+fn the_progress_bar_says_its_stage_and_puts_the_detail_beside_the_label_or_under_the_bar() {
+    let mut c = Center::memory("ana");
+    c.press("Progresso");
+    let height = |c: &mut Center, name: &str| {
+        let tree = c.ui.access_tree();
+        tree.find(Role::ProgressIndicator, name).unwrap_or_else(|| panic!("{name}")).bounds.height()
+    };
+    // detail_inline: one line of words over the bar; screen readers hear the detail all the same.
+    assert!(c.says("60%") && c.says("816 de 1.360 testes"), "{:?}", c.texts());
+    let inline = height(&mut c, "Estágio 3 de 5 · Testes");
+    c.press("Avançar um estágio");
+    assert!(c.says("Estágio 4 de 5 · Testes") && c.says("80%"), "{:?}", c.texts());
+    // Off: the detail goes under the bar, a line more.
+    c.activate("Detalhe na linha do rótulo");
+    let under = height(&mut c, "Estágio 4 de 5 · Testes");
+    assert!(inline + 10.0 < under, "inline {inline}, under {under}");
+    // tone, color, height, label, percent and detail of the others.
+    assert!(c.says("Disco") && c.says("Cor própria, 10 pt") && c.says("12 de 30 fotos"), "{:?}", c.texts());
+    // marker and marker_label: the value is read against the limit, above and below it.
+    let spoken = |c: &mut Center, name: &str| {
+        c.settle();
+        let tree = c.ui.access_tree();
+        tree.find(Role::ProgressIndicator, name).and_then(|n| n.value.clone()).unwrap_or_default()
+    };
+    assert_eq!(spoken(&mut c, "Confiança do palpite"), "89%, acima do limite 0,85");
+    assert!(c.says("Com 89%, o bot responde."), "{:?}", c.texts());
+    c.press("Palpite de 60%");
+    assert_eq!(spoken(&mut c, "Confiança do palpite"), "60%, abaixo do limite 0,85");
+    assert!(c.says("Com 60%, o bot diz \"não entendi\"."), "{:?}", c.texts());
+    // Two unnamed markers, read by where they are.
+    assert_eq!(spoken(&mut c, "Meta e piso do mês"), "55%, acima do ponto de 30%, abaixo do ponto de 80%");
+}
+
+#[test]
+fn the_scheduler_shows_each_resource_compact_or_on_two_lines_and_tells_its_events() {
+    let mut c = Center::memory("ana");
+    c.press("Agenda por recurso");
+    // resources, resources_title, compact and legend: the title of the column, the legend, a row
+    // per resource; the one away says why.
+    assert!(c.says("AGENTES") && c.says("A linha vertical é agora"), "{:?}", c.texts());
+    assert!(c.has_name("oficina-1") && c.has_name("vps-backup"), "{:?}", c.texts());
+    assert!(
+        c.says("Desconectado há 3 h · o build que estava nele foi retomado no oficina-1"),
+        "{:?}",
+        c.texts()
+    );
+    // on_open: opening an event says which.
+    let tree = c.ui.access_tree();
+    let event = tree
+        .nodes
+        .iter()
+        .find(|n| n.name.as_deref().is_some_and(|t| t.starts_with("site #56")))
+        .map(|n| n.id);
+    if let Some(id) = event {
+        c.ui.perform_action(id, ravenrs::core::AccessAction::Click);
+    }
+    // The toggles change the look and the page stays whole.
+    for name in
+        ["Compacto", "Barra", "Cartão", "Avatares", "Linhas que preenchem", "Só leitura", "Nomes estreitos"]
+    {
+        c.activate(name);
+    }
+    assert!(c.has_name("oficina-1"), "{:?}", c.texts());
+}
+
+#[test]
+fn toggles_switch_with_a_label_compact_or_only_an_accessible_name() {
+    let mut c = Center::memory("ana");
+    c.press("Chaves");
+    // new and label: on to begin with, and clicking the label switches it off.
+    assert!(c.says("Avisos no celular: ligada"), "{:?}", c.texts());
+    c.activate("Avisos no celular");
+    assert!(c.says("Avisos no celular: desligada"), "{:?}", c.texts());
+    // small: the compact switch is shorter and switches the same.
+    c.activate("Resumo por e-mail");
+    assert!(c.says("Resumo por e-mail: ligada"), "{:?}", c.texts());
+    let tree = c.ui.access_tree();
+    let small = tree.find(Role::Switch, "Resumo por e-mail").expect("the small switch").bounds.height();
+    let large = tree.find(Role::Switch, "Avisos no celular").expect("the switch").bounds.height();
+    assert!(small < large, "small {small}, large {large}");
+    // accessible_name: no text on the screen, and still found and switched by its name.
+    let tree = c.ui.access_tree();
+    let named: Vec<_> = tree.nodes.iter().filter(|n| n.name.as_deref() == Some("Ligar docker")).collect();
+    assert_eq!(named.len(), 1, "only the switch has the name, no text shows it: {named:?}");
+    assert_eq!(named[0].role, Role::Switch);
+    c.activate("Ligar docker");
+    assert!(c.says("Plugin docker: ligada"), "{:?}", c.texts());
+    // disabled and read_only: neither changes.
+    let tree = c.ui.access_tree();
+    assert!(tree.find(Role::Switch, "Indisponível").expect("disabled").disabled);
+    c.activate("Só leitura");
+    assert!(c.ui.access_tree().find(Role::Switch, "Só leitura").expect("read only").read_only);
+}
+
+#[test]
+fn the_code_completes_once_and_locks_while_it_is_verified() {
+    let mut c = Center::memory("ana");
+    c.press("Código de verificação");
+    let field = |c: &mut Center| {
+        c.settle();
+        let tree = c.ui.access_tree();
+        let found = tree
+            .nodes
+            .iter()
+            .find(|n| n.role == Role::TextInput && n.name.as_deref() == Some("Código de verificação"));
+        found.cloned().expect("the code")
+    };
+    // new: digits only, one per box.
+    c.type_into("Código de verificação", "48a29");
+    assert!(c.says("Digitado: 4829"), "{:?}", c.texts());
+    // on_complete: the sixth digit sends it, once.
+    c.type_into("Código de verificação", "13");
+    assert!(c.says("Verificando 482913…") && c.says("Conclusões: 1"), "{:?}", c.texts());
+    // disabled: unavailable to screen readers, and typing changes nothing nor completes again.
+    assert!(field(&mut c).disabled);
+    c.type_into("Código de verificação", "7");
+    assert_eq!(field(&mut c).value.as_deref(), Some("482913"));
+    assert!(c.says("Conclusões: 1"), "{:?}", c.texts());
+    // Back on, what was typed is kept.
+    c.press("Resposta do servidor");
+    let back = field(&mut c);
+    assert!(!back.disabled && back.value.as_deref() == Some("482913"), "{back:?}");
+    assert!(c.says("Digitado: 482913"), "{:?}", c.texts());
+}
+
+#[test]
+fn avatars_take_a_size_a_picture_a_ring_and_a_circle_or_a_rounded_square() {
+    let mut c = Center::memory("ana");
+    c.press("Avatar");
+    // new, size, image and shape: every avatar is named by the person, picture or initials.
+    for name in ["Ana Lima", "Conta Redonda", "Conta Quadrada", "Foto Quadrada"] {
+        c.settle();
+        assert!(c.ui.access_tree().find(Role::Image, name).is_some(), "{name}: {:?}", c.texts());
+    }
+    let md = Theme::raven_dark().radii.md;
+    let primitives = c.ui.scene().primitives().to_vec();
+    assert!(
+        primitives.iter().any(|p| matches!(p, Primitive::Image(image) if image.corner_radii == [md; 4])),
+        "a picture cropped to the rounded square"
+    );
+    assert!(
+        primitives.iter().any(|p| matches!(p, Primitive::Quad(q) if q.corner_radii == [md; 4])),
+        "initials in it"
+    );
+    // border: the chosen one of the row wears the ring, and choosing another moves it.
+    assert!(c.says("Escolhida: Ana Lima"), "{:?}", c.texts());
+    c.press("Carla Dias");
+    assert!(c.says("Escolhida: Carla Dias"), "{:?}", c.texts());
+    let accent = Theme::raven_dark().color(Semantic::Accent);
+    let rings = c
+        .ui
+        .scene()
+        .primitives()
+        .iter()
+        .filter(|p| matches!(p, Primitive::Quad(q) if q.border.is_some_and(|b| b.width == 2.0 && b.color == accent)))
+        .count();
+    assert_eq!(rings, 1, "one ring, on the chosen one");
+}
+
+#[test]
+fn cards_are_clicked_chosen_and_toned_and_take_every_shape() {
+    let mut c = Center::memory("ana");
+    c.press("Cartões");
+    let card_named = |c: &mut Center, start: &str| {
+        c.settle();
+        let tree = c.ui.access_tree();
+        tree.nodes
+            .iter()
+            .find(|n| n.role == Role::Button && n.name.as_deref().is_some_and(|name| name.starts_with(start)))
+            .unwrap_or_else(|| panic!("no card {start}"))
+            .clone()
+    };
+    // on_click: the card is a button, and a click opens it.
+    let report = card_named(&mut c, "Relatório do mês").id;
+    c.ui.perform_action(report, AccessAction::Click);
+    c.settle();
+    assert!(c.says("Aberto 1 vezes"), "{:?}", c.texts());
+    // selected: one plan of three is chosen, and choosing another moves the mark.
+    assert_eq!(card_named(&mut c, "Estúdio").selected, Some(true));
+    let network = card_named(&mut c, "Rede").id;
+    c.ui.perform_action(network, AccessAction::Click);
+    c.settle();
+    assert!(c.says("Plano escolhido: Rede"), "{:?}", c.texts());
+    assert_eq!(card_named(&mut c, "Rede").selected, Some(true));
+    assert_eq!(card_named(&mut c, "Estúdio").selected, Some(false));
+    // tone, fill, border, corner_radius, padding, shadow and no_shadow, as painted.
+    let theme = Theme::raven_dark();
+    let quads: Vec<Quad> =
+        c.ui.scene()
+            .primitives()
+            .iter()
+            .filter_map(|p| if let Primitive::Quad(q) = p { Some(*q) } else { None })
+            .collect();
+    for tone in [Semantic::Success, Semantic::Warning, Semantic::Danger] {
+        let hairline = theme.color(tone).with_alpha(0.30);
+        assert!(quads.iter().any(|q| q.border.is_some_and(|b| b.color == hairline)), "a {tone:?} card");
+    }
+    assert!(quads.iter().any(|q| q.corner_radii == [10.0; 4] && q.border.is_some()), "the compact card");
+    assert!(
+        quads.iter().any(|q| q.border.is_none() && q.fill == theme.color(Semantic::Surface).into()),
+        "no hairline"
+    );
+    assert!(quads.iter().any(|q| q.shadow == Some(theme.elevation.raised)), "the raised card");
+    assert!(quads.iter().any(|q| q.shadow.is_none() && q.border.is_some()), "the flat card");
+    for said in [
+        "Padrão",
+        "Compacto",
+        "Plano",
+        "Elevado",
+        "Sem filete",
+        "Neutro",
+        "Destaque",
+        "Pós-venda",
+        "A conferir",
+        "Estornado",
+    ] {
+        assert!(c.says(said), "{said}: {:?}", c.texts());
+    }
+}
+
+#[test]
+fn check_boxes_are_mixed_by_their_children_or_by_an_unknown_answer() {
+    let mut c = Center::memory("ana");
+    c.press("Caixas de seleção");
+    let state = |c: &mut Center, name: &str| {
+        c.settle();
+        c.ui.access_tree().find(Role::CheckBox, name).unwrap_or_else(|| panic!("{name}")).clone()
+    };
+    // new: a click checks it.
+    c.activate("Aceito os termos");
+    assert!(c.says("Termos: aceitos"), "{:?}", c.texts());
+    // mixed: two of three extras, so the select all is partly checked; a click checks them all,
+    // another unchecks them all; a child alone makes it mixed again.
+    assert_eq!(state(&mut c, "Todos os adicionais").toggled, Some(Toggled::Mixed));
+    c.activate("Todos os adicionais");
+    assert!(c.says("Adicionais: Seguro, Bagagem extra, Assento na janela"), "{:?}", c.texts());
+    assert_eq!(state(&mut c, "Todos os adicionais").toggled, Some(Toggled::True));
+    c.activate("Todos os adicionais");
+    assert!(c.says("Adicionais: nenhum"), "{:?}", c.texts());
+    c.activate("Seguro");
+    assert_eq!(state(&mut c, "Todos os adicionais").toggled, Some(Toggled::Mixed));
+    // leading: the children's labels line up past the width of a toggle.
+    let (child, parent) = (state(&mut c, "Seguro"), state(&mut c, "Todos os adicionais"));
+    assert!(child.bounds.width() > 0.0 && parent.bounds.width() > 0.0);
+    // optional: unknown, yes, no, and unknown again.
+    assert_eq!(state(&mut c, "Tem carro").toggled, Some(Toggled::Mixed));
+    for said in ["sim", "não", "não informado"] {
+        c.activate("Tem carro");
+        assert!(c.says(&format!("Tem carro: {said}")), "{said}: {:?}", c.texts());
+    }
+    // disabled and read_only: neither changes.
+    assert!(state(&mut c, "Indisponível").disabled);
+    c.activate("Só leitura");
+    let read_only = state(&mut c, "Só leitura");
+    assert!(read_only.read_only && read_only.toggled == Some(Toggled::True), "{read_only:?}");
 }
 
 #[test]
@@ -1573,6 +1852,58 @@ fn the_news_of_each_version_open_on_the_version_running_the_newest_and_a_failure
 }
 
 #[test]
+fn the_service_page_writes_the_file_of_each_system_and_plans_with_no_command_run() {
+    let mut c = Center::memory("ana");
+    c.press("Serviço do sistema");
+    assert!(c.says("Gerenciador deste computador:"), "{:?}", c.texts());
+    // systemd, with the limit: the unit of the app's own name, its command and MemoryMax.
+    for said in [
+        "Conferido: o serviço pode ser instalado",
+        "raven-exemplo.service",
+        "MemoryMax=1G",
+        "Restart=on-failure",
+        "\"servir\"",
+    ] {
+        assert!(c.says(said), "{said}: {:?}", c.texts());
+    }
+    c.press("Limite de 1G: sim");
+    assert!(!c.says("MemoryMax"), "with no limit, no MemoryMax: {:?}", c.texts());
+    c.press("Do sistema todo: não");
+    // For the whole system; the file stays in the folder of the dry run, never in /etc.
+    assert!(
+        c.says("WantedBy=multi-user.target") && c.says("raven-feature-center-servico"),
+        "{:?}",
+        c.texts()
+    );
+    c.press("Planejar a instalação");
+    assert!(c.says("systemctl enable --now raven-exemplo"), "{:?}", c.texts());
+    c.press("Ver o estado");
+    assert!(c.says("Estado: instalado") && c.says("systemctl is-active raven-exemplo"), "{:?}", c.texts());
+    c.press("Remover");
+    assert!(c.says("Removido · systemctl disable --now raven-exemplo"), "{:?}", c.texts());
+    c.press("Do sistema todo: sim");
+    c.press("Limite de 1G: não");
+    // launchd: the plist by the bundle id, kept alive, and the limit macOS does not enforce.
+    c.press("launchd");
+    for said in
+        ["dev.ravenrs.raven-exemplo.plist", "<key>RunAtLoad</key><true/>", "O macOS não o aplica", "RUST_LOG"]
+    {
+        assert!(c.says(said), "{said}: {:?}", c.texts());
+    }
+    c.press("Planejar a instalação");
+    assert!(c.says("launchctl bootstrap gui/UID") && c.says("aviso: o macOS não aplica"), "{:?}", c.texts());
+    // Windows: a task at logon, again when it falls.
+    c.press("Windows");
+    assert!(c.says("<LogonTrigger>") && c.says("<RestartOnFailure>"), "{:?}", c.texts());
+    c.press("Planejar a instalação");
+    assert!(c.says("schtasks /Create /TN raven-exemplo"), "{:?}", c.texts());
+    c.press("Remover");
+    // A name by hand, with ServiceSpec::new.
+    c.press("Nome à mão: não");
+    assert!(c.says("raven-exemplo-servidor-tarefa.xml"), "{:?}", c.texts());
+}
+
+#[test]
 fn the_web_api_page_builds_the_options_the_server_gets() {
     let mut c = Center::memory("ana");
     c.press("API web");
@@ -1605,6 +1936,53 @@ fn the_web_api_page_builds_the_options_the_server_gets() {
     c.press("Publicar evento");
     c.press("Publicar evento");
     assert!(c.says("Último evento publicado em avisos: #2."), "{:?}", c.texts());
+
+    // open and pass_header: the webhooks of other services come in with no token, with their headers.
+    assert!(c.says("open: []"), "{:?}", c.texts());
+    c.activate("Receber avisos de outros serviços");
+    assert!(c.says("open: [\"/hooks/\"]"), "{:?}", c.texts());
+    assert!(c.says("headers: [\"x-hub-\"]"), "{:?}", c.texts());
+}
+
+#[test]
+fn the_page_of_the_api_service_asks_each_feature_through_handle() {
+    let mut c = Center::memory("ana");
+    c.press("Serviço da API");
+    assert!(c.says("Nenhum pedido ainda."), "{:?}", c.texts());
+
+    // new, handle and session_lifetime: ana signs in, and the session lasts 30 minutes.
+    c.press("Entrar como ana");
+    assert!(c.says("Entrar: 200: a sessão dura 1800 s"), "{:?}", c.texts());
+    // setting: a preference of her own, kept and read back.
+    c.press("Guardar o tema escuro");
+    assert!(c.says("Tema: 200: tema \"escuro\""), "{:?}", c.texts());
+    // endpoint: a command of the center's, run as whoever called it.
+    c.press("Somar 2 e 3");
+    assert!(c.says("Somar: 200: soma 5.0"), "{:?}", c.texts());
+    // title and hide: the description has its name and leaves the entity out.
+    c.press("Ler a descrição");
+    assert!(c.says("API do Centro de Recursos; AuditOwner fica de fora: sim"), "{:?}", c.texts());
+    // webhook: a signed notice is taken, a forged one refused.
+    c.press("Receber aviso assinado");
+    assert!(c.says("assinado: 2"), "{:?}", c.texts());
+    assert!(!c.says("com assinatura falsa: 2"), "{:?}", c.texts());
+    // fallback: the route answers only while it is on, as text (ApiResponse::raw).
+    c.press("Pedir /api/hora");
+    assert!(c.says("Hora: 404"), "off, no one knows it: {:?}", c.texts());
+    c.activate("Ligar a rota /api/hora");
+    c.press("Pedir /api/hora");
+    assert!(c.says("Hora: 200 text/plain: 12:00 para ana"), "{:?}", c.texts());
+    // authenticator: a guest comes in by an invitation.
+    c.press("Entrar com convite");
+    assert!(c.says("Convite: 200: visitante entrou por convite"), "{:?}", c.texts());
+    // sign_ins_a_minute: after 3 tries a minute, the address waits.
+    c.press("Errar a senha 4 vezes");
+    assert!(c.says("429"), "the fourth try waits: {:?}", c.texts());
+    // role_merge, rule_words and audit: how the roles add up changes the service.
+    assert!(c.says("Papéis: um que permita basta."), "{:?}", c.texts());
+    c.activate("Todos os papéis");
+    assert!(c.says("Papéis: todos precisam permitir."), "{:?}", c.texts());
+    assert!(c.says("as regras falam português"), "{:?}", c.texts());
 }
 
 #[test]
@@ -1616,15 +1994,33 @@ fn the_build_log_shows_colors_folds_its_stages_searches_and_points_at_a_line() {
     assert!(!c.texts().iter().any(|text| text.contains('\u{1b}')), "no ANSI code shows");
     assert!(c.says("Log do build 42") || c.has_name("Log do build 42"), "its label: {:?}", c.texts());
 
+    // A long line keeps the height of one line and does not run into the next (#899): the list
+    // scrolls across to it instead of breaking it.
+    let tree = c.ui.access_tree();
+    let item = |number: usize| {
+        let start = format!("Apontar a linha {number} ");
+        tree.nodes
+            .iter()
+            .find(|n| n.role == Role::ListItem && n.name.as_deref().is_some_and(|t| t.starts_with(&start)))
+    };
+    let (long, next) = (item(10), item(9));
+    let long = long.expect("the long line").bounds;
+    assert!(long.height() <= 20.5, "one line high: {long:?}");
+    assert!(next.expect("the line before").bounds.max_y() <= long.origin.y + 0.5, "no overlap");
+
     // The search marks the lines that hold it.
     c.type_into("Buscar no log", "fail");
     assert!(c.says("1 linhas com o termo"), "{:?}", c.texts());
 
+    // Each stage says how it ran, and a line with no colors takes them from its first word.
+    assert!(c.says("· git · 8 s"), "{:?}", c.texts());
+    assert!(c.says("SLOW") && c.says("Baixar log"), "{:?}", c.texts());
+
     // A stage folds and says how much it hides.
-    c.press("Checkout");
-    assert!(c.says("2 linhas dobradas"), "{:?}", c.texts());
+    c.press("Checkout · git · 8 s");
+    assert!(c.says("· git · 8 s · 2 linhas dobradas"), "{:?}", c.texts());
     assert!(!c.says("HEAD is now at"), "its lines are hidden");
-    c.press("Checkout · 2 linhas dobradas");
+    c.press("Checkout · git · 8 s · 2 linhas dobradas");
     assert!(c.says("HEAD is now at"), "and come back");
 
     // A line is pointed at by its number.
@@ -1634,11 +2030,762 @@ fn the_build_log_shows_colors_folds_its_stages_searches_and_points_at_a_line() {
     // A new line comes, and the settings change what shows.
     c.press("Chegar linha nova");
     assert!(c.says("nova::linha_1"), "{:?}", c.texts());
-    assert!(c.says("8 linhas no log."), "{:?}", c.texts());
+    assert!(c.says("11 linhas no log."), "{:?}", c.texts());
+
+    // One stage alone, and back to every line.
+    c.activate("Só o estágio Testes");
+    assert!(c.says("Só Testes") && !c.says("HEAD is now at"), "{:?}", c.texts());
+    c.press("Mostrar tudo");
+    assert!(c.says("HEAD is now at"), "{:?}", c.texts());
     c.activate("Números das linhas");
     assert!(!c.has_name("Apontar a linha 2"), "no numbers");
     c.activate("Busca");
     assert!(!c.has_name("Buscar no log") && !c.says("linhas com o termo"), "no search field");
     c.activate("Seguir o fim");
-    assert!(c.says("Ir para o fim") || c.has_name("Ir para o fim"), "the way back to the end stays");
+    assert!(c.has_name("Seguir o fim"), "the switch stays, to follow again");
+}
+
+#[test]
+fn the_stats_say_their_number_with_a_caption_and_the_change_since_before() {
+    let mut c = Center::memory("ana");
+    c.press("Indicadores");
+    // new and caption: the label in capitals, the number and the line under it.
+    assert!(c.says("NA FILA") && c.says("O mais antigo espera há 40 s"), "{:?}", c.texts());
+    c.press("Chegou um build");
+    assert!(c.says("3") && c.says("O mais antigo espera há 60 s"), "{:?}", c.texts());
+    c.press("Saiu um build");
+    c.press("Saiu um build");
+    c.press("Saiu um build");
+    assert!(c.says("Ninguém espera"), "{:?}", c.texts());
+    // large: the same stat, in the size of the number a screen is about.
+    c.activate("Grande");
+    assert!(c.says("NA FILA"), "{:?}", c.texts());
+    // delta and delta_toned: the change, up or down, good or bad.
+    for change in ["+12,4%", "-3,1%", "+8%", "-0,4%"] {
+        assert!(c.says(change), "{change}: {:?}", c.texts());
+    }
+    assert!(c.says("Lida do processo, ao vivo; meta ≤ 60 MB"), "{:?}", c.texts());
+    // value_tone: the totals painted in their tone, taken toward ink as a badge's words are.
+    assert!(c.says("PÓS-VENDA") && c.says("R$ 1.240"), "{:?}", c.texts());
+    let theme = Theme::raven_dark();
+    let ink = theme.color(Semantic::Ink);
+    let colors: Vec<_> =
+        c.ui.scene()
+            .primitives()
+            .iter()
+            .filter_map(|p| {
+                if let Primitive::Glyphs(run) = p { (run.size == 30.0).then_some(run.color) } else { None }
+            })
+            .collect();
+    for tone in [Semantic::Success, Semantic::Warning, Semantic::Danger] {
+        let toned = theme.color(tone).lerp(ink, 0.3);
+        assert!(colors.contains(&toned), "a value in {tone:?}: {colors:?}");
+    }
+    assert!(colors.contains(&ink), "and the plain value stays in ink");
+}
+
+#[test]
+fn the_list_packs_its_rows_tells_their_state_and_runs_their_action() {
+    let mut c = Center::memory("ana");
+    c.press("Lista");
+    let height = |c: &mut Center, name: &str| {
+        c.settle();
+        let tree = c.ui.access_tree();
+        tree.nodes
+            .iter()
+            .find(|n| n.name.as_deref() == Some(name))
+            .unwrap_or_else(|| panic!("{name}"))
+            .bounds
+            .height()
+    };
+    // compact: rows of 48, the subtitle beside the title; the title names the row and the rest
+    // describes it.
+    let compact = height(&mut c, "Checkout");
+    assert!((compact - 48.0).abs() < 0.5, "{compact}");
+    let tree = c.ui.access_tree();
+    let lint = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Lint")).expect("Lint");
+    assert_eq!(lint.description.as_deref(), Some("cargo clippy · 1 min 40 s"));
+    c.activate("Compacta");
+    assert!(height(&mut c, "Checkout") > compact, "two lines when not compact");
+    // on_click and selected: a click opens the row.
+    c.press("Lint");
+    assert!(c.says("Aberto: Lint"), "{:?}", c.texts());
+    // action: the button at the end of the row.
+    c.press("Ligar o plugin");
+    assert!(c.says("Ação: ligar o plugin"), "{:?}", c.texts());
+    // avatar and trailing.
+    assert!(c.has_name("Ana Lima") && c.has_name("Bia Souza"), "{:?}", c.texts());
+}
+
+#[test]
+fn the_title_bar_draws_the_window_buttons_and_the_bar_of_a_phone() {
+    let mut c = Center::memory("ana");
+    c.press("Barra de título");
+    assert!(c.says("Relatório.pdf") && c.says("Raven CI"), "{:?}", c.texts());
+    // on_minimize, on_close: a button shows when it has a handler, and runs it.
+    c.press("Minimizar");
+    assert!(c.says("Minimizar"), "{:?}", c.texts());
+    c.press("Fechar");
+    assert!(c.says("Fechar"), "{:?}", c.texts());
+    // on_maximize and maximized: the middle button says it restores once maximized.
+    c.press("Maximizar");
+    assert!(c.has_name("Restaurar"), "{:?}", c.texts());
+    // mobile: the menu before the title and the search after it.
+    c.press("Abrir o menu");
+    assert!(c.says("Menu aberto"), "{:?}", c.texts());
+    c.press("Buscar comandos");
+    assert!(c.says("Busca aberta"), "{:?}", c.texts());
+    // active: without the keyboard the bar goes quiet, and still shows.
+    c.activate("Com o teclado");
+    assert!(c.says("Relatório.pdf"), "{:?}", c.texts());
+}
+
+#[test]
+fn selects_pick_by_position_or_value_in_four_sizes_with_search_an_icon_and_their_states() {
+    let mut c = Center::memory("ana");
+    c.press("Listas de escolha");
+    c.settle();
+    // new, of, label, icon, size, searchable, width, fill, disabled and read_only: each select is named.
+    for name in [
+        "Estúdio",
+        "Qualidade",
+        "Prazo",
+        "Responsável",
+        "Idioma",
+        "Tamanho Mini",
+        "Tamanho Small",
+        "Tamanho Medium",
+        "Tamanho Large",
+        "Moeda",
+        "Largura fixa",
+        "Largura da coluna",
+        "Desligada",
+        "Só leitura",
+    ] {
+        assert!(c.ui.access_tree().find(Role::ComboBox, name).is_some(), "{name}: {:?}", c.texts());
+    }
+    assert!(c.says("Estúdio escolhido: Todos os estúdios"), "{:?}", c.texts());
+    // Choosing writes the binding: open the list and pick another studio.
+    let field = c.ui.access_tree().find(Role::ComboBox, "Estúdio").map(|n| n.id).expect("the field");
+    c.ui.perform_action(field, AccessAction::Expand);
+    c.settle();
+    let option =
+        c.ui.access_tree().find(Role::ListBoxOption, "Externo").map(|n| n.id).expect("the open list");
+    c.ui.perform_action(option, AccessAction::Click);
+    c.settle();
+    assert!(c.says("Estúdio escolhido: Externo"), "{:?}", c.texts());
+}
+
+#[test]
+fn menus_open_from_a_button_or_any_view_with_a_header_titled_sections_and_every_kind_of_item() {
+    let mut c = Center::memory("ana");
+    c.press("Menus");
+    c.settle();
+    // trigger: the account is a button named by the label, beside the menus of every style and size.
+    for name in [
+        "Ações",
+        "Conta",
+        "Novo",
+        "Mais",
+        "Apagar",
+        "Pequeno",
+        "Mini",
+        "Grande",
+        "Opções",
+        "Abrir pelo atalho",
+    ] {
+        assert!(c.ui.access_tree().find(Role::Button, name).is_some(), "{name}: {:?}", c.texts());
+    }
+    c.press("Conta");
+    c.settle();
+    // header and label: who is signed in above the items, and the themes as a group named "Tema".
+    assert!(c.says("ana@exemplo.com"), "{:?}", c.texts());
+    assert!(c.ui.access_tree().find(Role::Group, "Tema").is_some(), "{:?}", c.texts());
+    let escuro = c.ui.access_tree().find(Role::MenuItem, "Escuro").map(|n| n.id).expect("the themes");
+    c.ui.perform_action(escuro, AccessAction::Click);
+    c.settle();
+    assert!(c.says("Tema: Escuro"), "{:?}", c.texts());
+}
+
+/// Picks a view in the switch of the calendar: "Ano" is also the name of a page.
+fn pick_view(c: &mut Center, view: &str) {
+    let id =
+        c.ui.access_tree()
+            .nodes
+            .iter()
+            .find(|n| n.role == Role::RadioButton && n.name.as_deref() == Some(view))
+            .map(|n| n.id)
+            .unwrap_or_else(|| panic!("no view {view}: {:?}", c.texts()));
+    c.ui.perform_action(id, AccessAction::Click);
+    c.settle();
+}
+
+#[test]
+fn the_event_calendar_shows_six_views_and_names_the_seasons_from_the_hemisphere() {
+    let mut c = Center::memory("ana");
+    c.press("Calendário de eventos");
+    c.settle();
+    // views, view and hemisphere: the season of the 15th of November is spring in the south.
+    assert!(c.says("Primavera de 2026"), "{:?}", c.texts());
+    c.activate("Estações do sul");
+    assert!(c.says("Outono de 2026"), "{:?}", c.texts());
+    // the agenda: the events from the 15th on, in order.
+    pick_view(&mut c, "Agenda");
+    assert!(c.says("Café com cliente"), "{:?}", c.texts());
+    // on_event: an event opens.
+    c.activate("Café com cliente");
+    assert!(c.says("Aberto o evento 2"), "{:?}", c.texts());
+    // the year, then a day of it opens the month with events, events_per_day and today.
+    pick_view(&mut c, "Ano");
+    assert!(c.says("2026"), "{:?}", c.texts());
+    // the month, with two events a day before the rest are counted, and the week and the day.
+    pick_view(&mut c, "Mês");
+    assert!(c.says("Ensaio de gestante"), "{:?}", c.texts());
+    pick_view(&mut c, "Semana");
+    assert!(c.says("Entrega de álbum"), "{:?}", c.texts());
+    // the day chosen in the agenda goes along: the 18th.
+    pick_view(&mut c, "Dia");
+    assert!(c.says("Café com cliente"), "{:?}", c.texts());
+}
+
+#[test]
+fn the_year_view_marks_days_opens_months_and_shows_a_season_without_its_header() {
+    let mut c = Center::memory("ana");
+    c.press("Ano");
+    c.settle();
+    // new, today, marks, columns and selected: a marked day says what it has.
+    let tree = c.ui.access_tree();
+    assert!(tree.nodes.iter().any(|n| n.description.as_deref() == Some("Ensaio")), "{:?}", c.texts());
+    // on_month: the name of a month is a button.
+    c.activate("março");
+    assert!(c.says("Mês aberto: 3/2026"), "{:?}", c.texts());
+    // months and header: three months from December, the year before, without arrows of their own.
+    let tree = c.ui.access_tree();
+    let calendars = tree.nodes.iter().filter(|n| n.role == Role::Calendar).count();
+    assert_eq!(calendars, 12 + 3, "{:?}", c.texts());
+    let crossing = tree
+        .nodes
+        .iter()
+        .filter(|n| n.role == Role::Calendar && n.name.as_deref().is_some_and(|name| name.contains("2025")))
+        .count();
+    assert_eq!(crossing, 1, "December says its year: {:?}", c.texts());
+}
+
+#[test]
+fn tabs_switch_views_in_two_looks_and_three_sizes_and_send_what_does_not_fit_to_a_menu() {
+    let mut c = Center::memory("ana");
+    c.press("Abas");
+    c.settle();
+    // new and tab: the open tab builds its view.
+    assert!(c.says("O que aconteceu hoje."), "{:?}", c.texts());
+    c.activate("Ajustes");
+    c.settle();
+    assert!(c.says("Preferências da conta."), "{:?}", c.texts());
+    // item, variant and size: six channels in 360, with the last ones in the menu of each bar.
+    let tree = c.ui.access_tree();
+    let menus = tree
+        .nodes
+        .iter()
+        .filter(|n| n.role == Role::Button && n.name.as_deref() == Some("Mais abas"))
+        .count();
+    assert_eq!(menus, 2, "one menu in each look: {:?}", c.texts());
+    assert!(c.says("Canal: Todas"), "{:?}", c.texts());
+    let more = tree
+        .nodes
+        .iter()
+        .find(|n| n.role == Role::Button && n.name.as_deref() == Some("Mais abas"))
+        .map(|n| n.id)
+        .expect("the menu of the first bar");
+    c.ui.perform_action(more, AccessAction::Click);
+    c.settle();
+    let site = c.ui.access_tree().find(Role::MenuItem, "Site").map(|n| n.id).expect("Site in the menu");
+    c.ui.perform_action(site, AccessAction::Click);
+    c.settle();
+    assert!(c.says("Canal: Site"), "{:?}", c.texts());
+    // size: three bars, and disabled: the bar that waits keeps its tab.
+    for name in ["Hoje", "Semana", "Mês", "Rascunho", "Enviando"] {
+        assert!(c.ui.access_tree().find(Role::Tab, name).is_some(), "{name}: {:?}", c.texts());
+    }
+    c.activate("Rascunho");
+    c.settle();
+    let tree = c.ui.access_tree();
+    assert_eq!(tree.find(Role::Tab, "Enviando").and_then(|n| n.selected), Some(true), "it did not change");
+}
+
+#[test]
+fn split_panes_fold_a_side_keep_their_sizes_and_hide_a_pane() {
+    let mut c = Center::memory("ana");
+    c.press("Painéis divididos");
+    c.settle();
+    // horizontal, pane, size, range, label and collapsed: the first column folds by its arrow.
+    assert!(c.says("Sessões: aberta"), "{:?}", c.texts());
+    assert!(c.says("Larguras guardadas: 220, o resto, 220"), "{:?}", c.texts());
+    c.activate("Recolher Sessões");
+    c.settle();
+    assert!(c.says("Sessões: recolhida"), "{:?}", c.texts());
+    assert!(c.ui.access_tree().find(Role::Button, "Mostrar Sessões").is_some(), "{:?}", c.texts());
+    c.activate("Mostrar Sessões");
+    c.settle();
+    assert!(c.says("Sessões: aberta"), "{:?}", c.texts());
+    // collapsible: the last column folds with its own arrow, kept by the pane.
+    c.activate("Recolher Movimento");
+    c.settle();
+    assert!(c.ui.access_tree().find(Role::Button, "Mostrar Movimento").is_some(), "{:?}", c.texts());
+    c.activate("Mostrar Movimento");
+    c.settle();
+    // sizes and on_end: a key on the first bar writes the width the app keeps, and asks to save.
+    let bar =
+        c.ui.access_tree()
+            .nodes
+            .iter()
+            .find(|n| n.role == Role::Slider && n.name.as_deref() == Some("Redimensionar"))
+            .map(|n| n.id)
+            .expect("the first bar");
+    c.ui.perform_action(bar, AccessAction::Increment);
+    c.settle();
+    assert!(c.says("Tamanhos salvos: 1"), "{:?}", c.texts());
+    assert!(!c.says("Larguras guardadas: 220, o resto, 220"), "{:?}", c.texts());
+    // vertical, height and visible: the lower pane goes and comes back.
+    assert!(c.says("Detalhes"), "{:?}", c.texts());
+    c.activate("Esconder detalhes");
+    c.settle();
+    assert!(!c.says("Detalhes"), "{:?}", c.texts());
+    c.activate("Mostrar detalhes");
+    c.settle();
+    assert!(c.says("Detalhes"), "{:?}", c.texts());
+}
+
+#[test]
+fn monospaced_text_lines_up_the_lines_of_a_receipt() {
+    let mut c = Center::memory("ana");
+    c.press("Texto");
+    c.settle();
+    let [subtotal, total] = raven_feature_center::widgets::basicos::texto::CUPOM;
+    let tree = c.ui.access_tree();
+    // Screen readers may hear a run of spaces as one.
+    let words = |text: &str| text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let width = |name: &str| {
+        tree.nodes
+            .iter()
+            .find(|n| n.name.as_deref().is_some_and(|said| words(said) == words(name)))
+            .map(|n| n.bounds.width())
+            .expect("the line")
+    };
+    assert_eq!(width(subtotal), width(total), "the same number of characters ends at the same place");
+}
+
+#[test]
+fn a_receipt_starts_empty_takes_lines_and_shows_the_total_in_its_band() {
+    let mut c = Center::memory("ana");
+    c.press("Cupom");
+    c.settle();
+    // new, title, subtitle, empty_text, summary and total: the sale starts empty.
+    assert!(c.says("Passe o primeiro produto."), "{:?}", c.texts());
+    assert!(c.says("Caixa 1 · venda 128"), "{:?}", c.texts());
+    let total = |c: &mut Center| {
+        let tree = c.ui.access_tree();
+        tree.nodes
+            .iter()
+            .filter(|n| n.role == Role::Status && n.name.as_deref() == Some("TOTAL A RECEBER"))
+            .filter_map(|n| n.value.clone())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(total(&mut c), ["R$ 0,00", "R$ 519,90"], "the sale and the one with a discount");
+    // line: each photo passed is a line, and the total follows.
+    c.activate("Passar foto 10x15");
+    c.activate("Passar foto 10x15");
+    assert!(!c.says("Passe o primeiro produto."), "{:?}", c.texts());
+    let line =
+        c.ui.access_tree()
+            .find(Role::ListItem, "FOTO 10X15 BRILHO")
+            .map(|n| (n.value.clone(), n.description.clone()));
+    assert_eq!(line, Some((Some("30,00".to_owned()), Some("2 UN x 15,00".to_owned()))));
+    assert_eq!(total(&mut c)[0], "R$ 30,00");
+    assert!(c.says("DESCONTO"), "{:?}", c.texts());
+    c.activate("Nova venda");
+    assert!(c.says("Passe o primeiro produto."), "{:?}", c.texts());
+}
+
+#[test]
+fn tooltips_explain_a_control_by_the_pointer_or_the_keyboard_and_escape_hides_them() {
+    let mut c = Center::memory("ana");
+    c.press("Dicas");
+    c.settle();
+    // new, shortcut, open_delay and close_delay: screen readers hear each button by its tip.
+    for name in ["Guarda o rascunho", "Espera meio segundo", "Preencha o endereço antes"] {
+        assert!(c.ui.access_tree().find(Role::Button, name).is_some(), "{name}: {:?}", c.texts());
+    }
+    assert!(c.says("⌘S"), "the key that does the same: {:?}", c.texts());
+    c.activate("Guarda o rascunho");
+    assert!(c.says("Salvo 1 vezes"), "{:?}", c.texts());
+}
+
+#[test]
+fn choices_skip_what_cannot_be_chosen_and_stay_put_when_read_only_or_off() {
+    let mut c = Center::memory("ana");
+    c.press("Escolhas");
+    c.settle();
+    // RadioGroup: new, label and disable_option; read_only and disabled keep the choice.
+    for group in [
+        "Plano",
+        "Plano travado",
+        "Plano desligado",
+        "Visão",
+        "Densidade",
+        "Visão travada",
+        "Visão desligada",
+    ] {
+        assert!(c.ui.access_tree().find(Role::RadioGroup, group).is_some(), "{group}: {:?}", c.texts());
+    }
+    c.activate("Anual");
+    assert!(c.says("Plano: Anual"), "{:?}", c.texts());
+    let tree = c.ui.access_tree();
+    let first =
+        tree.nodes.iter().find(|n| n.role == Role::RadioButton && n.name.as_deref() == Some("Vitalício"));
+    assert_eq!(
+        first.map(|n| n.disabled),
+        Some(true),
+        "Vitalício cannot be chosen in the first group: {:?}",
+        c.texts()
+    );
+    // SegmentedControl: new, with_icons, label and disable_option.
+    c.activate("Mês");
+    assert!(c.says("Visão: Mês"), "{:?}", c.texts());
+    // Slider: range, step, marks, label, width, show_value, value_format, neutral and track_colors.
+    for slider in ["Volume", "Temperatura", "Volume travado", "Volume desligado"] {
+        assert!(c.ui.access_tree().find(Role::Slider, slider).is_some(), "{slider}: {:?}", c.texts());
+    }
+    let volume = c.ui.access_tree().find(Role::Slider, "Volume").and_then(|n| n.value.clone());
+    assert_eq!(volume.as_deref(), Some("40%"), "the value in its format");
+    let locked = c.ui.access_tree().find(Role::Slider, "Volume travado").map(|n| (n.read_only, n.disabled));
+    assert_eq!(locked, Some((true, false)));
+    let off = c.ui.access_tree().find(Role::Slider, "Volume desligado").map(|n| n.disabled);
+    assert_eq!(off, Some(true));
+}
+
+#[test]
+fn dates_and_times_offer_only_what_their_limits_allow_and_say_why_a_day_is_off() {
+    let mut c = Center::memory("ana");
+    c.press("Datas e horas");
+    c.settle();
+    // DateTile: new, tone, size and outlined, each heard as the whole date.
+    for name in [
+        "sábado, 14 de novembro de 2026",
+        "domingo, 15 de novembro de 2026",
+        "sábado, 21 de novembro de 2026",
+        "sábado, 28 de novembro de 2026",
+    ] {
+        assert!(c.ui.access_tree().find(Role::Image, name).is_some(), "{name}: {:?}", c.texts());
+    }
+    // Calendar: new, today, range, blocked and on_pick.
+    let holiday =
+        c.ui.access_tree()
+            .nodes
+            .iter()
+            .find(|n| n.description.as_deref().is_some_and(|d| d.contains("Feriado")))
+            .map(|n| n.disabled);
+    assert_eq!(holiday, Some(true), "the holiday is off and says why: {:?}", c.texts());
+    let open_day =
+        c.ui.access_tree()
+            .nodes
+            .iter()
+            .find(|n| n.name.as_deref() == Some("16 novembro de 2026"))
+            .map(|n| n.id);
+    let id = open_day.unwrap_or_else(|| panic!("the 16th: {:?}", c.texts()));
+    c.ui.perform_action(id, AccessAction::Click);
+    c.settle();
+    assert!(c.says("Escolhido no calendário: 2026-11-16"), "{:?}", c.texts());
+    // DatePicker, DateRangePicker, TimePicker and DateTimePicker, each with its states.
+    for name in [
+        "Entrega",
+        "Entrega, largura da coluna",
+        "Entrega travada",
+        "Entrega desligada",
+        "Férias",
+        "Férias travadas",
+        "Férias desligadas",
+    ] {
+        assert!(c.ui.access_tree().find(Role::ComboBox, name).is_some(), "{name}: {:?}", c.texts());
+    }
+    let field = c.ui.access_tree().find(Role::ComboBox, "Entrega").map(|n| n.id).expect("Entrega");
+    assert!(!c.ui.set_access_value(field, "2026-11-20"), "the holiday is not taken");
+    assert!(c.ui.set_access_value(field, "2026-11-19"));
+    c.settle();
+    assert!(c.says("Entrega: 2026-11-19"), "{:?}", c.texts());
+    assert!(c.says("Início: 09:00"), "{:?}", c.texts());
+}
+
+#[test]
+fn masks_follow_their_pattern_take_rules_of_their_own_and_say_when_they_are_complete() {
+    let mut c = Center::memory("ana");
+    c.press("Máscaras");
+    c.settle();
+    // new, label, optional_rule, complete and width.
+    c.type_into("Celular", "119876543");
+    assert!(c.says("Celular: 119876543 (incompleto)"), "{:?}", c.texts());
+    c.type_into("Celular", "2");
+    assert!(c.says("Celular: 1198765432 (completo)"), "{:?}", c.texts());
+    // keep_literals.
+    c.type_into("CPF", "12345678901");
+    assert!(c.says("CPF guardado com a pontuação: 123.456.789-01"), "{:?}", c.texts());
+    // rule and placeholder.
+    c.type_into("Cor", "1a2bzz3c");
+    assert!(c.says("Cor: 1a2b3c"), "{:?}", c.texts());
+    // read_only and disabled.
+    for name in ["Placa travada", "Placa desligada"] {
+        let node =
+            c.ui.access_tree()
+                .nodes
+                .iter()
+                .find(|n| n.name.as_deref() == Some(name))
+                .map(|n| (n.value.clone(), n.disabled));
+        assert!(node.is_some(), "{name}: {:?}", c.texts());
+    }
+}
+
+#[test]
+fn a_record_reads_each_field_in_its_type_and_changes_by_field() {
+    let mut c = Center::memory("ana");
+    c.press("Registro");
+    c.settle();
+    // from_values, entity, values, get and the typed reads.
+    for line in [
+        "Entidade: Bill",
+        "Descrição (text): Conta de luz",
+        "Valor (number): 18990.4",
+        "Valor em centavos (cents): 18990",
+        "Parcelas (integer): 3",
+        "Vencimento (date): 2026-12-10",
+        "Conta (key): 7",
+    ] {
+        assert!(c.says(line), "{line}: {:?}", c.texts());
+    }
+    assert!(c.texts().iter().any(|t| t.starts_with("Valor bruto (get): Number(")), "{:?}", c.texts());
+    assert!(
+        c.says("Campos: account_id, account_id.name, amount, description, due, installments"),
+        "{:?}",
+        c.texts()
+    );
+    // set.
+    c.press("Mudar o valor");
+    assert!(c.says("Valor em centavos (cents): 20000"), "{:?}", c.texts());
+    // without_paths.
+    c.press("Tirar os caminhos");
+    assert!(c.says("Campos: account_id, amount, description, due, installments"), "{:?}", c.texts());
+    // keep_only: what is left out reads empty, in every type.
+    c.press("Só descrição e valor");
+    assert!(c.says("Campos: amount, description"), "{:?}", c.texts());
+    assert!(c.says("Parcelas (integer): vazio"), "{:?}", c.texts());
+    assert!(c.says("Conta (key): vazio"), "{:?}", c.texts());
+    c.press("Recomeçar");
+    assert!(c.says("Parcelas (integer): 3"), "{:?}", c.texts());
+}
+
+#[test]
+fn a_closed_lesson_changes_by_correction_and_an_approved_term_freezes_it() {
+    let mut c = Center::memory("ana");
+    c.press("Fechamento de período");
+    c.settle();
+    let says_start = |c: &mut Center, start: &str| c.texts().iter().any(|t| t.starts_with(start));
+    assert!(c.says("Aula: draft, 3 presentes"), "{:?}", c.texts());
+    // PeriodClosing::versions_entity.
+    assert!(
+        c.says("Campos das versões: id, period, version, approved_at, approved_by, digest, document, status, reopen_reason"),
+        "{:?}",
+        c.texts()
+    );
+    // requires_none: a draft lesson keeps the term open.
+    c.press("Aprovar o semestre");
+    assert!(says_start(&mut c, "Recusado: Semestre: 1 still has Aula"), "{:?}", c.texts());
+    // Seal: a closed lesson does not change directly.
+    c.press("Fechar a aula");
+    c.press("Mudar a aula direto");
+    assert!(says_start(&mut c, "Recusado: Aula: it is closed: use Correção de aula"), "{:?}", c.texts());
+    // Amendment::correction, reason, copies, marks and before.
+    c.press("Corrigir sem motivo");
+    assert!(
+        says_start(&mut c, "Recusado: Correção de aula: the reason needs at least 10"),
+        "{:?}",
+        c.texts()
+    );
+    c.press("Corrigir a aula");
+    assert!(c.says("Aula: closed, 5 presentes, corrigida"), "{:?}", c.texts());
+    // Amendment::closing and apply.
+    c.press("Transferir");
+    assert!(c.says("Matrículas encerradas: 1"), "{:?}", c.texts());
+    // PeriodClosing::new and freezes: approving freezes the lesson, even for a correction.
+    c.press("Aprovar o semestre");
+    assert!(c.says("Semestre aprovado: versão 1."), "{:?}", c.texts());
+    assert!(says_start(&mut c, "Versão 1: vigente, hash "), "{:?}", c.texts());
+    c.press("Corrigir a aula");
+    assert!(says_start(&mut c, "Recusado: Semestre: 1 is approved"), "{:?}", c.texts());
+    // reopen_reason.
+    c.press("Reabrir sem motivo");
+    assert!(
+        says_start(&mut c, "Recusado: Semestre approval: the reason to reopen needs at least 10"),
+        "{:?}",
+        c.texts()
+    );
+    c.press("Reabrir o semestre");
+    assert!(says_start(&mut c, "Versão 1: reaberta"), "{:?}", c.texts());
+    c.press("Aprovar o semestre");
+    assert!(c.says("Semestre aprovado: versão 2."), "{:?}", c.texts());
+    c.press("Recomeçar");
+    assert!(c.says("Versões: nenhuma"), "{:?}", c.texts());
+}
+
+#[test]
+fn a_temporary_access_ends_by_itself_and_revoking_never_takes_oneself() {
+    let mut c = Center::memory("ana");
+    c.press("Acesso temporário");
+    c.settle();
+    let says_start = |c: &mut Center, start: &str| c.texts().iter().any(|t| t.starts_with(start));
+    assert!(c.says("Usuário ana: ativo"), "{:?}", c.texts());
+    // min_reason.
+    c.press("Conceder sem motivo");
+    assert!(c.says("Recusado: the reason needs at least 10 characters"), "{:?}", c.texts());
+    // new, max_hours, name_prefix, check_every and clock.
+    c.press("Conceder 2 horas");
+    assert!(says_start(&mut c, "Concedido a suporte-"), "{:?}", c.texts());
+    assert!(c.says("Acesso de ana: suporte do caixa, por 2 h, em aberto"), "{:?}", c.texts());
+    c.press("Entrar como suporte");
+    assert!(
+        says_start(&mut c, "suporte-") && c.texts().iter().any(|t| t.ends_with(" entrou.")),
+        "{:?}",
+        c.texts()
+    );
+    // now: the clock moves past the deadline.
+    c.press("Passar 3 horas");
+    assert!(c.says("Passaram 3 horas: 1 acesso(s) vencido(s)."), "{:?}", c.texts());
+    assert!(c.says("Acesso de ana: suporte do caixa, por 2 h, encerrado: Expired"), "{:?}", c.texts());
+    c.press("Entrar como suporte");
+    assert!(c.texts().iter().any(|t| t.ends_with(" não entrou.")), "{:?}", c.texts());
+    c.press("Revogar a si mesma");
+    assert!(c.says("Recusado: nobody revokes their own user"), "{:?}", c.texts());
+    c.press("Recomeçar");
+    c.press("Conceder 2 horas");
+    c.press("Revogar o suporte");
+    assert!(c.says("Acesso de ana: suporte do caixa, por 2 h, encerrado: Revoked by ana"), "{:?}", c.texts());
+    // The list of the center's own temporary accesses, in Administração.
+    c.press("Acessos temporários");
+    c.settle();
+    assert!(c.says("Motivo") && c.says("Vence em") && c.says("Autorizado por"), "{:?}", c.texts());
+}
+
+#[test]
+fn the_due_digest_follows_the_profile_and_the_days_ahead() {
+    let mut c = Center::memory("ana");
+    c.press("Resumo de vencimentos");
+    c.settle();
+    // new, pending, label, amount, words and named: Gás is paid and stays out.
+    assert!(c.says("Aviso: 2 contas vencidas e 2 a vencer"), "{:?}", c.texts());
+    assert!(
+        c.says(
+            "Texto: Aluguel (R$ 1.500,00), Luz (R$ 480,00), Seguro (R$ 300,00), mais 1. Total: R$ 2.370,00."
+        ),
+        "{:?}",
+        c.texts()
+    );
+    c.press("7 dias antes");
+    assert!(c.says("Aviso: 2 contas vencidas e 3 a vencer"), "{:?}", c.texts());
+    c.press("No dia");
+    assert!(c.says("Aviso: 2 contas vencidas"), "{:?}", c.texts());
+    // hidden_amounts: a role that does not read the amount.
+    c.press("Secretaria");
+    assert!(c.says("Texto: Aluguel, Luz. Os valores ficam com a Tesouraria."), "{:?}", c.texts());
+    c.press("Visitante");
+    assert!(c.says("Aviso: nenhum"), "{:?}", c.texts());
+    c.press("Tesouraria");
+    c.press("Desligar");
+    assert!(c.says("Aviso: nenhum"), "{:?}", c.texts());
+}
+
+#[test]
+fn a_bill_is_settled_in_part_reversed_and_split_to_the_cent() {
+    let mut c = Center::memory("ana");
+    c.press("Contas a pagar e receber");
+    c.settle();
+    assert!(c.says("Luz: open, R$ 100,00, saldo R$ 100,00"), "{:?}", c.texts());
+    assert!(c.says("Prévia em 3: 31/01 R$ 33,33, 28/02 R$ 33,33, 31/03 R$ 33,34"), "{:?}", c.texts());
+    // SettleInput::new, and a date after today.
+    c.press("Baixa com data de amanhã");
+    assert!(c.says("Recusado: the settlement date cannot be after today"), "{:?}", c.texts());
+    c.press("Baixa parcial de 40");
+    assert!(c.says("Luz: partial, R$ 100,00, saldo R$ 60,00"), "{:?}", c.texts());
+    // interest, fine, discount and total.
+    c.press("Baixar com juros, multa e desconto");
+    assert!(c.says("Baixa de R$ 64,00 no caixa."), "{:?}", c.texts());
+    assert!(c.says("Caixa: 2 lançamento(s), R$ 104,00"), "{:?}", c.texts());
+    c.press("Mudar o valor da conta");
+    assert!(c.texts().iter().any(|t| t.starts_with("Recusado: Bills: it is Paid")), "{:?}", c.texts());
+    c.press("Estornar sem motivo");
+    assert!(c.says("Recusado: a reversal says why"), "{:?}", c.texts());
+    c.press("Estornar a última baixa");
+    assert!(c.says("Luz: partial, R$ 100,00, saldo R$ 60,00"), "{:?}", c.texts());
+    assert!(c.says("Caixa: 3 lançamento(s), R$ 40,00"), "{:?}", c.texts());
+    c.press("Recomeçar");
+    c.press("Parcelar em 3");
+    assert!(c.says("Parcelada em 3."), "{:?}", c.texts());
+    assert!(c.says("Luz (3/3): open, R$ 33,34, saldo R$ 33,34"), "{:?}", c.texts());
+    c.press("Cancelar a conta");
+    assert!(c.says("Luz (1/3): cancelled, R$ 33,33, saldo R$ 33,33"), "{:?}", c.texts());
+}
+
+#[test]
+fn a_panel_shows_each_number_with_its_level() {
+    let mut c = Center::memory("ana");
+    c.press("Painel com níveis");
+    c.settle();
+    let said = c.texts().join(" | ");
+    // number_in, filtered and level: 410 needs attention, one late is critical, four records are fine.
+    for caption in
+        ["Valor em aberto", "Atrasados", "Registros", "Com observação", "Valor por situação", "Por mês"]
+    {
+        assert!(said.contains(caption), "{caption}: {said}");
+    }
+    assert!(said.contains("Atenção") && said.contains("Crítico") && said.contains("Em dia"), "{said}");
+    // group, group_note and number_with: one late in four is 25 %, attention.
+    assert!(
+        said.contains("Situações") && said.contains("Parte atrasada (%)") && said.contains("25"),
+        "{said}"
+    );
+    assert!(said.contains("qualquer atrasado é crítico"), "{said}");
+    // document, and the print the panel brings.
+    let paper = format!("{:?}", raven_feature_center::painel::document(&c.session()));
+    assert!(paper.contains("Valor em aberto") && paper.contains("Atenção"), "{paper}");
+    c.press("Imprimir painel");
+    let printed = c.texts().join(" ");
+    assert!(printed.contains("ÁREA") && printed.contains("Parte atrasada (%) 25 Atenção"), "{printed}");
+    assert!(!printed.contains("precisa de"), "every number reads: {printed}");
+    c.press("Fechar");
+    // group_view.
+    c.press("Ver registros");
+    assert!(c.says("Atrasado"), "{:?}", c.texts());
+}
+
+#[test]
+fn a_chronology_shows_the_milestones_in_order_and_opens_one() {
+    let mut c = Center::memory("ana");
+    c.press("Cronologia");
+    c.settle();
+    // Chronology::new, label; ChronologyItem::new, detail, badge and tone.
+    let tree = c.ui.access_tree();
+    assert!(tree.find(Role::List, "Marcos de Lucas Oliveira").is_some(), "{:?}", c.texts());
+    let items: Vec<(String, String)> = tree
+        .nodes
+        .iter()
+        .filter(|n| n.role == Role::ListItem)
+        .filter_map(|n| Some((n.name.clone()?, n.description.clone().unwrap_or_default())))
+        .collect();
+    let titles: Vec<&str> = items.iter().map(|(t, _)| t.as_str()).collect();
+    assert_eq!(
+        titles,
+        ["Batismo", "Membro ativo", "Afastamento", "Transferência recusada", "Visita marcada"]
+    );
+    assert_eq!(items[1].1, "10/08/2025 · Aprovado pela assembleia · Aprovado");
+    // on_open, by a click.
+    let id = c.ui.access_tree().find(Role::ListItem, "Afastamento").map(|n| n.id).expect("there");
+    c.ui.perform_action(id, AccessAction::Click);
+    c.settle();
+    assert!(c.says("Aberto: Afastamento"), "{:?}", c.texts());
 }

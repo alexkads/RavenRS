@@ -281,7 +281,11 @@ fn a_field_they_cannot_read_comes_empty_and_a_filter_cannot_guess_it() {
     )]);
     let found = space.find("Order", &Value::Number(1.0)).expect("reads").expect("there");
     assert_eq!(found.get("cost"), Value::Null);
+    // Read by type, it is just as empty: never an older value.
+    assert_eq!((found.text("cost"), found.number("cost"), found.cents("cost")), (String::new(), None, None));
+    assert_eq!((found.integer("cost"), found.date("cost"), found.key("cost")), (None, None, None));
     assert_eq!(found.get("name"), Value::Text("Order 1".into()));
+    assert_eq!(found.text("name"), "Order 1");
     let guess = Query::all().filter(Criteria::parse("[cost] = 10").expect("reads"));
     assert!(space.query("Order", &guess).expect("reads").is_empty());
     // The order cannot tell it either: every empty value ties, and the key decides.

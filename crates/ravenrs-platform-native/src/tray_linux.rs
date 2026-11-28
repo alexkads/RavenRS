@@ -91,7 +91,7 @@ impl Drop for Icon {
 
 pub(super) fn show(tray: &SystemTray, id: &str, icon: &ImageData, notify: Notify) -> Result<Icon, String> {
     // RGBA to the ARGB of the protocol.
-    let data = icon.pixels().chunks_exact(4).flat_map(|p| [p[3], p[0], p[1], p[2]]).collect();
+    let data = icon.pixels().as_chunks::<4>().0.iter().flat_map(|p| [p[3], p[0], p[1], p[2]]).collect();
     let icon = ksni::Icon {
         width: i32::try_from(icon.width()).map_err(|e| e.to_string())?,
         height: i32::try_from(icon.height()).map_err(|e| e.to_string())?,

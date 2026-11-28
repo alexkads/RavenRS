@@ -1,0 +1,11 @@
+{
+  "name": "raven-ci",
+  "description": "Raven CI for coding agents: a skill that runs builds and reads why they failed from a summary, and an MCP server that asks for builds, waits for them and checks pipelines.",
+  "author": {
+    "name": "Alex S S Fonseca"
+  },
+  "homepage": "https://github.com/alexkads/RavenRS/tree/master/tools/raven-ci",
+  "repository": "https://github.com/alexkads/RavenRS",
+  "license": "MIT OR Apache-2.0",
+  "version": "0.1.9"
+}

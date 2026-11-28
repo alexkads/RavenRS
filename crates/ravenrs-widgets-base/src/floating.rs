@@ -254,7 +254,7 @@ impl View for SheetLayer<'_> {
             Paint::Quad(QuadPaint {
                 border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
                 shadow: Some(theme.elevation.raised),
-                ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
+                ..QuadPaint::new(theme.floating_surface())
             }),
         );
         let mut semantics = Semantics::new(Role::Dialog).name(s.title).modal();
@@ -872,7 +872,7 @@ impl View for ToastStack<'_> {
                     corner_radius: theme.radii.lg,
                     border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
                     shadow: Some(theme.elevation.raised),
-                    ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
+                    ..QuadPaint::new(theme.floating_surface())
                 }),
             );
             // Announced as it appears; danger toasts interrupt.

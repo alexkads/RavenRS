@@ -339,6 +339,20 @@
    }
   },
   {
+   "crate": "ravenrs-app-update",
+   "tipo": "ServiceManager",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-update",
+   "tipo": "ServiceSpec",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
    "crate": "ravenrs-app-ui",
    "tipo": "ActionButton",
    "rts": {
@@ -1681,6 +1695,14 @@
   },
   {
    "crate": "ravenrs-widgets-kit",
+   "tipo": "Receipt",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
    "tipo": "CodeBlock",
    "rts": {
     "ids": [],
@@ -1697,6 +1719,14 @@
     "acoes": [
      "Click"
     ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
+   "tipo": "DateTile",
+   "rts": {
+    "ids": [],
+    "acoes": []
    }
   },
   {
@@ -2233,7 +2263,6 @@
    "tipo": "LogView",
    "rts": {
     "ids": [
-     "line:<numero>",
      "number:<numero>",
      "section:<numero>"
     ],
@@ -2257,7 +2286,7 @@
    }
   },
   {
-   "crate": "ravenrs-widgets-lists",
+   "crate": "ravenrs-widgets-scheduler",
    "tipo": "YearView",
    "rts": {
     "ids": [
@@ -2320,6 +2349,16 @@
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "ParameterForm",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-lists",
+   "tipo": "Chronology",
    "rts": {
     "ids": [],
     "acoes": [

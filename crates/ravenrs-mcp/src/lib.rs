@@ -4,6 +4,7 @@ mod api;
 mod docs;
 mod expression;
 mod feature_center;
+mod lint;
 mod report;
 mod server;
 mod tooling;

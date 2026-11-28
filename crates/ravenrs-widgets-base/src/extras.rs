@@ -264,6 +264,10 @@ const SPLIT_STEP: f32 = 16.0;
 /// How wide the bar between panes is, grip and room around it, in logical pixels.
 #[doc(hidden)]
 pub const SPLIT_BAR: f32 = 10.0;
+/// How wide the strip of a collapsed pane is, and the arrow that folds a pane, in logical pixels.
+const SPLIT_RAIL: f32 = 16.0;
+/// How long the arrow that folds a pane is, along the bar.
+const SPLIT_ARROW: f32 = 32.0;
 
 /// The line and the grip of the bar between panes.
 fn split_bar_paint(vertical_stack: bool, line: Color, grip: Color) -> Paint {
@@ -438,6 +442,9 @@ pub struct SplitPane {
     min: f32,
     max: f32,
     visible: bool,
+    collapsible: bool,
+    collapsed: Option<Binding<bool>>,
+    label: Option<String>,
 }
 
 impl fmt::Debug for SplitPane {
@@ -450,7 +457,16 @@ impl fmt::Debug for SplitPane {
 impl SplitPane {
     /// A pane around `content`. Without [`Self::size`], it takes the room the others leave.
     pub fn new(content: impl View + 'static) -> Self {
-        Self { content: Box::new(content), size: None, min: 0.0, max: f32::MAX, visible: true }
+        Self {
+            content: Box::new(content),
+            size: None,
+            min: 0.0,
+            max: f32::MAX,
+            visible: true,
+            collapsible: false,
+            collapsed: None,
+            label: None,
+        }
     }
 
     /// Its size to start with along the stack, in logical pixels.
@@ -473,6 +489,103 @@ impl SplitPane {
         self.visible = visible;
         self
     }
+
+    /// Gives it an arrow on the bar beside it that folds it to the edge, leaving a strip with
+    /// an arrow that brings it back at the size it had. It starts open; [`Self::collapsed`]
+    /// keeps the state in the app. A folded pane leaves the Tab order.
+    pub fn collapsible(mut self, collapsible: bool) -> Self {
+        self.collapsible = collapsible;
+        self
+    }
+
+    /// Keeps here whether it is folded (`true` is folded), for the app to save it or fold it
+    /// itself. It makes the pane [collapsible](Self::collapsible).
+    pub fn collapsed(mut self, collapsed: Binding<bool>) -> Self {
+        self.collapsible = true;
+        self.collapsed = Some(collapsed);
+        self
+    }
+
+    /// Its name, which the arrows say to screen readers ("Collapse Sessions", "Show Sessions");
+    /// without it, they say "pane".
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+}
+
+/// The arrow that folds a pane of a [`SplitPanes`] to its edge, or brings it back.
+struct SplitToggle {
+    /// The panes are stacked, so the arrow points up or down.
+    stacked: bool,
+    /// It points left (or up); otherwise right (or down).
+    toward_start: bool,
+    folded: Binding<bool>,
+    name: String,
+    /// The pane it folds, and the one whose arrow takes the focus on the next build: folding
+    /// moves the arrow, and the focus goes with it.
+    pane: usize,
+    moved: Rc<Cell<Option<usize>>>,
+}
+
+impl View for SplitToggle {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let lit = cx.is_hovered() || cx.is_focus_visible();
+        let icon = match (self.stacked, self.toward_start) {
+            (false, true) => IconName::ChevronLeft,
+            (false, false) => IconName::ChevronRight,
+            (true, true) => IconName::ChevronUp,
+            (true, false) => IconName::ChevronDown,
+        };
+        let glyph =
+            util::icon(cx, icon, 12.0, theme.color(if lit { Semantic::Ink } else { Semantic::InkMuted }));
+        let (width, height) =
+            if self.stacked { (SPLIT_ARROW, SPLIT_RAIL) } else { (SPLIT_RAIL, SPLIT_ARROW) };
+        let node = cx.container(
+            LayoutStyle {
+                width: Some(width),
+                height: Some(height),
+                align: Align::Center,
+                justify: Justify::Center,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[glyph],
+            Paint::Quad(QuadPaint {
+                corner_radius: theme.radii.sm,
+                border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
+                ..QuadPaint::new(theme.color(if lit { Semantic::Control } else { Semantic::Surface }))
+            }),
+        );
+        let folded = self.folded.get();
+        cx.semantics(node, Semantics::new(Role::Button).name(self.name.clone()).expanded(!folded));
+        let (state, moved, pane) = (self.folded.clone(), self.moved.clone(), self.pane);
+        cx.on_click(
+            node,
+            Rc::new(move || {
+                moved.set(Some(pane));
+                state.set(!state.get());
+            }),
+        );
+        cx.focusable(node, theme.radii.sm);
+        if self.moved.get() == Some(self.pane) {
+            self.moved.set(None);
+            cx.request_focus();
+        }
+        cx.cursor(node, CursorIcon::Pointer);
+        node
+    }
+}
+
+/// What a [`SplitPanes`] lays out along its axis: a pane, the bar between two open panes, or
+/// the strip a folded pane leaves.
+enum SplitPart {
+    /// The pane at `index`, the `at`-th of those open.
+    Pane { index: usize, at: usize },
+    /// The bar between the open panes `at - 1` and `at`.
+    Bar { at: usize, arrows: Vec<SplitToggle> },
+    /// The strip of the folded pane at `index`, with its line on the side of the open panes.
+    Rail { index: usize, arrows: Vec<SplitToggle>, line_at_end: bool },
 }
 
 /// The sizes the visible panes get in `room`: what they ask for within their limits, with
@@ -580,75 +693,232 @@ impl View for SplitPanes {
         let store = self.sizes.clone().unwrap_or_else(|| own.binding());
         let stored = store.get();
         let asked_of = |i: usize, pane: &SplitPane| stored.get(i).copied().unwrap_or(pane.size);
-        let shown: Vec<usize> =
-            self.panes.iter().enumerate().filter(|(_, p)| p.visible).map(|(i, _)| i).collect();
-        let asked: Vec<Option<f32>> = shown.iter().map(|&i| asked_of(i, &self.panes[i])).collect();
-        let limits: Vec<(f32, f32)> = shown.iter().map(|&i| (self.panes[i].min, self.panes[i].max)).collect();
-        // Known from the second build on, when the bars need it.
-        let room = cx.scroll_viewport().map(|v| {
-            (if vertical { v.height } else { v.width }) - shown.len().saturating_sub(1) as f32 * SPLIT_BAR
-        });
-        let sizes = room.map(|room| split_sizes(room, &asked, &limits));
-        let mut children = Vec::with_capacity(shown.len() * 2);
-        for (at, &index) in shown.iter().enumerate() {
-            if at > 0 {
-                let (a, b) = (at - 1, at);
-                let (size_a, size_b) = sizes.as_ref().map_or_else(
-                    || (asked[a].unwrap_or(limits[a].0), asked[b].unwrap_or(limits[b].0)),
-                    |s| (s[a], s[b]),
-                );
-                let both = size_a + size_b;
-                let min = limits[a].0.max(both - limits[b].1);
-                let max = limits[a].1.min(both - limits[b].0).max(min);
-                let write = store.clone();
-                let panes = (shown[a], shown[b]);
-                let fixed = (asked[a].is_some(), asked[b].is_some());
-                let defaults: Vec<Option<f32>> = self.panes.iter().map(|p| p.size).collect();
-                let value = Binding::new(
-                    move || size_a,
-                    move |next: f32| {
-                        let mut all = write.get();
-                        if all.len() < defaults.len() {
-                            let have = all.len();
-                            all.extend_from_slice(&defaults[have..]);
-                        }
-                        // A pane that takes what is left goes on doing so, unless both do.
-                        if fixed.0 || !fixed.1 {
-                            all[panes.0] = Some(next);
-                        }
-                        if fixed.1 {
-                            all[panes.1] = Some(both - next);
-                        }
-                        write.set(all);
+        // Whether each collapsible pane is folded: the app's, or kept here.
+        let kept: State<Vec<bool>> = cx.use_state(Vec::new);
+        let fold_of = |i: usize| -> Binding<bool> {
+            self.panes[i].collapsed.clone().unwrap_or_else(|| {
+                let (read, write) = (kept.clone(), kept.clone());
+                Binding::new(
+                    move || read.get().get(i).copied().unwrap_or(false),
+                    move |folded: bool| {
+                        write.update(|all| {
+                            if all.len() <= i {
+                                all.resize(i + 1, false);
+                            }
+                            all[i] = folded;
+                        });
                     },
-                );
-                let mut bar = SplitHandle::new(self.axis, value).range(min, max);
-                if let Some(end) = &self.on_end {
-                    let end = end.0.clone();
-                    bar = bar.on_end(move || end());
+                )
+            })
+        };
+        let moved = cx.use_state(|| Rc::new(Cell::new(None::<usize>))).get();
+        let labels = cx.labels();
+        let name_of = |i: usize| self.panes[i].label.clone().unwrap_or_else(|| labels.split_pane.clone());
+        // The panes in order, open or folded, and the bars between two open ones.
+        let mut parts: Vec<SplitPart> = Vec::with_capacity(self.panes.len() * 2);
+        let mut shown: Vec<usize> = Vec::with_capacity(self.panes.len());
+        let mut folds: Vec<(usize, Binding<bool>)> = Vec::new();
+        for (index, pane) in self.panes.iter().enumerate().filter(|(_, p)| p.visible) {
+            let fold = pane.collapsible.then(|| fold_of(index));
+            if fold.as_ref().is_some_and(Binding::get) {
+                parts.push(SplitPart::Rail { index, arrows: Vec::new(), line_at_end: false });
+            } else {
+                if matches!(parts.last(), Some(SplitPart::Pane { .. })) {
+                    parts.push(SplitPart::Bar { at: shown.len(), arrows: Vec::new() });
                 }
-                children.push(cx.keyed_child(u64::MAX - index as u64, &bar));
+                parts.push(SplitPart::Pane { index, at: shown.len() });
+                shown.push(index);
             }
-            let pane = &self.panes[index];
-            let content = cx.keyed_child(index as u64, pane.content.as_ref());
-            // What takes the room left grows; the others hold their size.
-            let size = asked[at].map(|asked| sizes.as_ref().map_or(asked, |s| s[at]));
-            let node = cx.container(
-                LayoutStyle {
-                    grow: if size.is_some() { 0.0 } else { 1.0 },
-                    width: if vertical { None } else { size.or(Some(0.0)) },
-                    height: if vertical { size.or(Some(0.0)) } else { None },
-                    min_width: Some(0.0),
-                    min_height: Some(0.0),
-                    align: Align::Stretch,
-                    overflow_hidden: true,
-                    ..LayoutStyle::stack(Axis::Vertical)
-                },
-                &[content],
+            if let Some(fold) = fold {
+                folds.push((parts.len() - 1, fold));
+            }
+        }
+        // Each folded pane's strip brings it back toward the open panes; each open one that
+        // folds has its arrow on the bar beside it (after it if there is one), or on a strip.
+        let any_open_after = |from: usize, parts: &[SplitPart]| {
+            parts[from + 1..].iter().any(|p| matches!(p, SplitPart::Pane { .. }))
+        };
+        for (at, fold) in folds {
+            let toward_end = any_open_after(at, &parts);
+            let index = match &mut parts[at] {
+                SplitPart::Pane { index, .. } => *index,
+                SplitPart::Rail { index, arrows, line_at_end } => {
+                    *line_at_end = toward_end;
+                    arrows.push(SplitToggle {
+                        stacked: vertical,
+                        toward_start: !toward_end,
+                        folded: fold,
+                        name: labels.split_expand(&name_of(*index)),
+                        pane: *index,
+                        moved: moved.clone(),
+                    });
+                    continue;
+                }
+                SplitPart::Bar { .. } => continue,
+            };
+            let after = at + 1 < parts.len();
+            let bar = |p: &SplitPart| matches!(p, SplitPart::Bar { .. });
+            let side = if after && bar(&parts[at + 1]) {
+                Some(at + 1)
+            } else if at > 0 && bar(&parts[at - 1]) {
+                Some(at - 1)
+            } else if after {
+                Some(at + 1)
+            } else {
+                at.checked_sub(1)
+            };
+            let Some(side) = side else { continue };
+            let arrow = SplitToggle {
+                stacked: vertical,
+                toward_start: side > at,
+                folded: fold,
+                name: labels.split_collapse(&name_of(index)),
+                pane: index,
+                moved: moved.clone(),
+            };
+            match &mut parts[side] {
+                SplitPart::Bar { arrows, .. } | SplitPart::Rail { arrows, .. } => arrows.push(arrow),
+                SplitPart::Pane { .. } => {}
+            }
+        }
+        let mut asked: Vec<Option<f32>> = shown.iter().map(|&i| asked_of(i, &self.panes[i])).collect();
+        let limits: Vec<(f32, f32)> = shown.iter().map(|&i| (self.panes[i].min, self.panes[i].max)).collect();
+        // The room a folded pane leaves goes to one that takes what is left, or to the last.
+        let rails = parts.iter().filter(|p| matches!(p, SplitPart::Rail { .. })).count();
+        if rails > 0
+            && asked.iter().all(Option::is_some)
+            && let Some(last) = asked.last_mut()
+        {
+            *last = None;
+        }
+        let bars = parts.iter().filter(|p| matches!(p, SplitPart::Bar { .. })).count();
+        // Known from the second build on, when the bars need it.
+        let viewport = cx.scroll_viewport();
+        let room = viewport.map(|v| {
+            (if vertical { v.height } else { v.width }) - bars as f32 * SPLIT_BAR - rails as f32 * SPLIT_RAIL
+        });
+        let cross = viewport.map(|v| if vertical { v.width } else { v.height });
+        let sizes = room.map(|room| split_sizes(room, &asked, &limits));
+        let mut children = Vec::with_capacity(parts.len() + 2);
+        let mut overlay = Vec::new();
+        // How far along the axis the next part starts, while the sizes are known.
+        let mut offset = Some(0.0_f32);
+        for part in parts {
+            match part {
+                SplitPart::Bar { at, arrows } => {
+                    let (a, b) = (at - 1, at);
+                    let (size_a, size_b) = sizes.as_ref().map_or_else(
+                        || (asked[a].unwrap_or(limits[a].0), asked[b].unwrap_or(limits[b].0)),
+                        |s| (s[a], s[b]),
+                    );
+                    let both = size_a + size_b;
+                    let min = limits[a].0.max(both - limits[b].1);
+                    let max = limits[a].1.min(both - limits[b].0).max(min);
+                    let write = store.clone();
+                    let panes = (shown[a], shown[b]);
+                    let fixed = (asked[a].is_some(), asked[b].is_some());
+                    let defaults: Vec<Option<f32>> = self.panes.iter().map(|p| p.size).collect();
+                    let value = Binding::new(
+                        move || size_a,
+                        move |next: f32| {
+                            let mut all = write.get();
+                            if all.len() < defaults.len() {
+                                let have = all.len();
+                                all.extend_from_slice(&defaults[have..]);
+                            }
+                            // A pane that takes what is left goes on doing so, unless both do.
+                            if fixed.0 || !fixed.1 {
+                                all[panes.0] = Some(next);
+                            }
+                            if fixed.1 {
+                                all[panes.1] = Some(both - next);
+                            }
+                            write.set(all);
+                        },
+                    );
+                    let mut bar = SplitHandle::new(self.axis, value).range(min, max);
+                    if let Some(end) = &self.on_end {
+                        let end = end.0.clone();
+                        bar = bar.on_end(move || end());
+                    }
+                    children.push(cx.keyed_child(u64::MAX - shown[b] as u64, &bar));
+                    // The arrows sit over the middle of the bar, drawn after the panes.
+                    if let (Some(along), Some(cross)) = (offset, cross) {
+                        let count = arrows.len() as f32;
+                        for (n, arrow) in arrows.into_iter().enumerate() {
+                            let shift = (n as f32 - (count - 1.0) / 2.0) * (SPLIT_ARROW + 4.0);
+                            let main = along + (SPLIT_BAR - SPLIT_RAIL) / 2.0;
+                            let across = (cross - SPLIT_ARROW) / 2.0 + shift;
+                            let at = if vertical { (across, main) } else { (main, across) };
+                            overlay.push((at, arrow));
+                        }
+                    }
+                    offset = offset.map(|o| o + SPLIT_BAR);
+                }
+                SplitPart::Rail { index, arrows, line_at_end } => {
+                    let nodes: Vec<NodeId> = arrows
+                        .iter()
+                        .enumerate()
+                        .map(|(n, arrow)| cx.keyed_child(u64::MAX / 2 + (index * 4 + n) as u64, arrow))
+                        .collect();
+                    let line = cx.theme().color(Semantic::Border);
+                    let node = cx.container(
+                        LayoutStyle {
+                            width: if vertical { None } else { Some(SPLIT_RAIL) },
+                            height: if vertical { Some(SPLIT_RAIL) } else { None },
+                            align_self: Some(Align::Stretch),
+                            align: Align::Center,
+                            justify: Justify::Center,
+                            spacing: 4.0,
+                            ..LayoutStyle::stack(if vertical { Axis::Horizontal } else { Axis::Vertical })
+                        },
+                        &nodes,
+                        Paint::Custom(Rc::new(move |f: Rect, scene| {
+                            let edge = if vertical {
+                                let y = if line_at_end { f.max_y() - 1.0 } else { f.y() };
+                                Rect::new(f.x(), y, f.width(), 1.0)
+                            } else {
+                                let x = if line_at_end { f.max_x() - 1.0 } else { f.x() };
+                                Rect::new(x, f.y(), 1.0, f.height())
+                            };
+                            scene.push_quad(Quad::new(edge, line));
+                        })),
+                    );
+                    children.push(node);
+                    offset = offset.map(|o| o + SPLIT_RAIL);
+                }
+                SplitPart::Pane { index, at } => {
+                    let pane = &self.panes[index];
+                    let content = cx.keyed_child(index as u64, pane.content.as_ref());
+                    // What takes the room left grows; the others hold their size.
+                    let size = asked[at].map(|asked| sizes.as_ref().map_or(asked, |s| s[at]));
+                    let node = cx.container(
+                        LayoutStyle {
+                            grow: if size.is_some() { 0.0 } else { 1.0 },
+                            width: if vertical { None } else { size.or(Some(0.0)) },
+                            height: if vertical { size.or(Some(0.0)) } else { None },
+                            min_width: Some(0.0),
+                            min_height: Some(0.0),
+                            align: Align::Stretch,
+                            overflow_hidden: true,
+                            ..LayoutStyle::stack(Axis::Vertical)
+                        },
+                        &[content],
+                        Paint::None,
+                    );
+                    cx.clip(node);
+                    children.push(node);
+                    offset = offset.zip(sizes.as_ref()).map(|(o, s)| o + s[at]);
+                }
+            }
+        }
+        for (n, ((x, y), arrow)) in overlay.into_iter().enumerate() {
+            let inner = cx.keyed_child(u64::MAX / 4 + n as u64, &arrow);
+            children.push(cx.container(
+                LayoutStyle { absolute: Some((x, y)), ..LayoutStyle::stack(Axis::Vertical) },
+                &[inner],
                 Paint::None,
-            );
-            cx.clip(node);
-            children.push(node);
+            ));
         }
         let node = cx.container(
             LayoutStyle {
@@ -995,6 +1265,7 @@ pub struct InputOtp {
     value: Binding<String>,
     length: usize,
     on_complete: Option<Rc<dyn Fn(String)>>,
+    state: util::EditorState,
 }
 
 impl fmt::Debug for InputOtp {
@@ -1007,7 +1278,7 @@ impl fmt::Debug for InputOtp {
 impl InputOtp {
     /// `length` boxes (clamped to 1–12) editing `value`.
     pub fn new(value: Binding<String>, length: usize) -> Self {
-        Self { value, length: length.clamp(1, 12), on_complete: None }
+        Self { value, length: length.clamp(1, 12), on_complete: None, state: util::EditorState::default() }
     }
 
     /// Called once all boxes are filled.
@@ -1015,24 +1286,33 @@ impl InputOtp {
         self.on_complete = Some(Rc::new(handler));
         self
     }
+
+    /// Locks the boxes, as while the code is being verified: they fade, leave the tab order,
+    /// take no typing and never complete again. What was typed stays, and turning it back on
+    /// keeps it. Screen readers hear it as unavailable.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.state.disabled = disabled;
+        self
+    }
 }
 
 impl View for InputOtp {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let focused = cx.is_focused();
+        let state = self.state;
+        let focused = cx.is_focused() && state.accepts_input();
         let text: Vec<char> = self.value.get().chars().take(self.length).collect();
         let mut boxes = Vec::new();
         let mut attrs = util::attrs(&theme, TextStyle::Title, Some(Weight::SEMIBOLD));
         attrs.size = 20.0;
         for i in 0..self.length {
             let ch = text.get(i).map(|c| c.to_string()).unwrap_or_default();
-            let label = cx.text(&ch, &attrs, theme.color(Semantic::Ink), LayoutStyle::leaf());
+            let label = cx.text(&ch, &attrs, state.ink(theme.color(Semantic::Ink)), LayoutStyle::leaf());
             let active = focused && i == text.len().min(self.length - 1);
             let border = if active {
                 Border { width: 1.5, color: theme.color(Semantic::Accent) }
             } else {
-                Border { width: 1.0, color: theme.color(Semantic::Border) }
+                Border { width: 1.0, color: state.ink(theme.color(Semantic::ControlBorder)) }
             };
             boxes.push(cx.container(
                 LayoutStyle {
@@ -1046,7 +1326,7 @@ impl View for InputOtp {
                 Paint::Quad(QuadPaint {
                     corner_radius: theme.radii.md,
                     border: Some(border),
-                    ..QuadPaint::new(theme.color(Semantic::Control))
+                    ..QuadPaint::new(state.fill(theme.color(Semantic::Control)))
                 }),
             ));
         }
@@ -1066,9 +1346,16 @@ impl View for InputOtp {
         let mut semantics = Semantics::new(Role::TextInput)
             .name(cx.labels().verification_code.clone())
             .value(typed)
-            .description(format!("{} digits", self.length));
+            .description({
+                let labels = cx.labels();
+                labels.fill(&labels.verification_code_digits, &[&self.length.to_string()])
+            });
         semantics.fallback_name = true;
-        cx.semantics(node, semantics);
+        cx.semantics(node, state.semantics(semantics));
+        if !state.accepts_input() {
+            // Locked: nothing types, sets or completes it, and Tab passes it by.
+            return node;
+        }
         // Takes the whole code at once, digits only, as a test asks.
         let (code, len, finished) = (self.value.clone(), self.length, self.on_complete.clone());
         cx.on_access(node, &[AccessAction::SetValue], move |_, text| {
@@ -1116,9 +1403,33 @@ impl View for InputOtp {
 /// Common validation rules for [`FormField::validate`].
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 pub mod validate {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    use crate::Labels;
+
+    thread_local! {
+        /// The words of the part of the app a `FormField` is drawn in, while it checks its value.
+        static WORDS: RefCell<Option<Rc<Labels>>> = const { RefCell::new(None) };
+        static ENGLISH: Rc<Labels> = Rc::new(Labels::default());
+    }
+
+    /// Runs `f` with the rules below saying their messages in the words of `labels`, as a
+    /// [`FormField`](crate::FormField) does while it is drawn. Outside of it, they are English.
+    pub fn with_labels<T>(labels: Rc<Labels>, f: impl FnOnce() -> T) -> T {
+        let before = WORDS.with(|w| w.replace(Some(labels)));
+        let out = f();
+        WORDS.with(|w| *w.borrow_mut() = before);
+        out
+    }
+
+    fn words() -> Rc<Labels> {
+        WORDS.with(|w| w.borrow().clone()).unwrap_or_else(|| ENGLISH.with(Rc::clone))
+    }
+
     /// The field must not be empty.
     pub fn required(value: &str) -> Result<(), String> {
-        if value.trim().is_empty() { Err("This field is required.".into()) } else { Ok(()) }
+        if value.trim().is_empty() { Err(words().required.clone()) } else { Ok(()) }
     }
 
     /// A plausible email address (something@something.tld).
@@ -1126,7 +1437,7 @@ pub mod validate {
         let ok = value.split_once('@').is_some_and(|(user, domain)| {
             !user.is_empty() && domain.contains('.') && !domain.starts_with('.') && !domain.ends_with('.')
         });
-        if ok || value.is_empty() { Ok(()) } else { Err("Enter an email like name@example.com.".into()) }
+        if ok || value.is_empty() { Ok(()) } else { Err(words().invalid_email.clone()) }
     }
 
     /// At least `n` characters.
@@ -1135,7 +1446,8 @@ pub mod validate {
             if value.chars().count() >= n || value.is_empty() {
                 Ok(())
             } else {
-                Err(format!("Use at least {n} characters."))
+                let labels = words();
+                Err(labels.fill(&labels.min_length, &[&n.to_string()]))
             }
         }
     }
@@ -1297,7 +1609,13 @@ impl<V: View> View for FormField<V> {
         // The same check as `error`, in the words of this part of the app.
         let error = self.told_error.clone().or_else(|| {
             (self.show_errors || !value.is_empty())
-                .then(|| if blank { Some(cx.labels().required.clone()) } else { self.error() })
+                .then(|| {
+                    if blank {
+                        Some(cx.labels().required.clone())
+                    } else {
+                        validate::with_labels(cx.labels(), || self.error())
+                    }
+                })
                 .flatten()
         });
         let note = self.told_note.as_ref().map(|(note, _)| note.as_str());

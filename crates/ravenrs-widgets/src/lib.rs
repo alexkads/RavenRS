@@ -55,6 +55,8 @@ use ravenrs_widgets_scheduler::event_calendar;
 use ravenrs_widgets_scheduler::scheduler;
 #[allow(unused_imports)]
 use ravenrs_widgets_scheduler::timeline;
+#[allow(unused_imports)]
+use ravenrs_widgets_scheduler::year_view;
 
 // The dock family lives in its own crate, and keeps its module names here.
 #[allow(unused_imports)]
@@ -154,8 +156,8 @@ use ravenrs_widgets_base::{
 #[allow(unused_imports)]
 use ravenrs_widgets_kit::{
     commands, counter, data, diagnostics, editors, expression_editor, files, filter_builder, form_layout,
-    lookup, model_picker, nav, parameter_form, quad_field, quick_edit, release_notes, shortcuts, status,
-    tag_box, theme, tiles, wizard,
+    lookup, model_picker, nav, parameter_form, quad_field, quick_edit, receipt, release_notes, shortcuts,
+    status, tag_box, theme, tiles, wizard,
 };
 
 #[cfg(feature = "live")]
@@ -197,14 +199,16 @@ pub use counter::{KeyBar, KeyBarItem, Scan, ScanField};
 pub use data::{Column, List, ListItem, Table};
 pub use date::{Date, days_in_month, is_leap_year};
 pub use diagnostics::{Diagnostics, DiagnosticsHost};
-pub use display::{Alert, AlertAction, Avatar, Badge, Divider, ProgressBar, Section, Skeleton, Stat, Tone};
+pub use display::{
+    Alert, AlertAction, Avatar, AvatarShape, Badge, Divider, ProgressBar, Section, Skeleton, Stat, Tone,
+};
 pub use dock::{
     DockArea, DockChange, DockChild, DockCloseAction, DockDrop, DockEdge, DockGuard, DockLayout,
     DockLayoutError, DockNode, DockPanel, DockPanelKind, DockTabBar,
 };
 pub use dock_side::DockSide;
 pub use editors::{DateTime, DateTimePicker, MaskedField, NumberField, TextArea, Time, TimePicker};
-pub use event_calendar::{CalendarEvent, CalendarView, EventCalendar, RecurrenceEditor};
+pub use event_calendar::{CalendarEvent, CalendarView, EventCalendar, Hemisphere, RecurrenceEditor};
 pub use expression_editor::ExpressionEditor;
 pub use extras::{
     AccessibleControl, Carousel, FormField, InputOtp, Menubar, Rule, Spinner, SplitHandle, SplitPane,
@@ -257,8 +261,8 @@ pub use labels::Labels;
 pub use link_service::{LinkOpener, Links};
 pub use links::Link;
 pub use lists::{
-    DayMark, DocumentTab, DocumentTabs, FileBrowser, FileEntry, FileSort, FileSortColumn, Filmstrip,
-    FilmstripCell, LogBuffer, LogView, PagedDocumentView, SortableList, VirtualList, YearView,
+    Chronology, ChronologyItem, DocumentTab, DocumentTabs, FileBrowser, FileEntry, FileSort, FileSortColumn,
+    Filmstrip, FilmstripCell, LogBuffer, LogView, PagedDocumentView, SortableList, VirtualList,
 };
 #[cfg(feature = "live")]
 #[doc(hidden)]
@@ -292,6 +296,7 @@ pub use ravenrs_core::cable;
 pub use ravenrs_lottie::{Animation as LottieAnimation, LottieError};
 pub use ravenrs_text::TextAlign;
 pub use ravenrs_widgets_base::{Driving, UiDriver};
+pub use receipt::{Receipt, ReceiptLine};
 pub use recurrence::{
     Frequency, RecurrenceEnd, RecurrenceRule, RecurrenceSet, exceptions_text, parse_exceptions,
 };
@@ -314,7 +319,8 @@ pub use stack::{
     ToolRail, ToolRailItem, VStack, ZStack,
 };
 pub use status::{
-    DaySeparator, Dot, EmptyState, HeroBanner, IconTile, MultiProgress, OverlayBadge, Rating, ShimmerText,
+    DateTile, DaySeparator, Dot, EmptyState, HeroBanner, IconTile, MultiProgress, OverlayBadge, Rating,
+    ShimmerText,
 };
 pub use summary::Summary;
 pub use system_appearance::SystemAppearance;
@@ -330,4 +336,5 @@ pub use turn::{QuarterTurn, Turn};
 pub use ui::{HOLD_TO_CARRY, Ui, UiStats};
 pub use view::{AnyView, Component, FnView, Keyed, Responsive, View, ViewSeq, responsive, view_fn};
 pub use wizard::{IndicatorStep, StepBadge, StepIndicator, StepState, Wizard, WizardStep};
+pub use year_view::{DayMark, YearView};
 pub use zoom::{ZoomControl, ZoomView};

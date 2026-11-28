@@ -25,6 +25,7 @@ pub mod book;
 mod container;
 mod dashboard;
 mod detail_view;
+mod due;
 mod editors;
 mod form;
 mod hotkeys;
@@ -46,6 +47,7 @@ mod security;
 mod session;
 mod shell;
 mod system;
+mod temporary;
 mod values;
 mod words;
 // What the generated registrations name views as.
@@ -57,9 +59,10 @@ pub use app::App;
 pub use container::{ActionButton, ActionContainer};
 pub use dashboard::DashboardView;
 pub use detail_view::DetailView;
+pub use due::show_due_digests;
 pub use form::{EntityForm, FormText};
 pub use list_editors::{
-    CALENDAR_EDITOR, CHART_EDITOR, SCHEDULER_EDITOR, TREE_EDITOR, chart_view, summary_text,
+    CALENDAR_EDITOR, CHART_EDITOR, HISTORY_EDITOR, SCHEDULER_EDITOR, TREE_EDITOR, chart_view, summary_text,
 };
 pub use list_view::{CellText, ColumnShape, GridShape, ListView};
 pub use model_editor::ModelEditor;
@@ -73,6 +76,7 @@ pub use session::{JobInfo, JobProgress};
 pub use session::{ListEditorRequest, ListSource, OpenHandler};
 pub use shell::{AppShell, CounterTemplate, FrameTemplate, MainTemplate, TemplateParts};
 pub use system::{CloneModule, SystemModule};
+pub use values::day_of;
 pub use words::Words;
 
 /// Registers this crate's types with a playground's interpreter (feature `live`).

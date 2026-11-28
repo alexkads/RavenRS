@@ -11,6 +11,7 @@ pub fn stories() -> Vec<Meta> {
 }
 
 // rcb-scaffold: begin
+mod chronology;
 mod data_inspector;
 mod document_tabs;
 mod file_browser;
@@ -20,7 +21,6 @@ mod paged_document_view;
 mod sortable_list;
 mod tree_view;
 mod virtual_list;
-mod year_view;
 #[allow(unused_imports)]
 use ravenrs_widgets_base::AnyView;
 
@@ -32,6 +32,7 @@ use ravenrs_widgets_base::AnyView;
 )]
 pub(crate) fn generated() -> Vec<Meta> {
     let mut all = Vec::new();
+    all.push(<crate::Chronology as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::DataInspector as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::DocumentTabs as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::FileBrowser as ravenrs_widgets_base::book::ComponentBook>::book());
@@ -41,7 +42,6 @@ pub(crate) fn generated() -> Vec<Meta> {
     all.push(<crate::SortableList as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::TreeView as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::VirtualList as ravenrs_widgets_base::book::ComponentBook>::book());
-    all.push(<crate::YearView as ravenrs_widgets_base::book::ComponentBook>::book());
     all
 }
 // rcb-scaffold: end

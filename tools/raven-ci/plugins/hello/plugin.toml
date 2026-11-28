@@ -1,0 +1,19 @@
+# The example plugin of Raven CI, written in Python with nothing but its standard library.
+# tools/raven-ci/docs/writing-a-plugin.md explains every field.
+name = "hello"
+version = "0.1.0"
+summary = "Diz olá: um passo de pipeline e um comando de terminal, escritos em Python."
+command = "python3"
+windows_command = "python"
+args = ["hello.py"]
+permissions = ["secrets"]
+timeout_ms = 10000
+idle_ms = 60000
+
+[[steps]]
+kind = "hello"
+title = "Olá"
+
+[[commands]]
+name = "hello"
+summary = "Diz olá no terminal: raven-ci hello Ana"

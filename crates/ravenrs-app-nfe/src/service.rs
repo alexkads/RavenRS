@@ -420,10 +420,7 @@ pub(crate) fn agora_com_fuso() -> String {
 }
 
 pub(crate) fn texto(record: &Object, field: &str) -> String {
-    match record.get(field) {
-        Value::Text(text) => text.trim().to_owned(),
-        _ => String::new(),
-    }
+    record.text(field).trim().to_owned()
 }
 
 /// A state by its abbreviation, or that this beta does not reach it yet.
@@ -619,6 +616,14 @@ fn guardar_cupom(
             ("unitario", money(item.valor_unitario)),
             ("valor", money(valor)),
             ("itens", rascunho.itens.len().to_string()),
+            (
+                "desconto",
+                if documento.totais.v_desc > Decimal::ZERO {
+                    money(documento.totais.v_desc)
+                } else {
+                    String::new()
+                },
+            ),
             ("total", money(documento.valor_total())),
             ("pagamento", venda.pagamento.clone()),
             ("recebido", money(venda.recebido)),

@@ -604,7 +604,54 @@ impl<B: SqlBackend> SqlObjectSpace<B> {
         Ok(())
     }
 
+    /// A record as the database has it now, inside the transaction, without what waits.
+    fn stored_record(&self, info: &EntityInfo, key: &Value) -> Result<Option<Object>, SpaceError> {
+        let entity = self.entity(&info.name)?;
+        let field = info.key_field().ok_or_else(|| SpaceError::MissingKey(info.name.clone()))?;
+        let tail = format!(" WHERE {} = {}", quoted(&field.name), self.shared.backend.slot(1));
+        Ok(self.select(entity, &tail, std::slice::from_ref(key))?.into_iter().next())
+    }
+
+    /// Writes a new amendment on its target before it waits, all or nothing.
+    fn amended(&mut self, info: &EntityInfo, object: Object) -> Result<Object, SpaceError> {
+        if info.amendment.is_none() {
+            return Ok(object);
+        }
+        let kept = key_of(info, &object)
+            .is_some_and(|key| self.entity(&info.name).is_ok_and(|entity| self.exists(entity, &key)));
+        if kept {
+            return Ok(object);
+        }
+        let pending = self.changes.list().iter().any(|change| {
+            matches!(change, Change::New(waiting) if waiting.entity() == info.name
+                && key_of(info, waiting) == key_of(info, &object))
+        });
+        let before = self.changes.clone();
+        let reader = SqlObjectSpace {
+            shared: self.shared.clone(),
+            environment: ravenrs_app::environment(),
+            changes: ChangeSet::default(),
+            watchers: Vec::new(),
+        };
+        let mut stored = |entity: &EntityInfo, key: &Value| reader.stored_record(entity, key);
+        let result = ravenrs_app::apply_amendment(self, info, object, &mut stored, !pending);
+        if result.is_err() {
+            self.changes = before;
+        }
+        result
+    }
+
     fn apply_all(&self, changes: &[Change]) -> Result<(), SpaceError> {
+        let entities: Vec<EntityInfo> =
+            self.shared.entities.iter().map(|entity| entity.info.clone()).collect();
+        if entities.iter().any(|entity| entity.seal.is_some() || entity.amendment.is_some()) {
+            let mut stored = |entity: &EntityInfo, key: &Value| self.stored_record(entity, key);
+            ravenrs_app::check_amendments(&entities, changes, &mut stored)?;
+        }
+        if entities.iter().any(|entity| entity.period_closing.is_some()) {
+            let mut stored = |entity: &EntityInfo, key: &Value| self.stored_record(entity, key);
+            ravenrs_app::check_closing(&entities, changes, &mut stored)?;
+        }
         for change in changes {
             let name = match change {
                 Change::New(object) | Change::Updated(object) => object.entity(),
@@ -728,15 +775,17 @@ impl<B: SqlBackend> ObjectSpace for SqlObjectSpace<B> {
     }
 
     fn save(&mut self, object: Object) -> Result<(), SpaceError> {
+        let info = self.entity(object.entity())?.info.clone();
+        let object = self.amended(&info, object)?;
         let entity = self.entity(object.entity())?;
-        let info = entity.info.clone();
         let exists = key_of(&info, &object).is_some_and(|key| self.exists(entity, &key));
         self.changes.save(&info, object, exists)
     }
 
     fn insert(&mut self, object: Object) -> Result<(), SpaceError> {
+        let info = self.entity(object.entity())?.info.clone();
+        let object = self.amended(&info, object)?;
         let entity = self.entity(object.entity())?;
-        let info = entity.info.clone();
         let exists = key_of(&info, &object).is_some_and(|key| self.exists(entity, &key));
         self.changes.insert(&info, object, exists)
     }

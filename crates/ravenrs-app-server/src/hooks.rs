@@ -120,6 +120,15 @@ pub fn sign(secret: &[u8], body: &[u8]) -> String {
     format!("sha256={}", outer.iter().map(|b| format!("{b:02x}")).collect::<String>())
 }
 
+/// Whether `signature` (`sha256=<hex>`) is the HMAC-SHA256 of `body` with `secret`, compared
+/// without stopping at the first difference, so the time taken says nothing of where it differs.
+///
+/// It reads the signature of [`ApiService::webhook`](crate::ApiService::webhook) and also the
+/// `X-Hub-Signature-256` a GitHub webhook sends, which is the same text.
+pub fn verify(secret: &[u8], body: &[u8], signature: &str) -> bool {
+    same(sign(secret, body).as_bytes(), signature.trim().as_bytes())
+}
+
 /// Compares without stopping at the first difference, so the time taken says nothing.
 fn same(a: &[u8], b: &[u8]) -> bool {
     a.len() == b.len() && a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
@@ -128,13 +137,6 @@ fn same(a: &[u8], b: &[u8]) -> bool {
 /// The one answer to anything wrong before the body is read: no detail of which part failed.
 fn refused() -> Failure {
     Failure::new(401, "unauthorized", "The notification was not accepted.")
-}
-
-fn text(record: &Object, name: &str) -> String {
-    match record.get(name) {
-        Value::Text(text) => text,
-        _ => String::new(),
-    }
 }
 
 /// Answers one notification for `source`.
@@ -147,7 +149,7 @@ pub(crate) fn receive(
     let organization = request.headers.get(ORGANIZATION_HEADER).ok_or_else(refused)?;
     let secret = hook.secret_of(organization).ok_or_else(refused)?;
     let signature = request.headers.get(SIGNATURE_HEADER).ok_or_else(refused)?;
-    if !same(sign(secret, &request.body).as_bytes(), signature.as_bytes()) {
+    if !verify(secret, &request.body, signature) {
         return Err(refused());
     }
     // Only now is the body read.
@@ -171,14 +173,14 @@ pub(crate) fn receive(
     let known = space.borrow().query(WEBHOOK_EVENT, &Query::all())?;
     let ours: Vec<&Object> = known
         .iter()
-        .filter(|e| text(e, "organization") == *organization && text(e, "source") == source)
+        .filter(|e| e.text("organization") == *organization && e.text("source") == source)
         .collect();
-    if ours.iter().any(|e| text(e, "provider_id") == id) {
+    if ours.iter().any(|e| e.text("provider_id") == id) {
         return Ok((200, json!({ "received": true, "duplicate": true })));
     }
     let latest = ours
         .iter()
-        .filter(|e| text(e, "subject") == subject && e.get("applied") == Value::Bool(true))
+        .filter(|e| e.text("subject") == subject && e.get("applied") == Value::Bool(true))
         .filter_map(|e| match e.get("at") {
             Value::Number(at) => Some(at as i64),
             _ => None,
@@ -214,5 +216,17 @@ mod tests {
         let signed = sign(b"Jefe", b"what do ya want for nothing?");
         assert_eq!(signed, "sha256=5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843");
         assert!(same(b"abc", b"abc") && !same(b"abc", b"abd") && !same(b"abc", b"ab"));
+    }
+
+    #[test]
+    fn verify_takes_only_the_hmac_of_the_body_with_its_prefix() {
+        let (secret, body) = (b"Jefe".as_slice(), b"what do ya want for nothing?".as_slice());
+        let good = "sha256=5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843";
+        assert!(verify(secret, body, good));
+        assert!(verify(secret, body, &format!("{good}\n")), "a line end around it is not part of it");
+        assert!(!verify(secret, body, &good.replace("43", "44")));
+        assert!(!verify(secret, body, &good[..good.len() - 2]));
+        assert!(!verify(secret, body, good.trim_start_matches("sha256=")));
+        assert!(!verify(b"outro", body, good));
     }
 }

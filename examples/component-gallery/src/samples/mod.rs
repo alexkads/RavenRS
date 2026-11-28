@@ -172,6 +172,7 @@ catalog! {
     "StatusBar" => navigation,
     "ToolRail" => navigation,
     "Timeline" => data,
+    "Receipt" => data,
     "AspectRatio" => layout,
     "Collapse" => layout,
     "MoviePlayer" => media,

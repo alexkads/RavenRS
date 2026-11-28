@@ -131,6 +131,24 @@ fn click(ui: &mut Ui, name: &str) {
     ui.update();
 }
 
+/// The row named `title` whose description has `detail`: a row is named by its title and
+/// says the rest in its description (#921).
+fn row(ui: &mut Ui, title: &str, detail: &str) -> Option<u64> {
+    let tree = ui.access_tree();
+    tree.nodes
+        .iter()
+        .find(|n| {
+            n.name.as_deref() == Some(title) && n.description.as_deref().is_some_and(|d| d.contains(detail))
+        })
+        .map(|n| n.id)
+}
+
+fn click_row(ui: &mut Ui, title: &str, detail: &str) {
+    let id = row(ui, title, detail).unwrap_or_else(|| panic!("no {title} with {detail}: {:?}", names(ui)));
+    ui.perform_action(id, AccessAction::Click);
+    ui.update();
+}
+
 fn press(ui: &mut Ui, key: Key) {
     ui.handle_event(&Event::KeyDown { key, modifiers: Modifiers::default() });
     ui.update();
@@ -159,8 +177,8 @@ fn choosing_an_answer_opens_the_film_there_and_plays() {
     let mut ui = ui_of(MovieAssistant::new(library()));
     ask(&mut ui, "guardar meus dados");
     assert!(says(&mut ui, "Guardar seus dados"));
-    // The answer, whose name goes on with what it says, and not the chapter behind it.
-    click(&mut ui, "Guardar seus dados Faça");
+    // The answer, which says where it is, and not the chapter behind it.
+    click_row(&mut ui, "Guardar seus dados", "0:15");
     assert!(says(&mut ui, "0:15 / 0:20"), "{:?}", names(&mut ui));
     assert!(says(&mut ui, "Pause"), "it plays from there: {:?}", names(&mut ui));
 }
@@ -187,12 +205,12 @@ fn enter_opens_the_best_answer() {
 fn the_answers_step_aside_until_the_question_changes() {
     let mut ui = ui_of(MovieAssistant::new(library()));
     ask(&mut ui, "pagar conta");
-    let answer = "Pagar uma conta Como dar baixa no que venceu. 0:08";
-    assert!(says(&mut ui, answer));
-    click(&mut ui, answer);
-    assert!(!says(&mut ui, answer), "the film is what matters now");
+    let (title, detail) = ("Pagar uma conta", "Como dar baixa no que venceu. · 0:08");
+    assert!(row(&mut ui, title, detail).is_some());
+    click_row(&mut ui, title, detail);
+    assert!(row(&mut ui, title, detail).is_none(), "the film is what matters now");
     ask(&mut ui, "s");
-    assert!(says(&mut ui, answer), "another question, other answers");
+    assert!(row(&mut ui, title, detail).is_some(), "another question, other answers");
 }
 
 #[test]
@@ -290,7 +308,8 @@ fn a_writer_answers_in_its_own_words_and_the_moments_stay() {
     press(&mut ui, Key::Enter);
     ui.update();
     assert!(says(&mut ui, "pagar conta: see Pagar uma conta"));
-    assert!(says(&mut ui, "Pagar uma conta 0:08"), "the moments are still there");
+    // The moment is named by its title and says where it is in its description (#921).
+    assert!(row(&mut ui, "Pagar uma conta", "0:08").is_some(), "the moments are still there");
 }
 
 #[test]

@@ -42,6 +42,8 @@ const ZOOM_RANGE: (f32, f32) = (0.25, 2.0);
 const ZOOM_STEP: f32 = 1.25;
 /// Room left around the diagram when it is fitted to the view, in screen pixels.
 const FIT_MARGIN: f32 = 48.0;
+/// How tall the bar of zoom controls is, in screen pixels.
+const CONTROLS_HEIGHT: f32 = 40.0;
 /// How near a line the pointer must be to pick it, in screen pixels.
 const EDGE_REACH: f32 = 6.0;
 /// How near a port the pointer must be to drop a connection on it, in screen pixels.
@@ -330,10 +332,11 @@ impl FlowViewport {
         Self { offset: Point::new(anchor.x - under.x * zoom, anchor.y - under.y * zoom), zoom, fit: false }
     }
 
-    /// The zoom and offset that show `bounds` whole and centered in a view of `size`.
+    /// The zoom and offset that show `bounds` whole and centered in a view of `size`. A short
+    /// strip keeps at most a sixth of its height around the diagram, not the whole margin.
     pub fn fitting(bounds: Rect, size: Size, least: f32, most: f32) -> Self {
-        let room =
-            Size::new((size.width - FIT_MARGIN * 2.0).max(1.0), (size.height - FIT_MARGIN * 2.0).max(1.0));
+        let margin = FIT_MARGIN.min(size.height / 6.0).min(size.width / 6.0);
+        let room = Size::new((size.width - margin * 2.0).max(1.0), (size.height - margin * 2.0).max(1.0));
         let zoom = (room.width / bounds.width().max(1.0))
             .min(room.height / bounds.height().max(1.0))
             .clamp(least, most);
@@ -424,6 +427,18 @@ impl FlowKind {
     pub fn tone(mut self, tone: Semantic) -> Self {
         self.tone = tone;
         self
+    }
+
+    /// The look of a node with `status`, for [`FlowCanvas::status_icons`].
+    fn for_status(self, status: &FlowNodeStatus) -> Self {
+        let (icon, tone) = match status {
+            FlowNodeStatus::Success => (IconName::CircleCheck, Semantic::Success),
+            FlowNodeStatus::Running => (IconName::LoaderCircle, Semantic::Accent),
+            FlowNodeStatus::Error(_) => (IconName::CircleAlert, Semantic::Danger),
+            FlowNodeStatus::Cancelled => (IconName::CircleX, Semantic::InkMuted),
+            _ => return self,
+        };
+        Self { icon, tone, ..self }
     }
 }
 
@@ -620,7 +635,9 @@ pub struct FlowCanvas {
     grid: f32,
     snap: bool,
     controls: bool,
+    hint: Option<String>,
     minimap: bool,
+    status_icons: bool,
     locked: bool,
     read_only: bool,
     wheel_pans: bool,
@@ -669,7 +686,9 @@ impl FlowCanvas {
             grid: 24.0,
             snap: true,
             controls: true,
+            hint: None,
             minimap: true,
+            status_icons: false,
             locked: false,
             read_only: false,
             wheel_pans: true,
@@ -899,9 +918,24 @@ impl FlowCanvas {
         self
     }
 
+    /// A short line at the end of the zoom controls that says what a click does, such as "Click
+    /// a stage to see only its log". It shows with the controls.
+    pub fn hint(mut self, text: impl Into<String>) -> Self {
+        self.hint = Some(text.into());
+        self
+    }
+
     /// Whether the map shows in the bottom right corner (on by default).
     pub fn minimap(mut self, minimap: bool) -> Self {
         self.minimap = minimap;
+        self
+    }
+
+    /// The icon of a node of a [`kind`](Self::kind) says how it went once its status says so: a
+    /// check when it passed, a turning circle while it runs, a mark when it failed or was
+    /// cancelled. Before that, and for any other status, the kind's own icon shows. Off by default.
+    pub fn status_icons(mut self, on: bool) -> Self {
+        self.status_icons = on;
         self
     }
 
@@ -978,6 +1012,17 @@ impl FlowCanvas {
     /// How much of the free space along the parent stack it takes (1 by default).
     pub fn grow(mut self, grow: f32) -> Self {
         self.grow = grow;
+        self
+    }
+
+    /// A fixed height and the width its parent gives: a strip of stages across a page. A parent
+    /// that stretches it gives it its width; one that does not (a column that fits what it holds,
+    /// a row beside a text) gives it the width of its diagram, never more than the parent has, and
+    /// what does not fit scrolls. With no node it keeps 240 points and its hint (#971).
+    pub fn height(mut self, height: f32) -> Self {
+        self.width = None;
+        self.height = Some(height);
+        self.grow = 0.0;
         self
     }
 }
@@ -2919,14 +2964,39 @@ impl View for FlowCanvas {
         let graph = self.graph.get();
         let size = cx.scroll_viewport();
         let mut view = flow.view.get();
+        // A view fitted to a size the canvas no longer has, and not moved since, fits again: the
+        // first size can be one that another view left at this place in the tree, and a window
+        // that changes size keeps the diagram whole.
+        let fitted: State<Option<(Size, FlowViewport)>> = cx.use_state(|| None);
+        if let (Some((at, fitted_view)), Some(size)) = (fitted.get(), size)
+            && at != size
+            && fitted_view == view
+        {
+            view.fit = true;
+        }
         if view.fit
             && let Some(size) = size
         {
-            view = match graph.bounds() {
-                Some(bounds) => FlowViewport::fitting(bounds, size, self.range.0, self.range.1.min(1.0)),
-                None => FlowViewport::at(Point::new(FIT_MARGIN, FIT_MARGIN), 1.0),
+            // With the zoom controls showing, the diagram fits above them, not under them.
+            let above = if self.controls {
+                Size::new(size.width, (size.height - CONTROLS_HEIGHT - 2.0 * cx.theme().spacing.s4).max(1.0))
+            } else {
+                size
             };
-            flow.view.set(view);
+            match graph.bounds() {
+                Some(bounds) => {
+                    view = FlowViewport::fitting(bounds, above, self.range.0, self.range.1.min(1.0));
+                    flow.view.set(view);
+                    fitted.set(Some((size, view)));
+                }
+                // Nothing to fit yet, as while the nodes are loading: it fits when they come.
+                None => {
+                    view = FlowViewport {
+                        fit: true,
+                        ..FlowViewport::at(Point::new(FIT_MARGIN, FIT_MARGIN), 1.0)
+                    }
+                }
+            }
         }
         if let (Some(arrivals), Some(size)) = (&self.arrivals, size)
             && let Some(node) = arrivals.get()
@@ -3027,7 +3097,10 @@ impl View for FlowCanvas {
         }
         let mut children = Vec::new();
         for node in &graph.nodes {
-            let look = self.kinds.iter().find(|(k, _)| *k == node.kind).map(|(_, look)| look.clone());
+            let mut look = self.kinds.iter().find(|(k, _)| *k == node.kind).map(|(_, look)| look.clone());
+            if self.status_icons {
+                look = look.map(|look| look.for_status(&node.status));
+            }
             let inside = if node.group { None } else { self.content.as_ref().and_then(|f| f(node)) };
             let part = NodeBox {
                 inside,
@@ -3185,7 +3258,18 @@ impl View for FlowCanvas {
         }
         if let Some(size) = size {
             if self.controls {
-                children.push(controls(cx, &flow, view, is_locked, self.read_only, size, &theme, palette));
+                let hint = self.hint.as_deref();
+                children.push(controls(
+                    cx,
+                    &flow,
+                    view,
+                    is_locked,
+                    self.read_only,
+                    hint,
+                    size,
+                    &theme,
+                    palette,
+                ));
             }
             if self.minimap && !graph.nodes.is_empty() {
                 let map = MiniMap {
@@ -3234,6 +3318,30 @@ impl View for FlowCanvas {
                 surface.paint(frame, 0.0, scene);
             }))
         };
+        // A strip measures as wide as its diagram, so a parent that does not stretch it still
+        // gives it room; one that stretches it, or is narrower, still decides (#971).
+        if self.width.is_none()
+            && let Some(tall) = self.height
+        {
+            let wide = strip_width(&self.graph.get(), tall);
+            // A row of pieces that wraps: it asks for `wide` but gives way to a narrower parent, as one
+            // box of `wide` would not (its least width would be all of it).
+            let piece = wide / STRIP_PIECES;
+            let pieces: Vec<NodeId> = (0..STRIP_PIECES as usize)
+                .map(|_| {
+                    cx.container(
+                        LayoutStyle { width: Some(piece), height: Some(0.0), ..LayoutStyle::default() },
+                        &[],
+                        Paint::None,
+                    )
+                })
+                .collect();
+            children.push(cx.container(
+                LayoutStyle { wrap: true, ..LayoutStyle::stack(Axis::Horizontal) },
+                &pieces,
+                Paint::None,
+            ));
+        }
         let root = cx.container(
             LayoutStyle {
                 width: self.width,
@@ -3343,6 +3451,19 @@ fn refusal(cx: &mut BuildCx<'_>, reason: &str, at: Point, p: Palette) -> NodeId 
 }
 
 /// What to do next while a connection is made with the keys, beside the port it starts from.
+/// The width of a strip `tall` points high that shows `graph` at 100% at most, with the margin it
+/// keeps around it; 240 with no node (#971).
+/// How many pieces the width of a strip comes in: the least it asks is one of them (#971).
+const STRIP_PIECES: f32 = 16.0;
+
+fn strip_width(graph: &FlowGraph, tall: f32) -> f32 {
+    const EMPTY: f32 = 240.0;
+    let Some(bounds) = graph.bounds() else { return EMPTY };
+    let margin = FIT_MARGIN.min(tall / 6.0);
+    let zoom = ((tall - margin * 2.0).max(1.0) / bounds.height().max(1.0)).min(1.0);
+    (bounds.width() * zoom + margin * 2.0).max(EMPTY)
+}
+
 fn hint(cx: &mut BuildCx<'_>, text: &str, at: Point, p: Palette) -> NodeId {
     bubble(cx, IconName::Link, p.accent, text, at, p)
 }
@@ -3360,6 +3481,7 @@ fn controls(
     view: FlowViewport,
     locked: bool,
     read_only: bool,
+    hint: Option<&str>,
     size: Size,
     theme: &Theme,
     p: Palette,
@@ -3461,7 +3583,19 @@ fn controls(
         &[percent],
         Paint::None,
     );
-    let height = 40.0;
+    // What a click does, after the zoom, in the muted words of the controls.
+    let hint = hint.map(|hint| {
+        let words = util::label(cx, hint, TextStyle::Callout, None, p.muted);
+        cx.container(
+            LayoutStyle {
+                padding: ravenrs_core::Insets::symmetric(0.0, theme.spacing.s2),
+                ..LayoutStyle::leaf()
+            },
+            &[words],
+            Paint::None,
+        )
+    });
+    let height = CONTROLS_HEIGHT;
     let node = cx.container(
         LayoutStyle {
             absolute: Some((theme.spacing.s4, size.height - theme.spacing.s4 - height)),
@@ -3478,6 +3612,7 @@ fn controls(
             .chain(debug)
             .chain(export)
             .chain([percent])
+            .chain(hint)
             .collect::<Vec<_>>(),
         Paint::Quad(crate::context::QuadPaint {
             corner_radius: theme.radii.md,

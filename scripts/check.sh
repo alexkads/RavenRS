@@ -163,6 +163,13 @@ public_api() {
     ./scripts/public-api.py --check
 }
 
+design_system() {
+    # RCB measures every story again: only when the change reaches it (#1000).
+    step "the design system in docs/design-system/export is what RCB writes (#1000)"
+    ./scripts/gen-design-system.py --self-test
+    ./scripts/gen-design-system.py --check
+}
+
 lint_examples() {
     # The examples are the showcase, and the house follows its own rules.
     step "ravenrs-lint on the examples"
@@ -183,6 +190,10 @@ step "the widgets' crates keep their layers: no family depends on another"
 step "every test file runs: tests/suite/ modules are declared"
 ./scripts/check-test-suites.py
 
+step "the playground's live lists are current, and name nothing another feature leaves out (#828)"
+./scripts/gen-live.py --self-test
+./scripts/gen-live.py --check
+
 step "every tool in tools/ is a product: version, news, installer, icons, tests (tools/README.md)"
 ./scripts/check-tools.py
 
@@ -196,6 +207,10 @@ step "every component follows RCB: ComponentBook with its stories, or pending wi
 step "every type keeps the testability contract of the RTS, or is pending with its issue (#734, #736)"
 ./scripts/rts-coverage.py --self-test
 ./scripts/rts-coverage.py
+
+step "the components say no fixed words: what they show or read aloud comes from Labels (#775)"
+./scripts/check-fixed-texts.py --self-test
+./scripts/check-fixed-texts.py
 
 step "every app with a window keeps scenarios the Raven Test Studio finds and runs (CONTRIBUTING.md, #702)"
 ./scripts/e2e-scenarios.py --self-test
@@ -211,6 +226,7 @@ if [ "${1:-}" != "--full" ]; then
         mode="quick, ALL"
         lint_examples
         public_api
+        design_system
         step "clippy (native), the whole workspace"
         cargo clippy --workspace --all-targets ${cargo_timings[@]+"${cargo_timings[@]}"} -- -D warnings
         step "tests, the whole workspace"
@@ -223,6 +239,19 @@ if [ "${1:-}" != "--full" ]; then
     fi
     # rustdoc on nightly takes a while: only when the change reaches the facade it reads.
     case " $REACHED " in *" ravenrs-widgets "*) public_api ;; esac
+    # The copy of the design system: when the change reaches RCB, or touches the copy, its script or
+    # a file RCB embeds from outside any package (the guide, include_str!, and the catalog).
+    design_reached=0
+    case " $REACHED " in *" raven-component-book "*) design_reached=1 ;; esac
+    design_fork=$(git merge-base HEAD "${CHECK_BASE:-origin/master}" 2>/dev/null || true)
+    if [ -n "$design_fork" ] && { ! git diff --quiet "$design_fork" -- docs/design-system/export scripts/gen-design-system.py \
+            docs/design-system/README.md site/components/index.html \
+        || [ -n "$(git ls-files --others --exclude-standard -- docs/design-system/export)" ]; }; then
+        design_reached=1
+    fi
+    if [ "$design_reached" = 1 ]; then
+        design_system
+    fi
     if [ -z "$REACHED" ]; then
         echo "no package changed against ${CHECK_BASE:-origin/master}: nothing to build"
         done_in "Quick checks passed"
@@ -249,6 +278,7 @@ fi
 
 lint_examples
 public_api
+design_system
 
 step "clippy (native)"
 cargo clippy --workspace --all-targets ${cargo_timings[@]+"${cargo_timings[@]}"} -- -D warnings

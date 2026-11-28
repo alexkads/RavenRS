@@ -14,6 +14,7 @@ use crate::date::Date;
 use crate::display::Tone;
 use crate::recurrence::{Frequency, RecurrenceEnd, RecurrenceRule};
 use crate::scheduler::TimePoint;
+use crate::year_view::{DayMark, YearView};
 use crate::{
     Button, ButtonSize, ButtonStyle, DatePicker, FormField, HStack, IconButton, IconName, SegmentedControl,
     Stepper, Text, ToggleButton, VStack, View, util,
@@ -75,7 +76,8 @@ impl CalendarEvent {
     }
 }
 
-/// What an [`EventCalendar`] shows: a month of days, or the hours of a week or a day.
+/// What an [`EventCalendar`] shows: a month of days, the hours of a week or a day, the events
+/// in a list, the twelve months of a year or the three of a season.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
@@ -87,12 +89,39 @@ pub enum CalendarView {
     Week,
     /// One day with an hour on each line.
     Day,
+    /// The events from the day chosen on, for a month, in a list by day and time.
+    Agenda,
+    /// The twelve months of the year, a dot on the days with events.
+    Year,
+    /// The three months of the season the day falls in, side by side: from December, March,
+    /// June or September.
+    Season,
+}
+
+/// Where the seasons of a [`CalendarView::Season`] are named from: in the south, December
+/// starts the summer; in the north, the winter.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
+pub enum Hemisphere {
+    /// Summer from December to February.
+    #[default]
+    Southern,
+    /// Winter from December to February.
+    Northern,
+}
+
+/// The first day of the season `day` falls in: December, March, June or September.
+fn season_start(day: Date) -> Date {
+    let month = day.first_of_month();
+    // December is the first of its season; January and February are its second and third.
+    month.add_months(-i32::from(month.month() % 3))
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CalendarView {
     /// Every view, in the order the calendar offers them.
-    pub const ALL: [Self; 3] = [Self::Month, Self::Week, Self::Day];
+    pub const ALL: [Self; 6] = [Self::Month, Self::Week, Self::Day, Self::Agenda, Self::Year, Self::Season];
 
     /// The first and last day shown around `anchor`: the whole weeks a month touches,
     /// the week from Sunday, or the day itself. An app loads, or expands a series of,
@@ -111,17 +140,34 @@ impl CalendarView {
                 (start, start.add_days(6))
             }
             Self::Day => (anchor, anchor),
+            Self::Agenda => (anchor, anchor.add_months(1).add_days(-1)),
+            Self::Year => {
+                let first = anchor.first_of_month().add_months(1 - i32::from(anchor.month()));
+                (first, first.add_months(12).add_days(-1))
+            }
+            Self::Season => {
+                let first = season_start(anchor);
+                (first, first.add_months(3).add_days(-1))
+            }
         }
     }
 
-    /// The anchor one month, week or day away.
+    /// The anchor one period of the view away: a month, a week, a day, a year or a season.
     fn step(self, anchor: Date, forward: bool) -> Date {
         let sign = if forward { 1 } else { -1 };
         match self {
             Self::Month => anchor.first_of_month().add_months(sign),
             Self::Week => anchor.add_days(7 * sign),
             Self::Day => anchor.add_days(sign),
+            Self::Agenda => anchor.add_months(sign),
+            Self::Year => self.range(anchor).0.add_months(12 * sign),
+            Self::Season => season_start(anchor).add_months(3 * sign),
         }
+    }
+
+    /// Its place in [`Self::ALL`], which is also where its name is in the labels.
+    fn index(self) -> usize {
+        Self::ALL.iter().position(|v| *v == self).unwrap_or(0)
     }
 }
 
@@ -161,7 +207,12 @@ pub struct EventCalendar {
     hours: (u32, u32),
     on_create: Option<Rc<dyn Fn(TimePoint, TimePoint)>>,
     on_move: Option<MoveHandler>,
+    views: Vec<CalendarView>,
+    hemisphere: Hemisphere,
 }
+
+/// The views offered when the app does not choose them.
+const CLASSIC_VIEWS: [CalendarView; 3] = [CalendarView::Month, CalendarView::Week, CalendarView::Day];
 
 impl std::fmt::Debug for EventCalendar {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -196,6 +247,8 @@ impl EventCalendar {
             hours: (0, 24),
             on_create: None,
             on_move: None,
+            views: CLASSIC_VIEWS.to_vec(),
+            hemisphere: Hemisphere::Southern,
         }
     }
 
@@ -223,10 +276,26 @@ impl EventCalendar {
         self
     }
 
-    /// Offers the month, week and day, with `view` holding the one shown. In a week or a
-    /// day, the binding given to [`new`](Self::new) holds the day the view is around.
+    /// Offers the views, with `view` holding the one shown: the month, week and day, or those of
+    /// [`Self::views`]. Outside the month, the binding given to [`new`](Self::new) holds the day
+    /// the view is around.
     pub fn view(mut self, view: Binding<CalendarView>) -> Self {
         self.view = Some(view);
+        self
+    }
+
+    /// Which views [`Self::view`] offers, in this order (the month, week and day by default):
+    /// [`CalendarView::ALL`] offers all six. An empty list keeps the default.
+    pub fn views(mut self, views: impl IntoIterator<Item = CalendarView>) -> Self {
+        let views: Vec<CalendarView> = views.into_iter().collect();
+        self.views = if views.is_empty() { CLASSIC_VIEWS.to_vec() } else { views };
+        self
+    }
+
+    /// Where the seasons are named from ([`Hemisphere::Southern`] by default): it changes the
+    /// names, not the months a season takes.
+    pub fn hemisphere(mut self, hemisphere: Hemisphere) -> Self {
+        self.hemisphere = hemisphere;
         self
     }
 
@@ -732,6 +801,8 @@ impl View for EventCalendar {
                     (0..=(to.to_days() - from.to_days())).map(|i| from.add_days(i as i32)).collect();
                 self.hourly(cx, &days)
             }
+            CalendarView::Agenda => self.agenda(cx),
+            CalendarView::Year | CalendarView::Season => self.months(cx, view),
         };
         cx.container(
             LayoutStyle { spacing: 10.0, align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
@@ -759,6 +830,19 @@ impl EventCalendar {
             CalendarView::Day => {
                 (labels.calendar_previous.clone(), labels.calendar_next.clone(), labels.long_date(anchor))
             }
+            CalendarView::Agenda => {
+                let (from, to) = view.range(anchor);
+                let title = format!("{} – {}", labels.short_date(from), labels.short_date(to));
+                (labels.calendar_previous.clone(), labels.calendar_next.clone(), title)
+            }
+            CalendarView::Year => {
+                (labels.previous_year.clone(), labels.next_year.clone(), anchor.year().to_string())
+            }
+            CalendarView::Season => (
+                labels.calendar_previous.clone(),
+                labels.calendar_next.clone(),
+                self.season_title(&labels, anchor),
+            ),
         };
         let (prev, next) = (self.month.clone(), self.month.clone());
         let mut header = vec![
@@ -798,10 +882,11 @@ impl EventCalendar {
             header.push(cx.container(LayoutStyle { grow: 1.0, ..LayoutStyle::leaf() }, &[], Paint::None));
             let (read, write, month, selected) =
                 (chosen.clone(), chosen.clone(), self.month.clone(), self.selected.clone());
+            let (offered, choose) = (self.views.clone(), self.views.clone());
             let index = Binding::new(
-                move || CalendarView::ALL.iter().position(|v| *v == read.get()).unwrap_or(0),
+                move || offered.iter().position(|v| *v == read.get()).unwrap_or(0),
                 move |at: usize| {
-                    let next = CalendarView::ALL[at.min(CalendarView::ALL.len() - 1)];
+                    let Some(&next) = choose.get(at.min(choose.len().saturating_sub(1))) else { return };
                     // The day picked goes along, when it is in what was shown.
                     let (from, to) = write.get().range(month.get());
                     if let Some(day) = selected.get().filter(|day| (from..=to).contains(day)) {
@@ -812,8 +897,14 @@ impl EventCalendar {
             );
             header.push(
                 cx.child(
-                    &SegmentedControl::new(index, labels.calendar_views.to_vec())
-                        .label(labels.calendar_view_name.clone()),
+                    &SegmentedControl::new(
+                        index,
+                        self.views
+                            .iter()
+                            .map(|v| labels.calendar_views[v.index()].clone())
+                            .collect::<Vec<_>>(),
+                    )
+                    .label(labels.calendar_view_name.clone()),
                 ),
             );
         }
@@ -880,6 +971,133 @@ impl EventCalendar {
         );
         cx.semantics(grid, Semantics::new(Role::Calendar).name(labels.month_title(shown)));
         grid
+    }
+
+    /// The name of the season `day` falls in, with the year most of it is in: "Verão de 2026"
+    /// from December 2025 to February 2026.
+    fn season_title(&self, labels: &crate::Labels, day: Date) -> String {
+        let first = season_start(day);
+        // From December, as the south calls them: summer, autumn, winter, spring.
+        let at = usize::from((first.month() % 12) / 3);
+        let at = match self.hemisphere {
+            Hemisphere::Southern => at,
+            Hemisphere::Northern => (at + 2) % 4,
+        };
+        labels.season_title(&labels.seasons[at], first.add_months(1).year())
+    }
+
+    /// The events from the day the view is around, for a month, in a list by day and time.
+    fn agenda(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let labels = cx.labels();
+        let (from, to) = CalendarView::Agenda.range(self.month.get());
+        let mut events: Vec<&CalendarEvent> =
+            self.events.iter().filter(|e| (from..=to).contains(&e.date)).collect();
+        events.sort_by_key(|e| (e.date, e.time.map(|(start, _)| start), e.id));
+        let muted = theme.color(Semantic::InkMuted);
+        if events.is_empty() {
+            return util::label(cx, &labels.calendar_agenda_empty, TextStyle::Body, None, muted);
+        }
+        let mut days: Vec<NodeId> = Vec::new();
+        let mut at = 0;
+        while at < events.len() {
+            let date = events[at].date;
+            let same = events[at..].iter().take_while(|e| e.date == date).count();
+            let is_today = self.today == Some(date);
+            let color = if is_today { theme.color(Semantic::Accent) } else { theme.color(Semantic::Ink) };
+            let heading =
+                util::label(cx, &labels.long_date(date), TextStyle::Callout, Some(Weight::SEMIBOLD), color);
+            let mut rows = vec![heading];
+            for &event in &events[at..at + same] {
+                let when = match event.time {
+                    Some((start, end)) => format!("{} – {}", clock(start), clock(end)),
+                    None => labels.calendar_all_day.clone(),
+                };
+                let time = util::label(cx, &when, TextStyle::Caption, None, muted);
+                let time = cx.container(
+                    LayoutStyle { width: Some(GUTTER + 40.0), ..LayoutStyle::stack(Axis::Horizontal) },
+                    &[time],
+                    Paint::None,
+                );
+                let chip = EventChip { event, selected: &self.selected, on_event: self.on_event.clone() };
+                let chip = cx.keyed_child(event.id, &chip);
+                cx.test_id(chip, &format!("event:{}", event.id));
+                let chip = cx.container(
+                    LayoutStyle { grow: 1.0, min_width: Some(0.0), ..LayoutStyle::stack(Axis::Horizontal) },
+                    &[chip],
+                    Paint::None,
+                );
+                rows.push(cx.container(
+                    LayoutStyle {
+                        spacing: 8.0,
+                        align: Align::Center,
+                        ..LayoutStyle::stack(Axis::Horizontal)
+                    },
+                    &[time, chip],
+                    Paint::None,
+                ));
+            }
+            let day = cx.container(
+                LayoutStyle { spacing: 6.0, align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
+                &rows,
+                Paint::None,
+            );
+            cx.semantics(day, Semantics::new(Role::Group).name(labels.long_date(date)));
+            days.push(day);
+            at += same;
+        }
+        let node = cx.container(
+            LayoutStyle { spacing: 16.0, align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
+            &days,
+            Paint::None,
+        );
+        let name = format!("{} – {}", labels.short_date(from), labels.short_date(to));
+        cx.semantics(node, Semantics::new(Role::List).name(name));
+        node
+    }
+
+    /// The twelve months of the year, or the three of the season, with a dot on the days that
+    /// have events; a day opens its month.
+    fn months(&self, cx: &mut BuildCx<'_>, view: CalendarView) -> NodeId {
+        let labels = cx.labels();
+        let (first, last) = view.range(self.month.get());
+        let mut on_day: std::collections::BTreeMap<Date, (usize, Tone)> = std::collections::BTreeMap::new();
+        for event in self.events.iter().filter(|e| (first..=last).contains(&e.date)) {
+            on_day.entry(event.date).or_insert((0, event.tone)).0 += 1;
+        }
+        let (read, write) = (self.month.clone(), self.month.clone());
+        let year = Binding::new(
+            move || read.get().year(),
+            move |year: i32| {
+                if let Some(first) = Date::new(year, 1, 1) {
+                    write.set(first);
+                }
+            },
+        );
+        let (month, chosen) = (self.month.clone(), self.view.clone());
+        let count = if view == CalendarView::Season { 3 } else { 12 };
+        let mut months = YearView::new(year)
+            .months(first, count)
+            .header(false)
+            .selected(self.selected.clone())
+            .marks(move |day| {
+                on_day
+                    .get(&day)
+                    .map(|(count, tone)| DayMark::new().tone(*tone).label(labels.calendar_events(*count)))
+            })
+            .on_pick(move |day| {
+                month.set(day.first_of_month());
+                if let Some(chosen) = &chosen {
+                    chosen.set(CalendarView::Month);
+                }
+            });
+        if view == CalendarView::Season {
+            months = months.columns(3);
+        }
+        if let Some(today) = self.today {
+            months = months.today(today);
+        }
+        cx.child(&months)
     }
 
     /// A column of hours for each day, the events placed by their time.

@@ -7,16 +7,27 @@ use ravenrs_criteria::{Criteria, Environment, FieldType, Record, Schema, Scope, 
 
 // What the entity keeps of its rules, actions and workflow: data only. The code that runs them
 // lives in its own module and imports them from here, so it can stand on the entity.
+pub(crate) mod amendment_types;
 pub(crate) mod appearance_types;
+pub(crate) mod closing_types;
 pub(crate) mod record_actions;
 pub(crate) mod rules;
 pub(crate) mod workflow_types;
 
 pub use crate::model_node::ModelNode;
+pub use amendment_types::{
+    Amendment, AmendmentApply, AmendmentKind, Seal, StoredLookup, apply_amendment, check_amendment_model,
+    check_amendments,
+};
 pub use appearance_types::{AppearanceContext, AppearanceRule, AppearanceTarget, Tint};
+pub use closing_types::{
+    CLOSING_CURRENT, CLOSING_REOPENED, ClosingError, PeriodClosing, approve, archived_document,
+    check_closing, check_closing_model, closing_digest, closing_key, closing_versions,
+    missing_closing_entities, reopen,
+};
 pub use record_actions::{RecordAction, Selection};
 pub use rules::{Comparison, Operand, Rule, RuleKind, Severity, TextComparison};
-pub use workflow_types::{Reminder, StateMachine, Transition, check_transitions, local_now};
+pub use workflow_types::{Reminder, StateMachine, Transition, check_transitions, local_now, local_today};
 
 /// What a field holds, which decides how it is edited and stored.
 #[derive(Clone, Debug, PartialEq)]
@@ -590,6 +601,53 @@ pub struct ListFilter {
     pub criteria: Option<String>,
 }
 
+/// A number above the list of an entity: a count, a sum or an average of its records, read as the
+/// person may read them, with a filter and a line under it.
+///
+/// ```
+/// use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, ListIndicator};
+///
+/// let bill = EntityInfo::new("Bill")
+///     .field(FieldInfo::new("id", FieldKind::Integer).key())
+///     .field(FieldInfo::new("amount", FieldKind::Money))
+///     .field(FieldInfo::new("status", FieldKind::Text))
+///     .indicator(ListIndicator::new("A pagar", "amount:Sum").filter("[status] = 'open'").note("Em aberto"));
+/// assert!(bill.check().is_ok());
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct ListIndicator {
+    /// What it is called.
+    pub caption: String,
+    /// `field:Sum`, `field:Count`, `field:Average`, `field:Min` or `field:Max`; empty counts.
+    pub series: String,
+    /// Only the records that meet this.
+    pub filter: Option<String>,
+    /// A line under the number.
+    pub note: Option<String>,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl ListIndicator {
+    /// This number, by this series.
+    pub fn new(caption: impl Into<String>, series: impl Into<String>) -> Self {
+        Self { caption: caption.into(), series: series.into(), filter: None, note: None }
+    }
+
+    /// Over the records that meet this expression only.
+    pub fn filter(mut self, expression: impl Into<String>) -> Self {
+        self.filter = Some(expression.into());
+        self
+    }
+
+    /// With this line under the number.
+    pub fn note(mut self, text: impl Into<String>) -> Self {
+        self.note = Some(text.into());
+        self
+    }
+}
+
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ListFilter {
     /// A filter that lets everything through, as the choice that takes the others off.
@@ -629,10 +687,16 @@ pub struct EntityInfo {
     pub description: Option<String>,
     /// What its list says when it has no records, in place of the language's own words.
     pub empty_text: Option<String>,
+    /// What the empty list adds for whom may create a record: the next step.
+    pub empty_hint: Option<String>,
+    /// The numbers above its list.
+    pub indicators: Vec<ListIndicator>,
     /// The states its records go through.
     pub state_machines: Vec<crate::StateMachine>,
     /// When to remind people of a record.
     pub reminder: Option<crate::Reminder>,
+    /// How what falls due in its records is summed up for each person.
+    pub due_digest: Option<crate::DueDigest>,
     /// Actions that set fields of the records selected.
     pub actions: Vec<crate::RecordAction>,
     /// What the list editors are told about this list: an editor's settings node, and in it names and values.
@@ -660,6 +724,12 @@ pub struct EntityInfo {
     /// The fields its form goes through first with the keyboard, in this order. The form shows
     /// them in the same order, so the eye and the keyboard go the same way.
     pub focus_order: Vec<String>,
+    /// When one of its records, as stored, is closed and changes only by an amendment.
+    pub seal: Option<crate::Seal>,
+    /// The closed records of another entity its records amend.
+    pub amendment: Option<crate::Amendment>,
+    /// How it is approved as a period, freezing the records that belong to it.
+    pub period_closing: Option<crate::PeriodClosing>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
@@ -678,9 +748,12 @@ impl EntityInfo {
             variants: Vec::new(),
             description: None,
             empty_text: None,
+            empty_hint: None,
+            indicators: Vec::new(),
             state_machines: Vec::new(),
             actions: Vec::new(),
             reminder: None,
+            due_digest: None,
             editor_settings: Vec::new(),
             form_columns: None,
             filters: Vec::new(),
@@ -693,6 +766,9 @@ impl EntityInfo {
             form_actions: Vec::new(),
             singleton: false,
             focus_order: Vec::new(),
+            seal: None,
+            amendment: None,
+            period_closing: None,
         }
     }
 
@@ -813,6 +889,20 @@ impl EntityInfo {
         self
     }
 
+    /// What its empty list adds, for whom may create a record, as the next step: "Comece pelo
+    /// nome." Whom may only read is told records show up once someone who may adds them. It lands
+    /// on the list view as `EmptyHint`.
+    pub fn empty_hint(mut self, text: impl Into<String>) -> Self {
+        self.empty_hint = Some(text.into());
+        self
+    }
+
+    /// A number above its list, in the order given. It lands on the list view under `Indicators`.
+    pub fn indicator(mut self, indicator: ListIndicator) -> Self {
+        self.indicators.push(indicator);
+        self
+    }
+
     /// Gives its records states, and only these ways between them. Its field becomes read-only on
     /// forms and starts in the machine's first state, its actions come by themselves, and any other
     /// change is refused when it is kept. Declare the field first.
@@ -824,6 +914,26 @@ impl EntityInfo {
             }
         }
         self.state_machines.push(machine);
+        self
+    }
+
+    /// Its records, once stored meeting this seal, change only by an amendment.
+    pub fn sealed(mut self, seal: crate::Seal) -> Self {
+        self.seal = Some(seal);
+        self
+    }
+
+    /// Its records amend the closed records of another entity. They are kept as written: once
+    /// committed, they are not changed or deleted.
+    pub fn amends(mut self, amendment: crate::Amendment) -> Self {
+        self.amendment = Some(amendment);
+        self
+    }
+
+    /// It is a period that is approved and closed: approving keeps a numbered version with the
+    /// document and its hash, and freezes the records that belong to it until it is reopened.
+    pub fn period_closing(mut self, closing: crate::PeriodClosing) -> Self {
+        self.period_closing = Some(closing);
         self
     }
 
@@ -843,6 +953,13 @@ impl EntityInfo {
     /// Reminds people of its records.
     pub fn reminder(mut self, reminder: crate::Reminder) -> Self {
         self.reminder = Some(reminder);
+        self
+    }
+
+    /// Its records fall due: each person gets, as they choose, a summary of what is overdue and
+    /// what falls due in the next days, with the amounts only if they may read them.
+    pub fn due_digest(mut self, digest: crate::DueDigest) -> Self {
+        self.due_digest = Some(digest);
         self
     }
 
@@ -921,6 +1038,32 @@ impl EntityInfo {
         for action in &self.actions {
             action.check(self).map_err(|e| ModelError(format!("{}: {}", self.name, e.0)))?;
         }
+        for indicator in &self.indicators {
+            let field = indicator.series.split(':').next().unwrap_or_default().trim();
+            if !field.is_empty() && self.field_named(field).is_none() {
+                return wrong(format!(
+                    "the indicator {} sums {field}, which is not a field",
+                    indicator.caption
+                ));
+            }
+            if let Some(Err(e)) = indicator.filter.as_deref().map(Criteria::parse) {
+                return wrong(format!(
+                    "the filter of the indicator {} does not read: {e}",
+                    indicator.caption
+                ));
+            }
+        }
+        if let Some(seal) = &self.seal
+            && let Err(e) = Criteria::parse(&seal.when)
+        {
+            return wrong(format!("its seal does not read: {e}"));
+        }
+        if let Some(problem) = self.amendment.as_ref().and_then(|amendment| amendment.problem(self)) {
+            return wrong(problem);
+        }
+        if let Some(problem) = self.period_closing.as_ref().and_then(|closing| closing.problem()) {
+            return wrong(problem);
+        }
         for machine in &self.state_machines {
             if self.field_named(&machine.field).is_none() {
                 return wrong(format!("a state machine is over {}, which is not a field", machine.field));
@@ -928,6 +1071,9 @@ impl EntityInfo {
             if let Some(problem) = machine.problem() {
                 return wrong(problem);
             }
+        }
+        if let Some(problem) = self.due_digest.as_ref().and_then(|digest| digest.problem(self)) {
+            return wrong(problem);
         }
         if let Some(reminder) = &self.reminder
             && !self
@@ -1084,6 +1230,47 @@ impl Object {
         self.values.get(field).cloned().unwrap_or(Value::Null)
     }
 
+    /// The text of a field; `""` when it is empty or holds something other than text.
+    pub fn text(&self, field: &str) -> String {
+        match self.values.get(field) {
+            Some(Value::Text(text)) => text.clone(),
+            _ => String::new(),
+        }
+    }
+
+    /// The number in a field; `None` when it is empty or holds anything else, numeric text
+    /// included.
+    pub fn number(&self, field: &str) -> Option<f64> {
+        match self.values.get(field) {
+            Some(Value::Number(n)) if n.is_finite() => Some(*n),
+            _ => None,
+        }
+    }
+
+    /// The whole number in a field; `None` when it is empty, has a fraction, does not fit an
+    /// `i64` or is not a number.
+    pub fn integer(&self, field: &str) -> Option<i64> {
+        self.values.get(field).and_then(Value::cents)
+    }
+
+    /// The cents in a money field, rounded to the nearest whole one; `None` when it is empty,
+    /// does not fit an `i64` or is not a number.
+    pub fn cents(&self, field: &str) -> Option<i64> {
+        self.number(field).and_then(|n| Value::Number(n.round()).cents())
+    }
+
+    /// The date and time in a field, also from ISO 8601 text, as [`Value::as_date`] reads it;
+    /// `None` when it is empty or holds anything else.
+    pub fn date(&self, field: &str) -> Option<ravenrs_criteria::DateTime> {
+        self.values.get(field).and_then(Value::as_date)
+    }
+
+    /// The key a reference field holds, as text (`"7"`, or the text of a `Guid`), the same as
+    /// [`crate::key_text`] gives; `None` when it is empty.
+    pub fn key(&self, field: &str) -> Option<String> {
+        crate::key_text(&self.get(field))
+    }
+
     /// Changes the value of a field.
     pub fn set(&mut self, field: &str, value: impl Into<Value>) {
         self.values.insert(field.to_owned(), value.into());
@@ -1165,6 +1352,56 @@ pub fn exact_decimals(entity: &EntityInfo, object: &mut Object) -> Result<(), St
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fields_read_in_the_type_asked_for() {
+        let day = ravenrs_criteria::DateTime::parse("2026-11-22").expect("a day");
+        let mut o = Object::from_values("Bill", BTreeMap::new());
+        o.set("name", "Ana");
+        o.set("count", 42.0);
+        o.set("half", 42.5);
+        o.set("digits", "42");
+        o.set("amount", 1999.6);
+        o.set("due", Value::Date(day));
+        o.set("due_text", "2026-11-22");
+        o.set("tomorrow", "amanhã");
+        o.set("owner", 7.0);
+        o.set("guid", "5f0c-7a");
+        // text
+        assert_eq!(o.text("name"), "Ana");
+        assert_eq!(o.text("missing"), "");
+        assert_eq!(o.text("count"), "", "a number is not text");
+        // number and integer
+        assert_eq!(o.number("half"), Some(42.5));
+        assert_eq!(o.number("digits"), None, "numeric text is not a number");
+        assert_eq!(o.integer("count"), Some(42));
+        assert_eq!(o.integer("half"), None);
+        assert_eq!(o.integer("digits"), None);
+        assert_eq!(o.integer("missing"), None);
+        // cents
+        assert_eq!(o.cents("amount"), Some(2000));
+        assert_eq!(o.cents("missing"), None);
+        assert_eq!(o.cents("name"), None);
+        // date
+        assert_eq!(o.date("due"), Some(day));
+        assert_eq!(o.date("due_text"), Some(day), "ISO text gives the same day");
+        assert_eq!(o.date("tomorrow"), None);
+        assert_eq!(o.date("missing"), None);
+        // key
+        assert_eq!(o.key("owner").as_deref(), Some("7"));
+        assert_eq!(o.key("guid").as_deref(), Some("5f0c-7a"));
+        assert_eq!(o.key("missing"), None);
+    }
+
+    #[test]
+    fn today_is_now_at_midnight() {
+        let (now, today) = (local_now(), local_today());
+        assert_eq!(today.seconds, 0);
+        assert!(
+            today.days == now.days || today.days == local_now().days,
+            "the same day, unless it just turned"
+        );
+    }
 
     #[test]
     fn captions_follow_from_names() {

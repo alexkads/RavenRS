@@ -78,22 +78,8 @@ fn key_field(id: Option<i64>) -> Field {
     id.map_or(Field::Null, |id| Field::Number(id as f64))
 }
 
-fn cents_of(record: &Object, field: &str) -> i64 {
-    match record.get(field) {
-        Field::Number(cents) => cents.round() as i64,
-        _ => 0,
-    }
-}
-
-fn text_of(record: &Object, field: &str) -> String {
-    match record.get(field) {
-        Field::Text(text) => text,
-        _ => String::new(),
-    }
-}
-
 fn flow_of(record: &Object) -> Flow {
-    if text_of(record, "flow") == Flow::Income.code() { Flow::Income } else { Flow::Expense }
+    if record.text("flow") == Flow::Income.code() { Flow::Income } else { Flow::Expense }
 }
 
 /// The category most used in `used`, as the form's first choice.
@@ -217,8 +203,8 @@ fn save_transaction(store: &Store, record: &Object, is_new: bool) -> bool {
     };
     let input = TransactionInput {
         date,
-        description: text_of(record, "description"),
-        amount_cents: cents_of(record, "amount"),
+        description: record.text("description"),
+        amount_cents: record.cents("amount").unwrap_or(0),
         flow: flow_of(record),
         account_id,
         category_id,
@@ -241,8 +227,8 @@ fn installments_editor(request: &EditorRequest) -> AnyView {
         move |parts: i32| write.set(Field::Number(f64::from(parts))),
     );
     let record = request.session.form_record();
-    let count = record.as_ref().map_or(1, |record| cents_of(record, "installments").max(1));
-    let total = record.as_ref().map_or(0, |record| cents_of(record, "amount"));
+    let count = record.as_ref().map_or(1, |record| record.cents("installments").unwrap_or(0).max(1));
+    let total = record.as_ref().map_or(0, |record| record.cents("amount").unwrap_or(0));
     let hint = if count > 1 {
         let shares = split_installments(total, count as u32);
         format!("{}x de {}", shares.len(), format_brl(shares.first().copied().unwrap_or(0)))

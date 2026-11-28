@@ -6,20 +6,26 @@ use super::{ArgType, Args, ComponentBook, Meta};
 use crate::{AnyView, Checkbox, SegmentedControl, Slider, Toggle};
 
 fn checkbox(args: &Args) -> AnyView {
-    let on = State::new(args.bool("checked"));
-    Box::new(
-        Checkbox::new(args.text("label"), on.binding())
-            .disabled(args.bool("disabled"))
-            .read_only(args.bool("read_only")),
-    )
+    let checkbox = if args.bool("optional") {
+        let answer = State::new(None::<bool>);
+        Checkbox::optional(args.text("label"), answer.binding())
+    } else {
+        let on = State::new(args.bool("checked"));
+        Checkbox::new(args.text("label"), on.binding()).mixed(args.bool("mixed"))
+    };
+    Box::new(checkbox.disabled(args.bool("disabled")).read_only(args.bool("read_only")))
 }
 
 fn toggle(args: &Args) -> AnyView {
     let on = State::new(args.bool("on"));
-    let mut toggle = Toggle::new(on.binding())
-        .label(args.text("label"))
-        .disabled(args.bool("disabled"))
-        .read_only(args.bool("read_only"));
+    let mut toggle =
+        Toggle::new(on.binding()).disabled(args.bool("disabled")).read_only(args.bool("read_only"));
+    if !args.text("label").is_empty() {
+        toggle = toggle.label(args.text("label"));
+    }
+    if !args.text("accessible_name").is_empty() {
+        toggle = toggle.accessible_name(args.text("accessible_name"));
+    }
     if args.bool("small") {
         toggle = toggle.small();
     }
@@ -52,10 +58,20 @@ impl ComponentBook for Checkbox {
             .arg(ArgType::bool("checked", true))
             .arg(ArgType::bool("disabled", false))
             .arg(ArgType::bool("read_only", false))
+            .arg(
+                ArgType::bool("mixed", false)
+                    .description("A select all whose children are partly checked; a click checks it."),
+            )
+            .arg(
+                ArgType::bool("optional", false)
+                    .description("An answer that may be unknown, shown mixed; clicks go unknown, on, off."),
+            )
             .story("Checked", Args::new())
             .story("Unchecked", Args::new().with("checked", false).with("label", "Send me product news"))
             .story("Disabled", Args::new().with("disabled", true))
             .story("Read only", Args::new().with("read_only", true))
+            .story("Mixed", Args::new().with("mixed", true).with("label", "Select all"))
+            .story("Unknown answer", Args::new().with("optional", true).with("label", "Has a car"))
     }
 }
 
@@ -66,11 +82,19 @@ impl ComponentBook for Toggle {
             .arg(ArgType::text("label", "Push notifications"))
             .arg(ArgType::bool("on", true))
             .arg(ArgType::bool("small", false).description("The compact switch, for lists and toolbars."))
+            .arg(
+                ArgType::text("accessible_name", "")
+                    .description("What a screen reader calls it, with no text shown."),
+            )
             .arg(ArgType::bool("disabled", false))
             .arg(ArgType::bool("read_only", false))
             .story("On", Args::new())
             .story("Off", Args::new().with("on", false).with("label", "Email digest"))
             .story("Small", Args::new().with("small", true))
+            .story(
+                "Accessible name only",
+                Args::new().with("label", "").with("small", true).with("accessible_name", "Turn docker on"),
+            )
             .story("Disabled", Args::new().with("disabled", true))
             .story("Read only", Args::new().with("read_only", true))
     }

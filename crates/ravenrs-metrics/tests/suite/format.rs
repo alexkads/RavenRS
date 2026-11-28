@@ -1,4 +1,4 @@
-use ravenrs_metrics::{CONTENT_TYPE, MetricError, Registry, process_rss_bytes};
+use ravenrs_metrics::{CONTENT_TYPE, MetricError, Registry, process_rss_bytes, rss_bytes_of};
 
 #[test]
 fn a_counter_with_a_label_writes_its_type_and_value() {
@@ -86,4 +86,18 @@ fn the_memory_of_the_process_is_read_where_there_is_a_place_to_read_it() {
     } else {
         assert_eq!(rss, None);
     }
+}
+
+#[test]
+fn the_memory_of_a_process_by_its_id_is_read_where_the_system_says_it() {
+    let own = rss_bytes_of(std::process::id());
+    if cfg!(any(target_os = "linux", target_os = "macos")) {
+        assert!(
+            own.is_some_and(|bytes| bytes > 1024 * 1024),
+            "this test process holds more than 1 MB: {own:?}"
+        );
+    } else {
+        assert_eq!(own, None);
+    }
+    assert_eq!(rss_bytes_of(u32::MAX), None, "no process has this id");
 }

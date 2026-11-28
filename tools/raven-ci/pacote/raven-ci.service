@@ -1,0 +1,31 @@
+# The service of Raven CI, as the RPM installs it. Data in /var/lib/raven-ci, the panel for the
+# browser at http://127.0.0.1:8090/painel/. Change the address or the memory with a drop-in:
+#   sudo systemctl edit raven-ci
+[Unit]
+Description=Raven CI, servidor de CI/CD
+Documentation=https://github.com/alexkads/RavenRS/tree/master/tools/raven-ci
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=raven-ci
+Group=raven-ci
+ExecStart=/usr/bin/raven-ci --dados /var/lib/raven-ci servir --endereco 127.0.0.1:8090 --executores 1 --painel /usr/share/raven-ci/painel
+WorkingDirectory=/var/lib/raven-ci
+Restart=on-failure
+RestartSec=5
+# Its goal is 60 MB; the limit leaves room for the builds the server runs itself.
+MemoryMax=256M
+# The machine is protected by weight, not by Nice: a Nice=10 here passes to every build and agent
+# the server starts, and a test that runs `nice -n 10` then sees 19 (#931). The weight lowers the
+# service's share of the CPU and the disk against the rest of the machine, and the nice the steps
+# see is the machine's, as on a node of Jenkins.
+CPUWeight=50
+IOWeight=50
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

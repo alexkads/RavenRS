@@ -45,15 +45,29 @@ pub fn self_test() -> Result<String, String> {
 }
 
 #[cfg(feature = "app")]
+pub mod acesso;
+#[cfg(feature = "app")]
 pub mod actions;
 #[cfg(feature = "app")]
 mod centro;
 #[cfg(feature = "app")]
+pub mod contas;
+#[cfg(feature = "app")]
+pub mod fechamento;
+#[cfg(feature = "app")]
 pub mod model;
+#[cfg(feature = "app")]
+pub mod painel;
+#[cfg(feature = "app")]
+pub mod registro;
 #[cfg(feature = "app")]
 pub mod seed;
 #[cfg(all(feature = "app", not(target_arch = "wasm32")))]
+pub mod servico;
+#[cfg(all(feature = "app", not(target_arch = "wasm32")))]
 pub mod servidor;
+#[cfg(feature = "app")]
+pub mod vencimentos;
 #[cfg(feature = "app")]
 pub use centro::*;
 

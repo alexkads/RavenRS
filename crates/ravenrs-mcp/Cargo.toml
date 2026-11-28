@@ -16,6 +16,8 @@ publish = false
 [dependencies]
 ravenrs-criteria = { workspace = true, features = ["json"] }
 ravenrs-report.workspace = true
+# Has no dependency the server lacks: syn, proc-macro2 and serde_json.
+ravenrs-lint = { path = "../ravenrs-lint" }
 rmcp.workspace = true
 tokio.workspace = true
 serde.workspace = true

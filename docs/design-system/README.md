@@ -2,6 +2,8 @@
 
 Beautiful native interfaces, powered by Rust. RavenRS draws every pixel itself on the GPU (wgpu), on the desktop and in the browser (WebAssembly + WebGPU), so this system is the single source of truth for how a RavenRS app looks everywhere. The Rust crate `ravenrs-style` mirrors these tokens value for value; when a token changes here, it changes there.
 
+This system, as RavenComponentBook measures it (the index, the tokens, the fonts and, per component, its card, its preview and the anatomy of every story), is kept in the RavenRS repository in `docs/design-system/export/project/`, current with the code: `scripts/gen-design-system.py` rewrites it when a component changes, and `scripts/check.sh` refuses it out of date.
+
 ## Principles
 
 - **Calm surfaces, one sheen.** Raven feathers read black until light hits them and a blue-violet sheen appears. Interfaces work the same way: deep neutral surfaces (`bg-000` to `bg-300`) and a single accent (`accent`) reserved for the one action or selection that matters on a screen.
@@ -22,6 +24,7 @@ A generated application has a theme menu in the footer of its navigation, unless
 ## Color
 
 - `bg-000` is the canvas. `bg-100` holds panels and sidebars, `bg-200` cards, `bg-300` controls.
+- `border` is the hairline of dividers and cards, and may be faint. The outline of a field or control at rest (text field, select, checkbox, radio, toggle, stepper) takes `control-border` instead, at 3:1 or more against `bg-000` to `bg-200`, so a field can be found before it is hovered or focused. A theme whose `control-border` falls under that is refused like one whose text is unreadable.
 - `ink` for content, `ink-muted` for labels and metadata. Never put `ink-muted` on `bg-300` for body text.
 - `accent` fills the primary button and marks selection. Text on it is always `on-accent`. Hover and press shift lightness (`accent-hover`, `accent-pressed`), not hue.
 - `success`, `warning` and `danger` signal state only and always come with a label or icon.

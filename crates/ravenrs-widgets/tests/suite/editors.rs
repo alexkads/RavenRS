@@ -189,6 +189,40 @@ fn money_is_held_in_whole_cents() {
     assert_eq!(cents.get(), Some(129), "no rounding error in 1.29");
 }
 
+fn field_description(ui: &mut Ui) -> Option<String> {
+    let tree = ui.access_tree();
+    tree.nodes.iter().find(|n| n.role == Role::TextInput).and_then(|n| n.description.clone())
+}
+
+#[test]
+fn money_reads_as_the_framework_does_and_says_what_to_fix() {
+    let cents = State::new(None::<i64>);
+    let mut ui = ui(Localized::new(Labels::pt_br(), NumberField::money(cents.binding(), "R$ ")));
+    focus_field(&mut ui);
+    typed(&mut ui, "1.000");
+    assert_eq!(cents.get(), Some(100_000), "a thousand, as in an action's parameter and a report's");
+    assert_eq!(field_description(&mut ui), None);
+    for _ in 0..5 {
+        key(&mut ui, Key::Backspace);
+    }
+    typed(&mut ui, "1,2x");
+    assert_eq!(cents.get(), Some(120), "the x leaves alone what 1,2 gave");
+    assert_eq!(
+        field_description(&mut ui).as_deref(),
+        Some("\"1,2x\" não é um valor válido. Use, por exemplo, 1.234,56."),
+    );
+    for _ in 0..4 {
+        key(&mut ui, Key::Backspace);
+    }
+    typed(&mut ui, "99999999999999999999");
+    assert!(
+        cents.get().is_some_and(|c| c > 0 && c < 1 << 50),
+        "too large is refused, not cut: {:?}",
+        cents.get()
+    );
+    assert_eq!(field_description(&mut ui).as_deref(), Some("O valor é grande demais."));
+}
+
 #[test]
 fn masked_field_follows_the_pattern_while_typing() {
     let phone = State::new(String::new());
@@ -240,6 +274,64 @@ fn time_picker_takes_typed_digits_and_the_list() {
     click(&mut ui, option);
     assert_eq!(at.get(), Time::new(14, 0));
     assert_eq!(field_value(&mut ui), "14:00");
+}
+
+#[test]
+fn a_time_picker_offers_and_takes_only_the_times_inside_its_limits() {
+    let at = State::new(None::<Time>);
+    let mut picker =
+        ui(TimePicker::new(at.binding()).step_minutes(60).range(Time::new(9, 0), Time::new(17, 0)));
+    focus_field(&mut picker);
+    typed(&mut picker, "0730");
+    assert_eq!(at.get(), None, "07:30 is before the first time: not taken");
+    assert_eq!(field_value(&mut picker), "07:30", "and it stays as typed");
+    let spot = {
+        let tree = picker.access_tree();
+        tree.nodes.iter().find(|n| n.role == Role::Button).expect("the list's button").bounds.center()
+    };
+    click(&mut picker, spot);
+    let names: Vec<String> = picker
+        .access_tree()
+        .nodes
+        .iter()
+        .filter(|n| n.role == Role::ListBoxOption)
+        .filter_map(|n| n.name.clone())
+        .collect();
+    assert_eq!(names.first().map(String::as_str), Some("09:00"), "{names:?}");
+    assert_eq!(names.last().map(String::as_str), Some("17:00"), "both limits included");
+    assert_eq!(names.len(), 9);
+
+    let late = State::new(Time::new(20, 0));
+    let mut shown = ui(TimePicker::new(late.binding()).range(None, Time::new(17, 0)).label("Fim"));
+    let said = shown
+        .access_tree()
+        .nodes
+        .iter()
+        .any(|n| n.description.as_deref() == Some("Outside the times allowed"));
+    assert!(said, "a time the app set past the limit is marked");
+    assert_eq!(late.get(), Time::new(20, 0), "and never corrected");
+}
+
+#[test]
+fn a_date_time_picker_starts_the_times_of_its_first_day_at_the_limit() {
+    let first = Date::new(2026, 11, 10).expect("a real date");
+    let min = DateTime { date: first, time: Time::new(14, 0).expect("a real time") };
+    let at = State::new(Some(DateTime { date: first, time: Time::new(15, 0).expect("a real time") }));
+    let mut ui = ui(DateTimePicker::new(at.binding(), first).step_minutes(60).range(Some(min), None));
+    let spot = {
+        let tree = ui.access_tree();
+        tree.nodes
+            .iter()
+            .filter(|n| n.role == Role::Button)
+            .find(|n| n.name.as_deref() == Some(&*Labels::default().pick_time))
+            .expect("the list's button")
+            .bounds
+            .center()
+    };
+    click(&mut ui, spot);
+    let first_time =
+        ui.access_tree().nodes.iter().find(|n| n.role == Role::ListBoxOption).and_then(|n| n.name.clone());
+    assert_eq!(first_time.as_deref(), Some("14:00"), "on the first day, from the limit");
 }
 
 #[test]
@@ -298,4 +390,61 @@ fn a_field_recalls_what_was_sent_with_the_arrows() {
     assert_eq!(value.get(), "two");
     key(&mut ui, Key::ArrowDown);
     assert_eq!(value.get(), "", "past the last, empty again");
+}
+
+fn field_id(ui: &mut Ui) -> u64 {
+    ui.access_tree().nodes.iter().find(|n| n.role == Role::TextInput).expect("a text input").id
+}
+
+#[test]
+fn masked_field_takes_an_optional_slot_and_says_when_it_is_complete() {
+    let phone = State::new(String::new());
+    let done = State::new(false);
+    let field = MaskedField::new(phone.binding(), "(00) 90000-0000")
+        .optional_rule('9', |c| c.is_ascii_digit())
+        .complete(done.binding());
+    let mut ui = ui(field);
+    focus_field(&mut ui);
+    typed(&mut ui, "119876543");
+    assert!(!done.get(), "not done while typing, and not wrong either");
+    typed(&mut ui, "2");
+    assert!(done.get(), "ten digits fill every slot that must be");
+    assert_eq!(field_value(&mut ui), "(11) 9876-5432", "the optional slot stays out");
+    typed(&mut ui, "1");
+    assert_eq!(field_value(&mut ui), "(11) 98765-4321", "and takes the eleventh digit");
+    key(&mut ui, Key::Backspace);
+    key(&mut ui, Key::Backspace);
+    assert_eq!(phone.get(), "119876543");
+    assert!(!done.get(), "Backspace makes it incomplete again");
+}
+
+#[test]
+fn masked_field_takes_pasted_text_with_or_without_the_pattern() {
+    let phone = State::new(String::new());
+    let mut ui =
+        ui(MaskedField::new(phone.binding(), "(00) 90000-0000").optional_rule('9', |c| c.is_ascii_digit()));
+    let id = field_id(&mut ui);
+    assert!(ui.set_access_value(id, "(11) 98765-4321"));
+    ui.update();
+    assert_eq!(phone.get(), "11987654321", "the pattern's own characters are left out");
+    assert!(ui.set_access_value(id, "11 9876 5432"));
+    ui.update();
+    assert_eq!(phone.get(), "1198765432", "plain digits with spaces give the same");
+    assert_eq!(field_value(&mut ui), "(11) 9876-5432");
+}
+
+#[test]
+fn masked_field_rules_take_unicode_and_follow_a_new_mask() {
+    let code = State::new(String::new());
+    let mask = State::new("v-v".to_owned());
+    let (c, m) = (code.clone(), mask.clone());
+    let mut ui =
+        ui(view_fn(move || MaskedField::new(c.binding(), m.get()).rule('v', |ch| "aeiouáéíóú".contains(ch))));
+    focus_field(&mut ui);
+    typed(&mut ui, "xáé");
+    assert_eq!(code.get(), "áé", "the rule takes accented vowels and nothing else");
+    assert_eq!(field_value(&mut ui), "á-é");
+    mask.set("v/v/v".to_owned());
+    ui.update();
+    assert_eq!(field_value(&mut ui), "á/é", "the same value follows the new mask");
 }

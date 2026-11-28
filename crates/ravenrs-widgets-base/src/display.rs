@@ -7,7 +7,7 @@ use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
-use crate::{Button, ButtonSize, ButtonStyle, Fill, IconName, Image, View, ViewSeq, util};
+use crate::{Button, ButtonSize, ButtonStyle, Fill, IconName, Image, Labels, View, ViewSeq, util};
 
 /// How far a badge's text goes from its tone toward the ink.
 const BADGE_TEXT_TOWARD_INK: f32 = 0.3;
@@ -143,6 +143,18 @@ impl View for Badge {
     }
 }
 
+/// The outline of an [`Avatar`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
+pub enum AvatarShape {
+    /// A circle, for a person.
+    #[default]
+    Circle,
+    /// A square with the theme's `radius-md` corners, as a profile picture is often shown.
+    Rounded,
+}
+
 /// A round avatar showing a picture, or initials on a color picked from the name.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
@@ -151,13 +163,14 @@ pub struct Avatar {
     size: f32,
     image: Option<Image>,
     border: Option<(f32, Fill)>,
+    shape: AvatarShape,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Avatar {
     /// An avatar showing the initials of `name`, 36 logical pixels across.
     pub fn new(name: impl Into<String>) -> Self {
-        Self { name: name.into(), size: 36.0, image: None, border: None }
+        Self { name: name.into(), size: 36.0, image: None, border: None, shape: AvatarShape::Circle }
     }
 
     /// Sets the diameter in logical pixels.
@@ -180,6 +193,21 @@ impl Avatar {
         self
     }
 
+    /// A circle (the default) or a square with rounded corners; the picture is cropped to the
+    /// same outline.
+    pub fn shape(mut self, shape: AvatarShape) -> Self {
+        self.shape = shape;
+        self
+    }
+
+    /// The corner of a square `side` wide in this outline.
+    fn corner(&self, theme: &Theme, side: f32) -> f32 {
+        match self.shape {
+            AvatarShape::Rounded => theme.radii.md.min(side / 2.0),
+            _ => side / 2.0,
+        }
+    }
+
     /// The picture inside its ring, which would otherwise paint over the ring.
     fn draw_image(&self, cx: &mut BuildCx<'_>, image: &Image) -> NodeId {
         let theme = *cx.theme();
@@ -190,7 +218,7 @@ impl Avatar {
             &image
                 .clone()
                 .size(inner, inner)
-                .corner_radius(inner / 2.0)
+                .corner_radius(self.corner(&theme, inner))
                 .content_mode(crate::ContentMode::Cover),
         );
         cx.semantics(picture, Semantics::hidden());
@@ -202,7 +230,7 @@ impl Avatar {
         };
         let paint = QuadPaint {
             fill: Color::TRANSPARENT.into(),
-            corner_radius: self.size / 2.0,
+            corner_radius: self.corner(&theme, self.size),
             border: ring,
             shadow: None,
         };
@@ -254,7 +282,7 @@ impl View for Avatar {
         };
         let paint = QuadPaint {
             fill: base.with_alpha(0.28).into(),
-            corner_radius: self.size / 2.0,
+            corner_radius: self.corner(&theme, self.size),
             border: Some(match self.border {
                 Some((width, fill)) => Border { width, color: fill.resolve(&theme) },
                 None => Border { width: 1.0, color: base.with_alpha(0.5) },
@@ -312,6 +340,10 @@ impl View for Divider {
 /// let mut ui = Ui::new(bar, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+/// How wide a [`ProgressBar`] marker is, and how far it reaches past the track.
+const MARKER_WIDTH: f32 = 2.0;
+const MARKER_REACH: f32 = 3.0;
+
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ProgressBar {
@@ -322,6 +354,8 @@ pub struct ProgressBar {
     label: Option<String>,
     detail: Option<String>,
     percent: bool,
+    detail_inline: bool,
+    markers: Vec<(f32, Option<String>)>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -336,6 +370,8 @@ impl ProgressBar {
             label: None,
             detail: None,
             percent: false,
+            detail_inline: false,
+            markers: Vec::new(),
         }
     }
 
@@ -374,6 +410,54 @@ impl ProgressBar {
         self.detail = Some(detail.into());
         self
     }
+
+    /// Puts the detail on the line of the label, before the percentage (`812 de 1.360 testes ·
+    /// 60%`), instead of under the bar: a bar that takes one line of words.
+    pub fn detail_inline(mut self, inline: bool) -> Self {
+        self.detail_inline = inline;
+        self
+    }
+
+    /// Marks a value of reference on the track, such as a limit, a goal or a floor: a stroke
+    /// across the bar at `value`, clamped to 0.0–1.0, in the theme's warning color. Each call adds
+    /// one more. Screen readers hear, after the value, whether the bar is above, below or on each
+    /// one, so passing it is never told by color alone.
+    pub fn marker(mut self, value: f32) -> Self {
+        self.markers.push((if value.is_nan() { 0.0 } else { value.clamp(0.0, 1.0) }, None));
+        self
+    }
+
+    /// Names the last marker for screen readers, as "limite 0,85": they hear "89%, acima do
+    /// limite 0,85". A marker with no name is read by where it is ("ponto de 85%"). Without a
+    /// marker, it does nothing.
+    pub fn marker_label(mut self, label: impl Into<String>) -> Self {
+        if let Some((_, name)) = self.markers.last_mut() {
+            *name = Some(label.into());
+        }
+        self
+    }
+}
+
+/// What screen readers hear as a [`ProgressBar`]'s value: the percent, and where it stands to
+/// each marker.
+fn spoken_value(bar: &ProgressBar, percent: f64, labels: &Labels) -> String {
+    let mut spoken = format!("{percent}%");
+    for (at, name) in &bar.markers {
+        let name = name.clone().unwrap_or_else(|| {
+            let at = (f64::from(*at) * 100.0).round();
+            labels.progress_mark.replace("{value}", &format!("{at}%"))
+        });
+        let place = if bar.value > *at {
+            &labels.progress_above
+        } else if bar.value < *at {
+            &labels.progress_below
+        } else {
+            &labels.progress_at
+        };
+        spoken.push_str(", ");
+        spoken.push_str(&place.replace("{marker}", &name));
+    }
+    spoken
 }
 
 impl View for ProgressBar {
@@ -386,6 +470,8 @@ impl View for ProgressBar {
         let h = self.height;
         let value = cx.animated(self.value, theme.motion.snappy).clamp(0.0, 1.0);
         let style = LayoutStyle { height: Some(h), align_self: Some(Align::Stretch), ..LayoutStyle::leaf() };
+        let marks: Vec<f32> = self.markers.iter().map(|(at, _)| *at).collect();
+        let mark_color = theme.color(Semantic::Warning);
         let node = cx.container(
             style,
             &[],
@@ -396,12 +482,23 @@ impl View for ProgressBar {
                     let bar = Rect::new(frame.x(), frame.y(), w, h);
                     scene.push_quad(Quad::new(bar, fill).radius(h / 2.0));
                 }
+                // A marker crosses the track a little above and below, so it shows over the fill.
+                for at in &marks {
+                    let x = (frame.x() + frame.width() * at - MARKER_WIDTH / 2.0)
+                        .clamp(frame.x(), frame.x() + frame.width() - MARKER_WIDTH);
+                    let stroke = Rect::new(x, frame.y() - MARKER_REACH, MARKER_WIDTH, h + 2.0 * MARKER_REACH);
+                    scene.push_quad(Quad::new(stroke, mark_color).radius(MARKER_WIDTH / 2.0));
+                }
             })),
         );
         let percent = (f64::from(self.value) * 100.0).round();
-        let mut semantics = Semantics::new(Role::ProgressIndicator)
-            .numeric(percent, 0.0, 100.0, None)
-            .value(format!("{percent}%"));
+        let spoken = if self.markers.is_empty() {
+            format!("{percent}%")
+        } else {
+            spoken_value(self, percent, &cx.labels())
+        };
+        let mut semantics =
+            Semantics::new(Role::ProgressIndicator).numeric(percent, 0.0, 100.0, None).value(spoken);
         if let Some(label) = &self.label {
             semantics = semantics.name(label.clone());
         }
@@ -424,8 +521,15 @@ impl View for ProgressBar {
                 &[name],
                 Paint::None,
             ));
-            if self.percent {
-                let number = util::label(cx, &format!("{percent}%"), TextStyle::Callout, None, muted);
+            let beside = self.detail.as_deref().filter(|_| self.detail_inline);
+            let end = match (beside, self.percent) {
+                (Some(detail), true) => Some(format!("{detail} · {percent}%")),
+                (Some(detail), false) => Some(detail.to_owned()),
+                (None, true) => Some(format!("{percent}%")),
+                (None, false) => None,
+            };
+            if let Some(end) = end {
+                let number = util::label(cx, &end, TextStyle::Callout, None, muted);
                 cx.semantics(number, Semantics::hidden());
                 head.push(number);
             }
@@ -440,7 +544,9 @@ impl View for ProgressBar {
             ));
         }
         rows.push(node);
-        if let Some(detail) = &self.detail {
+        if let Some(detail) =
+            self.detail.as_ref().filter(|_| !self.detail_inline || (self.label.is_none() && !self.percent))
+        {
             let line = util::label(cx, detail, TextStyle::Caption, None, muted);
             cx.semantics(line, Semantics::hidden());
             rows.push(line);
@@ -721,14 +827,30 @@ pub struct Stat {
     label: String,
     value: String,
     delta: Option<(String, bool, bool)>,
+    caption: Option<String>,
     large: bool,
+    value_tone: Tone,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Stat {
     /// A stat showing `value` under `label`.
     pub fn new(label: impl Into<String>, value: impl Into<String>) -> Self {
-        Self { label: label.into(), value: value.into(), delta: None, large: false }
+        Self {
+            label: label.into(),
+            value: value.into(),
+            delta: None,
+            caption: None,
+            large: false,
+            value_tone: Tone::Neutral,
+        }
+    }
+
+    /// A muted line under the value that says where it comes from or what it means, such as
+    /// "The oldest waits 40 s". It wraps when the stat is narrower than it.
+    pub fn caption(mut self, text: impl Into<String>) -> Self {
+        self.caption = Some(text.into());
+        self
     }
 
     /// The one number a screen is about, in the `metric` size.
@@ -740,6 +862,14 @@ impl Stat {
     /// A change such as `"+12.4%"`; `up` picks the color and arrow.
     pub fn delta(mut self, text: impl Into<String>, up: bool) -> Self {
         self.delta = Some((text.into(), up, up));
+        self
+    }
+
+    /// Paints the value in a tone, for a total whose color says what it is, such as money that
+    /// came in. The tone is taken toward ink as a badge's words are, so it keeps 4.5:1 over a card
+    /// in every theme; `Tone::Neutral`, the default, leaves the value in ink.
+    pub fn value_tone(mut self, tone: Tone) -> Self {
+        self.value_tone = tone;
         self
     }
 
@@ -766,13 +896,21 @@ impl View for Stat {
             value_attrs.size = 30.0;
             value_attrs.line_height = 36.0;
         }
-        let value = cx.text(&self.value, &value_attrs, theme.color(Semantic::Ink), LayoutStyle::leaf());
+        let value_color = match self.value_tone {
+            Tone::Neutral => theme.color(Semantic::Ink),
+            tone => tone.color(&theme).lerp(theme.color(Semantic::Ink), BADGE_TEXT_TOWARD_INK),
+        };
+        let value = cx.text(&self.value, &value_attrs, value_color, LayoutStyle::leaf());
         let mut children = vec![label, value];
         if let Some((text, up, good)) = &self.delta {
             let badge = Badge::new(text.clone())
                 .tone(if *good { Tone::Success } else { Tone::Danger })
                 .icon(if *up { IconName::TrendingUp } else { IconName::TrendingDown });
             children.push(cx.child(&badge));
+        }
+        if let Some(caption) = &self.caption {
+            let attrs = util::attrs(&theme, TextStyle::Callout, None);
+            children.push(cx.text(caption, &attrs, theme.color(Semantic::InkMuted), LayoutStyle::leaf()));
         }
         cx.container(
             LayoutStyle { spacing: 6.0, ..LayoutStyle::stack(Axis::Vertical) },

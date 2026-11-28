@@ -69,6 +69,62 @@ fn nested_groups_close_inner_levels_first() {
 }
 
 #[test]
+fn fixed_text_shows_the_fields_inside_it() {
+    let text = |t: &str| Control::label(t).at(0.0, 0.0, 300.0, 18.0);
+    let report = Report::new("r").culture("pt-BR").sort_by("[Amount]", false).detail(
+        Band::new(20.0).control(text("[City], [Region]: R$ [Amount] [[obs]]")).control(text("sem campo")),
+    );
+    let doc = render(&report, &sales());
+    assert_eq!(
+        doc.page_text(0)[..4],
+        ["Curitiba, Sul: R$ 1 [obs]", "sem campo", "Manaus, Norte: R$ 5 [obs]", "sem campo"]
+    );
+    assert!(doc.errors.is_empty(), "{:?}", doc.errors);
+    let broken = Report::new("r").detail(Band::new(20.0).control(text("aberto [City e [Nada]")));
+    let doc = render(&broken, &json!([{ "City": "Lapa" }]));
+    assert_eq!(doc.page_text(0), ["aberto #ERRO"], "a field that does not parse shows as an error");
+    assert!(!doc.errors.is_empty(), "and the error is reported");
+}
+
+#[test]
+fn group_index_counts_the_groups_beside_each_other_and_starts_again_inside_each_outer_one() {
+    let report = Report::new("r")
+        .culture("pt-BR")
+        .group(
+            Group::new("[Region]")
+                .header(Band::new(20.0).control(field("'R' + ToStr(GroupIndex()) + ' ' + [Region]"))),
+        )
+        .group(
+            Group::new("[City]")
+                .header(Band::new(20.0).control(field("'  C' + ToStr(GroupIndex()) + ' ' + [City]")))
+                .footer(Band::new(20.0).control(field("'  /C' + ToStr(GroupIndex())"))),
+        )
+        .detail(
+            Band::new(20.0)
+                .control(field("'    ' + ToStr(GroupIndex()) + ' ' + GetDisplayText([Amount] * 1000.5)")),
+        );
+    let doc = render(&report, &sales());
+    assert_eq!(
+        doc.page_text(0),
+        [
+            "R0 Norte",
+            "  C0 Manaus",
+            "    0 5002,5",
+            "  /C0",
+            "R1 Sul",
+            "  C0 Curitiba",
+            "    0 10005",
+            "    0 1000,5",
+            "  /C0",
+            "  C1 Porto Alegre",
+            "    1 20010",
+            "  /C1",
+        ]
+    );
+    assert!(doc.errors.is_empty(), "{:?}", doc.errors);
+}
+
+#[test]
 fn descending_groups_and_filters_with_parameters() {
     let report = Report::new("r")
         .parameter("Min", ParameterKind::Number, json!(5))

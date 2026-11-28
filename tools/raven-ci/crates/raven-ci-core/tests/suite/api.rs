@@ -1,0 +1,321 @@
+//! The HTTP API of the server (#873), through the service itself with no HTTP: who comes in, what
+//! the core answers, the routes of the plugins (public, signed in, switched off), and the triggers
+//! the jobs name.
+
+use std::sync::Arc;
+
+use raven_ci_core::api::{create_user, service};
+use raven_ci_core::{Ci, JobSpec};
+use raven_ci_plugin_api::testing::Fake;
+use raven_ci_plugin_api::{
+    BuildRequest, CiPlugin, HttpRequest, HttpResponse, Point, ROLE_ADMIN, ROLE_READ, ROLE_RUN, Route,
+};
+use ravenrs_app::{Module, ModuleManifest};
+use ravenrs_app_server::{ApiRequest, ApiService};
+use serde_json::{Value, json};
+
+use crate::common::OnDisk;
+
+const PASSWORD: &str = "uma-senha-boa-de-teste";
+
+/// A plugin with a public route under /hooks/, one for people signed in that says who they are,
+/// and one that answers text.
+struct Rotas;
+
+impl Module for Rotas {
+    fn name(&self) -> &str {
+        "rotas"
+    }
+    fn manifest(&self) -> ModuleManifest {
+        ModuleManifest::new().version("1.0.0").unwrap_or_default()
+    }
+}
+
+impl CiPlugin for Rotas {
+    fn routes(&self) -> Vec<Route> {
+        vec![
+            Route::new("POST", "/hooks/teste", |request: &HttpRequest| {
+                HttpResponse::json(202, &json!({ "recebi": request.body.len(), "quem": request.actor }))
+            })
+            .public(),
+            Route::new("GET", "/api/rotas/quem", |request: &HttpRequest| {
+                HttpResponse::json(
+                    200,
+                    &json!({ "quem": request.actor, "papeis": request.roles, "roda": request.may_run() }),
+                )
+            }),
+            Route::new("GET", "/api/rotas/texto", |_: &HttpRequest| HttpResponse::text(200, "olá")),
+        ]
+    }
+}
+
+struct Server {
+    _disk: OnDisk,
+    ci: Arc<Ci>,
+    api: ApiService,
+}
+
+fn server(name: &str) -> Server {
+    let disk = OnDisk::new(name);
+    let ci = Arc::new(disk.open(raven_ci_core::MemorySecrets::default()));
+    ci.add_plugin(Arc::new(Rotas));
+    ci.add_plugin(Arc::new(Fake::new(Point::Step)));
+    ci.add_plugin(Arc::new(Fake::new(Point::PipelineFormat)));
+    ci.apply_plugins().expect("on");
+    let users = raven_ci_core::api::users_file(&disk.dir);
+    assert_eq!(
+        create_user(&users, "ana", PASSWORD, ROLE_READ).expect("first"),
+        ROLE_ADMIN,
+        "the first is an admin"
+    );
+    create_user(&users, "bia", PASSWORD, ROLE_RUN).expect("bia");
+    create_user(&users, "caio", PASSWORD, ROLE_READ).expect("caio");
+    assert!(create_user(&users, "bia", PASSWORD, ROLE_RUN).is_err(), "a name already there");
+    assert!(create_user(&users, "davi", PASSWORD, "Chefes").is_err(), "a role that does not exist");
+    let api = service(ci.clone(), &users).expect("the service");
+    Server { _disk: disk, ci, api }
+}
+
+impl Server {
+    fn token(&mut self, name: &str) -> String {
+        let answer = self.api.handle(
+            ApiRequest::new("POST", "/api/auth/token").json(&json!({ "name": name, "password": PASSWORD })),
+        );
+        assert_eq!(answer.status, 200, "{answer:?}");
+        answer.body["token"].as_str().expect("a token").to_owned()
+    }
+
+    fn get(&mut self, path: &str, token: Option<&str>) -> (u16, Value) {
+        let (path, query) = path.split_once('?').unwrap_or((path, ""));
+        let mut request = ApiRequest::new("GET", path);
+        for pair in query.split('&').filter(|p| !p.is_empty()) {
+            let (k, v) = pair.split_once('=').unwrap_or((pair, ""));
+            request = request.query(k, v);
+        }
+        if let Some(token) = token {
+            request = request.bearer(token);
+        }
+        let answer = self.api.handle(request);
+        let body = match &answer.raw {
+            Some((_, bytes)) => {
+                serde_json::from_slice(bytes).unwrap_or_else(|_| json!(String::from_utf8_lossy(bytes)))
+            }
+            None => answer.body.clone(),
+        };
+        (answer.status, body)
+    }
+}
+
+#[test]
+fn no_one_signed_in_reads_nothing_of_the_ci() {
+    let mut server = server("api-anonimo");
+    for path in
+        ["/api/ci/jobs", "/api/ci/queue", "/api/ci/build?job=x&number=1", "/api/rotas/quem", "/api/me"]
+    {
+        assert_eq!(server.get(path, None).0, 401, "{path}");
+        assert_eq!(server.get(path, Some("um-token-que-nao-vale")).0, 401, "{path}");
+    }
+}
+
+#[test]
+fn someone_signed_in_reads_the_jobs_a_build_and_only_the_new_lines_of_its_log() {
+    let mut server = server("api-leitura");
+    server
+        .ci
+        .save_job(JobSpec::new("apps/site", "fake-lines", "Build: compila\nTeste: testa"))
+        .expect("saved");
+    let n = server.ci.request_build(BuildRequest::new("apps/site", "teste")).expect("asked").number;
+    server.ci.work_until_idle("e1").expect("runs");
+    let token = server.token("caio");
+    let (status, jobs) = server.get("/api/ci/jobs", Some(&token));
+    assert_eq!(status, 200);
+    assert_eq!(jobs[0]["name"], "apps/site");
+    let (status, build) = server.get(&format!("/api/ci/build?job=apps/site&number={n}"), Some(&token));
+    assert_eq!(status, 200, "{build}");
+    assert_eq!(build["build"]["status"], "succeeded");
+    assert_eq!(build["stages"].as_array().map(Vec::len), Some(2));
+    let (_, all) = server.get(&format!("/api/ci/log?job=apps/site&number={n}"), Some(&token));
+    let lines = all.as_array().expect("lines");
+    assert!(lines.len() >= 2, "{all}");
+    let second = lines[1]["seq"].as_u64().expect("seq");
+    let (_, after) =
+        server.get(&format!("/api/ci/log?job=apps/site&number={n}&after={second}"), Some(&token));
+    assert_eq!(after.as_array().map(Vec::len), Some(lines.len() - 2));
+    let (status, missing) = server.get("/api/ci/build?job=apps/site&number=99", Some(&token));
+    assert_eq!(status, 404, "{missing}");
+    let (status, _) = server.get("/api/ci/build?job=apps/site", Some(&token));
+    assert_eq!(status, 400, "the number is missing");
+}
+
+#[test]
+fn a_route_of_a_plugin_knows_who_called_and_a_public_one_needs_no_one() {
+    let mut server = server("api-rotas");
+    let hook = server.api.handle(ApiRequest::new("POST", "/hooks/teste").bytes(b"{}".to_vec()));
+    assert_eq!(hook.status, 202);
+    let body: Value = serde_json::from_slice(&hook.raw.expect("raw").1).expect("json");
+    assert_eq!(body, json!({ "recebi": 2, "quem": null }));
+    let (bia, ana, caio) = (server.token("bia"), server.token("ana"), server.token("caio"));
+    let (_, said) = server.get("/api/rotas/quem", Some(&bia));
+    assert_eq!(said, json!({ "quem": "bia", "papeis": [ROLE_RUN], "roda": true }));
+    let (_, said) = server.get("/api/rotas/quem", Some(&ana));
+    assert_eq!(said["roda"], true, "an administrator may run: {said}");
+    let (_, said) = server.get("/api/rotas/quem", Some(&caio));
+    assert_eq!(said["roda"], false, "someone who only reads may not: {said}");
+    let text = server.api.handle(ApiRequest::new("GET", "/api/rotas/texto").bearer(&bia));
+    assert_eq!(text.raw, Some(("text/plain; charset=utf-8".to_owned(), "olá".as_bytes().to_vec())));
+}
+
+#[test]
+fn the_routes_of_a_plugin_switched_off_are_gone_and_come_back_with_no_restart() {
+    let mut server = server("api-desliga");
+    let token = server.token("bia");
+    assert_eq!(server.get("/api/rotas/quem", Some(&token)).0, 200);
+    server.ci.disable_plugin("rotas").expect("off");
+    // Off, its route says which plugin to switch on, instead of a route that is not there (#942).
+    let (status, body) = server.get("/api/rotas/quem", Some(&token));
+    assert_eq!(status, 503, "{body}");
+    assert_eq!(body["plugin"], "rotas");
+    assert!(body["message"].as_str().unwrap_or_default().contains("plugins ligar rotas"), "{body}");
+    assert_eq!(server.get("/api/nada/disso", Some(&token)).0, 404, "a route of no plugin is still not there");
+    assert_eq!(server.api.handle(ApiRequest::new("POST", "/hooks/teste")).status, 401, "no route, no way in");
+    server.ci.enable_plugin("rotas").expect("on");
+    assert_eq!(server.get("/api/rotas/quem", Some(&token)).0, 200);
+}
+
+#[test]
+fn the_triggers_the_jobs_name_are_watched_and_a_wrong_one_is_said() {
+    let disk = OnDisk::new("api-gatilhos");
+    let ci = Arc::new(disk.open(raven_ci_core::MemorySecrets::default()));
+    let trigger = Fake::new(Point::Trigger);
+    let probe = trigger.probe();
+    ci.add_plugin(Arc::new(trigger));
+    ci.add_plugin(Arc::new(Fake::new(Point::Step)));
+    ci.add_plugin(Arc::new(Fake::new(Point::PipelineFormat)));
+    ci.apply_plugins().expect("on");
+    let watched = json!({ "triggers": [{ "id": "fake-trigger" }] });
+    ci.save_job(JobSpec::new("vigiado", "fake-lines", "Build: ok").settings(watched)).expect("saved");
+    let broken = json!({ "triggers": [{ "id": "fake-trigger", "broken": true }, { "id": "cron" }] });
+    ci.save_job(JobSpec::new("quebrado", "fake-lines", "Build: ok").settings(broken)).expect("saved");
+    let problems = ci.watch_triggers();
+    assert_eq!(probe.watched(), ["vigiado"]);
+    assert_eq!(problems.len(), 2, "{problems:?}");
+    assert!(
+        problems.iter().any(|p| p.contains("o gatilho cron de quebrado: falta o plugin")),
+        "{problems:?}"
+    );
+    let number = probe.fire("vigiado").expect("fired");
+    ci.work_until_idle("e1").expect("runs");
+    assert_eq!(ci.build("vigiado", number).expect("build").cause, "disparado pelo gatilho falso");
+    ci.unwatch_triggers();
+    assert!(probe.watched().is_empty(), "the core lets go of itself");
+}
+
+/// The vault through the API (#922): an administrator makes, rotates and revokes a credential,
+/// the value never comes back, the others are refused, a wrong kind or field is a 400 naming it,
+/// and each change goes to the audit with who made it.
+#[test]
+fn an_administrator_keeps_the_credentials_through_the_api_and_no_one_else_can() {
+    let mut server = server("credenciais");
+    server.ci.add_plugin(Arc::new(Fake::new(Point::CredentialKind)));
+    server.ci.apply_plugins().expect("on");
+    let (ana, bia) = (server.token("ana"), server.token("bia"));
+    let send = |server: &mut Server, method: &str, path: &str, token: &str, body: Option<Value>| {
+        let (path, query) = path.split_once('?').unwrap_or((path, ""));
+        let mut request = ApiRequest::new(method, path).bearer(token);
+        for pair in query.split('&').filter(|p| !p.is_empty()) {
+            let (k, v) = pair.split_once('=').unwrap_or((pair, ""));
+            request = request.query(k, v);
+        }
+        if let Some(body) = body {
+            request = request.json(&body);
+        }
+        let answer = server.api.handle(request);
+        (answer.status, answer.body)
+    };
+    let made = json!({ "name": "npm", "kind": "fake-token", "description": "feed privado", "fields": { "token": "npm_segredo_123456" } });
+    let (status, body) = send(&mut server, "POST", "/api/ci/credentials", &ana, Some(made.clone()));
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(body["created"], true);
+    assert!(!body.to_string().contains("npm_segredo_123456"));
+
+    // Listed with its description and with no value.
+    let (status, list) = server.get("/api/ci/credentials", Some(&ana));
+    assert_eq!(status, 200);
+    assert_eq!(list[0]["name"], "npm");
+    assert_eq!(list[0]["description"], "feed privado");
+    assert!(!list.to_string().contains("npm_segredo_123456"));
+
+    // A job that names it is said in the list.
+    server
+        .ci
+        .save_job(JobSpec::new("loja", "fake-lines", "x").settings(json!({ "scm": { "credential": "npm" } })))
+        .expect("saved");
+    let (_, list) = server.get("/api/ci/credentials", Some(&ana));
+    assert_eq!(list[0]["used_by"], json!(["job loja"]));
+
+    // Rotated: the same name again.
+    let mut rotated = made.clone();
+    rotated["fields"]["token"] = json!("npm_outro_654321");
+    let (status, body) = send(&mut server, "POST", "/api/ci/credentials", &ana, Some(rotated));
+    assert_eq!((status, body["created"].clone()), (200, json!(false)), "{body}");
+
+    // A runner is refused; a kind or a field that does not fit is a 400 that names it.
+    let (status, _) = send(&mut server, "POST", "/api/ci/credentials", &bia, Some(made.clone()));
+    assert_eq!(status, 403);
+    let (status, _) = send(&mut server, "DELETE", "/api/ci/credentials?name=npm", &bia, None);
+    assert_eq!(status, 403);
+    let mut wrong = made.clone();
+    wrong["kind"] = json!("kubeconfig");
+    let (status, body) = send(&mut server, "POST", "/api/ci/credentials", &ana, Some(wrong));
+    assert_eq!(status, 400, "{body}");
+    assert!(body["message"].as_str().unwrap_or_default().contains("kubeconfig"), "{body}");
+    let mut field = made.clone();
+    field["fields"]["cor"] = json!("azul");
+    let (status, body) = send(&mut server, "POST", "/api/ci/credentials", &ana, Some(field));
+    assert_eq!(status, 400, "{body}");
+    assert!(body["message"].as_str().unwrap_or_default().contains("cor"), "{body}");
+
+    // Revoked.
+    let (status, body) = send(&mut server, "DELETE", "/api/ci/credentials?name=npm", &ana, None);
+    assert_eq!(status, 200, "{body}");
+    let (_, list) = server.get("/api/ci/credentials", Some(&ana));
+    assert_eq!(list, json!([]));
+
+    // The audit says who made, rotated and revoked it.
+    let said: Vec<(String, bool)> = server
+        .ci
+        .store()
+        .audit_of("pessoa:ana")
+        .expect("the audit")
+        .into_iter()
+        .map(|entry| (entry.what, entry.granted))
+        .collect();
+    assert!(said.contains(&("criar a credencial npm (fake-token)".to_owned(), true)), "{said:#?}");
+    assert!(said.contains(&("girar a credencial npm (fake-token)".to_owned(), true)), "{said:#?}");
+    assert!(said.contains(&("apagar a credencial npm".to_owned(), true)), "{said:#?}");
+}
+
+#[test]
+fn a_build_the_retention_took_says_so_and_how_many_it_keeps() {
+    let mut server = server("api-build-apagado");
+    server
+        .ci
+        .save_job(JobSpec::new("apps/site", "fake-lines", "Build: compila").keep_builds(1).every_request())
+        .expect("saved");
+    for cause in ["um", "dois"] {
+        server.ci.request_build(BuildRequest::new("apps/site", cause)).expect("asked");
+        server.ci.work_until_idle("e1").expect("runs");
+    }
+    assert_eq!(server.ci.kept_builds("apps/site"), Some(1));
+    let token = server.token("caio");
+    let (status, said) = server.get("/api/ci/build?job=apps/site&number=1", Some(&token));
+    assert_eq!(status, 404, "{said}");
+    assert_eq!(said["gone"], true);
+    assert_eq!(said["kept"], 1);
+    assert_eq!(said["message"], "O build #1 de apps/site não existe mais (a retenção guarda só o último).");
+    let (status, said) = server.get("/api/ci/build?job=apps/site&number=9", Some(&token));
+    assert_eq!(status, 404, "{said}");
+    assert_eq!(said["gone"], false);
+    assert_eq!(said["message"], "Não há o build #9 de apps/site.");
+    assert_eq!(server.get("/api/ci/build?job=apps/site&number=2", Some(&token)).0, 200);
+}

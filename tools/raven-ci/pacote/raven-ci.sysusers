@@ -1,0 +1,2 @@
+# The user Raven CI runs as, with its home in its data.
+u raven-ci - "Raven CI" /var/lib/raven-ci /sbin/nologin

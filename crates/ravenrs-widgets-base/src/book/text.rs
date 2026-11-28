@@ -23,19 +23,21 @@ use std::rc::Rc;
 fn render(args: &Args) -> AnyView {
     Box::new({
         let arg_truncate = args.bool("truncate");
+        let arg_mono = args.bool("mono");
+        let mono = |text: Text| if arg_mono { text.mono() } else { text };
 
         VStack::new((
             {
-                let mut it = Text::new("Display").style(TextStyle::Display);
+                let mut it = mono(Text::new("Display").style(TextStyle::Display));
                 if arg_truncate {
                     it = it.truncate();
                 }
                 it
             },
-            Text::new("Headline").style(TextStyle::Headline),
-            Text::new("Muted body text").foreground(Semantic::InkMuted),
-            Text::new("In the middle").align(TextAlign::Center),
-            Text::new("At the end").align(TextAlign::End),
+            mono(Text::new("Headline").style(TextStyle::Headline)),
+            mono(Text::new("Muted body text").foreground(Semantic::InkMuted)),
+            mono(Text::new("In the middle").align(TextAlign::Center)),
+            mono(Text::new("At the end").align(TextAlign::End)),
         ))
         .spacing(8.0)
         .align(Align::Stretch)
@@ -48,8 +50,13 @@ impl ComponentBook for Text {
         Meta::new("Display and feedback/Text", render)
             .summary("Text in the theme's type scale, with truncation.")
             .arg(ArgType::bool("truncate", false))
+            .arg(
+                ArgType::bool("mono", false)
+                    .description("The monospaced family, Fira Mono, for code or the lines of a receipt."),
+            )
             .story("Example", Args::new())
             .story("Truncated", Args::new().with("truncate", true))
+            .story("Monospaced", Args::new().with("mono", true))
             .story_with("Type scale", Args::new(), type_scale)
     }
 }

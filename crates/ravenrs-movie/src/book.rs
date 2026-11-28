@@ -3,9 +3,16 @@
 
 use ravenrs_core::{Color, Primitive, Quad, Rect, Size};
 use ravenrs_widgets::book::{ArgType, Args, ComponentBook, Meta};
-use ravenrs_widgets::{AnyView, Text};
+use ravenrs_widgets::{AnyView, IconName, StatusBar, Text, VStack};
 
-use crate::{FilmBuilder, Movie, MovieAssistant, MovieLibrary, MoviePlayer};
+use crate::{
+    BugLabels, BugReporter, FilmBuilder, FlightRecorder, Movie, MovieAssistant, MovieLibrary, MoviePlayer,
+};
+
+/// The languages a report can be written in, as `BugLabels` has them.
+const LANGUAGES: [&str; 2] = ["pt-BR", "en"];
+/// The kinds of report, in the order of `BugLabels::kinds`.
+const KINDS: [&str; 3] = ["Something is wrong", "It is confusing", "A suggestion"];
 
 /// A square going across a white page, as the gallery films it; real films come from `Recorder`.
 fn film(seconds: u64, chapters: &[(&str, &str, u64)]) -> Option<Movie> {
@@ -44,6 +51,72 @@ fn assistant(args: &Args) -> AnyView {
     }
 }
 
+/// The report dialog as an app has it: a status bar whose action opens it, as in Raven
+/// Finanças, and the dialog itself, open or not, written as far as the story says.
+fn reporter(args: &Args) -> AnyView {
+    let english = args.choice("language") == "en";
+    let labels = if english { BugLabels::default() } else { BugLabels::pt_br() };
+    let with_errors = args.bool("errors");
+    let errors = move || match (with_errors, english) {
+        (false, _) => Vec::new(),
+        (true, true) => vec![
+            "WARN sync: the server took 8.2 s to answer".to_owned(),
+            "ERROR preview: could not read IMG_0412.CR3".to_owned(),
+        ],
+        (true, false) => vec![
+            "WARN sincronia: o servidor levou 8,2 s para responder".to_owned(),
+            "ERROR prévia: não deu para ler IMG_0412.CR3".to_owned(),
+        ],
+    };
+    let details = move || {
+        let (version, system) = if english { ("version", "system") } else { ("versão", "sistema") };
+        vec![(version.to_owned(), "0.1.32".to_owned()), (system.to_owned(), "macos".to_owned())]
+    };
+    let reporter =
+        BugReporter::new(FlightRecorder::new(240.0), |_| {}).labels(labels).details(details).errors(errors);
+
+    let kind = KINDS.iter().position(|k| *k == args.choice("kind")).unwrap_or(0);
+    let include = args.bool("include_film");
+    let marked = args.bool("marked").then(|| {
+        let names = if english { ["Save button", "Amount field"] } else { ["Botão Salvar", "Campo Valor"] };
+        (Rect::new(40.0, 60.0, 180.0, 64.0), names.iter().map(|n| (*n).to_owned()).collect())
+    });
+    let show = {
+        let reporter = reporter.clone();
+        move || reporter.open_as_story(film(6, &[]), kind, include, marked.clone())
+    };
+    if args.bool("open") {
+        show();
+    }
+    let action = if english { "Report a problem" } else { "Relatar problema" };
+    let bar = StatusBar::new().right((StatusBar::action(action).icon(IconName::CircleAlert).on_click(show),));
+    Box::new(VStack::new((bar, reporter)).spacing(0.0))
+}
+
+impl ComponentBook for BugReporter {
+    fn book() -> Meta {
+        Meta::new("Application/BugReporter", reporter)
+            .summary(
+                "The dialog that turns the last minutes on screen into a bug report: its kind, \
+                 what happened, a box over the problem, the film to watch and cover, and all that goes along.",
+            )
+            .arg(ArgType::choice("language", &LANGUAGES, "pt-BR").description("The words, from `BugLabels`."))
+            .arg(ArgType::choice("kind", &KINDS, "Something is wrong").description("What kind of report it is."))
+            .arg(ArgType::bool("open", true).description("Open, or only the status bar action that opens it."))
+            .arg(ArgType::bool("include_film", true).description("The film of the last minutes goes along."))
+            .arg(ArgType::bool("marked", false).description("A box already drawn around the problem."))
+            .arg(ArgType::bool("errors", false).description("The app's last errors, from `RecentErrors`."))
+            .story("Describing", Args::new())
+            .story("It is confusing", Args::new().with("kind", "It is confusing"))
+            .story("A suggestion", Args::new().with("kind", "A suggestion"))
+            .story("Box marked", Args::new().with("marked", true))
+            .story("Without the film", Args::new().with("include_film", false))
+            .story("With errors", Args::new().with("errors", true))
+            .story("English", Args::new().with("language", "en"))
+            .story("Closed", Args::new().with("open", false))
+    }
+}
+
 impl ComponentBook for MoviePlayer {
     fn book() -> Meta {
         Meta::new("Application/MoviePlayer", player)
@@ -65,5 +138,5 @@ impl ComponentBook for MovieAssistant {
 
 /// The stories of this crate, in the order the book lists them.
 pub fn stories() -> Vec<Meta> {
-    vec![MoviePlayer::book(), MovieAssistant::book()]
+    vec![MoviePlayer::book(), MovieAssistant::book(), BugReporter::book()]
 }

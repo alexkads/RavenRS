@@ -40,8 +40,15 @@ fn render(args: &Args) -> AnyView {
             let view = State::new(match args.choice("view") {
                 "Week" => CalendarView::Week,
                 "Day" => CalendarView::Day,
+                "Agenda" => CalendarView::Agenda,
+                "Year" => CalendarView::Year,
+                "Season" => CalendarView::Season,
                 _ => CalendarView::Month,
             });
+            // The month, week and day keep the views they always offered.
+            if !matches!(view.get(), CalendarView::Month | CalendarView::Week | CalendarView::Day) {
+                it = it.views(CalendarView::ALL);
+            }
             it = it.view(view.binding());
             it
         }
@@ -54,11 +61,17 @@ impl ComponentBook for EventCalendar {
             .summary("A month with its events inside each day.")
             .arg(ArgType::number("events_per_day", 3.0, 0.0, 12.0, 1.0))
             .arg(
-                ArgType::choice("view", &["Month", "Week", "Day"], "Month")
-                    .description("A month of days, or a week or a day with an hour on each line."),
+                ArgType::choice("view", &["Month", "Week", "Day", "Agenda", "Year", "Season"], "Month")
+                    .description(
+                        "A month of days, a week or a day with an hour on each line, the events in a list, \
+                         the year or the season.",
+                    ),
             )
             .story("Month", Args::new())
             .story("Week", Args::new().with("view", ArgValue::choice("Week")))
             .story("Day", Args::new().with("view", ArgValue::choice("Day")))
+            .story("Agenda", Args::new().with("view", ArgValue::choice("Agenda")))
+            .story("Year", Args::new().with("view", ArgValue::choice("Year")))
+            .story("Season", Args::new().with("view", ArgValue::choice("Season")))
     }
 }

@@ -115,10 +115,7 @@ fn fator_salvo(space: &dyn ObjectSpace, fornecedor: &str, item: &ItemRecebido) -
 }
 
 fn preco_em_reais(produto: &Object) -> Decimal {
-    match produto.get("preco") {
-        Value::Number(centavos) => Decimal::new(centavos.round() as i64, 2),
-        _ => Decimal::ZERO,
-    }
+    produto.cents("preco").map_or(Decimal::ZERO, |centavos| Decimal::new(centavos, 2))
 }
 
 /// The price a cost asks for, with what is set on the checkout.

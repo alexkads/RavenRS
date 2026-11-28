@@ -41,8 +41,13 @@ const TODAY_TINT: f32 = 0.05;
 /// Where a name starts in a row taller than its bars: in line with the first bar.
 const NAME_TOP: f32 = 12.0;
 const ROW_PADDING: f32 = 4.0;
+/// The least height of a row whose name has a second line under it: both lines fit, and the
+/// name does not run into the next row (#919).
+const TWO_LINE_ROW: f32 = 46.0;
 const GROUP_HEIGHT: f32 = 30.0;
 const HEADER_ROW_HEIGHT: f32 = 26.0;
+/// The one row of ticks of a compact scheduler.
+const COMPACT_HEADER_HEIGHT: f32 = 36.0;
 const MIN_BAR_WIDTH: f32 = 6.0;
 const HANDLE_WIDTH: f32 = 6.0;
 /// Rows and ticks built beyond the edges, so a quick scroll shows no gap.
@@ -60,18 +65,27 @@ pub struct Resource {
     pub subtitle: Option<String>,
     /// The collapsible group it goes under; rows with the same group stay together.
     pub group: Option<String>,
+    /// Why it takes nothing now, as an agent that went away: its row is hatched and says so.
+    pub unavailable: Option<String>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Resource {
     /// A row with this name.
     pub fn new(id: u64, name: impl Into<String>) -> Self {
-        Self { id, name: name.into(), subtitle: None, group: None }
+        Self { id, name: name.into(), subtitle: None, group: None, unavailable: None }
     }
 
     /// Sets the second line.
     pub fn subtitle(mut self, text: impl Into<String>) -> Self {
         self.subtitle = Some(text.into());
+        self
+    }
+
+    /// Takes nothing now, and its row says `why` over a hatching (`Desconectado há 3 h`). What
+    /// it held still shows.
+    pub fn unavailable(mut self, why: impl Into<String>) -> Self {
+        self.unavailable = Some(why.into());
         self
     }
 
@@ -214,6 +228,9 @@ pub struct Scheduler {
     resource_width: f32,
     read_only: bool,
     toolbar: bool,
+    compact: bool,
+    legend: Option<String>,
+    resources_title: Option<String>,
     fill_rows: bool,
     card: bool,
     avatars: bool,
@@ -250,6 +267,9 @@ impl Scheduler {
             resource_width: 200.0,
             read_only: false,
             toolbar: true,
+            compact: false,
+            legend: None,
+            resources_title: None,
             fill_rows: false,
             card: false,
             avatars: false,
@@ -349,6 +369,28 @@ impl Scheduler {
     /// The buttons to move through time and zoom (on by default).
     pub fn toolbar(mut self, show: bool) -> Self {
         self.toolbar = show;
+        self
+    }
+
+    /// A timeline that reads at a glance, as a build server shows its agents: one row of ticks
+    /// under the toolbar (the day is in its title), each resource's second line beside its name,
+    /// and the toolbar with the arrows and the title only. Off by default.
+    pub fn compact(mut self, compact: bool) -> Self {
+        self.compact = compact;
+        self
+    }
+
+    /// A few words at the end of the toolbar that say how to read the timeline (`A linha vertical
+    /// é agora`).
+    pub fn legend(mut self, text: impl Into<String>) -> Self {
+        self.legend = Some(text.into());
+        self
+    }
+
+    /// What the column of names is called above it; "Recursos" by default, in the language of
+    /// the labels.
+    pub fn resources_title(mut self, title: impl Into<String>) -> Self {
+        self.resources_title = Some(title.into());
         self
     }
 
@@ -1045,7 +1087,7 @@ fn draw_handler(cx: &mut BuildCx<'_>, s: &Scheduler, editing: &Editing) -> Optio
 fn time_label(labels: &Labels, scale: TimeScale, time: TimePoint) -> String {
     let date = labels.short_date(time.date());
     match scale {
-        TimeScale::Hours => {
+        TimeScale::QuarterHours | TimeScale::Hours => {
             let (hour, minute) = time.hour_minute();
             format!("{date} {hour:02}:{minute:02}")
         }
@@ -1055,14 +1097,46 @@ fn time_label(labels: &Labels, scale: TimeScale, time: TimePoint) -> String {
 
 /// A stretch of time as a person reads it. Days are whole, so the last one shown is the last one in it.
 fn time_range(labels: &Labels, scale: TimeScale, start: TimePoint, end: TimePoint) -> String {
-    let last = if scale == TimeScale::Hours { end } else { end.plus_minutes(-1).max(start) };
+    let last = if matches!(scale, TimeScale::Hours | TimeScale::QuarterHours) {
+        end
+    } else {
+        end.plus_minutes(-1).max(start)
+    };
     let (from, to) = (time_label(labels, scale, start), time_label(labels, scale, last));
     if from == to { from } else { format!("{from} – {to}") }
+}
+
+/// What the toolbar calls the stretch shown: two dates, one date when it is one day, and the
+/// hours of a day (`Hoje, 14:00 – 16:00`) when the scale is of hours.
+fn axis_title(labels: &Labels, axis: &TimeAxis, today: Option<crate::date::Date>) -> String {
+    let first = axis.start.date();
+    let last = axis.end.plus_minutes(-1).max(axis.start).date();
+    let day = |date| if Some(date) == today { labels.today.clone() } else { labels.short_date(date) };
+    let hours = matches!(axis.scale, TimeScale::Hours | TimeScale::QuarterHours);
+    // A stretch of hours says them, even across midnight: "22/11, 22:45 – Hoje, 00:45".
+    if hours && axis.end.minutes() - axis.start.minutes() <= 24 * 60 {
+        let (h1, m1) = axis.start.hour_minute();
+        let (h2, m2) = axis.end.hour_minute();
+        if first == last {
+            // An axis that ends at midnight ends at 24:00 of its day, not at 00:00.
+            let h2 = if axis.end.date() != first && (h2, m2) == (0, 0) { 24 } else { h2 };
+            return format!("{}, {h1:02}:{m1:02} – {h2:02}:{m2:02}", day(first));
+        }
+        return format!("{}, {h1:02}:{m1:02} – {}, {h2:02}:{m2:02}", day(first), day(axis.end.date()));
+    }
+    if first != last {
+        return format!("{} – {}", labels.short_date(first), labels.short_date(last));
+    }
+    day(first)
 }
 
 fn tick_text(labels: &Labels, scale: TimeScale, time: TimePoint) -> String {
     let date = time.date();
     match scale {
+        TimeScale::QuarterHours => {
+            let (hour, minute) = time.hour_minute();
+            format!("{hour:02}:{minute:02}")
+        }
         TimeScale::Hours => format!("{:02}", time.hour_minute().0),
         TimeScale::Days => date.day().to_string(),
         TimeScale::Weeks => format!("{:02}", date.day()),
@@ -1076,7 +1150,7 @@ fn tick_text(labels: &Labels, scale: TimeScale, time: TimePoint) -> String {
 fn group_text(labels: &Labels, scale: TimeScale, time: TimePoint) -> String {
     let date = time.date();
     match scale {
-        TimeScale::Hours => labels.short_date(date),
+        TimeScale::QuarterHours | TimeScale::Hours => labels.short_date(date),
         TimeScale::Days | TimeScale::Weeks => labels.month_title(date),
         TimeScale::Months => date.year().to_string(),
     }
@@ -1093,6 +1167,39 @@ fn band(cx: &mut BuildCx<'_>, frame: Rect, fill: ravenrs_core::Color) -> NodeId 
         },
         &[],
         Paint::Quad(QuadPaint::new(fill)),
+    );
+    cx.semantics(node, Semantics::hidden());
+    node
+}
+
+/// Thin diagonal lines over `frame`, as the row of a resource that takes nothing.
+fn hatching(cx: &mut BuildCx<'_>, frame: Rect, color: ravenrs_core::Color) -> NodeId {
+    const GAP: f32 = 10.0;
+    let node = cx.container(
+        LayoutStyle {
+            absolute: Some((frame.x(), frame.y())),
+            width: Some(frame.width()),
+            height: Some(frame.height()),
+            overflow_hidden: true,
+            ..LayoutStyle::leaf()
+        },
+        &[],
+        Paint::Rich(Rc::new(move |at: Rect, paint: &mut crate::context::PaintCx<'_>| {
+            let h = at.height();
+            let mut x = at.x() - h;
+            while x < at.max_x() {
+                // Each line is cut to the box, so none runs past its edges.
+                let (x0, x1) = (x.max(at.x()), (x + h).min(at.max_x()));
+                if x1 > x0 {
+                    let points =
+                        [Point::new(x0, at.max_y() - (x0 - x)), Point::new(x1, at.max_y() - (x1 - x))];
+                    paint
+                        .scene
+                        .push_path(ravenrs_core::PathFill::solid(util::stroke_outline(&points, 1.0), color));
+                }
+                x += GAP;
+            }
+        })),
     );
     cx.semantics(node, Semantics::hidden());
     node
@@ -1153,7 +1260,10 @@ impl Scheduler {
             }
             for index in members {
                 let lanes = lanes_of.get(&self.resources[index].id).copied().unwrap_or(1);
-                let height = lanes as f32 * self.lane_height() + 2.0 * ROW_PADDING;
+                let mut height = lanes as f32 * self.lane_height() + 2.0 * ROW_PADDING;
+                if self.resources[index].subtitle.is_some() && !self.compact {
+                    height = height.max(TWO_LINE_ROW);
+                }
                 rows.push(Row::Resource { index, y, height });
                 y += height;
             }
@@ -1200,15 +1310,29 @@ impl Scheduler {
             ),
         );
         if !self.card {
-            let title = format!(
-                "{} – {}",
-                labels.short_date(axis.start.date()),
-                labels.short_date(axis.end.plus_minutes(-1).date())
-            );
+            let title = axis_title(&labels, &axis, self.now.map(TimePoint::date));
             items.push(util::label(cx, &title, TextStyle::Headline, None, cx.theme().color(Semantic::Ink)));
-            items.extend(today_button);
+            if !self.compact {
+                items.extend(today_button);
+            }
         }
         items.push(cx.container(LayoutStyle { grow: 1.0, ..LayoutStyle::leaf() }, &[], Paint::None));
+        if let Some(legend) = &self.legend {
+            let muted = cx.theme().color(Semantic::InkMuted);
+            items.push(util::label(cx, legend, TextStyle::Callout, None, muted));
+        }
+        if self.compact {
+            return cx.container(
+                LayoutStyle {
+                    spacing: 6.0,
+                    align: Align::Center,
+                    padding: Insets::symmetric(8.0, 8.0),
+                    ..LayoutStyle::stack(Axis::Horizontal)
+                },
+                &items,
+                Paint::None,
+            );
+        }
         let mut out =
             IconButton::new(IconName::ZoomOut).label(labels.zoom_out.clone()).size(ButtonSize::Small);
         if let Some(farther) = axis.zoomed_out() {
@@ -1385,9 +1509,14 @@ impl View for Scheduler {
         let mut previous = None;
         let accent = theme.color(Semantic::Accent);
         let today = self.now.map(|now| now.date());
-        let header_height = 2.0 * HEADER_ROW_HEIGHT;
+        let compact = self.compact;
+        let (header_height, tick_top, tick_height) = if compact {
+            (COMPACT_HEADER_HEIGHT, 0.0, COMPACT_HEADER_HEIGHT)
+        } else {
+            (2.0 * HEADER_ROW_HEIGHT, HEADER_ROW_HEIGHT, HEADER_ROW_HEIGHT)
+        };
         for (i, tick) in ticks.iter().enumerate() {
-            if axis.starts_group(tick.start, previous) {
+            if !compact && axis.starts_group(tick.start, previous) {
                 let until = ticks[i + 1..]
                     .iter()
                     .find(|t| axis.starts_group(t.start, Some(tick.start)))
@@ -1416,7 +1545,7 @@ impl View for Scheduler {
             } else {
                 tick_text(&labels, axis.scale, tick.start)
             };
-            let frame = Rect::new(tick.x, HEADER_ROW_HEIGHT, tick.width, HEADER_ROW_HEIGHT);
+            let frame = Rect::new(tick.x, tick_top, tick.width, tick_height);
             let is_today = self.card && axis.scale == TimeScale::Days && today == Some(tick.start.date());
             header_cells.push(placed_text(
                 cx,
@@ -1429,7 +1558,7 @@ impl View for Scheduler {
                 // A mark under today's name, where the eye looks for it.
                 header_cells.push(band(cx, Rect::new(tick.x, header_height - 2.0, tick.width, 2.0), accent));
             }
-            header_cells.push(band(cx, Rect::new(tick.x, HEADER_ROW_HEIGHT, 1.0, HEADER_ROW_HEIGHT), line));
+            header_cells.push(band(cx, Rect::new(tick.x, tick_top, 1.0, tick_height), line));
         }
         // A tinted band, in a card, under its toolbar.
         let header_paint = Paint::Quad(QuadPaint::new(theme.color(if self.card {
@@ -1459,8 +1588,8 @@ impl View for Scheduler {
             header_paint.clone(),
         );
         cx.clip(header_view);
-        let corner_text =
-            util::label(cx, &labels.scheduler_resources, TextStyle::Caption, Some(Weight::SEMIBOLD), muted);
+        let corner_title = self.resources_title.clone().unwrap_or_else(|| labels.scheduler_resources.clone());
+        let corner_text = util::label(cx, &corner_title, TextStyle::Caption, Some(Weight::SEMIBOLD), muted);
         let corner = cx.container(
             LayoutStyle {
                 width: Some(self.resource_width),
@@ -1486,7 +1615,11 @@ impl View for Scheduler {
         }
         header_parts.push(header_view);
         let header = cx.container(
-            LayoutStyle { align: Align::Stretch, ..LayoutStyle::stack(Axis::Horizontal) },
+            LayoutStyle {
+                align: Align::Stretch,
+                min_width: Some(0.0),
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
             &header_parts,
             Paint::None,
         );
@@ -1506,7 +1639,7 @@ impl View for Scheduler {
                 ));
             }
         }
-        if axis.scale == TimeScale::Days || axis.scale == TimeScale::Hours {
+        if matches!(axis.scale, TimeScale::Days | TimeScale::Hours | TimeScale::QuarterHours) {
             for tick in &ticks {
                 let weekday = tick.start.date().weekday();
                 if weekday == 0 || weekday == 6 {
@@ -1542,6 +1675,21 @@ impl View for Scheduler {
             if !self.card || y + row.height() < area {
                 under.push(band(cx, Rect::new(0.0, y + row.height() - 1.0, width, 1.0), line));
             }
+            // A resource that takes nothing now: hatched across what is in view, saying why.
+            if let Row::Resource { index, height, .. } = row
+                && let Some(why) = &self.resources[*index].unavailable
+            {
+                let from = left.max(0.0);
+                let frame = Rect::new(from, y, (right.min(width) - from).max(0.0), *height - 1.0);
+                under.push(hatching(cx, frame, line));
+                under.push(placed_text(
+                    cx,
+                    Rect::new(scroll.x + 12.0, y, (view.width - 24.0).max(0.0), *height),
+                    why,
+                    TextStyle::Callout,
+                    muted,
+                ));
+            }
             match row {
                 Row::Group { name, count, collapsed: is_collapsed, .. } => {
                     under.push(band(cx, Rect::new(0.0, y, width, GROUP_HEIGHT), ink.with_alpha(0.03)));
@@ -1572,7 +1720,28 @@ impl View for Scheduler {
                         .avatars
                         .then(|| cx.child(&crate::Avatar::new(resource.name.clone()).size(AVATAR_SIZE)));
                     let mut lines = vec![name];
-                    if let Some(subtitle) = &resource.subtitle {
+                    // Compact: the second line follows the name on its line, muted.
+                    if self.compact
+                        && let Some(subtitle) = &resource.subtitle
+                    {
+                        let beside = cx.child(
+                            &Text::new(format!("· {subtitle}"))
+                                .style(TextStyle::Callout)
+                                .foreground(Semantic::InkMuted)
+                                .truncate(),
+                        );
+                        let line = cx.container(
+                            LayoutStyle {
+                                spacing: 4.0,
+                                align: Align::Center,
+                                min_width: Some(0.0),
+                                ..LayoutStyle::stack(Axis::Horizontal)
+                            },
+                            &[lines.remove(0), beside],
+                            Paint::None,
+                        );
+                        lines.push(line);
+                    } else if let Some(subtitle) = &resource.subtitle {
                         lines.push(
                             cx.child(
                                 &Text::new(subtitle.clone())
@@ -1613,7 +1782,8 @@ impl View for Scheduler {
                             } else {
                                 Justify::Center
                             },
-                            spacing: AVATAR_GAP,
+                            // The name and its second line sit together; the gap is for an avatar.
+                            spacing: if self.avatars { AVATAR_GAP } else { 2.0 },
                             align: if self.avatars { Align::Center } else { Align::Stretch },
                             overflow_hidden: true,
                             ..LayoutStyle::stack(if self.avatars { Axis::Horizontal } else { Axis::Vertical })
@@ -1772,6 +1942,7 @@ impl View for Scheduler {
         let middle = cx.container(
             LayoutStyle {
                 grow: 1.0,
+                min_width: Some(0.0),
                 min_height: Some(0.0),
                 align: Align::Stretch,
                 overflow_hidden: true,
@@ -1800,9 +1971,11 @@ impl View for Scheduler {
             parts.push(hairline(cx));
         }
         parts.push(middle);
+        // It takes the width its parent gives and scrolls the time inside, however long the axis.
         let root = cx.container(
             LayoutStyle {
                 grow: 1.0,
+                min_width: Some(0.0),
                 min_height: Some(0.0),
                 align: Align::Stretch,
                 overflow_hidden: true,
@@ -1886,5 +2059,28 @@ impl View for GroupHeader {
         cx.focusable(node, radius);
         cx.cursor(node, CursorIcon::Pointer);
         node
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::date::Date;
+
+    fn day(d: u8) -> Date {
+        Date::new(2026, 11, d).unwrap_or_else(|| panic!("a real date"))
+    }
+
+    #[test]
+    fn the_title_says_the_hours_of_a_day_and_across_midnight() {
+        let labels = Labels::pt_br();
+        let today = Some(day(22));
+        let afternoon = TimeAxis::quarter_hours(TimePoint::at(day(22), 14, 0), 2);
+        assert_eq!(axis_title(&labels, &afternoon, today), "Hoje, 14:00 – 16:00");
+        let night = TimeAxis::quarter_hours(TimePoint::at(day(21), 22, 45), 2);
+        let said = axis_title(&labels, &night, today);
+        assert!(said.ends_with("22:45 – Hoje, 00:45"), "{said}");
+        let month = TimeAxis::days(day(1), 30);
+        assert!(axis_title(&labels, &month, today).contains(" – "), "two dates for a month");
     }
 }

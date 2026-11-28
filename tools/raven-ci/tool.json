@@ -1,0 +1,118 @@
+{
+  "name": "Raven CI",
+  "also_called": [
+    "RCI",
+    "raven-ci"
+  ],
+  "package": "raven-ci",
+  "version": "0.1.9",
+  "summary": "A small CI/CD server whose core holds only the queue, the model of jobs and builds and the register of plugins; every function of a CI (pipeline formats, steps, git, providers, triggers, publishers, agents) is a plugin, compiled in or a program of any language over JSON-RPC.",
+  "when_to_use": [
+    "To see which plugins Raven CI has, whether each is on, and why one was refused.",
+    "To switch a plugin on or off without restarting anything.",
+    "To check that the core and the API of plugins work on this machine (--self-test).",
+    "To ask a running server for a build, follow it and take its evidence from a terminal or an agent (rodar, status, log, resumo, evidencia, with --format json).",
+    "To install the server as a service of the system (servico instalar).",
+    "To back up the folder of data with the server running, and put it back on another machine (backup criar, backup restaurar)."
+  ],
+  "commands": [
+    {
+      "command": "raven-ci plugins listar [--format json]",
+      "does": "Lists every plugin: version, origin (compiled in or external), state (on, off, or refused with the reason) and the points it offers."
+    },
+    {
+      "command": "raven-ci plugins info NOME [--format json]",
+      "does": "Shows one plugin: dependencies with the versions accepted, permissions declared and granted, configuration and memory."
+    },
+    {
+      "command": "raven-ci plugins ligar NOME [--servidor URL]",
+      "does": "Switches the plugin on and says what else changed. Without --servidor, on the folder of data, which a server already running reads only when it restarts; with --servidor (and a key of Administradores), on the server that is running, at once."
+    },
+    {
+      "command": "raven-ci plugins desligar NOME [--servidor URL]",
+      "does": "Switches the plugin off, with the plugins that need it, and says which; with --servidor, on the server that is running."
+    },
+    {
+      "command": "raven-ci backup criar [PASTA] [--com-chave] [--format json]",
+      "does": "Backs up the folder of data with the server running: each database with VACUUM INTO, checked and stamped, and the vault, people and data of the plugins; the key of the vault only with --com-chave. Without PASTA, in <dados>/backups/raven-ci-<data>."
+    },
+    {
+      "command": "raven-ci backup ver PASTA [--format json]",
+      "does": "What a backup holds, with each database checked by its stamp and quick_check."
+    },
+    {
+      "command": "raven-ci backup restaurar PASTA [--format json]",
+      "does": "Puts a backup back as the folder of data, with the server stopped; what was there goes to antes-da-restauracao-<quando>/. Refused while a server uses the folder."
+    },
+    {
+      "command": "raven-ci servir [--endereco HOST:PORTA] [--executores N]",
+      "does": "Sobe o servidor: HTTP com login (GET /health aberto, /api/ci/jobs, /api/ci/build, /api/ci/log?after= e as rotas dos plugins), os executores e os gatilhos dos jobs. Diz o endereço na primeira linha e para com Ctrl+C ou SIGTERM."
+    },
+    {
+      "command": "echo SENHA | raven-ci usuario criar NOME [--papel Executores|Leitores|Administradores] [--servidor URL]",
+      "does": "Cria quem pode entrar no servidor; o primeiro é administrador. A senha vem na primeira linha da entrada; com --servidor, no servidor no ar."
+    },
+    {
+      "command": "raven-ci agentes listar|token|remover|modelos|modelo|modelo-apagar [--servidor URL] [--format json]",
+      "does": "Os agentes e os modelos que os sobem; com --servidor (ou RAVEN_CI_SERVIDOR), pela API do servidor no ar, com o estado real de cada conexão."
+    },
+    {
+      "command": "raven-ci rodar JOB [--param NOME=VALOR]... [--prioridade N] [--esperar] [--servidor URL] [--format json]",
+      "does": "Pede um build ao servidor (POST /api/ci/run, com a chave em RAVEN_CI_TOKEN); com --esperar segue o log e sai com 0 se passou, 7 se ficou instável e 1 se falhou."
+    },
+    {
+      "command": "raven-ci status JOB [NUMERO] [--format json]",
+      "does": "O build no servidor (o último, sem número): estado, causa, quem pediu, duração, parâmetros, etapas e anexos."
+    },
+    {
+      "command": "raven-ci log JOB NUMERO [--seguir] [--format json]",
+      "does": "O log do build; --seguir lê /api/ci/log?after= até o build acabar (em JSON, uma linha por linha do log)."
+    },
+    {
+      "command": "raven-ci resumo [--format json]",
+      "does": "Cada job do servidor com o último build e o estado, e quantos estão na fila."
+    },
+    {
+      "command": "raven-ci evidencia JOB NUMERO PASTA [--format json]",
+      "does": "Baixa os artefatos do build (plugin artifacts) e o log.txt para PASTA."
+    },
+    {
+      "command": "raven-ci aplicar ARQUIVO [--remover] [--servidor URL] [--format json]",
+      "does": "Aplica a configuração como código (raven-ci.toml: jobs, pastas, plugins e a configuração deles, url) à pasta de dados ou, com --servidor, ao servidor no ar, que vigia de novo os gatilhos do que mudou; um job fora do arquivo só sai com --remover."
+    },
+    {
+      "command": "raven-ci servico instalar|remover|estado [--memoria 1G] [--endereco HOST:PORTA] [--executores N] [--sistema]",
+      "does": "O servidor como serviço do sistema: systemd com MemoryMax, launchd no macOS ou tarefa do Agendador do Windows; estado sai com 0 só se roda."
+    },
+    {
+      "command": "raven-ci <comando de plugin> ...",
+      "does": "Runs a subcommand a plugin brings, such as `raven-ci hello Ana` from the example plugin."
+    },
+    {
+      "command": "raven-ci --self-test",
+      "does": "Puts a core together in memory with a fake plugin for every extension point and runs a build through all of them; exit code 0 when it passed."
+    },
+    {
+      "command": "raven-ci --versao",
+      "does": "Prints the version."
+    }
+  ],
+  "options": [
+    {
+      "option": "--dados PASTA",
+      "does": "The folder of its data (also RAVEN_CI_HOME); ~/.raven-ci by default. The external plugins are found in its plugins/ folder and in the folders given with --plugins."
+    },
+    {
+      "option": "--plugins PASTA",
+      "does": "Another folder of external plugins, one folder per plugin with its plugin.toml."
+    }
+  ],
+  "limits": [
+    "It has no window and no HTTP server yet: the panel, the agents and the API come in the next phases of #803.",
+    "No plugin for real work ships yet (shell, git, GitHub, TOML pipelines): they are phase 2 of #803.",
+    "Switching a plugin on or off from the command line changes what the next start of the server loads; the core switches them live, with no restart, through its API.",
+    "The memory of a plugin compiled in is not measured apart from the server's; an external plugin's is, on Linux and macOS.",
+    "The memory limit of the service (servico instalar --memoria) is enforced only by systemd, on Linux; launchd and the Task Scheduler of Windows take no limit."
+  ],
+  "window": false
+}

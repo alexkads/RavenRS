@@ -16,6 +16,8 @@ use crate::measure::{self, Fit, Interaction, Measured};
 const GUIDE: &str = include_str!("../../../docs/design-system/README.md");
 /// The font of RavenRS's icons, so the previews draw them as RavenRS does.
 const ICON_FONT: &[u8] = include_bytes!("../../../crates/ravenrs-text/fonts/RavenIcons.ttf");
+/// Fira Mono (SIL Open Font License), what `Text::mono` and `CodeBlock` draw with.
+const MONO_FONT: &[u8] = include_bytes!("../../../crates/ravenrs-text/fonts/FiraMono-Medium.ttf");
 /// The text faces RavenRS embeds in every build, the same files the previews draw with.
 const INTER_REGULAR: &[u8] = include_bytes!("../../../crates/ravenrs-text/fonts/Inter-Regular.ttf");
 const INTER_SEMIBOLD: &[u8] = include_bytes!("../../../crates/ravenrs-text/fonts/Inter-SemiBold.ttf");
@@ -622,11 +624,13 @@ fn guide_with_index(entries: &[Entry]) -> String {
          - **Keep the marks.** Each picture in a card carries `data-rcb=\"Component/Story\"`. Put the same attribute on the element that draws that component in a screen, with the story it starts from, the settings you changed in `data-rcb-args` as JSON (`data-rcb-args='{\"label\":\"Cancel\"}'`; `icon` takes any name the card of `Icon` lists, not only the sample a card offers), and `data-rcb-screen=\"<name>\"` on the screen's root. RavenRS then checks the screen piece by piece (see *Checking a screen*).\n\
          - **Size them as the card says.** Its *Sizing* tells whether a component fills the width of its parent or hugs its content, with the size it takes in parents of 320, 760 and 1200 pt. A field that fills its column stretches with it; a button that hugs its label keeps its width.\n\
          - **Change a component only through its settings** (the `argTypes` of its card). A variant, size or state that is not there does not exist.\n\
-         - **Compose, do not invent.** A piece the screen needs that no component gives goes on a note called *Missing from the library* on the artboard, with what it should do. It joins the library before the screen is built.\n\
+         - **Compose, do not invent.** A piece the screen needs that no component gives goes on a note called *Missing from the library* on the artboard, with what it should do. It joins the library before the screen is built. Before you write a piece on that note, look for its card in the list below: a component that has a card is never missing, even when the story you need is not there yet (then the note asks for the story).\n\
+         - **Draw each piece as its card does.** A simple piece (button, badge, field, alert, tabs, `Stat`) is drawn as the picture in its card, which is what RavenRS draws; a piece of data (`DataGrid`, `LogView`, `FlowCanvas`, `Scheduler`, `List`, `Sheet`) follows the anatomy of its card with the screen's data. Add no frame, border, header style, color or inner space that the card does not show.\n\
          - Colors are tokens (`var(--accent)`), never new colors; spacing follows the 4px grid (`space-*`); corners follow `radius-*`.\n\
          - Icons are RavenRS icons, by the names in the cards (`trash-2`, `search`); the `RavenIcons` font draws them.\n\n\
          ## Checking a screen\n\n\
-         An artboard that keeps the marks can be checked against RavenRS. Run this script in it: it saves `<screen>.rcb.json` with every marked element, its settings and its box, and `raven-component-book --replay <file>` says which pieces RavenRS would not build at that size (1 pt of tolerance; a little more for the width of a label, which a browser lays out wider).\n\n\
+         An artboard that keeps the marks can be checked against RavenRS. Run this script in it: it saves `<screen>.rcb.json` with every marked element, its settings and its box, and `raven-component-book --replay <file>` says which pieces RavenRS would not build at that size (1 pt of tolerance; a little more for the width of a label, which a browser lays out wider), ending with `N de M peças divergem (K pontos)`.\n\n\
+         **A screen is ready only when its replay finds no divergence.** A divergence that stays is written on the artboard with its reason. The replay checks sizes, not looks: a piece can have the right size and still carry a frame or a color RavenRS does not draw, so compare the artboard with the cards as well.\n\n\
          ```js\n{script}\n```\n\n\
          ## Changing this system\n\n\
          RavenComponentBook writes every file of this system from the RavenRS code, and the design tool takes them as they are: nothing here is edited by hand. To change a component, change its stories (`ComponentBook`) or the component itself; to change a color, a size, a corner or a font, change the tokens of `ravenrs-style`. Then RavenComponentBook writes the system again.\n\n\
@@ -985,8 +989,17 @@ fn comparable(path: &str, bytes: Vec<u8>) -> Vec<u8> {
 pub fn verify(published: &Path) -> std::io::Result<Drift> {
     let fresh = std::env::temp_dir().join(format!("raven-component-book-verify-{}", std::process::id()));
     let written = write_claude_design(&fresh, "verify")?;
+    let drift = compare(published, &fresh, &written);
+    std::fs::remove_dir_all(&fresh).ok();
+    drift
+}
+
+/// Compares `published` with `fresh`, a folder [`write_claude_design`] wrote `written` into.
+/// [`verify`] is writing and then this; a test that already wrote the design system compares
+/// copies of it without measuring every component again.
+pub fn compare(published: &Path, fresh: &Path, written: &[String]) -> std::io::Result<Drift> {
     let mut drift = Drift::default();
-    for path in &written {
+    for path in written {
         match std::fs::read(published.join(path)) {
             Ok(bytes) => {
                 let new = std::fs::read(fresh.join(path))?;
@@ -1015,7 +1028,6 @@ pub fn verify(published: &Path) -> std::io::Result<Drift> {
             }
         }
     }
-    std::fs::remove_dir_all(&fresh).ok();
     drift.extra.sort();
     Ok(drift)
 }
@@ -1097,12 +1109,77 @@ fn cover() -> String {
     )
 }
 
+/// The three files of one card, measured and written out.
+struct Card {
+    folder: String,
+    name: &'static str,
+    readme: String,
+    preview: String,
+    json: String,
+}
+
+/// Measures every entry `list` gives and writes its card, on several threads, and gives the cards
+/// back in the order of the list.
+///
+/// Measuring is most of the time `--verify` takes in `scripts/check.sh`, and one entry does not
+/// depend on another. A story draws through views that stay on the thread that made them, so each
+/// thread asks `list` for its own copy and measures the entries whose turn it takes. The result
+/// does not depend on how many threads there are. `CARGO_BUILD_JOBS` limits them, as it limits
+/// the build that comes before.
+fn cards(list: fn() -> Vec<Entry>, parent: &str) -> std::io::Result<Vec<Card>> {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let total = list().len();
+    let cores = std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
+    let jobs = std::env::var("CARGO_BUILD_JOBS").ok().and_then(|jobs| jobs.parse::<usize>().ok());
+    let threads = jobs.unwrap_or(cores).clamp(1, total.max(1));
+    let next = AtomicUsize::new(0);
+    let measure = || -> Vec<(usize, std::io::Result<Card>)> {
+        let entries = list();
+        let mut done = Vec::new();
+        loop {
+            let at = next.fetch_add(1, Ordering::Relaxed);
+            let Some(entry) = entries.get(at) else { return done };
+            let stories = measure_entry(entry);
+            let card = serde_json::to_string(&component_json(entry, &stories))
+                .map(|json| Card {
+                    folder: format!("{parent}/{}", entry.name()),
+                    name: entry.name(),
+                    readme: card_readme(entry, &stories),
+                    preview: preview(entry, &stories),
+                    json,
+                })
+                .map_err(std::io::Error::from);
+            done.push((at, card));
+        }
+    };
+    let mut measured: Vec<(usize, std::io::Result<Card>)> = std::thread::scope(|scope| {
+        let workers: Vec<_> = (0..threads)
+            .map(|_| {
+                // Laying out a whole screen goes deep: the same stack the main thread has.
+                std::thread::Builder::new().stack_size(8 << 20).spawn_scoped(scope, measure)
+            })
+            .collect::<std::io::Result<_>>()?;
+        let mut all = Vec::with_capacity(total);
+        for worker in workers {
+            let done =
+                worker.join().map_err(|_| std::io::Error::other("a thread measuring cards panicked"))?;
+            all.extend(done);
+        }
+        Ok::<_, std::io::Error>(all)
+    })?;
+    measured.sort_by_key(|(at, _)| *at);
+    measured.into_iter().map(|(_, card)| card).collect()
+}
+
 /// Writes the whole design system under `<dir>/project/`, everything the design tool shows: the
 /// index, the guide with every component, the tokens read from `ravenrs-style` and their CSS, the
 /// fonts, the cover, and for each component its card, its vector preview and its JSON. Nothing
 /// else belongs to the design system: a published file not in the returned list is removed.
 /// `sha` is the commit it comes from.
 pub fn write_claude_design(dir: &Path, sha: &str) -> std::io::Result<Vec<String>> {
+    // A shortcut reads "⌘↵" on a Mac and "Ctrl+↵" elsewhere, and so measures differently: the copy
+    // in the repository is written the same on every system, with the keys of Linux and Windows.
+    ravenrs::widgets::set_apple_keys(false);
     let project = dir.join("project");
     std::fs::create_dir_all(project.join("fonts"))?;
     std::fs::create_dir_all(project.join("components/Cover"))?;
@@ -1120,29 +1197,17 @@ pub fn write_claude_design(dir: &Path, sha: &str) -> std::io::Result<Vec<String>
     put("project/fonts/Inter-Regular.ttf", INTER_REGULAR)?;
     put("project/fonts/Inter-SemiBold.ttf", INTER_SEMIBOLD)?;
     put("project/fonts/RavenIcons.ttf", ICON_FONT)?;
+    put("project/fonts/FiraMono-Medium.ttf", MONO_FONT)?;
     put("project/components/Cover/preview.html", cover().as_bytes())?;
-    for entry in &entries {
-        let stories = measure_entry(entry);
-        let folder = format!("project/components/{}", entry.name());
-        std::fs::create_dir_all(dir.join(&folder))?;
-        put(&format!("{folder}/README.md"), card_readme(entry, &stories).as_bytes())?;
-        put(&format!("{folder}/preview.html"), preview(entry, &stories).as_bytes())?;
-        put(
-            &format!("{folder}/{}.json", entry.name()),
-            serde_json::to_string(&component_json(entry, &stories))?.as_bytes(),
-        )?;
-    }
-    // The patterns: small screens made of components, measured and exported the same way.
-    for pattern in crate::patterns::entries() {
-        let stories = measure_entry(&pattern);
-        let folder = format!("project/patterns/{}", pattern.name());
-        std::fs::create_dir_all(dir.join(&folder))?;
-        put(&format!("{folder}/README.md"), card_readme(&pattern, &stories).as_bytes())?;
-        put(&format!("{folder}/preview.html"), preview(&pattern, &stories).as_bytes())?;
-        put(
-            &format!("{folder}/{}.json", pattern.name()),
-            serde_json::to_string(&component_json(&pattern, &stories))?.as_bytes(),
-        )?;
+    // The components, then the patterns: small screens made of components, measured and exported
+    // the same way.
+    let components = cards(index::entries, "project/components")?;
+    let patterns = cards(crate::patterns::entries, "project/patterns")?;
+    for card in components.into_iter().chain(patterns) {
+        std::fs::create_dir_all(dir.join(&card.folder))?;
+        put(&format!("{}/README.md", card.folder), card.readme.as_bytes())?;
+        put(&format!("{}/preview.html", card.folder), card.preview.as_bytes())?;
+        put(&format!("{}/{}.json", card.folder, card.name), card.json.as_bytes())?;
     }
     // The index last, as the design tool asks; then the list of everything, for the publisher.
     put(

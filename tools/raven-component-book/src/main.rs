@@ -7,7 +7,7 @@
 //! passed); `--versao` prints the version.
 
 /// Every option the book reads; any other is refused.
-const OPTIONS: [&str; 9] = [
+const OPTIONS: [&str; 11] = [
     ravenrs_e2e_wire::SERVE_FLAG,
     "--versao",
     "--self-test",
@@ -16,6 +16,8 @@ const OPTIONS: [&str; 9] = [
     "--sha",
     "--verify",
     "--replay",
+    "--verbose",
+    "--draw",
     "--help",
 ];
 
@@ -35,6 +37,8 @@ fn main() -> std::process::ExitCode {
              --claude-design <pasta> [--sha <commit>]      os arquivos do design system do Claude Design em <pasta>/project\n\
              --verify <pasta>                              compara uma cópia do publicado com o que o RCB gera\n\
              --replay <tela.rcb.json>                      confere se o RavenRS monta cada peça de uma tela do design como foi desenhada\n\
+             --replay <tela.rcb.json> --verbose            o mesmo, com a medida de cada peça no desenho e no RavenRS\n\
+             --replay <tela.rcb.json> --draw <saída.json>  o mesmo, e grava cada peça como o RavenRS a desenha, em SVG\n\
              --self-test                                   desenha e mede cada história, sem janela\n\
              --versao                                      a versão",
             raven_component_book::VERSION
@@ -78,6 +82,29 @@ fn main() -> std::process::ExitCode {
         let checked = std::fs::read_to_string(&file)
             .map_err(|e| format!("não deu para ler {file}: {e}"))
             .and_then(|json| raven_component_book::replay::replay(&json));
+        if let (Ok(replay), true) = (&checked, has("--verbose")) {
+            for piece in &replay.measured {
+                println!("{piece}");
+            }
+        }
+        // Each piece as RavenRS draws it, for a board that follows the book (#921).
+        if let (Ok(replay), Some(out)) = (&checked, value("--draw")) {
+            let pieces: Vec<serde_json::Value> = replay
+                .measured
+                .iter()
+                .map(|m| {
+                    serde_json::json!({
+                        "element": m.element, "design": [m.design.0, m.design.1],
+                        "built": [m.built.0, m.built.1], "margin": raven_component_book::measure::MARGIN,
+                        "svg": m.drawing,
+                    })
+                })
+                .collect();
+            if let Err(e) = std::fs::write(&out, serde_json::Value::Array(pieces).to_string()) {
+                eprintln!("não deu para escrever {out}: {e}");
+                return std::process::ExitCode::from(2);
+            }
+        }
         return match checked {
             Ok(replay) if replay.divergences.is_empty() => {
                 println!("{} peças conferidas: o RavenRS monta todas como foram desenhadas", replay.compared);
@@ -87,7 +114,7 @@ fn main() -> std::process::ExitCode {
                 for d in &replay.divergences {
                     println!("{d}");
                 }
-                println!("{} de {} peças divergem", replay.divergences.len(), replay.compared);
+                println!("{}", replay.summary());
                 std::process::ExitCode::FAILURE
             }
             Err(why) => {

@@ -1,5 +1,5 @@
 //! RavenRS time on screen: the `Scheduler` and its time axis, the `EventCalendar` with its
-//! `RecurrenceEditor`, and the `Timeline`.
+//! `RecurrenceEditor`, the `YearView`, and the `Timeline`.
 //!
 //! Applications depend on `ravenrs-widgets` (or `ravenrs`), which re-exports all of this by the
 //! same names.
@@ -23,9 +23,12 @@ pub mod scheduler;
 pub mod testing;
 #[doc(hidden)]
 pub mod timeline;
+#[doc(hidden)]
+pub mod year_view;
 
-pub use event_calendar::{CalendarEvent, CalendarView, EventCalendar, RecurrenceEditor};
+pub use event_calendar::{CalendarEvent, CalendarView, EventCalendar, Hemisphere, RecurrenceEditor};
 pub use scheduler::{
     Resource, Scheduler, SchedulerChange, SchedulerEvent, SchedulerRange, TimeAxis, TimePoint, TimeScale,
 };
 pub use timeline::{Timeline, TimelineEdit, TimelineItem, TimelineMarker, TimelineTrack};
+pub use year_view::{DayMark, YearView};

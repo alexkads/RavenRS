@@ -1,0 +1,58 @@
+[package]
+name = "raven-ci-painel"
+description = "The panel of Raven CI, on the desktop and in the browser: jobs, builds with their log live, the queue, the pipeline, plugins and people, made only of RavenRS components over the server's API."
+version = "0.1.1"
+edition.workspace = true
+# raven-ci-core (ravenrs-flows-runtime, rusqlite 0.41) needs 1.89 for the test session.
+rust-version = "1.89"
+license.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# How Raven Test Studio (RTS) finds and opens the panel on the test channel (--e2e-serve).
+[package.metadata.ravenrs.e2e]
+app = "Raven CI"
+binary = "raven-ci-painel"
+
+[dependencies]
+ravenrs = { workspace = true, features = ["code"] }
+ravenrs-app-remote.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# The session of the tests: a real core in memory, answered by its API with no HTTP.
+raven-ci-core = { path = "../raven-ci-core" }
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api", features = ["testing"] }
+raven-ci-plugin-api-trigger = { path = "../raven-ci-plugin-api-trigger" }
+# The kinds of credential, for the form of the page Credenciais (#922).
+raven-ci-plugin-credentials = { path = "../raven-ci-plugin-credentials" }
+# The demonstration builds for real, as the design draws it (#919): commands, TOML, the converter of
+# Jenkinsfiles, the locks, and docker switched off for a build that waits for it.
+raven-ci-plugin-docker = { path = "../raven-ci-plugin-docker" }
+raven-ci-plugin-format-jenkinsfile = { path = "../raven-ci-plugin-format-jenkinsfile" }
+raven-ci-plugin-format-toml = { path = "../raven-ci-plugin-format-toml" }
+raven-ci-plugin-lock = { path = "../raven-ci-plugin-lock" }
+raven-ci-plugin-shell = { path = "../raven-ci-plugin-shell" }
+ravenrs-app.workspace = true
+ravenrs-app-server.workspace = true
+ravenrs-e2e.workspace = true
+ravenrs-e2e-wire = { workspace = true, features = ["serve"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+console_error_panic_hook.workspace = true
+web-sys = { workspace = true, features = ["console", "EventTarget", "Window", "Location"] }
+
+[dev-dependencies]
+image.workspace = true
+pollster.workspace = true
+
+# The house follows its own rules: `cargo run -p ravenrs-lint -- -p raven-ci-painel` (scripts/check.sh runs it).
+[package.metadata.ravenrs-lint]
+language = "pt-BR"
+
+[lints]
+workspace = true

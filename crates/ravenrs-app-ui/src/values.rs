@@ -11,8 +11,18 @@ use crate::words::Words;
 
 const SECONDS_IN_A_DAY: i64 = 86_400;
 
-/// A record's date as the day people pick.
-pub(crate) fn date_of(value: &Value) -> Option<Date> {
+/// The day in a field's date, as the date pickers, the calendar and the scheduler take it; `None`
+/// for anything but a date, the time of day left out.
+///
+/// ```
+/// use ravenrs_app::Value;
+/// use ravenrs_criteria::DateTime;
+///
+/// let due = Value::Date(DateTime::parse("2026-11-22T10:30:00").expect("a moment"));
+/// assert_eq!(ravenrs_app_ui::day_of(&due).map(|d| d.to_string()).as_deref(), Some("2026-11-22"));
+/// assert_eq!(ravenrs_app_ui::day_of(&Value::Null), None);
+/// ```
+pub fn day_of(value: &Value) -> Option<Date> {
     match value {
         Value::Date(moment) => Some(Date::from_days(moment.days)),
         _ => None,
@@ -140,7 +150,7 @@ fn plain_text(field: &FieldInfo, value: &Value) -> String {
             .iter()
             .find(|option| option.code == *code)
             .map_or_else(|| code.clone(), |option| option.caption.clone()),
-        (FieldKind::Date, value) => date_of(value).map_or_else(String::new, |date| date.to_string()),
+        (FieldKind::Date, value) => day_of(value).map_or_else(String::new, |date| date.to_string()),
         // Year first, so a column of these sorts as it reads.
         (FieldKind::DateTime, Value::Date(when)) => {
             let (year, month, day) = when.ymd();
@@ -163,7 +173,7 @@ pub(crate) fn cell_of(field: &FieldInfo, value: &Value) -> Cell {
         (_, Value::Number(number)) => Cell::Number(*number),
         // A pattern of its own gives up on sorting as a date, to show as it was asked.
         (FieldKind::Date, value) if field.display_format.is_some() => Cell::Text(display(field, value)),
-        (FieldKind::Date, value) => date_of(value).map_or(Cell::Empty, Cell::Date),
+        (FieldKind::Date, value) => day_of(value).map_or(Cell::Empty, Cell::Date),
         // Seconds from the first day, so a column of these sorts as time goes; the column shows
         // them in the language's way.
         (FieldKind::DateTime, Value::Date(when)) if field.display_format.is_none() => {
@@ -316,7 +326,7 @@ mod tests {
     #[test]
     fn dates_go_there_and_back() {
         let date = Date::new(2026, 11, 2).expect("a date");
-        assert_eq!(date_of(&value_of_date(Some(date))), Some(date));
+        assert_eq!(day_of(&value_of_date(Some(date))), Some(date));
         assert_eq!(value_of_date(None), Value::Null);
         let moment = DateTime { date, time: Time::new(9, 30).expect("a time") };
         assert_eq!(date_time_of(&value_of_date_time(Some(moment))), Some(moment));

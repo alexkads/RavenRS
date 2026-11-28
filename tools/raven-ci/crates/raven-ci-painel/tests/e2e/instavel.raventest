@@ -1,0 +1,12 @@
+scenario: Raven CI: um build instável fica amarelo
+// A faxina terminou com o código 3, que o pipeline diz instável: o job mostra Instável, e o build diz por quê (#947).
+open Raven CI                                          | Abrir o painel do Raven CI
+fill Usuário = caio                                    | Escrever o usuário
+fill Senha = senha-do-teste-e2e                        | Escrever a senha
+click Entrar                                           | Entrar
+wait Pipelines deste servidor, com o último build de cada um. | O painel abre em Jobs
+check #cell:oficina/faxina:Job = oficina · faxina      | A faxina está na grade
+check #cell:oficina/faxina:Estado = Instável          | O último build dela está instável
+duplo-clique #row:oficina/faxina                       | Abrir o build da faxina
+wait Build #1                                          | A página do build abre
+mention Instável = Instável                            | A página do build mostra o selo Instável

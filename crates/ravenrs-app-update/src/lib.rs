@@ -28,6 +28,11 @@
 //! here knows any app. The README says how an app adopts it. With no features the
 //! crate draws nothing; the feature `ui` adds [`ui`], the news and the notice drawn the same
 //! way in every app.
+//!
+//! An app that is a server runs as a service of the system: [`ServiceSpec`] says what to run and
+//! [`ServiceManager`] writes the unit of systemd, the plist of launchd or the task of Windows and
+//! starts it. The installer installs it at the end when `<PREFIXO>_SERVICO=1`, with the app's own
+//! `servico instalar`.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -39,6 +44,7 @@ mod app;
 mod installer;
 mod news;
 mod release;
+mod service;
 mod template;
 mod tray;
 #[cfg(feature = "ui")]
@@ -54,6 +60,7 @@ pub use news::{
     News, Notice, NoticeAction, UpdateStatus, is_newer, join_history, notice, parse_history, parse_news,
 };
 pub use release::{assert_release_files_agree, check_release_files};
+pub use service::{Installed, ServiceManager, ServiceSpec, ServiceStatus, ServiceSystem};
 pub use template::{INSTALLER_TEMPLATE, WRITE_INSTALLER_ENV, assert_installer_is_current, check_installer};
 pub use tray::{TRAY_NEWS, TRAY_UPDATE, TrayChoice, tray_choice, tray_entries};
 
@@ -168,7 +175,8 @@ impl Updater {
         if self.check_when_connected.take() {
             self.check();
         }
-        if self.watching.get() && !self.clock_started.replace(true) {
+        // The browser has no threads to sleep on, and nothing to look for (see `check`).
+        if cfg!(not(target_arch = "wasm32")) && self.watching.get() && !self.clock_started.replace(true) {
             let waker = waker_for_clock(&self.waker);
             // Sleeps between wakes, so an idle app stays idle. [`Self::poll`] does the looking.
             std::thread::spawn(move || {
@@ -252,9 +260,18 @@ impl Updater {
             self.check_when_connected.set(true);
             return;
         };
-        self.last_check.set(Some(Instant::now()));
         let (send, receive) = channel();
         *self.inbox.borrow_mut() = Some(receive);
+        // In the browser the page is the app, so there is no version to look for, and neither a
+        // thread nor a clock to look with: the answer comes at once, and says why (#813).
+        if cfg!(target_arch = "wasm32") {
+            self.watching.set(false);
+            let failure = Some(installer::IN_THE_BROWSER.to_owned());
+            let _ = send.send(Message::Checked { decision: Decision::Nothing, failure, history: Vec::new() });
+            waker.wake();
+            return;
+        }
+        self.last_check.set(Some(Instant::now()));
         let app = self.app;
         std::thread::spawn(move || {
             let _wake_when_done = WakeOnDrop(waker);

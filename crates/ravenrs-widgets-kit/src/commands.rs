@@ -580,7 +580,7 @@ impl View for BarSurface<'_> {
         for (i, entry) in bar.entries.iter().enumerate() {
             children.push(entry_node(cx, i, entry));
         }
-        let fill = theme.color(Semantic::SurfaceElevated);
+        let fill = theme.floating_surface();
         let node = cx.container(
             LayoutStyle {
                 absolute: Some((at.x, at.y)),

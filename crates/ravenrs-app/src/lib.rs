@@ -30,6 +30,7 @@ mod action;
 mod action_types;
 mod appearance;
 mod controller;
+mod due_digest;
 mod entity;
 mod files;
 mod frame;
@@ -43,6 +44,7 @@ mod model;
 mod model_node;
 mod module;
 mod module_api;
+mod module_plan;
 mod object;
 mod outbox;
 mod provider;
@@ -65,10 +67,14 @@ pub use action_types::{ActionInput, MessageKind};
 pub use appearance::Appearance;
 pub use controller::{ViewController, WindowController};
 pub use entity::{
-    AppearanceContext, AppearanceRule, AppearanceTarget, Comparison, DataAccess, EXACT_DIGITS, EntityInfo,
-    EnumOption, FieldInfo, FieldKind, ListFilter, ModelError, ModelNode, Object, Operand, RecordAction,
-    Reminder, Rule, RuleKind, Selection, Severity, StateMachine, TextComparison, Tint, Transition,
-    ViewVariant, check_transitions, exact_decimal, exact_decimals, local_now,
+    Amendment, AmendmentApply, AmendmentKind, AppearanceContext, AppearanceRule, AppearanceTarget,
+    CLOSING_CURRENT, CLOSING_REOPENED, ClosingError, Comparison, DataAccess, EXACT_DIGITS, EntityInfo,
+    EnumOption, FieldInfo, FieldKind, ListFilter, ListIndicator, ModelError, ModelNode, Object, Operand,
+    PeriodClosing, RecordAction, Reminder, Rule, RuleKind, Seal, Selection, Severity, StateMachine,
+    StoredLookup, TextComparison, Tint, Transition, ViewVariant, apply_amendment, approve, archived_document,
+    check_amendment_model, check_amendments, check_closing, check_closing_model, check_transitions,
+    closing_digest, closing_key, closing_versions, exact_decimal, exact_decimals, local_now, local_today,
+    missing_closing_entities, reopen,
 };
 pub use files::{AttachmentStore, MemoryAttachmentStore};
 pub use frame::{Frame, FrameContext, FrameEvent, ViewInfo, ViewKind};
@@ -84,6 +90,7 @@ pub use model::{
 };
 pub use module::{Application, ApplicationBuilder};
 pub use module_api::{DashboardContent, DashboardInfo, DashboardItem, Module, Notice, NoticeKind};
+pub use module_plan::{ModuleEntry, ModuleHost, ModulePlan, ModuleRefusal, plan_modules};
 pub use object::{BusinessObject, FieldValue, ObjectSpaceExt};
 pub use outbox::{
     Dispatcher, Emitted, Event, OUTBOX_EVENT, OUTBOX_REPROCESS, OutboxModule, Report, outbox_entity,
@@ -93,19 +100,24 @@ pub use ravenrs_app_derive::{BusinessEnum, BusinessObject};
 #[cfg(not(target_arch = "wasm32"))]
 pub use ravenrs_core::FileStorage;
 pub use ravenrs_core::{MemoryStorage, Storage};
-pub use ravenrs_criteria::{Criteria, Value};
+pub use ravenrs_criteria::{Criteria, Culture, MoneyError, Remainder, Value, allocate, allocate_by};
 
+pub use due_digest::{
+    DIGEST_ADVANCE_DAYS, Digest, DigestPreference, DigestWords, DueDigest, digest_of, digest_preference,
+    due_digest_for, set_digest_preference,
+};
 pub use records::{
     AppRecordsModule, DRAFT_ENTITY, Draft, SEQUENCE_ENTITY, draft_entity, drafts, next_number, save_draft,
     sequence_entity, take_draft,
 };
 pub use security::{
-    ADMINISTRATORS_ROLE, Access, AuditMode, AuditSettings, AuditTrail, AuditedObjectSpace, AuthError,
-    Authenticator, Claims, Credentials, ExternalSignIn, Identity, IdentityProvider, MIN_PASSWORD_CHARS,
-    Operation, PasswordError, PermissionPolicy, Permissions, Role, RoleMerge, SECURITY_ACTION_PERMISSION,
-    SECURITY_API_KEY, SECURITY_AUDIT_ENTRY, SECURITY_EXTERNAL_LOGIN, SECURITY_MEMBER_PERMISSION,
-    SECURITY_NAVIGATION_PERMISSION, SECURITY_OBJECT_PERMISSION, SECURITY_ROLE, SECURITY_TYPE_PERMISSION,
-    SECURITY_USER, SECURITY_USER_ROLE, SecuredObjectSpace, SecurityContext, SpaceMaker, UserDirectory,
+    ACCESS_EXPIRED, ADMINISTRATORS_ROLE, Access, AccessError, AuditMode, AuditSettings, AuditTrail,
+    AuditedObjectSpace, AuthError, Authenticator, Claims, Credentials, ExternalSignIn, Identity,
+    IdentityProvider, MIN_PASSWORD_CHARS, Operation, PasswordError, PermissionPolicy, Permissions, Role,
+    RoleMerge, SECURITY_ACTION_PERMISSION, SECURITY_API_KEY, SECURITY_AUDIT_ENTRY, SECURITY_EXTERNAL_LOGIN,
+    SECURITY_MEMBER_PERMISSION, SECURITY_NAVIGATION_PERMISSION, SECURITY_OBJECT_PERMISSION, SECURITY_ROLE,
+    SECURITY_TEMPORARY_ACCESS, SECURITY_TYPE_PERMISSION, SECURITY_USER, SECURITY_USER_ROLE,
+    SecuredObjectSpace, SecurityContext, SpaceMaker, TemporaryAccess, TemporaryAccessPolicy, UserDirectory,
     audit_entity, hash_password, security_entities, verify_password,
 };
 pub use settings::{

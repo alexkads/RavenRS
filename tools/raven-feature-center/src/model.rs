@@ -3,7 +3,7 @@
 use ravenrs_app::BusinessObject;
 use ravenrs_app::{
     AppearanceRule, AppearanceTarget, DataAccess, EntityInfo, EnumOption, FieldInfo, FieldKind, ListFilter,
-    RecordAction, Reminder, Rule, StateMachine, Tint, ViewVariant,
+    ListIndicator, RecordAction, Reminder, Rule, StateMachine, Tint, ViewVariant,
 };
 use ravenrs_app_ui::{CALENDAR_EDITOR, CHART_EDITOR, SCHEDULER_EDITOR, TREE_EDITOR};
 use rust_decimal::Decimal;
@@ -141,6 +141,9 @@ fn appearance() -> EntityInfo {
     .field(FieldInfo::new("state", options(&[("ok", "Em dia"), ("late", "Atrasado"), ("locked", "Bloqueado"), ("secret", "Sigiloso")])).caption("Situação"))
     .field(FieldInfo::new("amount", FieldKind::Money).caption("Valor"))
     .field(text("notes", "Observação"))
+    .indicator(ListIndicator::new("Em atraso", "").filter("[state] = 'late'").note("Pintados de vermelho"))
+    .indicator(ListIndicator::new("Valor total", "amount:Sum").note("Todos os registros"))
+    .empty_hint("Comece por um registro em dia.")
     .appearance(AppearanceRule::new("late_name", ["name"]).criteria("[state] = 'late'").font(Tint::Danger).bold())
     .appearance(AppearanceRule::new("locked_amount", ["amount"]).criteria("[state] = 'locked'").enabled(false))
     .appearance(AppearanceRule::new("secret_notes", ["notes"]).criteria("[state] = 'secret'").visible(false))

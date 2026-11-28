@@ -1,0 +1,24 @@
+[package]
+name = "ravenrs-junit"
+description = "JUnit XML for RavenRS, both ways: the model of suites and cases, a reader that takes what Maven Surefire, pytest, nextest and the others write, the writer, and the summary a CI shows (tests, failures, errors, skipped and which failed)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-junit"
+keywords = ["junit", "xml", "testing", "ci", "report"]
+categories = ["development-tools::testing", "parser-implementations"]
+
+[dependencies]
+quick-xml = { version = "0.41", default-features = false }
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

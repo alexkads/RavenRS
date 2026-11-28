@@ -1,8 +1,9 @@
-//! Other ways to show a list than a grid: a chart, a month, a timeline of resources and a tree.
+//! Other ways to show a list than a grid: a chart, a month, a timeline of resources, a tree and a
+//! history down a line.
 //!
 //! A view picks one by `EditorType` in the model, or a way to see the list by its own. What each
 //! one needs comes from a node under the view, `ChartSettings`, `CalendarSettings`,
-//! `SchedulerSettings` or `TreeSettings`, as text a person can change like any other setting, and
+//! `SchedulerSettings`, `TreeSettings` or `HistorySettings`, as text a person can change like any other setting, and
 //! what is not said follows from the kinds of the fields.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -14,13 +15,14 @@ use ravenrs_app::{
 use ravenrs_criteria::DateTime;
 use ravenrs_reactive::{Binding, State};
 use ravenrs_widgets::{
-    Alert, AnyView, BuildCx, CalendarEvent, Chart, ChartKind, EventCalendar, NodeId, Resource, Scheduler,
-    SchedulerChange, SchedulerEvent, TimeAxis, TimePoint, Tone, TreeNode, TreeView, View,
+    Alert, AnyView, BuildCx, CalendarEvent, Chart, ChartKind, Chronology, ChronologyItem, EventCalendar,
+    NodeId, Resource, Scheduler, SchedulerChange, SchedulerEvent, TimeAxis, TimePoint, Tone, TreeNode,
+    TreeView, View,
 };
 
 use crate::ListEditorRequest;
 use crate::Session;
-use crate::values::{date_of, display};
+use crate::values::{day_of, display};
 
 /// The name of the editor that shows a list as a chart.
 pub const CHART_EDITOR: &str = "Chart";
@@ -30,6 +32,8 @@ pub const CALENDAR_EDITOR: &str = "Calendar";
 pub const SCHEDULER_EDITOR: &str = "Scheduler";
 /// The name of the editor that shows a list as a tree.
 pub const TREE_EDITOR: &str = "Tree";
+/// The name of the editor that shows a list as a history down a line, by date.
+pub const HISTORY_EDITOR: &str = "History";
 
 /// How long a record with no end shows, in minutes.
 const NO_END_MINUTES: i64 = 60;
@@ -46,6 +50,7 @@ pub(crate) fn register(session: &Session) {
         Box::new(Shown::new(request, scheduler)) as AnyView
     });
     session.register_list_editor(TREE_EDITOR, |request| Box::new(Shown::new(request, tree)) as AnyView);
+    session.register_list_editor(HISTORY_EDITOR, |request| Box::new(Shown::new(request, history)) as AnyView);
 }
 
 type Build = fn(&Data, &mut BuildCx<'_>) -> Result<NodeId, String>;
@@ -265,7 +270,7 @@ fn is_number(field: &FieldInfo) -> bool {
 
 /// A date as what it is grouped by. The text sorts as time goes.
 fn date_group(value: &Value, interval: &str) -> Option<String> {
-    let date = date_of(value)?;
+    let date = day_of(value)?;
     let (year, month, _) = (date.year(), date.month(), date.day());
     Some(match interval {
         "Year" => format!("{year:04}"),
@@ -469,7 +474,7 @@ fn calendar(data: &Data, cx: &mut BuildCx<'_>) -> Result<NodeId, String> {
     let month: State<_> = cx.use_state(|| today.first_of_month());
     let day: State<Option<_>> = cx.use_state(|| None);
     let events = data.objects.iter().enumerate().filter_map(|(at, object)| {
-        let date = date_of(&object.get(&start))?;
+        let date = day_of(&object.get(&start))?;
         Some(
             CalendarEvent::new(at as u64, date, data.title_of(NODE, object))
                 .tone(data.tone_of(NODE, object))
@@ -486,6 +491,56 @@ fn calendar(data: &Data, cx: &mut BuildCx<'_>) -> Result<NodeId, String> {
                 on_open(&object.get(&key.name));
             }
         });
+    Ok(cx.child(&view))
+}
+
+/// The records down a line by `HistorySettings/Date`, the oldest first unless `Order` is
+/// `Descending`, each with its title, `Detail`, the mark in the tone of `Tone` and `Badge` as a badge.
+fn history(data: &Data, cx: &mut BuildCx<'_>) -> Result<NodeId, String> {
+    const NODE: &str = "HistorySettings";
+    let date = data.field(NODE, "Date", is_date)?.ok_or_else(|| data.words("HistorySettings/Date"))?.clone();
+    let detail = data.field(NODE, "Detail", |_| false)?.cloned();
+    let badge = data.field(NODE, "Badge", |_| false)?.cloned();
+    let newest_first =
+        data.setting(NODE, "Order").is_some_and(|order| order.eq_ignore_ascii_case("Descending"));
+    let shown = |field: &Option<FieldInfo>, object: &Object| {
+        field.as_ref().map(|field| display(field, &object.get(&field.name))).filter(|text| !text.is_empty())
+    };
+    let mut dated: Vec<(DateTime, usize, &Object)> = data
+        .objects
+        .iter()
+        .enumerate()
+        .filter_map(|(at, object)| object.date(&date.name).map(|moment| (moment, at, object)))
+        .collect();
+    dated.sort_by_key(|(moment, at, _)| (moment.days, moment.seconds, *at));
+    if newest_first {
+        dated.reverse();
+    }
+    let items: Vec<ChronologyItem> = dated
+        .iter()
+        .map(|(_, at, object)| {
+            let mut item = ChronologyItem::new(
+                *at as u64,
+                display(&date, &object.get(&date.name)),
+                data.title_of(NODE, object),
+            )
+            .tone(data.tone_of(NODE, object));
+            if let Some(text) = shown(&detail, object) {
+                item = item.detail(text);
+            }
+            if let Some(text) = shown(&badge, object) {
+                item = item.badge(text);
+            }
+            item
+        })
+        .collect();
+    let (objects, on_open, key) =
+        (data.objects.clone(), data.on_open.clone(), data.entity.key_field().cloned());
+    let view = Chronology::new(items).label(data.entity.caption.clone()).on_open(move |at| {
+        if let (Some(object), Some(key)) = (objects.get(at as usize), &key) {
+            on_open(&object.get(&key.name));
+        }
+    });
     Ok(cx.child(&view))
 }
 

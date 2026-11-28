@@ -406,6 +406,22 @@ pub enum IconName {
     FlagTriangleRight,
     /// The Lucide `square-function` icon.
     SquareFunction,
+    /// The Lucide `brain` icon.
+    Brain,
+    /// The Lucide `route` icon.
+    Route,
+    /// The Lucide `bot` icon.
+    Bot,
+    /// The Lucide `workflow` icon.
+    Workflow,
+    /// The Lucide `calendar-check` icon.
+    CalendarCheck,
+    /// The Lucide `chevrons-up-down` icon.
+    ChevronsUpDown,
+    /// The Lucide `store` icon.
+    Store,
+    /// The Lucide `square-terminal` icon.
+    SquareTerminal,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -613,6 +629,14 @@ impl IconName {
         IconName::Crosshair,
         IconName::FlagTriangleRight,
         IconName::SquareFunction,
+        IconName::Brain,
+        IconName::Route,
+        IconName::Bot,
+        IconName::Workflow,
+        IconName::CalendarCheck,
+        IconName::ChevronsUpDown,
+        IconName::Store,
+        IconName::SquareTerminal,
     ];
 
     /// The Lucide name, e.g. `"chevron-down"`.
@@ -819,6 +843,14 @@ impl IconName {
             IconName::Crosshair => "crosshair",
             IconName::FlagTriangleRight => "flag-triangle-right",
             IconName::SquareFunction => "square-function",
+            IconName::Brain => "brain",
+            IconName::Route => "route",
+            IconName::Bot => "bot",
+            IconName::Workflow => "workflow",
+            IconName::CalendarCheck => "calendar-check",
+            IconName::ChevronsUpDown => "chevrons-up-down",
+            IconName::Store => "store",
+            IconName::SquareTerminal => "square-terminal",
         }
     }
 
@@ -1026,6 +1058,14 @@ impl IconName {
             IconName::Crosshair => '\u{e0ac}',
             IconName::FlagTriangleRight => '\u{e238}',
             IconName::SquareFunction => '\u{e22d}',
+            IconName::Brain => '\u{e3c6}',
+            IconName::Route => '\u{e53e}',
+            IconName::Bot => '\u{e1bb}',
+            IconName::Workflow => '\u{e425}',
+            IconName::CalendarCheck => '\u{e2b7}',
+            IconName::ChevronsUpDown => '\u{e211}',
+            IconName::Store => '\u{e3e4}',
+            IconName::SquareTerminal => '\u{e20a}',
         }
     }
 }

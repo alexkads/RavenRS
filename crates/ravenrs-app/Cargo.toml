@@ -26,6 +26,8 @@ source = ["dep:ravenrs-app-spec", "dep:syn"]
 max-module-cycle = 3
 
 [dependencies]
+# The hash of an approved period's document (PeriodClosing), the same version the workspace already builds.
+sha2 = "0.10"
 ravenrs-live = { workspace = true, optional = true }
 ravenrs-app-i18n.workspace = true
 argon2.workspace = true

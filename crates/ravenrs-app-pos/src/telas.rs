@@ -166,17 +166,44 @@ impl TelaCaixa {
             .end_aligned()
             .on_submit(move |_| caixa.avancar(&session));
         let recebido = ravenrs_pos::ler_valor(&self.caixa.recebido.get()).unwrap_or_default();
+        // The discount of the whole sale: Enter, or leaving the field, gives it; empty takes it away.
+        let carrinho = self.caixa.carrinho.get();
+        let digitado = cx.use_state(|| {
+            if carrinho.desconto.is_zero() { String::new() } else { valor_em_texto(carrinho.desconto) }
+        });
+        let (ler, escrever) = (digitado.clone(), digitado.clone());
+        let (caixa, texto) = (self.caixa.clone(), digitado.clone());
+        let desconto =
+            TextField::new(Binding::new(move || ler.get(), move |value: String| escrever.set(value)))
+                .end_aligned()
+                .placeholder("0,00")
+                .on_submit(move |_| caixa.dar_desconto(&texto.get()));
         let mut esquerda: Vec<AnyView> = vec![
             Box::new(Text::new("Forma de pagamento").style(TextStyle::Title)),
             Box::new(VStack::new(formas).spacing(12.0).align(Align::Stretch)),
             Box::new(FormField::new("Valor recebido", campo)),
+            Box::new(
+                FormField::new("Desconto na venda (R$)", desconto).hint("Enter dá o desconto; vazio tira."),
+            ),
         ];
         if let Some(problema) = self.caixa.problema.get() {
             esquerda.push(Box::new(Alert::new("Atenção", problema).tone(Tone::Danger)));
         }
         let troco = ravenrs_pos::troco(forma_atual, total, recebido).unwrap_or_default();
+        let mut resumo: Vec<AnyView> = Vec::new();
+        if !carrinho.desconto.is_zero() {
+            resumo.push(Box::new(
+                Text::new(format!(
+                    "Subtotal R$ {}  ·  desconto R$ {}",
+                    valor_em_texto(carrinho.subtotal()),
+                    valor_em_texto(carrinho.desconto)
+                ))
+                .foreground(Semantic::InkMuted),
+            ));
+        }
         let lado = VStack::new(vec![
-            Box::new(total_escuro("TOTAL", total, None)) as AnyView,
+            Box::new(VStack::new(resumo).align(Align::End)) as AnyView,
+            Box::new(total_escuro("TOTAL", total, None)),
             Box::new(total_escuro("RECEBIDO", recebido, None)),
             Box::new(total_escuro("TROCO", troco, None).grow(1.0)),
         ])

@@ -31,10 +31,25 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::AppearanceRule::__live_expose(registry);
     crate::Appearance::__live_expose_fields(registry);
     crate::EntityInfo::__live_expose(registry);
+    crate::DueDigest::__live_expose_fields(registry);
+    crate::DueDigest::__live_expose(registry);
+    crate::DigestWords::__live_expose_fields(registry);
+    crate::DigestWords::__live_expose(registry);
+    crate::Digest::__live_expose_fields(registry);
+    crate::DigestPreference::__live_expose_fields(registry);
+    crate::DigestPreference::__live_expose(registry);
+    crate::Seal::__live_expose_fields(registry);
+    crate::Seal::__live_expose(registry);
+    crate::AmendmentKind::__live_expose_variants(registry);
+    crate::Amendment::__live_expose_fields(registry);
+    crate::Amendment::__live_expose(registry);
     crate::Tint::__live_expose_variants(registry);
     crate::AppearanceTarget::__live_expose_variants(registry);
     crate::AppearanceContext::__live_expose_variants(registry);
     crate::AppearanceRule::__live_expose_fields(registry);
+    crate::PeriodClosing::__live_expose_fields(registry);
+    crate::PeriodClosing::__live_expose(registry);
+    crate::ClosingError::__live_expose_variants(registry);
     crate::Selection::__live_expose_variants(registry);
     crate::RecordAction::__live_expose_fields(registry);
     crate::TextComparison::__live_expose_variants(registry);
@@ -59,6 +74,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::ViewVariant::__live_expose_fields(registry);
     crate::ViewVariant::__live_expose(registry);
     crate::ListFilter::__live_expose_fields(registry);
+    crate::ListIndicator::__live_expose_fields(registry);
+    crate::ListIndicator::__live_expose(registry);
     crate::ListFilter::__live_expose(registry);
     crate::EntityInfo::__live_expose_fields(registry);
     crate::EntityInfo::__live_expose_part1(registry);
@@ -115,6 +132,13 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::DashboardItem::__live_expose_fields(registry);
     crate::DashboardInfo::__live_expose_fields(registry);
     crate::DashboardInfo::__live_expose(registry);
+    crate::ModuleEntry::__live_expose_fields(registry);
+    crate::ModuleEntry::__live_expose(registry);
+    crate::ModuleHost::__live_expose_fields(registry);
+    crate::ModuleRefusal::__live_expose_variants(registry);
+    crate::ModuleRefusal::__live_expose(registry);
+    crate::ModulePlan::__live_expose_fields(registry);
+    crate::ModulePlan::__live_expose(registry);
     crate::OutboxModule::__live_expose_fields(registry);
     crate::Event::__live_expose_fields(registry);
     crate::Event::__live_expose(registry);
@@ -160,6 +184,12 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::SecuredObjectSpace::__live_expose_fields(registry);
     crate::SecuredObjectSpace::__live_expose(registry);
     crate::SecuredObjectSpace::__live_expose_objectspace(registry);
+    crate::TemporaryAccessPolicy::__live_expose_fields(registry);
+    crate::TemporaryAccessPolicy::__live_expose(registry);
+    crate::TemporaryAccess::__live_expose_fields(registry);
+    crate::AccessError::__live_expose_variants(registry);
+    crate::UserDirectory::__live_expose_part2(registry);
+    crate::SecurityContext::__live_expose_part1(registry);
     crate::SettingScope::__live_expose_variants(registry);
     crate::SettingScope::__live_expose(registry);
     crate::MemorySettings::__live_expose_fields(registry);
@@ -186,4 +216,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Violation::__live_expose(registry);
     crate::StateMachine::__live_expose_part1(registry);
     crate::Reminder::__live_expose(registry);
+    registry.conversion::<crate::SpaceError, crate::ClosingError>("SpaceError", crate::ClosingError::from);
+    registry.conversion::<crate::SpaceError, crate::AccessError>("SpaceError", crate::AccessError::from);
 }

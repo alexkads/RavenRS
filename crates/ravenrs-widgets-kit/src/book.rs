@@ -2,6 +2,7 @@
 //! `ravenrs_widgets_base::book`.
 
 mod nav;
+mod receipt;
 
 use ravenrs_widgets_base::book::Meta;
 
@@ -9,7 +10,7 @@ use ravenrs_widgets_base::book::Meta;
 /// them.
 pub fn stories() -> Vec<Meta> {
     use ravenrs_widgets_base::book::ComponentBook;
-    let mut all = vec![crate::Tabs::book()];
+    let mut all = vec![crate::Tabs::book(), crate::Receipt::book()];
     all.extend(generated());
     all
 }
@@ -20,6 +21,7 @@ mod breadcrumb;
 mod card_view;
 mod code_block;
 mod confirm_dialog;
+mod date_tile;
 mod date_time_picker;
 mod day_separator;
 mod disclosure;
@@ -95,6 +97,7 @@ pub(crate) fn generated() -> Vec<Meta> {
     all.push(<crate::FloatingToolbar<AnyView> as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::FormLayout as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::HeroBanner as ravenrs_widgets_base::book::ComponentBook>::book());
+    all.push(<crate::DateTile as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::IconTile as ravenrs_widgets_base::book::ComponentBook>::book());
     #[cfg(feature = "decode")]
     all.push(<crate::ImageField as ravenrs_widgets_base::book::ComponentBook>::book());

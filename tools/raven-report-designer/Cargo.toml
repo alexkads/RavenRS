@@ -36,5 +36,9 @@ js-sys.workspace = true
 console_error_panic_hook.workspace = true
 web-sys = { workspace = true, features = ["console", "Window", "Document", "Element", "HtmlElement", "Node", "CssStyleDeclaration", "FontFaceSet", "Location"] }
 
+[dev-dependencies]
+image.workspace = true
+pollster.workspace = true
+
 [lints]
 workspace = true

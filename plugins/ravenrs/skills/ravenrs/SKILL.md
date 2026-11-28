@@ -26,6 +26,7 @@ Builder method names vary by component, so confirm them before writing a view. I
 | Does this feature exist yet? | `parity_status`; for record applications, with `document: "application"` |
 | What does a reusable module have to honor, and which issue follows a capability? | `app_contracts` |
 | Is this expression valid? Which functions exist? | `validate_expression`, `expression_functions` |
+| Does this code follow the RavenRS rules? | `lint_rules`, and `lint_source` on the text of a file before saving it |
 | How do I make a report? | `report_layout_format`, then `create_report_layout` or `report_layout_templates`; confirm with `check_report_layout` and save the JSON as a `.rvreport.json` file |
 | Which RavenRS tools can I run, and what does each offer? | `ravenrs_tools`; with name `raven-test-studio`, the end-to-end test tool's commands, scenarios, report fields and error codes |
 | Is there a written way to do this task? | `skills`: the instructions the repository keeps for coding agents, the whole text by name |
@@ -73,6 +74,7 @@ fn main() -> Result<(), ravenrs::native::PlatformError> {
 - **Layout.** Use `VStack`, `HStack`, `Grid` and `ScrollView`, plus the `ViewExt` modifiers on any view: `.padding()`, `.background()`, `.frame()`, `.grow()`, `.stretch()`, `.centered()`.
 - **Custom components.** Use a function returning `impl View` when there is no state, and a `Component` when there is. Implement `View` with `BuildCx` only for your own drawing, input or overlays. Built-in components use the same public API, so read one as a model.
 - **Large data.** Use `DataGrid`, which is virtualized for 100,000+ rows, rather than a `ScrollView` full of rows.
+- **Diagrams, cables and docking.** `FlowCanvas` (with `FlowToolbox`, `FlowInspector`, `FlowLayers` and `FlowLibrary` beside it) edits node diagrams, `CablePlug` hangs a cable between two widgets, `PatchPanel` is a panel of jacks, `DockArea` gives panes that dock, float and hide, and `Ribbon` gives the command pages above a document. Their options are many, so see them working first: `feature_center` gives the page that shows every feature and the command that opens it alone.
 
 ## Tokens, not literals
 
@@ -168,7 +170,7 @@ A module meant for more than one application follows [docs/APP-CONTRACTS.md](htt
 
 ## Expressions and reports
 
-`ravenrs-criteria` is the expression language used by filters and reports: `[Price] * [Qty] > ?Minimum`, `Iif([Paid], 'Yes', 'No')`, `[Items][[Qty] > 0].Sum([Qty] * [Price])`. Validate expressions with `validate_expression` before putting them in code. `ravenrs-report` defines reports as JSON or with a builder. See [docs/REPORTING.md](https://github.com/alexkads/RavenRS/blob/master/docs/REPORTING.md), and check `parity_status` with `document: "reporting"` before relying on a feature. Export to PDF and XLSX is still planned.
+`ravenrs-criteria` is the expression language used by filters and reports: `[Price] * [Qty] > ?Minimum`, `Iif([Paid], 'Yes', 'No')`, `[Items][[Qty] > 0].Sum([Qty] * [Price])`. Validate expressions with `validate_expression` before putting them in code. `ravenrs-report` defines reports as JSON or with a builder. See [docs/REPORTING.md](https://github.com/alexkads/RavenRS/blob/master/docs/REPORTING.md), and check `parity_status` with `document: "reporting"` before relying on a feature. A report's `Document` becomes a PDF, XLSX or CSV file with `ravenrs-report-export` (`ravenrs_report_export::export(&document, ExportFormat::Pdf, None)`), the same call the viewer, the designer and the report server use.
 
 ## Applications and point of sale
 
@@ -177,4 +179,24 @@ A module meant for more than one application follows [docs/APP-CONTRACTS.md](htt
 Labels and receipts are ordinary reports made in the standard designer, and `ravenrs-report-label` sends them to ZPL, EPL, PPLA, TSPL and ESC/POS printers. It has not been tried on a physical printer.
 
 `ravenrs-nfe`, `ravenrs-app-nfe`, `ravenrs-pagamento`, `ravenrs-pos` and `ravenrs-app-pos` are a **beta proof of concept for Brazilian point of sale**: they have never talked to a real SEFAZ, pinpad or payment provider, and production is blocked in the code. Never tell someone they can issue real fiscal documents with them. See `guides` with `document: "AUTOMACAO"`, `crates/ravenrs-nfe/README.md` for the local sandbox of the SEFAZ, and `crates/ravenrs-nfe/REGRAS.md` for where each rule came from.
+## Documents
+
+Four engines read and write office files without drawing anything, so they also run on a server and in WebAssembly. Each has a guide: `guides` with `document: "ravenrs-sheet"` (or `word`, `pdf`, `deck`).
+
+| Crate | Files | Start from |
+|---|---|---|
+| `ravenrs-sheet` | XLSX, XLS (read), CSV and SYLK, with more than 500 functions and recalculation | `ravenrs_sheet::engine::Session`, whose actions all have undo. On a screen, the `Spreadsheet` component of `ravenrs-spreadsheet` |
+| `ravenrs-word` | DOCX (password too), DOC (read), RTF, ODT, HTML, Markdown, LaTeX, plain text | `ravenrs_word::formats::import` and `export`, `ravenrs_word::docx::{read, write}` |
+| `ravenrs-pdf` | PDF: read (damaged and encrypted too), write, merge, split, attachments, pages to pixels and their text | `ravenrs_pdf::cos::Document`, `ravenrs_pdf::render::PageRenderer` |
+| `ravenrs-deck` | PPTX and a native format, slides to pixels, PDF with notes and handouts | `ravenrs_deck::{model, pptx, render}` |
+
+Check `search_api` with `krate` set to the engine before writing calls: they are large, and their names come from their own domain, not from the widgets.
+
+## Local AI and voice
+
+`ravenrs-ai` runs text models (Qwen3, Gemma 3, Llama 3.2, LFM3 and others), a voice and Whisper on the person's own machine. Local is the default: suggest a paid service only when the person brings their own key and asks for it. `ModelManager` and `VoiceManager` are the screens that download, try and choose; `LocalModel::fits` hides what the machine cannot hold. Everything that blocks (`generate`, `speak`) runs on a thread of its own: `LocalAssistant` and `LocalVoice` already do that. A text model only chooses among the app's tools (`tool_rules`, `read_tool_call`), and the app does the work, so it never makes up a number. The voice is Kokoro in Brazilian Portuguese (`pf_dora`, `pm_alex`, `pm_santa`), and it reads digits badly, so write numbers out in words before speaking them. See `guides` with `document: "ravenrs-ai"`.
+
+## Training films
+
+`ravenrs::movie` makes training videos that ship inside the app: a film stores what the app drew, not pixels, so a minute costs kilobytes and stays sharp at any zoom. `Recorder` runs the real app from a script and clicks by the names screen readers see, so it needs no GPU and records again when the screens change: write the script as a test, explain each rule and its consequence with `note` and `guide`, not only the clicks, and look at the frames, since a name that was found does not prove the click worked. `MovieEditor` edits without rendering (cuts, speed, callouts, captions, zoom), `MoviePlayer` plays with chapters and steps that wait for a click, and `MovieLibrary` finds the moment that answers a question. See `guides` with `document: "ravenrs-movie"`.
 <!-- ravenrs:skill:end -->

@@ -153,6 +153,34 @@ pub struct Words {
     pub restore_model: String,
     /// Why what is on a form cannot be kept any more.
     pub record_gone: String,
+    /// Grants access for a while.
+    pub grant_access: String,
+    /// Revokes a user.
+    pub revoke_access: String,
+    /// What is asked before revoking.
+    pub revoke_question: String,
+    /// What revoking does, said before it.
+    pub revoke_detail: String,
+    /// The answer that revokes.
+    pub revoke_answer: String,
+    /// What revoking says once done.
+    pub revoked: String,
+    /// Why nobody revokes themselves.
+    pub revoke_own: String,
+    /// The reason of an access.
+    pub access_reason: String,
+    /// How many hours an access lasts, with `{0}` for the most.
+    pub access_hours: String,
+    /// What a grant gives, with `{0}` for the user, `{1}` until when and `{2}` the password.
+    pub access_granted: String,
+    /// That the password shows only now.
+    pub password_once: String,
+    /// Closes what is done.
+    pub done: String,
+    /// What a number says instead of a value its reader may not see.
+    pub restricted: String,
+    /// What an empty list says to whom may only read it.
+    pub empty_read_only: String,
     /// What fails a rule.
     pub rules: RuleWords,
     /// In front of money.
@@ -253,6 +281,20 @@ impl Words {
             apply: texts.get("ui.apply"),
             restore_model: texts.get("ui.restore_model"),
             record_gone: texts.get("ui.record_gone"),
+            grant_access: texts.get("ui.grant_access"),
+            revoke_access: texts.get("ui.revoke_access"),
+            revoke_question: texts.get("ui.revoke_question"),
+            revoke_detail: texts.get("ui.revoke_detail"),
+            revoke_answer: texts.get("ui.revoke_answer"),
+            revoked: texts.get("ui.revoked"),
+            revoke_own: texts.get("ui.revoke_own"),
+            access_reason: texts.get("ui.access_reason"),
+            access_hours: texts.get("ui.access_hours"),
+            access_granted: texts.get("ui.access_granted"),
+            password_once: texts.get("ui.password_once"),
+            done: texts.get("ui.done"),
+            restricted: texts.get("ui.restricted"),
+            empty_read_only: texts.get("ui.empty_read_only"),
             rules: RuleWords::from_texts(texts),
             money_prefix: texts.get("format.money_prefix"),
             thousands: texts.char("format.thousands", ','),

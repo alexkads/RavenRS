@@ -1,0 +1,40 @@
+<!-- @dsCard height=300 -->
+<style>
+  .cover { position: relative; width: 960px; height: 300px; background: var(--bg-000); overflow: hidden; font-family: var(--font-sans); }
+  .cover svg { position: absolute; left: 480px; top: 0; }
+  .b-canvas { fill: var(--bg-200); }
+  .b-panel { fill: var(--bg-300); }
+  .b-accent { fill: var(--accent); }
+  .b-hover { fill: var(--accent-hover); }
+  .b-ink { fill: var(--ink); }
+  .r-xl { rx: var(--radius-xl); }
+  .r-md { rx: var(--radius-md); }
+  .name { position: absolute; left: 40px; bottom: 72px; margin: 0; max-width: 440px; font-size: 96px; line-height: .92; font-weight: 600; letter-spacing: -2px; color: var(--ink); }
+  .tag { position: absolute; left: 40px; bottom: 40px; margin: 0; max-width: 440px; font-size: 14px; line-height: 20px; color: var(--ink-muted); }
+</style>
+<div class="cover">
+  <!--
+    blocks: bg-200 slab 288x276 (radius-xl), bg-300 168x120 (radius-xl), accent 168x108 (radius-xl), accent-hover pill 120x24, ink pill 72x24
+    arrangement: one tall slab bleeding off the top with satellites to its left, like a window with a sidebar and a primary button
+    pattern: geometric, modular, dense UI (a GPU-drawn component kit): tiles cut by radius-md on the slab, one merged wide like a toolbar
+    scales: pitch 48 (space-12) and gap 24 (space-6); radii radius-xl, radius-md, pills at half their height
+  -->
+  <svg width="480" height="300" viewBox="0 0 480 300" aria-hidden="true">
+    <rect class="b-canvas r-xl" x="216" y="-24" width="288" height="276"/>
+    <rect class="b-panel r-xl" x="24" y="24" width="168" height="120"/>
+    <rect class="b-accent r-xl" x="24" y="168" width="168" height="108"/>
+    <rect class="b-panel r-md" x="240" y="24" width="120" height="48"/>
+    <rect class="b-panel r-md" x="384" y="24" width="72" height="48"/>
+    <rect class="b-panel r-md" x="240" y="96" width="48" height="48"/>
+    <rect class="b-panel r-md" x="312" y="96" width="48" height="48"/>
+    <rect class="b-panel r-md" x="384" y="96" width="48" height="48"/>
+    <rect class="b-panel r-md" x="240" y="168" width="48" height="48"/>
+    <rect class="b-accent r-md" x="312" y="168" width="48" height="48"/>
+    <rect class="b-panel r-md" x="384" y="168" width="48" height="48"/>
+    <rect class="b-hover" x="48" y="204" width="120" height="24" rx="12"/>
+    <rect class="b-ink" x="48" y="56" width="72" height="24" rx="12"/>
+  </svg>
+  <p class="name">RavenRS</p>
+  <p class="tag">Beautiful native interfaces, powered by Rust.</p>
+</div>
+<script></script>

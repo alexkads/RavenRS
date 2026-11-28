@@ -1,0 +1,60 @@
+[package]
+name = "raven-ci-agent"
+description = "The build agent of Raven CI: connects out to the server over HTTP and SSE, takes builds by a lease of the queue and runs them with only the plugins each one needs."
+version = "0.1.0"
+edition.workspace = true
+# ravenrs-flows-runtime (rusqlite 0.41) needs 1.89, one above the workspace.
+rust-version = "1.89"
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "raven-ci-agent"
+path = "src/main.rs"
+
+# An `ssh` for the tests of agent-remote: runs the other machine's command line on this one.
+[[bin]]
+name = "raven-ci-ssh-falso"
+path = "src/bin/raven-ci-ssh-falso.rs"
+
+[dependencies]
+raven-ci-core = { path = "../raven-ci-core" }
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
+# The plugins an agent brings compiled in: those of steps, code, hooks and publishers, since the
+# agent runs the steps and the publishers of its builds. The server's own (formats, triggers,
+# status, notices, credentials) stay on the server.
+raven-ci-plugin-artifacts = { path = "../raven-ci-plugin-artifacts" }
+raven-ci-plugin-cargo = { path = "../raven-ci-plugin-cargo" }
+raven-ci-plugin-docker = { path = "../raven-ci-plugin-docker" }
+raven-ci-plugin-git = { path = "../raven-ci-plugin-git" }
+raven-ci-plugin-junit = { path = "../raven-ci-plugin-junit" }
+raven-ci-plugin-kubernetes = { path = "../raven-ci-plugin-kubernetes" }
+raven-ci-plugin-lock = { path = "../raven-ci-plugin-lock" }
+raven-ci-plugin-shell = { path = "../raven-ci-plugin-shell" }
+raven-ci-plugin-workspace = { path = "../raven-ci-plugin-workspace" }
+# The doorbell: the live channel of the server, with no screens.
+# By path: the workspace's entry brings the screens on by default.
+ravenrs-app-remote = { path = "../../../../crates/ravenrs-app-remote", default-features = false }
+ravenrs-flows.workspace = true
+ravenrs-flows-runtime.workspace = true
+ravenrs-metrics = { workspace = true, features = ["disk", "process"] }
+ravenrs-process.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+ureq = { version = "3.5", default-features = false, features = ["rustls"] }
+uuid.workspace = true
+
+[[test]]
+name = "suite"
+path = "tests/suite/main.rs"
+
+[dev-dependencies]
+raven-ci-plugin-agent-local = { path = "../raven-ci-plugin-agent-local" }
+raven-ci-plugin-agent-remote = { path = "../raven-ci-plugin-agent-remote" }
+raven-ci-plugin-credentials = { path = "../raven-ci-plugin-credentials" }
+raven-ci-plugin-format-toml = { path = "../raven-ci-plugin-format-toml" }
+ravenrs-app-server.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "net"] }
+
+[lints]
+workspace = true

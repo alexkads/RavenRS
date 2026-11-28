@@ -139,6 +139,37 @@ fn application() -> App {
                 .control(page.caption, page.id),
         );
     }
+    app = app.dashboard(
+        DashboardInfo::new(crate::registro::ID, crate::registro::PAGE)
+            .navigation("Aplicação")
+            .icon("database")
+            .control(crate::registro::PAGE, crate::registro::ID),
+    );
+    app = app.dashboard(
+        DashboardInfo::new(crate::fechamento::ID, crate::fechamento::PAGE)
+            .navigation("Aplicação")
+            .icon("lock")
+            .control(crate::fechamento::PAGE, crate::fechamento::ID),
+    );
+    app = app.dashboard(
+        DashboardInfo::new(crate::acesso::ID, crate::acesso::PAGE)
+            .navigation("Aplicação")
+            .icon("clock")
+            .control(crate::acesso::PAGE, crate::acesso::ID),
+    );
+    app = app.dashboard(
+        DashboardInfo::new(crate::vencimentos::ID, crate::vencimentos::PAGE)
+            .navigation("Aplicação")
+            .icon("calendar")
+            .control(crate::vencimentos::PAGE, crate::vencimentos::ID),
+    );
+    app = app.dashboard(
+        DashboardInfo::new(crate::contas::ID, crate::contas::PAGE)
+            .navigation("Aplicação")
+            .icon("receipt")
+            .control(crate::contas::PAGE, crate::contas::ID),
+    );
+    app = app.dashboard(crate::painel::panel().info());
     // The server does not run in a browser, so neither does its page.
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -147,6 +178,12 @@ fn application() -> App {
                 .navigation("Servidor")
                 .icon("server")
                 .control(crate::servidor::PAGE, crate::servidor::ID),
+        );
+        app = app.dashboard(
+            DashboardInfo::new(crate::servico::ID, crate::servico::PAGE)
+                .navigation("Servidor")
+                .icon("server")
+                .control(crate::servico::PAGE, crate::servico::ID),
         );
     }
     app.dashboard(
@@ -162,8 +199,17 @@ fn application() -> App {
 fn register_controls(session: &Session) {
     session.register_control(THEME_EDITOR, || Box::new(ThemeEditor::new()) as AnyView);
     session.register_control(model::COUNTER_WINDOW, actions::counter_control());
+    session.register_control(crate::registro::ID, || Box::new(crate::registro::RecordPage) as AnyView);
+    session.register_control(crate::fechamento::ID, || Box::new(crate::fechamento::ClosingPage) as AnyView);
+    session.register_control(crate::acesso::ID, || Box::new(crate::acesso::TemporaryAccessPage) as AnyView);
+    session
+        .register_control(crate::vencimentos::ID, || Box::new(crate::vencimentos::DueDigestPage) as AnyView);
+    session.register_control(crate::contas::ID, || Box::new(crate::contas::FinancePage) as AnyView);
+    crate::painel::panel().register(session);
     #[cfg(not(target_arch = "wasm32"))]
     session.register_control(crate::servidor::ID, || Box::new(crate::servidor::ApiOptionsPage) as AnyView);
+    #[cfg(not(target_arch = "wasm32"))]
+    session.register_control(crate::servico::ID, || Box::new(crate::servico::ApiServicePage) as AnyView);
     widgets::register(session);
 }
 

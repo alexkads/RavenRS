@@ -109,6 +109,9 @@ fn bounds_of(m: Turn, rect: Rect) -> Rect {
     Rect::new(x0, y0, x1 - x0, y1 - y0)
 }
 
+/// The clip of what nothing holds: no edge anywhere a screen reaches.
+const UNHELD: Rect = Rect::new(-1.0e9, -1.0e9, 2.0e9, 2.0e9);
+
 fn touches(frame: Rect, clip: Rect) -> bool {
     frame.max_x() + PAINT_MARGIN > clip.x()
         && frame.x() - PAINT_MARGIN < clip.max_x()
@@ -212,6 +215,9 @@ pub struct Ui {
     frames: Vec<Rect>,
     /// The clip in effect where each element is painted.
     clips: Vec<Rect>,
+    /// The clip of the elements that hold each one, the window left out: what scrolls it out of
+    /// sight, and not what lies past the edge of the window (`AccessNode::visible`).
+    holds: Vec<Rect>,
     /// Scrollable content size of each element.
     content: Vec<Size>,
     /// Elements in painting (back-to-front) order; hit testing walks it backwards.
@@ -351,6 +357,7 @@ impl Ui {
             modal_return: None,
             frames: Vec::new(),
             clips: Vec::new(),
+            holds: Vec::new(),
             content: Vec::new(),
             paint_order: Vec::new(),
             turns: Vec::new(),
@@ -1597,6 +1604,17 @@ impl Ui {
         Rect::new(x0, y0, x1 - x0, y1 - y0)
     }
 
+    /// The part of [`screen_frame`](Self::screen_frame) that the elements holding element `i`
+    /// let show, cut by their clips; past the edge of the window it still counts, and before the
+    /// first paint it is the whole frame.
+    pub(crate) fn visible_frame(&self, i: usize) -> Rect {
+        let frame = self.screen_frame(i);
+        match self.holds.get(i) {
+            Some(hold) => frame.intersect(hold),
+            None => frame,
+        }
+    }
+
     fn hit_test(&self, p: Point) -> Option<NodeId> {
         self.paint_order.iter().rev().copied().find(|n| {
             let i = n.0 as usize;
@@ -2141,6 +2159,8 @@ impl Ui {
         self.paint_order.clear();
         self.clips.clear();
         self.clips.resize(self.elements.len(), Rect::ZERO);
+        self.holds.clear();
+        self.holds.resize(self.elements.len(), UNHELD);
         self.turns.clear();
         self.turns.resize(self.elements.len(), None);
         self.motion.active = false;
@@ -2339,6 +2359,17 @@ impl Ui {
             let back = compose(scale_from(frame.origin, 1.0 / k), turn_around(middle, -rotation));
             child_clip = bounds_of(back, child_clip);
         }
+        let mut hold = self.holds[i];
+        if clips_children {
+            hold = hold.intersect(&frame);
+        }
+        if rotation != 0.0 || scale != 1.0 {
+            let k = scale.max(f32::EPSILON);
+            let middle =
+                Point::new(frame.x() + frame.width() * k / 2.0, frame.y() + frame.height() * k / 2.0);
+            hold =
+                bounds_of(compose(scale_from(frame.origin, 1.0 / k), turn_around(middle, -rotation)), hold);
+        }
         let pushes_clip = clips_children && shown;
         if pushes_clip {
             self.scene.push_clip(frame);
@@ -2355,6 +2386,9 @@ impl Ui {
             }
         }
         for child in children {
+            if let Some(held) = self.holds.get_mut(child.0 as usize) {
+                *held = hold;
+            }
             self.paint_node(child, child_clip, theme, turn);
         }
         let outside = self.elements[i].scrollbar_outside;

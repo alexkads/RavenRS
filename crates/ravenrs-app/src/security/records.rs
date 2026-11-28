@@ -23,6 +23,8 @@ pub const SECURITY_NAVIGATION_PERMISSION: &str = "SecurityNavigationPermission";
 pub const SECURITY_ACTION_PERMISSION: &str = "SecurityActionPermission";
 /// The keys other systems present to the web API.
 pub const SECURITY_API_KEY: &str = "SecurityApiKey";
+/// The entity of the accesses given for a while, with their reason and deadline.
+pub const SECURITY_TEMPORARY_ACCESS: &str = "SecurityTemporaryAccess";
 /// The entity of the audit trail.
 pub const SECURITY_AUDIT_ENTRY: &str = "SecurityAuditEntry";
 /// The role the first person gets.
@@ -41,6 +43,7 @@ pub(crate) fn is_security_entity(name: &str) -> bool {
         SECURITY_NAVIGATION_PERMISSION,
         SECURITY_ACTION_PERMISSION,
         SECURITY_API_KEY,
+        SECURITY_TEMPORARY_ACCESS,
         crate::APP_SETTING,
     ]
     .contains(&name)
@@ -102,6 +105,7 @@ fn declared_security_entities() -> Vec<EntityInfo> {
                     .in_detail(false),
             )
             .field(FieldInfo::new("locked_until", FieldKind::DateTime).read_only().in_list(false))
+            .field(FieldInfo::new("expires_at", FieldKind::DateTime).caption("Expires").read_only())
             .field(
                 FieldInfo::new("roles", FieldKind::Collection(SECURITY_USER_ROLE.to_owned()))
                     .back_reference("user_id"),
@@ -172,6 +176,24 @@ fn declared_security_entities() -> Vec<EntityInfo> {
             .field(FieldInfo::new("secret_hash", FieldKind::Text).secret())
             .field(FieldInfo::new("active", FieldKind::Boolean).default_value(true))
             .field(FieldInfo::new("expires", FieldKind::DateTime)),
+        // Written by SecurityContext::grant_temporary_access; once ended it does not change.
+        EntityInfo::new(SECURITY_TEMPORARY_ACCESS)
+            .caption("Temporary accesses")
+            .navigation(GROUP)
+            .icon("clock")
+            .field(key())
+            .field(
+                FieldInfo::new("user_id", FieldKind::Reference(SECURITY_USER.to_owned()))
+                    .caption("User")
+                    .read_only(),
+            )
+            .field(FieldInfo::new("reason", FieldKind::LongText).read_only())
+            .field(FieldInfo::new("granted_by", FieldKind::Text).caption("Granted by").read_only())
+            .field(FieldInfo::new("granted_at", FieldKind::DateTime).caption("Granted at").read_only())
+            .field(FieldInfo::new("expires_at", FieldKind::DateTime).caption("Expires").read_only())
+            .field(FieldInfo::new("ended_at", FieldKind::DateTime).caption("Ended at").read_only())
+            .field(FieldInfo::new("ended_reason", FieldKind::Text).caption("Why it ended").read_only())
+            .sealed(crate::Seal::when("Not IsNull([ended_at])")),
     ]
 }
 

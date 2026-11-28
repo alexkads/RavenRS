@@ -14,14 +14,12 @@ mod records;
 mod reports;
 mod request;
 mod settings;
-mod spoken;
 mod store;
 mod training;
 mod tray;
 
 pub use assistant::{ASSISTANT_INTRO, ASSISTANT_TOOLS};
 pub use opening::Opening;
-pub use spoken::spoken;
 pub use tray::{NEW_EXPENSE, NEW_INCOME, TrayLink};
 mod telegram_card;
 mod updates;

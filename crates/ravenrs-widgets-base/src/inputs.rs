@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use ravenrs_core::{
     AccessAction, Border, Color, CursorIcon, Effect, Insets, Key, LinearGradient, Point, Quad, Rect, Role,
-    Scene, Shadow,
+    Scene, Shadow, Toggled,
 };
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::Binding;
@@ -34,6 +34,19 @@ fn make_interactive(cx: &mut BuildCx<'_>, node: NodeId, radius: f32, on_click: R
 struct ChoiceOption {
     roving: util::Roving,
     selected: Binding<usize>,
+    /// The state of the whole group.
+    state: util::EditorState,
+    /// Which options can be chosen, by index.
+    available: Rc<[bool]>,
+}
+
+/// The option the arrows reach from `from`, going `forward` and skipping those that cannot be
+/// chosen, wrapping around; `None` when no other one can.
+fn next_available(available: &[bool], from: usize, forward: bool) -> Option<usize> {
+    let count = available.len();
+    (1..=count)
+        .map(|step| if forward { (from + step) % count } else { (from + count * 2 - step) % count })
+        .find(|&i| available[i])
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -42,16 +55,62 @@ impl ChoiceOption {
         self.roving.index
     }
 
+    /// Whether this option can be chosen now.
+    fn open(&self) -> bool {
+        self.state.accepts_input() && self.available.get(self.index()).copied().unwrap_or(false)
+    }
+
+    /// The state this option is drawn and announced with.
+    fn own_state(&self) -> util::EditorState {
+        let available = self.available.get(self.index()).copied().unwrap_or(false);
+        util::EditorState { disabled: self.state.disabled || !available, read_only: self.state.read_only }
+    }
+
     fn wire(&self, cx: &mut BuildCx<'_>, node: NodeId, radius: f32) {
-        let (selected, index) = (self.selected.clone(), self.index());
-        make_interactive(cx, node, radius, Rc::new(move || selected.set(index)));
-        let chosen = self.selected.clone();
-        cx.on_access(node, &[AccessAction::Select], move |_, _| {
-            chosen.set(index);
-            true
-        });
-        let selected = self.selected.clone();
-        self.roving.wire(cx, node, Some(Rc::new(move |i| selected.set(i))));
+        let index = self.index();
+        if self.own_state().disabled {
+            // Off: out of the tab order and of every input.
+            return;
+        }
+        if self.roving.focus_to.take(index) {
+            cx.request_focus_node(node);
+        }
+        cx.focusable(node, radius);
+        if self.open() {
+            let selected = self.selected.clone();
+            cx.on_click(node, Rc::new(move || selected.set(index)));
+            cx.cursor(node, CursorIcon::Pointer);
+            let chosen = self.selected.clone();
+            cx.on_access(node, &[AccessAction::Select], move |_, _| {
+                chosen.set(index);
+                true
+            });
+        }
+        // The arrows go over what cannot be chosen; read only, they move the focus and choose nothing.
+        let (available, focus_to, selected, choose) = (
+            self.available.clone(),
+            self.roving.focus_to.clone(),
+            self.selected.clone(),
+            self.state.accepts_input(),
+        );
+        cx.on_key(
+            node,
+            Rc::new(move |key, _| {
+                let target = match key {
+                    Key::ArrowRight | Key::ArrowDown => next_available(&available, index, true),
+                    Key::ArrowLeft | Key::ArrowUp => next_available(&available, index, false),
+                    Key::Home => available.iter().position(|a| *a),
+                    Key::End => available.iter().rposition(|a| *a),
+                    _ => return false,
+                };
+                let Some(target) = target else { return true };
+                focus_to.request(target);
+                if choose {
+                    selected.set(target);
+                }
+                true
+            }),
+        );
     }
 }
 
@@ -61,6 +120,7 @@ impl ChoiceOption {
 pub struct Toggle {
     value: Binding<bool>,
     label: Option<String>,
+    accessible_name: Option<String>,
     small: bool,
     state: util::EditorState,
 }
@@ -69,7 +129,15 @@ pub struct Toggle {
 impl Toggle {
     /// A switch bound to `value`.
     pub fn new(value: Binding<bool>) -> Self {
-        Self { value, label: None, small: false, state: util::EditorState::default() }
+        Self { value, label: None, accessible_name: None, small: false, state: util::EditorState::default() }
+    }
+
+    /// What a screen reader and a test call it, as "Ligar docker", with no text on the screen: for
+    /// a switch in a cell of a grid, where the row already says what it is about. A visible
+    /// [`label`](Self::label) stays as it is; this one is what is read.
+    pub fn accessible_name(mut self, name: impl Into<String>) -> Self {
+        self.accessible_name = Some(name.into());
+        self
     }
 
     /// A smaller switch, 32 by 18 logical pixels instead of 40 by 24, for dense lists.
@@ -109,7 +177,8 @@ impl View for Toggle {
             theme.color(Semantic::Control).lerp(theme.color(Semantic::Ink), if hovered { 0.08 } else { 0.0 })
         };
         let track = state.fill(track);
-        let border = (!on).then(|| Border { width: 1.0, color: state.ink(theme.color(Semantic::Border)) });
+        let border =
+            (!on).then(|| Border { width: 1.0, color: state.ink(theme.color(Semantic::ControlBorder)) });
         let (track_width, track_height, knob, inset) =
             if self.small { (32.0, 18.0, 14.0, 2.0) } else { (40.0, 24.0, 18.0, 3.0) };
         // The thumb stretches while held and is kept apart from the track so it
@@ -155,7 +224,12 @@ impl View for Toggle {
             ));
         }
         let node = row(cx, &children);
-        cx.semantics(node, state.semantics(Semantics::new(Role::Switch).toggled(on)));
+        let semantics = Semantics::new(Role::Switch).toggled(on);
+        let semantics = match &self.accessible_name {
+            Some(name) => semantics.name(name.clone()),
+            None => semantics,
+        };
+        cx.semantics(node, state.semantics(semantics));
         if state.accepts_input() {
             let value = self.value.clone();
             make_interactive(cx, node, 8.0, Rc::new(move || value.update(|v| *v = !*v)));
@@ -167,20 +241,55 @@ impl View for Toggle {
 }
 
 /// A check box with a label.
+///
+/// It has three looks: off, on and mixed (a dash), which screen readers hear as "partly
+/// checked". Mixed comes two ways, never to be confused:
+///
+/// - **Computed** ([`Checkbox::mixed`]): a "select all" over children some of which are
+///   checked. The value stays a `bool`; clicking or pressing Space on a mixed box checks it,
+///   and the app checks every child. Off and on then alternate as usual.
+/// - **Editable** ([`Checkbox::optional`]): a field whose answer may be unknown, as a yes, no or
+///   "not said" of a model. Each click or Space goes from unknown to on, to off, and back to
+///   unknown.
+///
+/// Disabled ignores every input and leaves the tab order; read only keeps the focus and the
+/// value read aloud, and changes nothing.
 #[derive(Debug)]
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Checkbox {
-    value: Binding<bool>,
+    value: CheckValue,
+    mixed: bool,
     label: String,
     leading: Option<f32>,
     state: util::EditorState,
+}
+
+/// What a [`Checkbox`] edits.
+#[derive(Debug)]
+enum CheckValue {
+    Plain(Binding<bool>),
+    Optional(Binding<Option<bool>>),
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Checkbox {
     /// A check box bound to `value`, with this label.
     pub fn new(label: impl Into<String>, value: Binding<bool>) -> Self {
-        Self { value, label: label.into(), leading: None, state: util::EditorState::default() }
+        plain_checkbox(label.into(), CheckValue::Plain(value))
+    }
+
+    /// A check box for an answer that may be unknown: `None` shows mixed. Clicking or pressing
+    /// Space goes from `None` to `Some(true)`, to `Some(false)`, and back to `None`.
+    pub fn optional(label: impl Into<String>, value: Binding<Option<bool>>) -> Self {
+        plain_checkbox(label.into(), CheckValue::Optional(value))
+    }
+
+    /// Shows the box mixed, as a "select all" whose children are partly checked, whatever its
+    /// value. The app computes it from the children; clicking or pressing Space then checks
+    /// the box, for the app to check every child.
+    pub fn mixed(mut self, mixed: bool) -> Self {
+        self.mixed = mixed;
+        self
     }
 
     /// Reserves this width for the box, so labels line up in a column. A list
@@ -201,6 +310,45 @@ impl Checkbox {
         self.state.read_only = read_only;
         self
     }
+}
+
+/// Off, on or mixed, as a [`Checkbox`] draws it and screen readers hear it.
+fn check_toggled(check: &Checkbox) -> Toggled {
+    match &check.value {
+        CheckValue::Plain(_) if check.mixed => Toggled::Mixed,
+        CheckValue::Plain(value) => value.get().into(),
+        CheckValue::Optional(value) => match value.get() {
+            None => Toggled::Mixed,
+            Some(on) => on.into(),
+        },
+    }
+}
+
+/// What a click or Space does to a [`Checkbox`].
+fn check_advance(check: &Checkbox) -> Rc<dyn Fn()> {
+    match &check.value {
+        CheckValue::Plain(value) => {
+            let (value, mixed) = (value.clone(), check.mixed);
+            Rc::new(move || value.update(|v| *v = mixed || !*v))
+        }
+        CheckValue::Optional(value) => {
+            let value = value.clone();
+            Rc::new(move || {
+                value.update(|v| {
+                    *v = match *v {
+                        None => Some(true),
+                        Some(true) => Some(false),
+                        Some(false) => None,
+                    }
+                });
+            })
+        }
+    }
+}
+
+/// A [`Checkbox`] over `value`, with nothing else set.
+fn plain_checkbox(label: String, value: CheckValue) -> Checkbox {
+    Checkbox { value, mixed: false, label, leading: None, state: util::EditorState::default() }
 }
 
 #[doc(hidden)]
@@ -225,10 +373,10 @@ pub fn check_box_around(
     let paint = if checked {
         QuadPaint { corner_radius: 5.0, ..QuadPaint::new(state.fill(theme.color(Semantic::Accent))) }
     } else {
-        let edge = if hovered { theme.color(Semantic::Ink) } else { theme.color(Semantic::InkMuted) };
+        let edge = if hovered { theme.color(Semantic::Ink) } else { theme.color(Semantic::ControlBorder) };
         QuadPaint {
             corner_radius: 5.0,
-            border: Some(Border { width: 1.5, color: state.ink(edge.with_alpha(0.7)) }),
+            border: Some(Border { width: 1.5, color: state.ink(edge) }),
             ..QuadPaint::new(Color::TRANSPARENT)
         }
     };
@@ -256,9 +404,11 @@ fn pop_mark(cx: &mut BuildCx<'_>, mark: NodeId) {
 impl View for Checkbox {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let checked = self.value.get();
+        let toggled = check_toggled(self);
+        let checked = toggled != Toggled::False;
         let state = self.state;
-        let mark = checked.then(|| util::icon(cx, IconName::Check, 14.0, theme.color(Semantic::OnAccent)));
+        let icon = if toggled == Toggled::Mixed { IconName::Minus } else { IconName::Check };
+        let mark = checked.then(|| util::icon(cx, icon, 14.0, theme.color(Semantic::OnAccent)));
         let hovered = cx.is_hovered() && state.accepts_input();
         let mut b = check_box_around(cx, &theme, checked, hovered, state, mark.as_slice());
         motion::control(cx, b);
@@ -275,10 +425,9 @@ impl View for Checkbox {
         let label =
             util::label(cx, &self.label, TextStyle::Body, None, state.ink(theme.color(Semantic::Ink)));
         let node = row(cx, &[b, label]);
-        cx.semantics(node, state.semantics(Semantics::new(Role::CheckBox).toggled(checked)));
+        cx.semantics(node, state.semantics(Semantics::new(Role::CheckBox).toggled(toggled)));
         if state.accepts_input() {
-            let value = self.value.clone();
-            make_interactive(cx, node, 6.0, Rc::new(move || value.update(|v| *v = !*v)));
+            make_interactive(cx, node, 6.0, check_advance(self));
         } else if !state.disabled {
             cx.focusable(node, 6.0);
         }
@@ -294,18 +443,46 @@ pub struct RadioGroup {
     selected: Binding<usize>,
     options: Vec<String>,
     label: Option<String>,
+    state: util::EditorState,
+    unavailable: Vec<usize>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RadioGroup {
     /// Radio buttons for `options`; `selected` holds the zero-based index.
     pub fn new(selected: Binding<usize>, options: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        Self { selected, options: options.into_iter().map(Into::into).collect(), label: None }
+        Self {
+            selected,
+            options: options.into_iter().map(Into::into).collect(),
+            label: None,
+            state: util::EditorState::default(),
+            unavailable: Vec::new(),
+        }
     }
 
     /// The name screen readers announce for the group, such as "Plan".
     pub fn label(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into());
+        self
+    }
+
+    /// Turns the whole group off: it fades, leaves the tab order and ignores input.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.state.disabled = disabled;
+        self
+    }
+
+    /// Shows the choice without letting it change: the focus and the arrows still go along the
+    /// options, and nothing is chosen.
+    pub fn read_only(mut self, read_only: bool) -> Self {
+        self.state.read_only = read_only;
+        self
+    }
+
+    /// Makes the option at `index` one that cannot be chosen now: it fades, the arrows go over it,
+    /// and screen readers hear it is off. Chosen already, it stays shown as chosen.
+    pub fn disable_option(mut self, index: usize) -> Self {
+        self.unavailable.push(index);
         self
     }
 }
@@ -332,13 +509,15 @@ impl View for RadioOption {
         } else {
             vec![]
         };
-        let edge = if hovered { theme.color(Semantic::Ink) } else { theme.color(Semantic::InkMuted) };
+        let state = self.choice.own_state();
+        let hovered = hovered && self.choice.open();
+        let edge = if hovered { theme.color(Semantic::Ink) } else { theme.color(Semantic::ControlBorder) };
         let paint = if on {
-            QuadPaint { corner_radius: 9.0, ..QuadPaint::new(theme.color(Semantic::Accent)) }
+            QuadPaint { corner_radius: 9.0, ..QuadPaint::new(state.fill(theme.color(Semantic::Accent))) }
         } else {
             QuadPaint {
                 corner_radius: 9.0,
-                border: Some(Border { width: 1.5, color: edge.with_alpha(0.7) }),
+                border: Some(Border { width: 1.5, color: state.ink(edge) }),
                 ..QuadPaint::new(Color::TRANSPARENT)
             }
         };
@@ -357,9 +536,10 @@ impl View for RadioOption {
         if let Some(&dot) = dot.first() {
             pop_mark(cx, dot);
         }
-        let label = util::label(cx, &self.label, TextStyle::Body, None, theme.color(Semantic::Ink));
+        let label =
+            util::label(cx, &self.label, TextStyle::Body, None, state.ink(theme.color(Semantic::Ink)));
         let node = row(cx, &[circle, label]);
-        cx.semantics(node, Semantics::new(Role::RadioButton).selected(on).toggled(on));
+        cx.semantics(node, state.semantics(Semantics::new(Role::RadioButton).selected(on).toggled(on)));
         // Found by its label, which stays with it when the options change order.
         cx.test_id(node, &format!("option:{}", self.label));
         self.choice.wire(cx, node, 6.0);
@@ -371,13 +551,19 @@ impl View for RadioGroup {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let focus_to = util::roving_cell(cx, None);
         let count = self.options.len();
+        let available: Rc<[bool]> = (0..count).map(|i| !self.unavailable.contains(&i)).collect();
         let options: Vec<NodeId> = self
             .options
             .iter()
             .enumerate()
             .map(|(index, label)| {
                 let roving = util::Roving { index, count, focus_to: focus_to.clone() };
-                let choice = ChoiceOption { roving, selected: self.selected.clone() };
+                let choice = ChoiceOption {
+                    roving,
+                    selected: self.selected.clone(),
+                    state: self.state,
+                    available: available.clone(),
+                };
                 cx.child(&RadioOption { choice, label: label.clone() })
             })
             .collect();
@@ -386,7 +572,7 @@ impl View for RadioGroup {
             &options,
             Paint::None,
         );
-        cx.semantics(node, group_semantics(self.label.as_deref()));
+        cx.semantics(node, self.state.semantics(group_semantics(self.label.as_deref())));
         node
     }
 }
@@ -423,6 +609,7 @@ pub struct Slider {
     neutral: Option<f32>,
     show_value: bool,
     format: Option<Rc<dyn Fn(f32) -> String>>,
+    state: util::EditorState,
 }
 
 impl std::fmt::Debug for Slider {
@@ -447,7 +634,22 @@ impl Slider {
             neutral: None,
             show_value: false,
             format: None,
+            state: util::EditorState::default(),
         }
+    }
+
+    /// Turns the slider off: it fades, leaves the tab order and ignores the pointer and the keys.
+    /// A value changed by the app still shows.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.state.disabled = disabled;
+        self
+    }
+
+    /// Shows the value without letting it change: it can still be focused and read, and neither
+    /// a click, a drag nor a key moves it.
+    pub fn read_only(mut self, read_only: bool) -> Self {
+        self.state.read_only = read_only;
+        self
     }
 
     /// The value range; also resets the step to 1/100 of the range.
@@ -574,12 +776,12 @@ impl View for SliderTrack<'_> {
         let value = slider.value.get().clamp(min, max);
         let t = (value - min) / (max - min);
         let rest = slider.neutral.map_or(0.0, |n| ((n - min) / (max - min)).clamp(0.0, 1.0));
-        let (track, fill) = (theme.color(Semantic::Control), theme.color(Semantic::Accent));
-        let ring = theme.color(Semantic::Accent).with_alpha(if cx.is_pressed() || cx.is_hovered() {
-            0.25
-        } else {
-            0.0
-        });
+        let state = slider.state;
+        let (track, fill) =
+            (state.fill(theme.color(Semantic::Control)), state.fill(theme.color(Semantic::Accent)));
+        let lit = state.accepts_input() && (cx.is_pressed() || cx.is_hovered());
+        let ring = theme.color(Semantic::Accent).with_alpha(if lit { 0.25 } else { 0.0 });
+        let knob = state.ink(Color::WHITE);
         let style = LayoutStyle {
             width: if self.in_row { None } else { slider.width },
             height: Some(24.0),
@@ -627,13 +829,11 @@ impl View for SliderTrack<'_> {
                     );
                 }
                 scene.push_quad(
-                    Quad::new(Rect::new(cx_ - 9.0, cy - 9.0, 18.0, 18.0), Color::WHITE).radius(9.0).shadow(
-                        Shadow {
-                            offset: Point::new(0.0, 1.0),
-                            blur: 4.0,
-                            color: Color::rgba(0.0, 0.0, 0.0, 0.35),
-                        },
-                    ),
+                    Quad::new(Rect::new(cx_ - 9.0, cy - 9.0, 18.0, 18.0), knob).radius(9.0).shadow(Shadow {
+                        offset: Point::new(0.0, 1.0),
+                        blur: 4.0,
+                        color: Color::rgba(0.0, 0.0, 0.0, 0.35),
+                    }),
                 );
             })),
         );
@@ -645,7 +845,15 @@ impl View for SliderTrack<'_> {
         if slider.show_value {
             semantics = semantics.value(slider.value_text(value));
         }
-        cx.semantics(node, semantics);
+        cx.semantics(node, state.semantics(semantics));
+        if state.disabled {
+            return node;
+        }
+        if state.read_only {
+            // Read and focused, never moved.
+            cx.focusable(node, 12.0);
+            return node;
+        }
         let snap = move |v: f32| ((v - min) / step).round() * step + min;
         // Takes a number as its value, on its steps and inside its range, as a test asks.
         let typed = slider.value.clone();
@@ -834,7 +1042,7 @@ impl View for Stepper {
         };
         let paint = QuadPaint {
             corner_radius: theme.radii.md,
-            border: Some(Border { width: 1.0, color: state.ink(theme.color(Semantic::Border)) }),
+            border: Some(Border { width: 1.0, color: state.ink(theme.color(Semantic::ControlBorder)) }),
             ..QuadPaint::new(state.fill(theme.color(Semantic::Control)))
         };
         let node = cx.container(style, &[minus, value, plus], Paint::Quad(paint));
@@ -888,13 +1096,21 @@ pub struct SegmentedControl {
     selected: Binding<usize>,
     options: Vec<(Option<IconName>, String)>,
     label: Option<String>,
+    state: util::EditorState,
+    unavailable: Vec<usize>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SegmentedControl {
     /// Segments for `options`; `selected` holds the zero-based index.
     pub fn new(selected: Binding<usize>, options: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        Self { selected, options: options.into_iter().map(|o| (None, o.into())).collect(), label: None }
+        Self {
+            selected,
+            options: options.into_iter().map(|o| (None, o.into())).collect(),
+            label: None,
+            state: util::EditorState::default(),
+            unavailable: Vec::new(),
+        }
     }
 
     /// Segments with an icon before each label.
@@ -906,12 +1122,34 @@ impl SegmentedControl {
             selected,
             options: options.into_iter().map(|(i, l)| (Some(i), l.into())).collect(),
             label: None,
+            state: util::EditorState::default(),
+            unavailable: Vec::new(),
         }
     }
 
     /// The name screen readers announce for the group, such as "Density".
     pub fn label(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into());
+        self
+    }
+
+    /// Turns the whole control off: it fades, leaves the tab order and ignores input.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.state.disabled = disabled;
+        self
+    }
+
+    /// Shows the choice without letting it change: the focus and the arrows still go along the
+    /// segments, and nothing is chosen.
+    pub fn read_only(mut self, read_only: bool) -> Self {
+        self.state.read_only = read_only;
+        self
+    }
+
+    /// Makes the segment at `index` one that cannot be chosen now: it fades, the arrows go over
+    /// it, and screen readers hear it is off. Chosen already, it stays shown as chosen.
+    pub fn disable_option(mut self, index: usize) -> Self {
+        self.unavailable.push(index);
         self
     }
 }
@@ -927,8 +1165,13 @@ impl View for Segment {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let on = self.choice.selected.get() == self.choice.index();
-        let hovered = cx.is_hovered();
-        let color = if on || hovered { theme.color(Semantic::Ink) } else { theme.color(Semantic::InkMuted) };
+        let state = self.choice.own_state();
+        let hovered = cx.is_hovered() && self.choice.open();
+        let color = state.ink(if on || hovered {
+            theme.color(Semantic::Ink)
+        } else {
+            theme.color(Semantic::InkMuted)
+        });
         let mut children = Vec::new();
         if let Some(icon) = self.icon {
             children.push(util::icon(cx, icon, 14.0, color));
@@ -966,7 +1209,7 @@ impl View for Segment {
                 Motion::new().shared_layout(self.scope, 0, theme.motion.snappy).shape_only().underlay(),
             );
         }
-        cx.semantics(node, Semantics::new(Role::RadioButton).selected(on).toggled(on));
+        cx.semantics(node, state.semantics(Semantics::new(Role::RadioButton).selected(on).toggled(on)));
         // Found by its label, which stays with it when the segments change order.
         cx.test_id(node, &format!("option:{}", self.label));
         self.choice.wire(cx, node, 7.0);
@@ -980,13 +1223,19 @@ impl View for SegmentedControl {
         let focus_to = util::roving_cell(cx, None);
         let count = self.options.len();
         let scope = cx.widget_id();
+        let available: Rc<[bool]> = (0..count).map(|i| !self.unavailable.contains(&i)).collect();
         let segments: Vec<NodeId> = self
             .options
             .iter()
             .enumerate()
             .map(|(index, (icon, label))| {
                 let roving = util::Roving { index, count, focus_to: focus_to.clone() };
-                let choice = ChoiceOption { roving, selected: self.selected.clone() };
+                let choice = ChoiceOption {
+                    roving,
+                    selected: self.selected.clone(),
+                    state: self.state,
+                    available: available.clone(),
+                };
                 cx.child(&Segment { scope, choice, icon: *icon, label: label.clone() })
             })
             .collect();
@@ -999,7 +1248,7 @@ impl View for SegmentedControl {
         let paint =
             QuadPaint { corner_radius: theme.radii.md, ..QuadPaint::new(theme.color(Semantic::Control)) };
         let node = cx.container(style, &segments, Paint::Quad(paint));
-        cx.semantics(node, group_semantics(self.label.as_deref()));
+        cx.semantics(node, self.state.semantics(group_semantics(self.label.as_deref())));
         node
     }
 }
@@ -1078,5 +1327,21 @@ impl View for ThemeSwitcher {
             )
             .label(labels.theme.clone()),
         )
+    }
+}
+
+#[cfg(test)]
+mod choice_arrows {
+    use super::next_available;
+
+    #[test]
+    fn the_arrows_go_over_what_cannot_be_chosen_and_stop_when_nothing_else_can() {
+        let some = [true, false, true, false];
+        assert_eq!(next_available(&some, 0, true), Some(2));
+        assert_eq!(next_available(&some, 2, true), Some(0), "wrapping");
+        assert_eq!(next_available(&some, 0, false), Some(2));
+        assert_eq!(next_available(&[true, false], 0, true), Some(0), "only itself");
+        assert_eq!(next_available(&[false, false], 0, true), None, "none at all");
+        assert_eq!(next_available(&[], 0, true), None, "an empty list");
     }
 }

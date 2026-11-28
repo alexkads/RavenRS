@@ -73,17 +73,24 @@ fn the_design_system_has_a_card_a_preview_and_a_json_for_every_component() {
         assert!(folder.join("README.md").exists());
         assert!(folder.join(format!("{}.json", entry.name())).exists());
     }
+    // No letter comes out as U+FFFD: that is a glyph no embedded font has, drawn as an empty box,
+    // and the design tool refuses the file (#849).
+    for path in &written {
+        if let Ok(text) = std::fs::read_to_string(dir.join(path)) {
+            assert!(!text.contains('\u{fffd}'), "{path} has a letter no embedded font draws");
+        }
+    }
     let readme = std::fs::read_to_string(project.join("README.md")).expect("readme");
     assert!(readme.contains("Use only the components listed below"));
     assert!(readme.contains("| `Button` |"));
     let tokens: Value =
         serde_json::from_str(&std::fs::read_to_string(project.join("tokens.json")).unwrap()).unwrap();
     assert!(tokens["type"]["fonts"].as_array().unwrap().iter().any(|f| f["family"] == "RavenIcons"));
-    // The index, the guide, the tokens and their CSS, three fonts and the cover, then three
+    // The index, the guide, the tokens and their CSS, four fonts and the cover, then three
     // files per component.
     // … and three per pattern.
     let patterns = raven_component_book::patterns::entries();
-    assert_eq!(written.len(), 8 + (index::entries().len() + patterns.len()) * 3);
+    assert_eq!(written.len(), 9 + (index::entries().len() + patterns.len()) * 3);
     assert_eq!(patterns.len(), 5);
     for p in &patterns {
         let folder = project.join("patterns").join(p.name());
@@ -104,6 +111,10 @@ fn the_design_system_has_a_card_a_preview_and_a_json_for_every_component() {
         readme.contains("## Checking a screen") && readme.contains("querySelectorAll('[data-rcb]')"),
         "the guide gives the script that writes a screen"
     );
+    // A screen is approved only with a clean replay, and a component with a card is never missing (#921).
+    assert!(readme.contains("A screen is ready only when its replay finds no divergence"));
+    assert!(readme.contains("look for its card in the list below"));
+    assert!(readme.contains("Add no frame, border, header style"));
     // Every icon has its character in RavenIcons on the card of Icon.
     let icons = std::fs::read_to_string(project.join("components/Icon/README.md")).expect("Icon");
     assert!(icons.contains("| `wallet` | `Wallet` | `&#xe204;` |"), "{icons}");
@@ -393,6 +404,44 @@ fn the_workspace_of_fermata_is_built_as_it_was_drawn() {
 }
 
 #[test]
+fn a_piece_counts_once_and_a_container_answers_only_for_its_width() {
+    // A button wrong in width and height is one piece, said in one line; the card around it is a
+    // container, whose height comes from what it holds; the sidebar fills the height of the screen.
+    let screen = r#"{"elements": [
+        {"rcb": "Card/Default", "box": [0, 0, 300, 999]},
+        {"rcb": "Button/Primary", "box": [10, 10, 200, 60]},
+        {"rcb": "Sidebar/Compact, with sections", "box": [400, 0, 248, 900]}
+    ]}"#;
+    let replay = raven_component_book::replay::replay(screen).expect("a screen");
+    let said: Vec<String> = replay.divergences.iter().map(ToString::to_string).collect();
+    assert_eq!(replay.pieces, 3);
+    assert_eq!(replay.pieces_diverging(), 1, "only the button: {said:#?}");
+    assert_eq!(replay.points_diverging(), 2, "width and height: {said:#?}");
+    assert_eq!(replay.summary(), "1 de 3 peças divergem (2 pontos)");
+    assert_eq!(said.len(), 1, "{said:#?}");
+    assert!(
+        said[0].starts_with("Button/Primary") && said[0].contains("width") && said[0].contains("height"),
+        "{said:#?}"
+    );
+}
+
+#[test]
+fn a_grid_measures_the_box_it_shows_and_an_overflow_still_counts() {
+    // A grid scrolls its columns sideways and its rows down inside its box: the columns beyond
+    // it and the rows past its height do not reach (#921). What overflows a narrow parent, with
+    // nothing that clips it, still does.
+    let screen = r#"{"elements": [
+        {"rcb": "DataGrid/Example", "box": [0, 0, 300, 380]},
+        {"rcb": "HStack/Space between", "box": [0, 400, 288, 40]}
+    ]}"#;
+    let replay = raven_component_book::replay::replay(screen).expect("a screen");
+    let said: Vec<String> = replay.divergences.iter().map(ToString::to_string).collect();
+    assert_eq!(replay.measured[0].built, (300.0, 380.0), "{said:#?}");
+    assert_eq!(said.len(), 1, "{said:#?}");
+    assert!(said[0].starts_with("HStack/Space between") && said[0].contains("width 288"), "{said:#?}");
+}
+
+#[test]
 fn any_icon_of_the_set_is_a_setting_the_replay_takes() {
     // The cards offer a sample of icons; the card of Icon lists all of them (#831).
     let screen = r#"{"elements": [
@@ -426,6 +475,7 @@ fn the_replay_exits_with_one_when_a_piece_diverges() {
     let failed = run(&bad);
     assert_eq!(failed.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&failed.stdout).contains("Button/Secondary"));
+    assert!(String::from_utf8_lossy(&failed.stdout).contains("peças divergem (1 ponto)"));
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -468,7 +518,8 @@ fn every_story_speaks_one_language() {
     assert!(parts.contains("Mostrando Contas") && !parts.contains("Showing"), "{parts}");
     // The component stories are in English: money in dollars, in the English format.
     let field = measure_entry(&entry("NumberField"));
-    let price = field[0].themes[0].1.parts.iter().find(|p| p["name"] == "Price").expect("price");
+    let money = field.iter().find(|story| story.name == "Money").expect("the story of money");
+    let price = money.themes[0].1.parts.iter().find(|p| p["name"] == "Price").expect("price");
     assert_eq!(price["value"], "$1,299.90", "{price}");
 }
 

@@ -1,0 +1,283 @@
+[
+  {
+    "versao": "0.1.9",
+    "data": "2026-11-23",
+    "titulo": "O build instável, várias escolhas num parâmetro, agentes no Windows, explicar a falha e o servidor administrado de outra máquina.",
+    "importante": false,
+    "novidades": [
+      "Um passo sh com unstable = [3] que sai com 3 deixa o build instável (amarelo) e segue, como o unstable() do Jenkins; o GitHub e o Azure recebem failure com \"instável: motivo\", e raven-ci rodar --esperar sai com 7.",
+      "Um parâmetro type = \"choices\" guarda várias escolhas de uma lista: o Disparar mostra etiquetas, --param SUITES=pedidos,pagamentos funciona, e o passo lê SUITES=pedidos,pagamentos.",
+      "raven-ci agentes, plugins e usuario criar com --servidor vão à API do servidor no ar, com o estado real de cada agente; não precisam mais de SSH na máquina.",
+      "Sem --dados, a linha de comando usa a pasta do serviço quando roda como o usuário do RPM, e avisa quando cria uma pasta de dados nova; o backup nunca leva uma chave de cofre que não seja a da raiz.",
+      "lock = { name = \"oficina\", path = \"~/oficina/.trava-compilacao\" } divide a trava que os scripts da máquina já usam.",
+      "A pasta de um agente que um modelo subiu sai com ele quando o servidor o derruba, dizendo quanto liberou.",
+      "Um PR mais antigo que o arquivo do pipeline roda o pipeline do branch de destino, como o Jenkins faz com a mescla.",
+      "O servidor fica em uns 20 MiB com oito agentes conectados: antes, cada agente que entrava custava 20 MiB que ele não devolvia.",
+      "Pedir um build de um job que não existe responde 404 dizendo isso.",
+      "Um agente em outra máquina com Windows: sistema = \"windows\" no modelo do agent-remote cita a linha para o cmd.exe e usa raven-ci-agent.exe e %USERPROFILE%.",
+      "plugins = { lock = { dir = … } } no modelo de agente vale só naquele agente, por cima da configuração do servidor, que não confere caminhos que não alcança.",
+      "A pasta de um agente de outro usuário que o servidor derrubou sai quando o próximo agente do mesmo modelo entra, se ninguém a usa há dois minutos.",
+      "O botão Explicar a falha na página de um build que falhou: a IA local lê o resumo do build e escreve por que falhou, num card acima das abas."
+    ],
+    "por_que_atualizar": "Para os jobs que vêm do Jenkins terminarem amarelos quando devem, para escolher várias suítes de uma vez e para operar o servidor de outra máquina.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      906,
+      916,
+      929,
+      930,
+      932,
+      938,
+      942,
+      944,
+      947,
+      952
+    ]
+  },
+  {
+    "versao": "0.1.8",
+    "data": "2026-11-23",
+    "titulo": "Backup com o servidor no ar, e o que faltava para rodar os jobs do Jenkins lado a lado.",
+    "importante": false,
+    "novidades": [
+      "raven-ci backup criar guarda jobs, builds, logs, anexos, usuários, credenciais e os dados dos plugins com o servidor no ar; backup ver confere um backup, e backup restaurar o põe de volta com o servidor parado, deixando o que havia em antes-da-restauracao-<quando>/. A chave do cofre só entra com --com-chave.",
+      "Um segundo servidor na mesma pasta de dados é recusado, dizendo por quê.",
+      "Um parâmetro que o pedido não diz recebe o valor padrão do pipeline, e --param SIMULAR=false é lido como o tipo do parâmetro.",
+      "artifacts = [\"relatorio/**\"] guarda todos os arquivos abaixo da pasta, como o archiveArtifacts do Jenkins.",
+      "A branch que um job busca pode vir de um parâmetro: reference = { branch = \"${BRANCH}\" }.",
+      "raven-ci plugins ligar NOME --servidor URL liga o plugin no servidor no ar, sem reiniciar; sem --servidor, o comando avisa que só grava na pasta de dados.",
+      "raven-ci validar confere um arquivo de jobs do aplicar, job por job."
+    ],
+    "por_que_atualizar": "Para ter backup do servidor e para os jobs que vêm do Jenkins rodarem com os parâmetros e os artefatos certos.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      917,
+      946
+    ]
+  },
+  {
+    "versao": "0.1.7",
+    "data": "2026-11-23",
+    "titulo": "O Raven CI explica por que um build falhou, com IA local.",
+    "importante": false,
+    "novidades": [
+      "raven-ci explicar JOB dá, em duas ou três frases, por que o build falhou e o que mudar, escritas por um modelo de IA que roda na própria máquina; a ferramenta explicar do MCP faz o mesmo.",
+      "O modelo nunca roda no processo do servidor: o subpacote raven-ci-explicador traz um socket do systemd que abre, para cada pedido, uma instância com memória própria e sem rede.",
+      "A explicação fica guardada com o build: pedir de novo não roda o modelo outra vez.",
+      "O plugin explain vem desligado; um plugin desligado agora diz, na rota, como ligá-lo, em vez de responder que a rota não existe."
+    ],
+    "por_que_atualizar": "Para entender a falha de um build sem ler o log e sem mandar nada para fora da máquina.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      942
+    ]
+  },
+  {
+    "versao": "0.1.6",
+    "data": "2026-11-23",
+    "titulo": "O Raven CI fica pronto para sessões de IA.",
+    "importante": false,
+    "novidades": [
+      "Resumo de um build feito para ler pouco: o passo que falhou com as últimas linhas, sem o ruído de compilação e de testes que passaram, os testes quebrados com a mensagem e os diagnósticos do cargo, em menos de 8 KB (raven-ci resumo JOB, e na aba Artefatos do painel).",
+      "raven-ci mcp: um servidor MCP para o Claude Code e outros clientes rodarem um build, esperarem e lerem por que falhou, conferirem um pipeline e baixarem a evidência; uma chave de Leitores não vê as ferramentas que agem.",
+      "raven-ci esquema dá o JSON Schema do .raven-ci.toml, e raven-ci validar confere um arquivo sem servidor, com cada erro na linha.",
+      "A linha de comando sai com códigos que dizem o que houve (1 o build falhou, 3 sem servidor, 4 sem permissão…) e, com --format json, dá o erro em JSON.",
+      "raven-ci ia instalar registra o MCP no Claude Code e guarda a chave num arquivo só seu; o plugin raven-ci, com a skill, está no marketplace do repositório.",
+      "A evidência de um build traz o resumo.md, pronto para anexar a um PR."
+    ],
+    "por_que_atualizar": "Para uma sessão de IA rodar um build e saber por que falhou lendo umas centenas de tokens, e não o log inteiro.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      941
+    ]
+  },
+  {
+    "versao": "0.1.5",
+    "data": "2026-11-23",
+    "titulo": "O Raven CI já faz o que faltava para trocar o Jenkins.",
+    "importante": false,
+    "novidades": [
+      "O pipeline vem do próprio repositório, em qualquer servidor git: um job de muitas branches com branches = { id = \"git\" } e um job de uma branch com pipeline_from = \"scm\", lendo o .raven-ci.toml ou o Jenkinsfile, como o \"Pipeline script from SCM\".",
+      "Um passo sh recebe credenciais do cofre como variáveis (credentials = { TOKEN = \"nome\" }), um campo delas (\"nome:user\") ou um arquivo secreto ({ file = \"nome\" }), com o log escondendo o valor; o conversor transforma o withCredentials do Jenkinsfile.",
+      "O cofre se cuida de qualquer lugar: a página Credenciais cria, gira e apaga; a API tem POST e DELETE; e raven-ci credencial aceita --servidor. Cada mudança entra na auditoria, e a lista diz para que serve cada credencial e quem a usa. Novo tipo: arquivo secreto.",
+      "Nada de um build fica vivo depois dele: o que um comando deixa rodando (um sleep &, o servidor do sccache) é parado quando o passo acaba, e o log diz o quê; keep_daemons = true o deixa.",
+      "O serviço do RPM protege a máquina por peso de CPU e disco, não mais por Nice=10, que mudava o resultado de testes; o drop-in agentes-de-outro-usuario.conf tira o /tmp privado dos agentes de outro usuário.",
+      "O agente em contêiner funciona com o RPM: imagem própria do agente (com git e sem root), rede até o servidor que escuta só no loopback, o motivo de um agente que morre no log do build e, depois de 3 tentativas, o build falha em vez de ficar na fila."
+    ],
+    "por_que_atualizar": "Para rodar os pipelines do Jenkins como estão, com o pipeline e os segredos de cada repositório, sem um build quebrar o sccache ou o nice da máquina.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      922,
+      928,
+      931,
+      934
+    ]
+  },
+  {
+    "versao": "0.1.4",
+    "data": "2026-11-22",
+    "titulo": "O painel do Raven CI fica como o design aprovado.",
+    "importante": false,
+    "novidades": [
+      "Jobs diz o que espera e por quê, quem rodou cada build e avisa quando um plugin desligado segura a fila, com o atalho para ligá-lo.",
+      "A página do build mostra cada estágio com o tempo dele; um clique no estágio deixa só o log dele, e o log destaca PASS, SLOW e FAIL e pode ser baixado.",
+      "Fila e agentes mostra as últimas duas horas de cada executor e agente, o agente que saiu e o motivo de cada build na fila; Adicionar agente faz o token.",
+      "Plugins com busca, a ficha de cada um e a configuração aplicada pela tela; o plugin que não carrega diz por quê.",
+      "O conversor de Jenkinsfile mostra o TOML ao lado e leva à linha que não converteu; nova página Histórico com todos os builds.",
+      "No celular e em janela estreita, o menu recolhe e o build vira lista; a tela de um plugin agora se testa por cenário do Raven Test Studio ou teste de unidade.",
+      "Correções do teste do mundo real: o agente roda artifacts, junit, cargo, docker e kubernetes; cada agente local tem a sua pasta e o token não vai mais para o journal; o journal do servidor mostra o agente que não sobe e o plugin recusado; e aplicar não apaga os jobs de branch de um modelo."
+    ],
+    "por_que_atualizar": "Para ver no painel o que cada build está fazendo, onde roda e por que espera, sem ir à linha de comando.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      919,
+      923,
+      924,
+      925,
+      926,
+      927,
+      933,
+      935
+    ]
+  },
+  {
+    "versao": "0.1.3",
+    "data": "2026-11-22",
+    "titulo": "Raven CI vira pacote RPM e não deixa agentes para trás.",
+    "importante": false,
+    "novidades": [
+      "Pacote RPM para o Fedora: o servidor como serviço do sistema, o agente e o painel no navegador, instalados com um comando.",
+      "O servidor, ao parar, espera os agentes que ele lançou terminarem, em vez de deixá-los rodando sozinhos.",
+      "A memória medida: o servidor usa uns 36 MB com um agente e um build, e o agente uns 16 MB."
+    ],
+    "por_que_atualizar": "Para instalar o Raven CI como serviço no Fedora e parar o servidor sem deixar agentes órfãos.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      908
+    ]
+  },
+  {
+    "versao": "0.1.2",
+    "data": "2026-11-22",
+    "titulo": "Raven CI avisa, mede e entende o cargo.",
+    "importante": false,
+    "novidades": [
+      "Passo cargo: cada erro e aviso aparece no log e fica guardado no build com o arquivo e a linha, e cada job reaproveita a compilação do build anterior.",
+      "Avisos por e-mail e por webhook quando um build falha, quando volta a passar ou sempre, com o motivo, a duração e o commit.",
+      "O webhook de saída vai assinado e tenta de novo sozinho quando o destino não responde.",
+      "/metrics no formato Prometheus, com a fila, os builds, os agentes e a memória do servidor e de cada plugin, para ver no Grafana."
+    ],
+    "por_que_atualizar": "Para saber que um build quebrou sem abrir o painel, e para acompanhar o servidor de longe.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      911,
+      912,
+      913
+    ]
+  },
+  {
+    "versao": "0.1.1",
+    "data": "2026-11-22",
+    "titulo": "Raven CI roda pipelines de verdade: plugins, agentes e painel.",
+    "importante": false,
+    "novidades": [
+      "O pipeline em .raven-ci.toml, com estágios, parâmetros, when, parallel, post, timeout, retry, lock e container, e cada erro na sua linha.",
+      "raven-ci converter Jenkinsfile: o Jenkinsfile declarativo vira .raven-ci.toml, e o que não dá para converter aparece com a linha e o motivo, sem adivinhar.",
+      "Passos sh, git, travas e limpeza da pasta do build, com o log ao vivo e todo segredo escondido.",
+      "GitHub e Azure DevOps: jobs de muitas branches com os PRs mesclados no destino, o status no commit e o webhook assinado do GitHub, que dispara na hora.",
+      "Gatilhos por agenda, por consulta ao repositório, pela API e pelo webhook; credenciais num cofre cifrado.",
+      "Docker e Kubernetes como plugins: passos em contêiner, build e push de imagens, kubectl, e agentes lançados em contêiner ou pod.",
+      "Agentes locais e remotos que reconectam sem perder o build, com limite de núcleos, memória e disco.",
+      "Artefatos e testes JUnit guardados por build, com a tendência do job.",
+      "raven-ci servir, com login e papéis; a CLI remota (rodar, status, log, resumo, evidencia); a configuração como código; e o serviço do sistema.",
+      "O painel, no desktop e no navegador: jobs, a página do build com estágios e log ao vivo, fila e agentes, o editor do pipeline, plugins, credenciais e usuários.",
+      "Plugins em Rust com as traits padrão, compilados e instalados por raven-ci plugins compilar."
+    ],
+    "por_que_atualizar": "A 0.1.0 só tinha o núcleo; esta é a primeira que roda um pipeline de ponta a ponta.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      861,
+      862,
+      863,
+      870,
+      871,
+      872,
+      873,
+      874,
+      875,
+      876,
+      877,
+      878,
+      879,
+      880,
+      881,
+      882,
+      883,
+      884,
+      885,
+      886,
+      887,
+      888,
+      889,
+      890,
+      891,
+      892,
+      893,
+      894,
+      895,
+      896,
+      898,
+      899,
+      900,
+      901,
+      902,
+      909,
+      910
+    ]
+  },
+  {
+    "versao": "0.1.0",
+    "data": "2026-11-22",
+    "titulo": "Raven CI nasce: o núcleo de um servidor de CI em que tudo é plugin.",
+    "importante": false,
+    "novidades": [
+      "Núcleo com fila, jobs em pastas, builds numerados com estágios e passos, anexos e retenção por job, tudo num arquivo SQLite.",
+      "Fila com prioridade, cancelar (até um build rodando), repetir e juntar pedidos iguais, a mesma do Raven Test Studio.",
+      "API de plugins com um ponto de extensão para cada função do CI, e plugins externos em qualquer linguagem por JSON-RPC, com o exemplo hello em Python.",
+      "raven-ci plugins listar, info, ligar e desligar, com --format json; um plugin que não serve fica de fora dizendo por quê.",
+      "--versao e --self-test, que roda um build com um plugin falso de cada ponto."
+    ],
+    "por_que_atualizar": "É a primeira versão.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      803,
+      833,
+      834,
+      835,
+      836,
+      837,
+      838,
+      839
+    ]
+  }
+]

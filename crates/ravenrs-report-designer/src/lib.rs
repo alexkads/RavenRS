@@ -1,6 +1,4 @@
-//! RavenRS Report Designer: an end-user report designer running on the
-//! desktop and in the browser. Pick a template or run the wizard, drag fields
-//! onto bands, edit properties, and preview the paginated result instantly.
+#![doc = include_str!("../README.md")]
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -40,7 +38,16 @@ use bands::BandRef;
 use editor::{Editor, FieldDrag, Selection};
 use preview::RenderCache;
 
-/// The designer app.
+/// The report designer: one view with the ribbon, the design surface, the docked panels, the
+/// preview and the JSON of one report.
+///
+/// Create it once, with [`Designer::new`] for the designer on its own or [`Designer::embedded`]
+/// inside an application, and keep it: all of its state (the report, the selection, the undo
+/// history, the parameter values, the last render) is made by the constructor, and a designer
+/// created again in a build starts over. It implements [`Component`], so it is a [`View`] that
+/// can be the root of a window or a child of another view; behind an [`Rc`], call its `build`
+/// from a view of your own, as the example of the crate documentation does. It holds `Rc`s and
+/// stays on the UI thread.
 pub struct Designer {
     embedded: Option<Embedded>,
     /// Whether the status bar offers the themes.
@@ -82,11 +89,19 @@ impl Default for Designer {
     }
 }
 
-/// The keys [`Designer::sample`] knows, one per report of the template gallery.
+/// The keys [`Designer::sample`] knows, one per report of the template gallery, for an
+/// application that lists them or checks an address before opening one.
 pub const SAMPLE_KEYS: [&str; 5] = ["invoice", "sales", "sales-10k", "dashboard", "customers"];
 
 impl Designer {
-    /// A designer showing the sales report, with the template gallery open.
+    /// The designer on its own: the sales sample (300 orders) on the Design tab, with the
+    /// template gallery open over it.
+    ///
+    /// The File menu and the Home page offer the gallery and the report wizard, which build
+    /// reports from the samples of `ravenrs_report::samples`. There are no Save and Close
+    /// buttons: the report leaves through the JSON tab, print and export. This is what
+    /// `tools/raven-report-designer` runs; an application editing its own reports uses
+    /// [`Designer::embedded`] instead.
     pub fn new() -> Self {
         Self {
             embedded: None,
@@ -113,9 +128,24 @@ impl Designer {
 }
 
 impl Designer {
-    /// A designer of this report inside an application, with no gallery or wizard: the layout is
-    /// what it is about, with the data embedded in it for the field list and the preview.
-    /// `on_save` gets the report as it stands, and `on_close` is for leaving.
+    /// The designer inside an application, editing `report`, with a Save and a Close button
+    /// above the ribbon and no template gallery or wizard.
+    ///
+    /// - `report` opens on the Design tab. The field list and the preview read only the rows
+    ///   stored in it: the `Json` data source named by `report.data_source` (or the first one),
+    ///   narrowed by `report.data_member`. A `Url` or `Sql` source is kept but not fetched, so
+    ///   copy sample rows into a `Json` source first to design against real data. Parameters
+    ///   come with the report and are asked for on the Preview tab.
+    /// - `save_label` and `close_label` are the text of the two buttons, in the application's
+    ///   language; the rest of the designer is in Brazilian Portuguese.
+    /// - `on_save` runs on the UI thread each time Save is pressed, with a clone of the report as
+    ///   it stands, sample data included: strip the data before storing the layout if it should
+    ///   not be kept. The designer does not change when it returns, and it shows no message of
+    ///   its own, so the closure reports success or failure.
+    /// - `on_close` runs when Close is pressed and nothing else happens: the application takes
+    ///   the designer off the screen. The designer does not ask about unsaved changes.
+    ///
+    /// See the crate documentation for a complete program.
     pub fn embedded(
         report: Report,
         save_label: impl Into<String>,
@@ -135,17 +165,24 @@ impl Designer {
         designer
     }
 
-    /// Whether the status bar offers the themes, on unless said otherwise. Inside an application
-    /// the menu changes the application's theme, which is the same one; an application that keeps
-    /// a look of its own says no here.
+    /// Whether the status bar offers the theme menu; on unless said otherwise.
+    ///
+    /// The menu changes the theme of the whole application the designer runs in, not only the
+    /// designer's, so an application that keeps a look of its own, or lets people choose it
+    /// somewhere else, passes `false`. The page on the design surface stays light in every
+    /// theme either way, because it is what prints.
     pub fn theme_menu(mut self, offered: bool) -> Self {
         self.theme_menu = offered;
         self
     }
 
-    /// Opens one of the sample reports by its key, in the preview, with the gallery closed: what
-    /// the web page reads from `?report=` so each page of the home fan opens its own report.
-    /// The keys are those of [`SAMPLE_KEYS`]; an unknown one keeps the gallery open.
+    /// Opens one of the sample reports by its key on the Preview tab, with the gallery closed.
+    ///
+    /// The keys are those of [`SAMPLE_KEYS`]: `invoice`, `sales` (300 orders), `sales-10k`
+    /// (10,000 orders, to feel how long a large render takes), `dashboard` and `customers`.
+    /// An unknown key changes nothing, so the gallery stays open. The web page of
+    /// `tools/raven-report-designer` calls it with the `report` of its address (`?report=invoice`).
+    /// Loading the sample is one undo step, like any other change.
     pub fn sample(self, key: &str) -> Self {
         let report = match key {
             "invoice" => samples::invoice(),

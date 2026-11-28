@@ -212,6 +212,45 @@ fn a_progress_bar_can_say_what_it_is_and_how_far_along() {
 }
 
 #[test]
+fn a_progress_bar_marks_a_reference_and_says_which_side_of_it_the_value_is() {
+    let bar = |value: f32| ProgressBar::new(value).label("Palpite").marker(0.85).marker_label("limite 0,85");
+    let read = |value: f32| {
+        let mut ui = ui(Localized::new(Labels::pt_br(), VStack::new((bar(value),)).align(Align::Stretch)));
+        named(&ui.access_tree(), Role::ProgressIndicator, "Palpite").value.clone()
+    };
+    assert_eq!(read(0.89).as_deref(), Some("89%, acima do limite 0,85"));
+    assert_eq!(read(0.6).as_deref(), Some("60%, abaixo do limite 0,85"));
+    assert_eq!(read(0.85).as_deref(), Some("85%, no limite 0,85"));
+
+    // The stroke crosses the track at 85% of its width, in the warning color, past its edges.
+    let mut marked = ui(VStack::new((ProgressBar::new(0.89).marker(0.85),)).align(Align::Stretch));
+    let warning = Theme::raven_dark().color(Semantic::Warning);
+    let all = quads(&marked);
+    let track = all.iter().find(|q| q.rect.height() == 6.0).expect("the track").rect;
+    let stroke = all.iter().find(|q| q.fill == warning.into()).expect("the marker").rect;
+    let center = stroke.x() + stroke.width() / 2.0;
+    assert!((center - (track.x() + track.width() * 0.85)).abs() < 0.5, "{stroke:?} on {track:?}");
+    assert!(stroke.height() > track.height() && stroke.width() == 2.0, "{stroke:?}");
+    // Unnamed, in English, it is read by where it is; several add up.
+    let tree = marked.access_tree();
+    let value = tree.nodes.iter().find(|n| n.role == Role::ProgressIndicator).and_then(|n| n.value.clone());
+    assert_eq!(value.as_deref(), Some("89%, above the 85% mark"));
+    let mut two = ui(VStack::new((ProgressBar::new(0.5).marker(0.2).marker(0.9),)).align(Align::Stretch));
+    let tree = two.access_tree();
+    let value = tree.nodes.iter().find(|n| n.role == Role::ProgressIndicator).and_then(|n| n.value.clone());
+    assert_eq!(value.as_deref(), Some("50%, above the 20% mark, below the 90% mark"));
+
+    // Out of range, a marker stays on the track, without a panic.
+    for (given, kept) in [(1.4, "100%"), (-1.0, "0%")] {
+        let mut ui = ui(VStack::new((ProgressBar::new(0.5).marker(given),)).align(Align::Stretch));
+        let tree = ui.access_tree();
+        let value =
+            tree.nodes.iter().find(|n| n.role == Role::ProgressIndicator).and_then(|n| n.value.clone());
+        assert!(value.is_some_and(|v| v.ends_with(&format!("the {kept} mark"))), "{given}");
+    }
+}
+
+#[test]
 fn an_avatar_can_show_a_picture_and_a_ring() {
     let picture = ImageData::from_fn(8, 4, |_, _| Color::WHITE).expect("not empty");
     let mut with =
@@ -292,6 +331,122 @@ fn a_text_field_holds_views_before_and_after_the_text() {
 
 fn input_of(tree: &AccessTree) -> &AccessNode {
     tree.nodes.iter().find(|n| n.role == Role::TextInput).expect("a text input")
+}
+
+fn check_state(ui: &mut Ui, name: &str) -> AccessNode {
+    ui.update();
+    named(&ui.access_tree(), Role::CheckBox, name).clone()
+}
+
+#[test]
+fn a_select_all_box_shows_mixed_and_checks_everything_on_click_or_space() {
+    let children = State::new(vec![true, false, true]);
+    let all = State::new(false);
+    let (c, a) = (children.clone(), all.clone());
+    let mut ui = ui(view_fn(move || {
+        // The app computes mixed from the children, and checks them all when the box turns on.
+        let some = c.get().iter().any(|on| *on);
+        let every = c.get().iter().all(|on| *on);
+        Checkbox::new("Selecionar todos", a.binding()).mixed(some && !every)
+    }));
+    let node = check_state(&mut ui, "Selecionar todos");
+    assert_eq!(node.toggled, Some(Toggled::Mixed), "announced as partly checked");
+    assert!(
+        quads(&ui).iter().any(|q| q.fill == Theme::raven_dark().color(Semantic::Accent).into()),
+        "filled"
+    );
+    // From mixed, Space checks it: the app checks every child.
+    key(&mut ui, Key::Tab);
+    key(&mut ui, Key::Space);
+    assert!(all.get(), "mixed goes to on");
+    children.set(vec![true, true, true]);
+    assert_eq!(check_state(&mut ui, "Selecionar todos").toggled, Some(Toggled::True));
+    // From on, a click unchecks it, as any check box.
+    click_node(&mut ui, Role::CheckBox, "Selecionar todos");
+    ui.update();
+    assert!(!all.get());
+    // A binding changed outside shows at once.
+    children.set(vec![false, false, false]);
+    assert_eq!(check_state(&mut ui, "Selecionar todos").toggled, Some(Toggled::False));
+}
+
+#[test]
+fn an_optional_box_goes_unknown_on_off_and_back() {
+    let answer = State::new(None::<bool>);
+    let mut ui = ui(Checkbox::optional("Tem carro", answer.binding()));
+    assert_eq!(check_state(&mut ui, "Tem carro").toggled, Some(Toggled::Mixed));
+    key(&mut ui, Key::Tab);
+    let mut seen = Vec::new();
+    for _ in 0..3 {
+        key(&mut ui, Key::Space);
+        seen.push((answer.get(), check_state(&mut ui, "Tem carro").toggled));
+    }
+    assert_eq!(
+        seen,
+        [
+            (Some(true), Some(Toggled::True)),
+            (Some(false), Some(Toggled::False)),
+            (None, Some(Toggled::Mixed))
+        ]
+    );
+    answer.set(Some(true));
+    assert_eq!(check_state(&mut ui, "Tem carro").toggled, Some(Toggled::True), "the binding from outside");
+
+    // Disabled takes nothing and leaves the tab order; read only keeps the focus and the value.
+    let off = State::new(None::<bool>);
+    let mut disabled = self::ui(Checkbox::optional("Desligada", off.binding()).disabled(true));
+    click_node(&mut disabled, Role::CheckBox, "Desligada");
+    key(&mut disabled, Key::Tab);
+    key(&mut disabled, Key::Space);
+    assert_eq!(off.get(), None);
+    assert!(check_state(&mut disabled, "Desligada").disabled);
+    let mut read_only = self::ui(Checkbox::optional("Só leitura", off.binding()).read_only(true));
+    key(&mut read_only, Key::Tab);
+    key(&mut read_only, Key::Space);
+    let node = check_state(&mut read_only, "Só leitura");
+    assert_eq!((off.get(), node.toggled, node.read_only), (None, Some(Toggled::Mixed), true));
+    assert_eq!(read_only.access_tree().focused().map(|n| n.id), Some(node.id), "still focused");
+}
+
+#[test]
+fn a_disabled_code_takes_no_typing_completes_nothing_and_keeps_what_was_typed() {
+    let code = State::new(String::new());
+    let locked = State::new(false);
+    let completed = Rc::new(Cell::new(0));
+    let (c, l, done) = (code.clone(), locked.clone(), completed.clone());
+    let mut ui = ui(view_fn(move || {
+        let done = done.clone();
+        InputOtp::new(c.binding(), 4).disabled(l.get()).on_complete(move |_| done.set(done.get() + 1))
+    }));
+    let field = |ui: &mut Ui| {
+        ui.update();
+        ui.access_tree().nodes.iter().find(|n| n.role == Role::TextInput).cloned().expect("the code")
+    };
+    key(&mut ui, Key::Tab);
+    key(&mut ui, Key::Character("12".into()));
+    assert_eq!(code.get(), "12");
+    assert!(!field(&mut ui).disabled);
+
+    // While the code is verified: unavailable to screen readers, out of the tab order, deaf.
+    locked.set(true);
+    let node = field(&mut ui);
+    assert!(node.disabled, "screen readers hear it as unavailable");
+    key(&mut ui, Key::Character("34".into()));
+    assert!(!ui.set_access_value(node.id, "9999"), "a test cannot set it either");
+    ui.update();
+    assert_eq!((code.get().as_str(), completed.get()), ("12", 0), "nothing typed, nothing completed");
+    key(&mut ui, Key::Tab);
+    assert_ne!(ui.access_tree().focused().map(|n| n.id), Some(node.id), "Tab passes it by");
+
+    // Back on, what was typed is still there, and finishing completes once.
+    locked.set(false);
+    ui.update();
+    assert_eq!(field(&mut ui).value.as_deref(), Some("12"));
+    if ui.access_tree().focused().map(|n| n.role) != Some(Role::TextInput) {
+        key(&mut ui, Key::Tab);
+    }
+    key(&mut ui, Key::Character("34".into()));
+    assert_eq!((code.get().as_str(), completed.get()), ("1234", 1));
 }
 
 #[test]

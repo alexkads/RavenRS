@@ -32,6 +32,7 @@ fn render(args: &Args) -> AnyView {
         let arg_grid = args.number("grid") as f32;
         let arg_grow = args.number("grow") as f32;
         let arg_label = args.text("label");
+        let arg_hint = args.text("hint");
         let arg_locked = args.bool("locked");
         let arg_minimap = args.bool("minimap");
         let arg_ports_on_hover = args.bool("ports_on_hover");
@@ -40,6 +41,8 @@ fn render(args: &Args) -> AnyView {
         let arg_resizable = args.bool("resizable");
         let arg_rotatable = args.bool("rotatable");
         let arg_snap = args.bool("snap");
+        let arg_status_icons = args.bool("status_icons");
+        let arg_run = args.bool("run");
 
         let graph = State::new(
             FlowGraph::new()
@@ -111,11 +114,19 @@ fn render(args: &Args) -> AnyView {
                     }
                 })
                 .size(880.0, 368.0);
+            // A width of 0 takes the parent's; the height is always the story's.
+            let (wide, tall) = (args.number("width") as f32, args.number("height") as f32);
+            it = if wide > 0.0 { it.size(wide, tall) } else { it.height(tall) };
             it = it.cables(arg_cables);
             it = it.controls(arg_controls);
+            if !arg_hint.is_empty() {
+                it = it.hint(arg_hint.clone());
+            }
             it = it.editable_titles(arg_editable_titles);
             it = it.grid(arg_grid);
-            it = it.grow(arg_grow);
+            if arg_grow > 0.0 && args.number("width") > 0.0 {
+                it = it.grow(arg_grow);
+            }
             if !arg_label.is_empty() {
                 it = it.label(arg_label.clone());
             }
@@ -127,44 +138,60 @@ fn render(args: &Args) -> AnyView {
             it = it.resizable(arg_resizable);
             it = it.rotatable(arg_rotatable);
             it = it.snap(arg_snap);
+            it = it.status_icons(arg_status_icons);
+            // A run told from outside, as a CI server tells the stages of a build.
+            if arg_run {
+                it = it.execution(
+                    FlowRunView::new()
+                        .node("sale", FlowNodeRun::new(FlowNodeStatus::Success))
+                        .node("stock", FlowNodeRun::new(FlowNodeStatus::Running))
+                        .node("enough", FlowNodeRun::new(FlowNodeStatus::Waiting("Waiting".into()))),
+                );
+            }
             it
         };
         VStack::new((
             view_fn(move || {
-                // Undo and redo here go through the same history as Cmd+Z in the canvas.
+                // Undo and redo here go through the same history as Cmd+Z in the canvas; a canvas
+                // only read has nothing to undo, and the story is the canvas alone.
+                if arg_read_only {
+                    return None;
+                }
                 let (back, again) = (undo.clone(), redo.clone());
                 let (g1, g2) = (written.clone(), written.clone());
                 let toggle = shown.clone();
-                HStack::new((
-                    Button::new("Undo")
-                        .style(ButtonStyle::Secondary)
-                        .icon(IconName::Undo2)
-                        .disabled(!undo.get().can_undo())
-                        .on_click(move || {
-                            let mut h = back.get();
-                            if let Some(before) = h.undo(g1.get()) {
-                                back.set(h);
-                                g1.set(before);
-                            }
-                        }),
-                    Button::new("Redo")
-                        .style(ButtonStyle::Secondary)
-                        .icon(IconName::Redo2)
-                        .disabled(!redo.get().can_redo())
-                        .on_click(move || {
-                            let mut h = again.get();
-                            if let Some(after) = h.redo(g2.get()) {
-                                again.set(h);
-                                g2.set(after);
-                            }
-                        }),
-                    Button::new("Show JSON")
-                        .style(ButtonStyle::Ghost)
-                        .icon(IconName::Code)
-                        .selected(shown.get())
-                        .on_click(move || toggle.update(|on| *on = !*on)),
-                ))
-                .spacing(8.0)
+                Some(
+                    HStack::new((
+                        Button::new("Undo")
+                            .style(ButtonStyle::Secondary)
+                            .icon(IconName::Undo2)
+                            .disabled(!undo.get().can_undo())
+                            .on_click(move || {
+                                let mut h = back.get();
+                                if let Some(before) = h.undo(g1.get()) {
+                                    back.set(h);
+                                    g1.set(before);
+                                }
+                            }),
+                        Button::new("Redo")
+                            .style(ButtonStyle::Secondary)
+                            .icon(IconName::Redo2)
+                            .disabled(!redo.get().can_redo())
+                            .on_click(move || {
+                                let mut h = again.get();
+                                if let Some(after) = h.redo(g2.get()) {
+                                    again.set(h);
+                                    g2.set(after);
+                                }
+                            }),
+                        Button::new("Show JSON")
+                            .style(ButtonStyle::Ghost)
+                            .icon(IconName::Code)
+                            .selected(shown.get())
+                            .on_click(move || toggle.update(|on| *on = !*on)),
+                    ))
+                    .spacing(8.0),
+                )
             }),
             // The diagram as it is now, as the app would save it; `FlowGraph::from_json` reads it back.
             view_fn(move || {
@@ -186,7 +213,10 @@ impl ComponentBook for FlowCanvas {
             .arg(ArgType::bool("editable_titles", true))
             .arg(ArgType::number("grid", 24.0, 0.0, 96.0, 1.0))
             .arg(ArgType::number("grow", 1.0, 0.0, 4.0, 0.1))
+            .arg(ArgType::number("width", 880.0, 0.0, 2000.0, 1.0).description("0 takes the width of the parent."))
+            .arg(ArgType::number("height", 368.0, 80.0, 1200.0, 1.0))
             .arg(ArgType::text("label", "").description("Empty leaves it as the component has it."))
+            .arg(ArgType::text("hint", "").description("What a click does, after the zoom; empty shows none."))
             .arg(ArgType::bool("locked", false))
             .arg(ArgType::bool("minimap", true))
             .arg(ArgType::bool("ports_on_hover", false))
@@ -195,17 +225,70 @@ impl ComponentBook for FlowCanvas {
             .arg(ArgType::bool("resizable", true))
             .arg(ArgType::bool("rotatable", true))
             .arg(ArgType::bool("snap", true))
+            .arg(ArgType::bool("status_icons", false))
+            .arg(ArgType::bool("run", false).description("A run told from outside, with execution."))
             .arg(ArgType::bool("json", false).description("How the example starts."))
             .story("Example", Args::new())
             .story("Read only", Args::new().with("read_only", true))
+            .story(
+                "Stage strip",
+                Args::new()
+                    .with("read_only", true)
+                    .with("run", true)
+                    .with("status_icons", true)
+                    .with("minimap", false)
+                    .with("width", 0.0)
+                    .with("height", 198.0)
+                    .with("hint", "Click a stage to see only its log"),
+            )
+            .story(
+                "Run with status icons",
+                Args::new().with("read_only", true).with("run", true).with("status_icons", true).with("minimap", false),
+            )
             .story("Json", Args::new().with("json", true))
             .story("Cables", Args::new().with("cables", true))
             .story_with("Cards and a selection", Args::new(), cards_and_selection)
+            .story_with("Stage strip in a row", Args::new(), stage_strip_in_a_row)
     }
 }
 
 /// Nodes that draw their own card (`content`), as an app that shows its own state in each node,
 /// joined by cables, with one of them selected (#831).
+/// The strip of a build's stages beside a text, in a row that does not stretch it: it takes the
+/// width of its stages (#971).
+fn stage_strip_in_a_row(_: &Args) -> AnyView {
+    let stages = ["Checkout", "Build", "Test", "Package", "Publish"];
+    let graph = stages.iter().enumerate().fold(FlowGraph::new(), |graph, (i, title)| {
+        let x = 24.0 + 200.0 * f32::from(u8::try_from(i).unwrap_or(0));
+        let status = if i < 3 { FlowNodeStatus::Success } else { FlowNodeStatus::Normal };
+        graph.node(
+            FlowNode::new(title.to_lowercase(), "action", *title, x, 24.0)
+                .status(status)
+                .port(FlowPort::input("in").side(PortSide::Left))
+                .port(FlowPort::output("out").side(PortSide::Right)),
+        )
+    });
+    let graph = stages.windows(2).enumerate().fold(graph, |graph, (i, pair)| {
+        graph.edge(FlowEdge::new(
+            format!("e{i}"),
+            FlowEndpoint::new(pair[0].to_lowercase(), "out"),
+            FlowEndpoint::new(pair[1].to_lowercase(), "in"),
+        ))
+    });
+    let graph = State::new(graph);
+    let canvas = FlowCanvas::new(graph.binding())
+        .label("Stages of build 12")
+        .read_only(true)
+        .status_icons(true)
+        .minimap(false)
+        .height(198.0);
+    Box::new(
+        HStack::new((Text::new("Build 12").style(TextStyle::Headline), canvas))
+            .spacing(16.0)
+            .align(Align::Center),
+    )
+}
+
 fn cards_and_selection(_: &Args) -> AnyView {
     let graph = State::new(
         FlowGraph::new()

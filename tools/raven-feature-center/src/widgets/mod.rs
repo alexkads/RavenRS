@@ -3,6 +3,7 @@
 //! [`PAGES`] is the one list: the center puts each page in its navigation as a dashboard, and the
 //! mode `componentes` (#587) shows the same pages with no application framework around them.
 
+pub mod agenda;
 pub mod atualizacao;
 pub mod basicos;
 pub mod doca;
@@ -30,11 +31,116 @@ pub struct Page {
 /// Every page of a component, in the order of the navigation.
 pub const PAGES: &[Page] = &[
     Page {
+        id: basicos::barra_de_titulo::ID,
+        caption: basicos::barra_de_titulo::PAGE,
+        group: "Básicos",
+        icon: IconName::PanelLeft,
+        make: || Box::new(basicos::barra_de_titulo::TitleBarPage),
+    },
+    Page {
         id: basicos::botoes::ID,
         caption: basicos::botoes::PAGE,
         group: "Básicos",
         icon: IconName::MousePointer,
         make: || Box::new(basicos::botoes::ButtonsPage),
+    },
+    Page {
+        id: basicos::avatares::ID,
+        caption: basicos::avatares::PAGE,
+        group: "Básicos",
+        icon: IconName::Users,
+        make: || Box::new(basicos::avatares::AvatarsPage),
+    },
+    Page {
+        id: basicos::caixas::ID,
+        caption: basicos::caixas::PAGE,
+        group: "Básicos",
+        icon: IconName::CircleCheck,
+        make: || Box::new(basicos::caixas::CheckboxesPage),
+    },
+    Page {
+        id: basicos::cartoes::ID,
+        caption: basicos::cartoes::PAGE,
+        group: "Básicos",
+        icon: IconName::Layers,
+        make: || Box::new(basicos::cartoes::CardsPage),
+    },
+    Page {
+        id: basicos::chaves::ID,
+        caption: basicos::chaves::PAGE,
+        group: "Básicos",
+        icon: IconName::Settings,
+        make: || Box::new(basicos::chaves::TogglesPage),
+    },
+    Page {
+        id: basicos::codigo::ID,
+        caption: basicos::codigo::PAGE,
+        group: "Básicos",
+        icon: IconName::Key,
+        make: || Box::new(basicos::codigo::InputOtpPage),
+    },
+    Page {
+        id: basicos::datas::ID,
+        caption: basicos::datas::PAGE,
+        group: "Básicos",
+        icon: IconName::Calendar,
+        make: || Box::new(basicos::datas::DatesPage),
+    },
+    Page {
+        id: basicos::mascaras::ID,
+        caption: basicos::mascaras::PAGE,
+        group: "Básicos",
+        icon: IconName::Keyboard,
+        make: || Box::new(basicos::mascaras::MasksPage),
+    },
+    Page {
+        id: basicos::dicas::ID,
+        caption: basicos::dicas::PAGE,
+        group: "Básicos",
+        icon: IconName::Info,
+        make: || Box::new(basicos::dicas::TooltipsPage),
+    },
+    Page {
+        id: basicos::escolhas::ID,
+        caption: basicos::escolhas::PAGE,
+        group: "Básicos",
+        icon: IconName::SlidersHorizontal,
+        make: || Box::new(basicos::escolhas::ChoicesPage),
+    },
+    Page {
+        id: basicos::indicadores::ID,
+        caption: basicos::indicadores::PAGE,
+        group: "Básicos",
+        icon: IconName::TrendingUp,
+        make: || Box::new(basicos::indicadores::StatPage),
+    },
+    Page {
+        id: basicos::listas_de_escolha::ID,
+        caption: basicos::listas_de_escolha::PAGE,
+        group: "Básicos",
+        icon: IconName::ChevronsUpDown,
+        make: || Box::new(basicos::listas_de_escolha::SelectsPage),
+    },
+    Page {
+        id: basicos::menus::ID,
+        caption: basicos::menus::PAGE,
+        group: "Básicos",
+        icon: IconName::Menu,
+        make: || Box::new(basicos::menus::MenusPage),
+    },
+    Page {
+        id: basicos::paineis::ID,
+        caption: basicos::paineis::PAGE,
+        group: "Básicos",
+        icon: IconName::Columns3,
+        make: || Box::new(basicos::paineis::SplitPanesPage),
+    },
+    Page {
+        id: basicos::progresso::ID,
+        caption: basicos::progresso::PAGE,
+        group: "Básicos",
+        icon: IconName::Activity,
+        make: || Box::new(basicos::progresso::ProgressPage),
     },
     Page {
         id: basicos::texto::ID,
@@ -44,6 +150,20 @@ pub const PAGES: &[Page] = &[
         make: || Box::new(basicos::texto::TextPage),
     },
     Page {
+        id: kit::abas::ID,
+        caption: kit::abas::PAGE,
+        group: "Kit",
+        icon: IconName::Layers,
+        make: || Box::new(kit::abas::TabsPage),
+    },
+    Page {
+        id: kit::cupom::ID,
+        caption: kit::cupom::PAGE,
+        group: "Kit",
+        icon: IconName::Store,
+        make: || Box::new(kit::cupom::ReceiptPage),
+    },
+    Page {
         id: kit::expressoes::ID,
         caption: kit::expressoes::PAGE,
         group: "Kit",
@@ -51,11 +171,25 @@ pub const PAGES: &[Page] = &[
         make: || Box::new(kit::expressoes::ExpressionsPage),
     },
     Page {
+        id: kit::lista::ID,
+        caption: kit::lista::PAGE,
+        group: "Kit",
+        icon: IconName::List,
+        make: || Box::new(kit::lista::ListPage),
+    },
+    Page {
         id: kit::parametros::ID,
         caption: kit::parametros::PAGE,
         group: "Kit",
         icon: IconName::FileText,
         make: || Box::new(kit::parametros::ParametersPage),
+    },
+    Page {
+        id: listas::cronologia::ID,
+        caption: listas::cronologia::PAGE,
+        group: "Listas e árvores",
+        icon: IconName::History,
+        make: || Box::new(listas::cronologia::ChronologyPage),
     },
     Page {
         id: listas::inspetor::ID,
@@ -70,6 +204,27 @@ pub const PAGES: &[Page] = &[
         group: "Listas e árvores",
         icon: IconName::FileText,
         make: || Box::new(listas::log::LogPage),
+    },
+    Page {
+        id: agenda::ano::ID,
+        caption: agenda::ano::PAGE,
+        group: "Listas e árvores",
+        icon: IconName::CalendarCheck,
+        make: || Box::new(agenda::ano::YearViewPage),
+    },
+    Page {
+        id: agenda::calendario::ID,
+        caption: agenda::calendario::PAGE,
+        group: "Listas e árvores",
+        icon: IconName::Calendar,
+        make: || Box::new(agenda::calendario::EventCalendarPage),
+    },
+    Page {
+        id: agenda::scheduler::ID,
+        caption: agenda::scheduler::PAGE,
+        group: "Listas e árvores",
+        icon: IconName::Calendar,
+        make: || Box::new(agenda::scheduler::SchedulerPage),
     },
     Page {
         id: graficos::fluxo::ID,
@@ -112,6 +267,13 @@ pub const PAGES: &[Page] = &[
         group: "Atualização",
         icon: IconName::Download,
         make: || Box::new(atualizacao::novidades::NewsPage),
+    },
+    Page {
+        id: atualizacao::servico::ID,
+        caption: atualizacao::servico::PAGE,
+        group: "Atualização",
+        icon: IconName::Server,
+        make: || Box::new(atualizacao::servico::ServicePage),
     },
 ];
 

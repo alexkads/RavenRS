@@ -2316,7 +2316,15 @@ impl View for DataRow<'_> {
             );
             if s.editing != Some((row, c)) {
                 // A cell that does not open an editor says so, and a test that fills it is told.
-                cx.semantics(cell, Semantics::new(Role::Cell).read_only(!editable));
+                let semantics = Semantics::new(Role::Cell).read_only(!editable);
+                // A cell drawn by a template, with a text of its own, is called by that text, not
+                // by the names of what the template puts in it (a switch, a badge).
+                let semantics = if col.template.is_some() && col.format.is_some() {
+                    semantics.name(col.display(&value))
+                } else {
+                    semantics
+                };
+                cx.semantics(cell, semantics);
             }
             // With a key column, a test finds a cell by the row's key and the column, and the
             // id passes to the editor while the cell is being edited.
@@ -2616,6 +2624,26 @@ impl DataGrid {
         let edit_buffer = cx.use_state(String::new);
         let edit_error = cx.use_state(|| None);
         let resize = cx.use_state(|| Rc::new(Cell::new(None))).get();
+        // The state is kept by where the grid is, not by its columns: when they change (another
+        // grid in the same place, columns added or taken out), it follows them by name.
+        let ids: Vec<String> = self.columns.iter().map(super::layout::column_id).collect();
+        let first_ids = ids.clone();
+        let seen = cx.use_state(move || first_ids);
+        if *seen.peek() != ids {
+            let from = super::layout::carried_columns(&seen.peek(), &ids);
+            let carried_query = query.peek().carried_to(&from, &self.columns);
+            query.set(carried_query);
+            let old_widths = widths.peek().clone();
+            widths.set(
+                from.iter()
+                    .zip(&self.columns)
+                    .map(|(f, column)| f.and_then(|o| old_widths.get(o).copied()).unwrap_or(column.width))
+                    .collect(),
+            );
+            let carried_arrangement = arrange.peek().carried_to(&from, &self.columns);
+            arrange.set(carried_arrangement);
+            seen.set(ids);
+        }
         Handles {
             query,
             widths,

@@ -23,8 +23,11 @@ pub enum Semantic {
     SurfaceElevated,
     /// `bg-300`: control fills.
     Control,
-    /// `border`: hairlines and control outlines.
+    /// `border`: hairlines, dividers and the outline of cards.
     Border,
+    /// `control-border`: the outline of a field or control at rest, at least 3:1 against
+    /// `bg-000`, `bg-100` and `bg-200`, so it can be found without hovering or focusing it.
+    ControlBorder,
     /// `ink`: primary text and icons.
     Ink,
     /// `ink-muted`: secondary text, captions and placeholders.
@@ -76,8 +79,11 @@ pub struct Palette {
     pub bg_200: Color,
     /// `bg-300`: control fills.
     pub bg_300: Color,
-    /// `border`: hairlines and control outlines.
+    /// `border`: hairlines, dividers and the outline of cards.
     pub border: Color,
+    /// `control-border`: the outline of a field or control at rest, at least 3:1 against the
+    /// backgrounds.
+    pub control_border: Color,
     /// `ink`: primary text and icons.
     pub ink: Color,
     /// `ink-muted`: secondary text, captions and placeholders.
@@ -110,6 +116,7 @@ impl Palette {
             Semantic::SurfaceElevated => self.bg_200,
             Semantic::Control => self.bg_300,
             Semantic::Border => self.border,
+            Semantic::ControlBorder => self.control_border,
             Semantic::Ink => self.ink,
             Semantic::InkMuted => self.ink_muted,
             Semantic::Accent => self.accent,
@@ -420,6 +427,10 @@ const fn shadow(y: f32, blur: f32, color: Color) -> Shadow {
     Shadow { offset: Point::new(0.0, y), blur, color }
 }
 
+/// The least opacity of what floats over the content (#978): the text of a dialog stays
+/// readable over any screen behind it.
+pub const FLOATING_OPACITY: f32 = 0.92;
+
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Theme {
     /// The default theme: deep neutrals with a single blue-violet accent.
@@ -433,6 +444,7 @@ impl Theme {
                 bg_200: Color::hex(0x181c25),
                 bg_300: Color::hex(0x222734),
                 border: Color::hex(0x2a3040),
+                control_border: Color::hex(0x646e86),
                 ink: Color::hex(0xeef1f7),
                 ink_muted: Color::hex(0x9aa3b5),
                 accent: Color::hex(0x4c66ee),
@@ -469,6 +481,7 @@ impl Theme {
                 bg_200: Color::hex(0xffffff),
                 bg_300: Color::hex(0xebedf2),
                 border: Color::hex(0xdadde5),
+                control_border: Color::hex(0x7d8597),
                 ink: Color::hex(0x12151c),
                 ink_muted: Color::hex(0x5a6375),
                 accent: Color::hex(0x3f57db),
@@ -506,6 +519,7 @@ impl Theme {
                 bg_200: Color::hex_alpha(0xffffff1a),
                 bg_300: Color::hex_alpha(0xffffff24),
                 border: Color::hex_alpha(0xffffff2e),
+                control_border: Color::hex_alpha(0xffffff70),
                 ink: Color::hex(0xf5f7ff),
                 ink_muted: Color::hex(0xb4bdd3),
                 accent: Color::hex(0x4c66ee),
@@ -543,6 +557,22 @@ impl Theme {
         self.charts.get(role).unwrap_or_else(|| self.palette.get(role))
     }
 
+    /// The surface of what floats over the content: dialogs, menus, popovers, sheets, toasts and
+    /// floating bars. It is the elevated surface, made nearly opaque when it is see-through (the
+    /// glass themes): the renderer does not blur what lies behind yet, and a light veil over a
+    /// full screen lets that screen cross the text (#978). Cards in the page keep
+    /// [`Semantic::SurfaceElevated`] as it is.
+    pub fn floating_surface(&self) -> Color {
+        let raised = self.color(Semantic::SurfaceElevated);
+        if raised.a >= FLOATING_OPACITY {
+            return raised;
+        }
+        // The veil over the theme's own canvas, as a blur would show it over a calm backdrop.
+        let under = self.color(Semantic::Canvas);
+        let mix = |top: f32, bottom: f32| top * raised.a + bottom * (1.0 - raised.a);
+        Color::rgba(mix(raised.r, under.r), mix(raised.g, under.g), mix(raised.b, under.b), FLOATING_OPACITY)
+    }
+
     /// Changes the color of a role: a series of a chart in [`Theme::charts`], any other in the
     /// palette. Roles that follow from others stay as they are.
     pub fn set_color(&mut self, role: Semantic, color: Color) {
@@ -567,6 +597,23 @@ impl Theme {
 impl Default for Theme {
     fn default() -> Self {
         Self::raven_dark()
+    }
+}
+
+#[cfg(test)]
+mod floating_tests {
+    use super::{FLOATING_OPACITY, Semantic, Theme};
+
+    #[test]
+    fn what_floats_is_nearly_opaque_in_glass_and_the_elevated_surface_elsewhere() {
+        let glass = Theme::raven_glass();
+        let floating = glass.floating_surface();
+        assert!(floating.a >= FLOATING_OPACITY, "{floating:?}");
+        // Cards in the page keep the see-through glass.
+        assert!(glass.color(Semantic::SurfaceElevated).a < 0.5, "the glass card stays a veil");
+        for theme in [Theme::raven_dark(), Theme::raven_light()] {
+            assert_eq!(theme.floating_surface(), theme.color(Semantic::SurfaceElevated), "{}", theme.name);
+        }
     }
 }
 

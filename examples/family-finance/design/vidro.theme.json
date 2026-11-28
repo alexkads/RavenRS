@@ -5,6 +5,7 @@
     "accent-hover": "#c3f25c",
     "accent-pressed": "#9ad42a",
     "bg-000": "#2c2f33",
+    "control-border": "#8a929b",
     "danger": "#ff9c92",
     "focus-ring": "#d4f57f",
     "ink": "#f6f8f2",

@@ -8,12 +8,13 @@ use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use ravenrs_flows::{
-    BinaryRef, Catalog, Clock, Executor, FlowDefinition, Item, Mode, NodeRun, NodeStatus, Plan, Run,
-    RunOutcome, Step, SystemClock, Wake,
+    BinaryRef, CancelToken, Catalog, Clock, FlowDefinition, Item, Mode, NodeRun, NodeStatus, Plan, Run,
+    RunOutcome, SystemClock, Wake,
 };
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 
+use crate::remote::{Held, Lease, StepRecord};
 use crate::store::{self, StoreError};
 
 /// How long a worker holds a run before another may take it, unless it renews: it renews at
@@ -96,12 +97,38 @@ pub struct Request {
     pub actor: Option<String>,
     /// A test from the editor, or the flow working.
     pub mode: Mode,
+    /// Which runs leave the queue first: the highest, and among equals the oldest. 0 by default.
+    pub priority: i32,
+    /// Requests that ask for the same thing: one with the key of a run still in the queue joins
+    /// that run instead of making another.
+    pub key: Option<String>,
 }
 
 impl Request {
     /// A run of `flow` as it works, started by its triggers.
     pub fn new(flow: FlowDefinition) -> Self {
-        Self { flow, start_node: None, input: Vec::new(), actor: None, mode: Mode::Active }
+        Self {
+            flow,
+            start_node: None,
+            input: Vec::new(),
+            actor: None,
+            mode: Mode::Active,
+            priority: 0,
+            key: None,
+        }
+    }
+
+    /// Leaving the queue before the runs of a lower `priority`, and after those of a higher one.
+    pub fn priority(mut self, priority: i32) -> Self {
+        self.priority = priority;
+        self
+    }
+
+    /// Joining the run of the same `key` still in the queue, if there is one, instead of making
+    /// another: ten pushes in a row while a build waits make one build.
+    pub fn key(mut self, key: impl Into<String>) -> Self {
+        self.key = Some(key.into());
+        self
     }
 
     /// Starting at `node` with `input`.
@@ -147,6 +174,12 @@ pub struct RunRecord {
     pub created_ms: i64,
     /// When it ended.
     pub ended_ms: Option<i64>,
+    /// Where it goes in the queue: the highest first.
+    pub priority: i32,
+    /// What requests that ask for the same thing share, when it was given.
+    pub key: Option<String>,
+    /// How many later requests joined it while it waited in the queue.
+    pub joined: u32,
 }
 
 /// Which flow a rerun runs.
@@ -169,6 +202,8 @@ pub struct Retention {
     pub statuses: Vec<RunStatus>,
     /// The newest runs of each flow that stay whatever their age.
     pub keep_last: Option<usize>,
+    /// Only the runs of this flow, so that each flow can keep its own; every flow when `None`.
+    pub flow_id: Option<String>,
 }
 
 /// What a prune forgot.
@@ -184,10 +219,12 @@ pub struct Pruned {
 /// run with a lease, runs it writing a checkpoint after every node, and a run left by a worker
 /// that died goes back to the queue when its lease runs out.
 pub struct Runtime {
-    conn: Mutex<Connection>,
+    conn: Arc<Mutex<Connection>>,
     catalog: Catalog,
     clock: Arc<dyn Clock>,
     lease_ms: u64,
+    /// The token of each run this process is running, so cancelling it reaches the node at once.
+    running: Arc<Mutex<BTreeMap<String, CancelToken>>>,
 }
 
 impl fmt::Debug for Runtime {
@@ -210,7 +247,26 @@ impl Runtime {
 
     fn on(conn: Connection, catalog: Catalog) -> Result<Self, StoreError> {
         store::prepare(&conn)?;
-        Ok(Self { conn: Mutex::new(conn), catalog, clock: Arc::new(SystemClock), lease_ms: LEASE_MS })
+        Ok(Self {
+            conn: Arc::new(Mutex::new(conn)),
+            catalog,
+            clock: Arc::new(SystemClock),
+            lease_ms: LEASE_MS,
+            running: Arc::default(),
+        })
+    }
+
+    /// The same runs, on the same connection and clock, run with the kinds of `catalog`: what a
+    /// host whose kinds change while it runs uses (a plugin switched on or off), so the queue
+    /// goes on whole, even one kept only in memory. Cancelling a run reaches it from either.
+    pub fn with_catalog(&self, catalog: Catalog) -> Self {
+        Self {
+            conn: self.conn.clone(),
+            catalog,
+            clock: self.clock.clone(),
+            lease_ms: self.lease_ms,
+            running: self.running.clone(),
+        }
     }
 
     /// On `clock`: the time runs are asked for, held, woken and forgotten by.
@@ -225,6 +281,11 @@ impl Runtime {
         self
     }
 
+    /// How long its leases last, in milliseconds: what a worker whose node runs long renews within.
+    pub fn lease_length(&self) -> u64 {
+        self.lease_ms
+    }
+
     fn db(&self) -> MutexGuard<'_, Connection> {
         self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
     }
@@ -233,18 +294,40 @@ impl Runtime {
         self.clock.now_ms()
     }
 
-    /// Asks for a run; its id. It waits in the queue until a worker takes it.
+    /// Asks for a run; its id. It waits in the queue until a worker takes it, after the runs of
+    /// a higher [`priority`](Request::priority). A request with a [`key`](Request::key) that a run
+    /// still in the queue has joins that run and gives its id: the run counts it in
+    /// [`RunRecord::joined`] and takes the higher of the two priorities.
     pub fn enqueue(&self, request: Request) -> Result<String, StoreError> {
         self.insert(&request, None)
     }
 
     fn insert(&self, request: &Request, origin: Option<&str>) -> Result<String, StoreError> {
         let now = self.now();
+        let mut db = self.db();
+        let tx = db.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        if let Some(key) = &request.key {
+            let waiting: Option<String> = tx
+                .query_row(
+                    "SELECT id FROM runs WHERE dedupe_key = ?1 AND status = 'queued' ORDER BY created_ms, id LIMIT 1",
+                    params![key],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            if let Some(id) = waiting {
+                tx.execute(
+                    "UPDATE runs SET joined = joined + 1, priority = MAX(priority, ?2) WHERE id = ?1",
+                    params![id, request.priority],
+                )?;
+                tx.commit()?;
+                return Ok(id);
+            }
+        }
         let id = store::new_id("run", now);
         let mode = if request.mode == Mode::Test { "test" } else { "active" };
-        self.db().execute(
-            "INSERT INTO runs (id, flow_id, revision, definition, mode, actor, start_node, input, status, origin, created_ms)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'queued', ?9, ?10)",
+        tx.execute(
+            "INSERT INTO runs (id, flow_id, revision, definition, mode, actor, start_node, input, status, origin, created_ms, priority, dedupe_key)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'queued', ?9, ?10, ?11, ?12)",
             params![
                 id,
                 request.flow.id,
@@ -255,10 +338,67 @@ impl Runtime {
                 request.start_node,
                 serde_json::to_string(&request.input)?,
                 origin,
-                now
+                now,
+                request.priority,
+                request.key
             ],
         )?;
+        tx.commit()?;
         Ok(id)
+    }
+
+    /// Cancels `id`, saying `reason`; where it is after. A run in the queue or waiting ends as
+    /// cancelled without running again. A run this process is running is cancelled at once
+    /// through its token; one another process runs is cancelled when that process writes its
+    /// next step. A run that ended stays as it ended.
+    pub fn cancel(&self, id: &str, reason: &str) -> Result<RunStatus, StoreError> {
+        let outcome = serde_json::to_string(&RunOutcome::Cancelled { reason: reason.to_owned() })?;
+        let now = self.now();
+        let changed = self.db().execute(
+            "UPDATE runs SET status = 'cancelled', outcome = ?2, ended_ms = ?3, lease_until = NULL, wake_at = NULL
+             WHERE id = ?1 AND status IN ('queued', 'waiting')",
+            params![id, outcome, now],
+        )?;
+        if changed == 0 {
+            self.db().execute(
+                "UPDATE runs SET cancel_requested = ?2 WHERE id = ?1 AND status = 'running'",
+                params![id, reason],
+            )?;
+            if let Some(token) = self.tokens().get(id) {
+                token.cancel(reason);
+            }
+        }
+        Ok(self.get(id)?.status)
+    }
+
+    /// Moves `id` in the queue, to leave it before the runs of a lower `priority`. A run that is
+    /// running or ended keeps its place in the history and is not changed.
+    pub fn set_priority(&self, id: &str, priority: i32) -> Result<(), StoreError> {
+        self.get(id)?;
+        self.db().execute(
+            "UPDATE runs SET priority = ?2 WHERE id = ?1 AND status IN ('queued', 'waiting')",
+            params![id, priority],
+        )?;
+        Ok(())
+    }
+
+    /// The runs that wait, in the order they are to leave: those asked for and not taken, and
+    /// those waiting for a time or an event, the highest priority first and among equals the
+    /// oldest.
+    pub fn queue(&self) -> Result<Vec<RunRecord>, StoreError> {
+        let ids: Vec<String> = {
+            let db = self.db();
+            let mut stmt = db.prepare(
+                "SELECT id FROM runs WHERE status IN ('queued', 'waiting') ORDER BY priority DESC, created_ms, id",
+            )?;
+            let rows = stmt.query_map([], |row| row.get(0))?;
+            rows.collect::<Result<_, _>>()?
+        };
+        ids.iter().map(|id| self.get(id)).collect()
+    }
+
+    fn tokens(&self) -> MutexGuard<'_, BTreeMap<String, CancelToken>> {
+        self.running.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
     /// Takes the run due first, for `worker`: one asked for, one whose worker's lease ran out,
@@ -288,21 +428,91 @@ impl Runtime {
         Ok(ran)
     }
 
+    /// Ends `id`, which `worker` holds, as stopped with `reason` and without running it: what a
+    /// host does when what a run needs before its first node failed (fetching code, a folder
+    /// to work in). Its status after.
+    pub fn fail(&self, id: &str, worker: &str, reason: &str) -> Result<RunStatus, StoreError> {
+        let outcome = RunOutcome::Stopped { node: String::new(), reason: reason.to_owned() };
+        self.end(id, worker, &outcome)
+    }
+
     /// Runs `id`, which `worker` holds: from its checkpoint when it ran before. Each step is
     /// written as it happens, and the lease renewed.
     pub fn execute(&self, id: &str, worker: &str) -> Result<RunStatus, StoreError> {
+        let lease = self.lease_of(id, worker)?;
+        let failure: RefCell<Option<StoreError>> = RefCell::new(None);
+        let lost = RefCell::new(false);
+        let token = CancelToken::new();
+        self.tokens().insert(id.to_owned(), token.clone());
+        let run = lease.run(&self.catalog, self.clock.clone(), token.clone(), |record| {
+            match self.record(id, worker, &record) {
+                Ok(held) => {
+                    if !held.held {
+                        *lost.borrow_mut() = true;
+                    }
+                    if let Some(reason) = held.cancel
+                        && !token.is_cancelled()
+                    {
+                        token.cancel(reason);
+                    }
+                }
+                Err(e) => {
+                    failure.borrow_mut().get_or_insert(e);
+                }
+            }
+        });
+        self.tokens().remove(id);
+        if let Some(e) = failure.into_inner() {
+            return Err(e);
+        }
+        if lost.into_inner() {
+            return Ok(RunStatus::Running);
+        }
+        match run {
+            Ok(run) => self.end(id, worker, &run.outcome),
+            Err(reason) => self.end(id, worker, &RunOutcome::Stopped { node: String::new(), reason }),
+        }
+    }
+
+    /// The runs due now, by id, in the order [`claim`](Self::claim) takes them: what a host that
+    /// chooses which run goes to which worker (by the labels of a build agent) looks at before
+    /// [`claim_id`](Self::claim_id).
+    pub fn due(&self) -> Result<Vec<String>, StoreError> {
+        store::due(&self.db(), self.now())
+    }
+
+    /// Takes the run `id` for `worker`, when it is due; whether it did. Two workers never take the
+    /// same run.
+    pub fn claim_id(&self, id: &str, worker: &str) -> Result<bool, StoreError> {
+        let now = self.now();
+        store::claim_id(&self.db(), id, worker, now, now.saturating_add(self.lease_ms as i64))
+    }
+
+    /// The runs `worker` holds now, running, oldest first: what a host gives back to a worker
+    /// elsewhere that came back as a new process and lost track of them.
+    pub fn held_by(&self, worker: &str) -> Result<Vec<String>, StoreError> {
+        let db = self.db();
+        let mut stmt = db.prepare(
+            "SELECT id FROM runs WHERE worker = ?1 AND status = 'running' ORDER BY created_ms, id",
+        )?;
+        let rows = stmt.query_map(params![worker], |row| row.get(0))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// What a worker in another process needs to run `id`, which `worker` holds: see
+    /// [`Lease`]. [`StoreError::NotHeld`] when `worker` does not hold it.
+    pub fn lease(&self, id: &str, worker: &str) -> Result<Lease, StoreError> {
+        if !store::holds(&self.db(), id, worker)? {
+            return Err(StoreError::NotHeld(id.to_owned()));
+        }
+        self.lease_of(id, worker)
+    }
+
+    fn lease_of(&self, id: &str, worker: &str) -> Result<Lease, StoreError> {
         let row = self.row(id)?;
         let flow =
             FlowDefinition::from_json(&row.definition).map_err(|e| StoreError::Unreadable(e.to_string()))?;
-        let plan = match Plan::compile(&flow, &self.catalog) {
-            Ok(plan) => plan,
-            Err(errors) => {
-                let reason = errors.iter().map(ToString::to_string).collect::<Vec<_>>().join("; ");
-                let outcome = RunOutcome::Stopped { node: String::new(), reason };
-                return self.end(id, worker, &outcome);
-            }
-        };
-        let started = match row.started_ms {
+        let started_ms = match row.started_ms {
             Some(ms) => ms,
             None => {
                 let now = self.now();
@@ -310,68 +520,89 @@ impl Runtime {
                 now
             }
         };
-        let Kept { checkpoint, in_progress, woken } = self.checkpoint(id, &plan, started)?;
+        // A flow that no longer compiles keeps every part: the worker refuses it anyway.
+        let plan = Plan::compile(&flow, &self.catalog).ok();
+        let Kept { checkpoint, in_progress, woken } = self.checkpoint(id, plan.as_ref(), started_ms)?;
         let mut events = BTreeMap::new();
         for (name, items) in store::events(&self.db(), id)? {
             events.insert(name, serde_json::from_str::<Vec<Item>>(&items)?);
         }
-        let failure: RefCell<Option<StoreError>> = RefCell::new(None);
-        let lost = RefCell::new(false);
-        let mut executor = Executor::new(&plan, &self.catalog)
-            .mode(row.mode)
-            .shared_clock(self.clock.clone())
-            .events(events)
-            .woken(woken)
-            .on_step(|step| {
-                if let Err(e) = self.write_step(id, worker, step, &lost) {
-                    failure.borrow_mut().get_or_insert(e);
-                }
-            });
-        if let Some(node) = &row.start_node {
-            executor = executor.start_with(node.clone(), row.input.clone());
-        }
-        let run = executor.resume(&checkpoint, &in_progress);
-        drop(executor);
-        if let Some(e) = failure.into_inner() {
-            return Err(e);
-        }
-        if lost.into_inner() {
-            return Ok(RunStatus::Running);
-        }
-        self.end(id, worker, &run.outcome)
+        let settled = checkpoint
+            .order
+            .iter()
+            .filter_map(|node| checkpoint.nodes.get(node).map(|part| (node.clone(), part.clone())))
+            .collect();
+        Ok(Lease {
+            id: id.to_owned(),
+            worker: worker.to_owned(),
+            definition: row.definition,
+            test: row.mode == Mode::Test,
+            start_node: row.start_node,
+            input: row.input,
+            started_ms,
+            settled,
+            in_progress,
+            woken,
+            events,
+            cancel_requested: row.cancel_requested,
+        })
     }
 
-    fn write_step(
-        &self,
-        id: &str,
-        worker: &str,
-        step: Step<'_>,
-        lost: &RefCell<bool>,
-    ) -> Result<(), StoreError> {
+    /// Writes `step` of `id`, which `worker` runs elsewhere, and renews its lease; whether it still
+    /// holds the run and whether someone asked to cancel it. A worker that no longer holds it
+    /// writes nothing.
+    pub fn record(&self, id: &str, worker: &str, step: &StepRecord) -> Result<Held, StoreError> {
+        {
+            let db = self.db();
+            if !store::holds(&db, id, worker)? {
+                return Ok(Held { held: false, cancel: None });
+            }
+            match step {
+                StepRecord::Started { node } => store::started(&db, id, node)?,
+                StepRecord::Settled { node, part } => {
+                    store::settled(&db, id, node, &serde_json::to_string(part)?)?;
+                }
+                StepRecord::LoopDone { head } => store::loop_done(&db, id, head)?,
+            }
+        }
+        self.renew(id, worker)
+    }
+
+    /// Gives `worker` more time on `id`, with no step to write: what a worker does while a node
+    /// runs for long, and what a host does for a worker it knows is still there. Whether it still
+    /// holds the run, and whether someone asked to cancel it.
+    pub fn renew(&self, id: &str, worker: &str) -> Result<Held, StoreError> {
         let db = self.db();
-        match step {
-            Step::Started { node } => store::started(&db, id, node)?,
-            Step::Settled { node, part } => store::settled(&db, id, node, &serde_json::to_string(part)?)?,
-            Step::LoopDone { head } => store::loop_done(&db, id, head)?,
-            _ => {}
-        }
         let until = self.now().saturating_add(self.lease_ms as i64);
-        if !store::renew(&db, id, worker, until)? {
-            *lost.borrow_mut() = true;
+        let held = store::renew(&db, id, worker, until)?;
+        let cancel: Option<String> = db
+            .query_row("SELECT cancel_requested FROM runs WHERE id = ?1", params![id], |row| row.get(0))
+            .optional()?
+            .flatten();
+        Ok(Held { held, cancel })
+    }
+
+    /// Ends `id`, which `worker` ran elsewhere, as `outcome` says; its status after.
+    /// [`StoreError::NotHeld`] when `worker` no longer holds it, and then nothing changes.
+    pub fn finish(&self, id: &str, worker: &str, outcome: &RunOutcome) -> Result<RunStatus, StoreError> {
+        if !store::holds(&self.db(), id, worker)? {
+            return Err(StoreError::NotHeld(id.to_owned()));
         }
-        Ok(())
+        self.end(id, worker, outcome)
     }
 
     /// What `id` kept: the parts of the nodes that settled (a loop only once it ended), the
     /// nodes it was in when it stopped, and how each waiting node waits.
-    fn checkpoint(&self, id: &str, plan: &Plan, started: i64) -> Result<Kept, StoreError> {
+    fn checkpoint(&self, id: &str, plan: Option<&Plan>, started: i64) -> Result<Kept, StoreError> {
         let db = self.db();
         let ended: BTreeSet<String> = store::loops(&db, id)?.into_iter().collect();
         let mut unfinished: BTreeSet<&str> = BTreeSet::new();
-        for head in plan.order().iter().filter(|n| !plan.loop_body(n).is_empty()) {
-            if !ended.contains(head) {
-                unfinished.insert(head);
-                unfinished.extend(plan.loop_body(head).iter().map(String::as_str));
+        if let Some(plan) = plan {
+            for head in plan.order().iter().filter(|n| !plan.loop_body(n).is_empty()) {
+                if !ended.contains(head) {
+                    unfinished.insert(head);
+                    unfinished.extend(plan.loop_body(head).iter().map(String::as_str));
+                }
             }
         }
         let mut run = Run::default();
@@ -407,7 +638,7 @@ impl Runtime {
         let ended = status.ended().then(|| self.now());
         self.db().execute(
             "UPDATE runs SET status = ?3, outcome = ?4, wake_at = ?5, wake_event = ?6, ended_ms = ?7, lease_until = NULL
-             WHERE id = ?1 AND worker = ?2",
+             WHERE id = ?1 AND worker = ?2 AND status = 'running'",
             params![id, worker, status.as_str(), serde_json::to_string(outcome)?, wake_at, wake_event, ended],
         )?;
         Ok(status)
@@ -437,8 +668,16 @@ impl Runtime {
             _ => FlowDefinition::from_json(&row.definition)
                 .map_err(|e| StoreError::Unreadable(e.to_string()))?,
         };
-        let request =
-            Request { flow, start_node: row.start_node, input: row.input, actor: row.actor, mode: row.mode };
+        // Running again is asked for on purpose: it never joins a run in the queue.
+        let request = Request {
+            flow,
+            start_node: row.start_node,
+            input: row.input,
+            actor: row.actor,
+            mode: row.mode,
+            priority: row.priority,
+            key: None,
+        };
         self.insert(&request, Some(id))
     }
 
@@ -446,7 +685,7 @@ impl Runtime {
     pub fn get(&self, id: &str) -> Result<RunRecord, StoreError> {
         self.db()
             .query_row(
-                "SELECT id, flow_id, revision, status, outcome, origin, actor, worker, created_ms, ended_ms FROM runs WHERE id = ?1",
+                "SELECT id, flow_id, revision, status, outcome, origin, actor, worker, created_ms, ended_ms, priority, dedupe_key, joined FROM runs WHERE id = ?1",
                 params![id],
                 |row| {
                     Ok((
@@ -460,12 +699,14 @@ impl Runtime {
                         row.get::<_, Option<String>>(7)?,
                         row.get::<_, i64>(8)?,
                         row.get::<_, Option<i64>>(9)?,
+                        (row.get::<_, i32>(10)?, row.get::<_, Option<String>>(11)?, row.get::<_, u32>(12)?),
                     ))
                 },
             )
             .optional()?
             .ok_or_else(|| StoreError::NoRun(id.to_owned()))
-            .and_then(|(id, flow_id, revision, status, outcome, origin, actor, worker, created_ms, ended_ms)| {
+            .and_then(|(id, flow_id, revision, status, outcome, origin, actor, worker, created_ms, ended_ms, queue)| {
+                let (priority, key, joined) = queue;
                 Ok(RunRecord {
                     id,
                     flow_id,
@@ -477,6 +718,9 @@ impl Runtime {
                     worker,
                     created_ms,
                     ended_ms,
+                    priority,
+                    key,
+                    joined,
                 })
             })
     }
@@ -537,6 +781,9 @@ impl Runtime {
         let mut seen: BTreeMap<String, usize> = BTreeMap::new();
         let mut pruned = Pruned::default();
         for (id, flow, status, ended) in candidates {
+            if retention.flow_id.as_ref().is_some_and(|only| *only != flow) {
+                continue;
+            }
             let place = seen.entry(flow).or_default();
             *place += 1;
             if retention.keep_last.is_some_and(|keep| *place <= keep) {
@@ -559,7 +806,7 @@ impl Runtime {
         let raw = self
             .db()
             .query_row(
-                "SELECT definition, mode, actor, start_node, input, started_ms FROM runs WHERE id = ?1",
+                "SELECT definition, mode, actor, start_node, input, started_ms, priority, cancel_requested FROM runs WHERE id = ?1",
                 params![id],
                 |row| {
                     Ok((
@@ -569,12 +816,13 @@ impl Runtime {
                         row.get::<_, Option<String>>(3)?,
                         row.get::<_, String>(4)?,
                         row.get::<_, Option<i64>>(5)?,
+                        (row.get::<_, i32>(6)?, row.get::<_, Option<String>>(7)?),
                     ))
                 },
             )
             .optional()?
             .ok_or_else(|| StoreError::NoRun(id.to_owned()))?;
-        let (definition, mode, actor, start_node, input, started_ms) = raw;
+        let (definition, mode, actor, start_node, input, started_ms, (priority, cancel_requested)) = raw;
         Ok(RunRow {
             definition,
             mode: if mode == "test" { Mode::Test } else { Mode::Active },
@@ -582,6 +830,8 @@ impl Runtime {
             start_node,
             input: serde_json::from_str(&input)?,
             started_ms,
+            priority,
+            cancel_requested,
         })
     }
 }
@@ -600,4 +850,6 @@ struct RunRow {
     start_node: Option<String>,
     input: Vec<Item>,
     started_ms: Option<i64>,
+    priority: i32,
+    cancel_requested: Option<String>,
 }

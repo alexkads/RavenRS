@@ -62,6 +62,8 @@ impl View for FlowPage {
         let rotatable = cx.use_state(|| true);
         let titles = cx.use_state(|| true);
         let told = cx.use_state(|| false);
+        let strip = cx.use_state(|| false);
+        let hint = cx.use_state(|| false);
         let read_only = cx.use_state(|| false);
         // Off, the wheel scrolls this page past the diagram instead of panning it.
         let wheel = cx.use_state(|| true);
@@ -152,10 +154,14 @@ impl View for FlowPage {
             .label("Diagrama de exemplo")
             .size(wide, 460.0)
             .grow(0.0);
+        // height: a strip as wide as the page, as the stages of a build.
+        let canvas = if strip.get() { canvas.height(200.0) } else { canvas };
+        // hint: what a click does, at the end of the zoom controls.
+        let canvas = if hint.get() { canvas.hint("Clique num nó para ver os detalhes") } else { canvas };
         // A run that happened in the app, as it tells the canvas: the order arrived and went on,
         // the stock check waits, and the note did not run.
         let canvas = if told.get() {
-            canvas.execution(
+            canvas.status_icons(true).execution(
                 FlowRunView::new()
                     .node("start", FlowNodeRun::new(FlowNodeStatus::Success).items("out", 3))
                     .node("check", FlowNodeRun::new(FlowNodeStatus::Waiting("Aguardando o estoque".into())))
@@ -164,6 +170,32 @@ impl View for FlowPage {
         } else {
             canvas
         };
+
+        // height in a row that does not stretch it: beside a text, the strip takes the width of its
+        // stages, never more than the row has (#971).
+        let stages = cx.use_state(|| {
+            ["Baixar", "Compilar", "Testar", "Publicar"].iter().enumerate().fold(
+                FlowGraph::new(),
+                |graph, (i, title)| {
+                    let x = 24.0 + 200.0 * f32::from(u8::try_from(i).unwrap_or(0));
+                    graph.node(FlowNode::new(title.to_lowercase(), "step", *title, x, 24.0))
+                },
+            )
+        });
+        let row_strip = strip.get().then(|| {
+            Box::new(
+                HStack::new((
+                    Text::new("Build 12").style(TextStyle::Headline),
+                    FlowCanvas::new(stages.binding())
+                        .label("Estágios do build 12")
+                        .read_only(true)
+                        .minimap(false)
+                        .height(120.0),
+                ))
+                .spacing(16.0)
+                .align(Align::Center),
+            ) as AnyView
+        });
 
         let a = arrivals.clone();
         let options = Grid::new(
@@ -181,6 +213,8 @@ impl View for FlowPage {
                 Toggle::new(rotatable.binding()).label("Girar"),
                 Toggle::new(titles.binding()).label("Títulos editáveis"),
                 Toggle::new(told.binding()).label("Execução de fora"),
+                Toggle::new(strip.binding()).label("Faixa de 200 pt"),
+                Toggle::new(hint.binding()).label("Dica nos controles"),
                 Toggle::new(read_only.binding()).label("Só leitura"),
                 Toggle::new(wheel.binding()).label("Roda move o diagrama"),
             ],
@@ -202,6 +236,7 @@ impl View for FlowPage {
                 .spacing(12.0)
                 .wrap(),
                 canvas,
+                row_strip,
                 Text::new("Eventos").style(TextStyle::Headline),
                 Text::new(said.get()),
                 Text::new(format!("Nós no diagrama: {}", graph.get().nodes.len())),

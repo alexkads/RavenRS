@@ -1,0 +1,28 @@
+# One explanation of a failed build of Raven CI, by a model of AI that runs here (#942). Started by
+# raven-ci-explicador.socket for each request; it ends with the answer and gives its memory back.
+# The model never runs in the server's process, whose MemoryMax is 256M.
+[Unit]
+Description=Raven CI, explicação de uma falha com IA local
+Documentation=https://github.com/alexkads/RavenRS/tree/master/tools/raven-ci/docs/ai.md
+
+[Service]
+Type=simple
+User=raven-ci
+Group=raven-ci
+ExecStart=/usr/bin/raven-ci-explicador --pasta /var/lib/raven-ci-explicador/modelos
+StandardInput=socket
+StandardOutput=socket
+StandardError=journal
+StateDirectory=raven-ci-explicador
+# A model of 1.7B takes about 1.5 GB; the limit leaves room for one of 4B.
+MemoryMax=6G
+CPUWeight=50
+IOWeight=50
+# Nothing leaves the machine: the explanation reads the summary and the model on disk, nothing else.
+PrivateNetwork=yes
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+TimeoutStopSec=10
+RuntimeMaxSec=300

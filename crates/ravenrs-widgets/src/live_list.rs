@@ -90,6 +90,10 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     ravenrs_core::FileStorage::__live_expose_fields(registry);
     #[cfg(not(target_arch = "wasm32"))]
     ravenrs_core::FileStorage::__live_expose(registry);
+    ravenrs_core::TrayEntry::__live_expose_variants(registry);
+    ravenrs_core::TrayEntry::__live_expose(registry);
+    ravenrs_core::TrayMenu::__live_expose_fields(registry);
+    ravenrs_core::TrayMenu::__live_expose(registry);
     ravenrs_style::Semantic::__live_expose_variants(registry);
     ravenrs_style::Palette::__live_expose_fields(registry);
     ravenrs_style::Palette::__live_expose(registry);
@@ -301,6 +305,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::QuadPaint::__live_expose_fields(registry);
     crate::QuadPaint::__live_expose(registry);
     crate::Paint::__live_expose_variants(registry);
+    crate::BusySignal::__live_expose_fields(registry);
+    crate::BusySignal::__live_expose(registry);
     crate::DragPhase::__live_expose_variants(registry);
     crate::Drag::__live_expose_fields(registry);
     crate::Drag::__live_expose(registry);
@@ -316,6 +322,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Tone::__live_expose(registry);
     crate::Badge::__live_expose_fields(registry);
     crate::Badge::__live_expose(registry);
+    crate::AvatarShape::__live_expose_variants(registry);
     crate::Avatar::__live_expose_fields(registry);
     crate::Avatar::__live_expose(registry);
     crate::Divider::__live_expose_fields(registry);
@@ -333,6 +340,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::DockSide::__live_expose_variants(registry);
     crate::DockSide::__live_expose(registry);
     crate::Labels::__live_expose(registry);
+    crate::Driving::__live_expose_variants(registry);
     crate::Spinner::__live_expose_fields(registry);
     crate::Spinner::__live_expose(registry);
     crate::Carousel::__live_expose_fields(registry);
@@ -514,9 +522,10 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Turn::__live_expose_variants(registry);
     crate::QuarterTurn::<crate::AnyView>::__live_expose(registry);
     crate::Ui::__live_expose(registry);
+    crate::Ui::__live_expose_part1(registry);
     crate::UiStats::__live_expose_fields(registry);
     crate::Ui::__live_expose_fields(registry);
-    crate::Ui::__live_expose_part1(registry);
+    crate::Ui::__live_expose_part2(registry);
     crate::Keyed::<crate::AnyView>::__live_expose(registry);
     crate::ZoomView::__live_expose_fields(registry);
     crate::ZoomView::__live_expose(registry);
@@ -638,6 +647,10 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::ValueSlider::__live_expose(registry);
     crate::InlineRename::__live_expose_fields(registry);
     crate::InlineRename::__live_expose(registry);
+    crate::ReceiptLine::__live_expose_fields(registry);
+    crate::ReceiptLine::__live_expose(registry);
+    crate::Receipt::__live_expose_fields(registry);
+    crate::Receipt::__live_expose(registry);
     crate::CodeBlock::__live_expose_fields(registry);
     crate::CodeBlock::__live_expose(registry);
     crate::ReleaseNote::__live_expose_fields(registry);
@@ -653,6 +666,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::OverlayBadge::<crate::AnyView, crate::AnyView>::__live_expose(registry);
     crate::Rating::__live_expose_fields(registry);
     crate::Rating::__live_expose(registry);
+    crate::DateTile::__live_expose_fields(registry);
+    crate::DateTile::__live_expose(registry);
     crate::IconTile::__live_expose_fields(registry);
     crate::IconTile::__live_expose(registry);
     crate::EmptyState::__live_expose_fields(registry);
@@ -917,6 +932,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::CalendarEvent::__live_expose_fields(registry);
     crate::CalendarEvent::__live_expose(registry);
     crate::CalendarView::__live_expose_variants(registry);
+    crate::Hemisphere::__live_expose_variants(registry);
     crate::CalendarView::__live_expose(registry);
     crate::EventCalendar::__live_expose_fields(registry);
     crate::EventCalendar::__live_expose(registry);
@@ -945,6 +961,10 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::TimelineEdit::__live_expose_variants(registry);
     crate::Timeline::__live_expose_fields(registry);
     crate::Timeline::__live_expose(registry);
+    crate::DayMark::__live_expose_fields(registry);
+    crate::DayMark::__live_expose(registry);
+    crate::YearView::__live_expose_fields(registry);
+    crate::YearView::__live_expose(registry);
     crate::PathStep::__live_expose_variants(registry);
     crate::DataInspector::__live_expose_fields(registry);
     crate::DataInspector::__live_expose(registry);
@@ -961,20 +981,20 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::FilmstripCell::__live_expose_fields(registry);
     crate::Filmstrip::__live_expose_fields(registry);
     crate::Filmstrip::__live_expose(registry);
-    crate::PagedDocumentView::__live_expose_fields(registry);
-    crate::PagedDocumentView::__live_expose(registry);
-    crate::SortableList::__live_expose_fields(registry);
-    crate::SortableList::__live_expose(registry);
     crate::LogBuffer::__live_expose_fields(registry);
     crate::LogBuffer::__live_expose(registry);
     crate::LogView::__live_expose_fields(registry);
     crate::LogView::__live_expose(registry);
+    crate::PagedDocumentView::__live_expose_fields(registry);
+    crate::PagedDocumentView::__live_expose(registry);
+    crate::Chronology::__live_expose_fields(registry);
+    crate::Chronology::__live_expose(registry);
+    crate::ChronologyItem::__live_expose_fields(registry);
+    crate::ChronologyItem::__live_expose(registry);
+    crate::SortableList::__live_expose_fields(registry);
+    crate::SortableList::__live_expose(registry);
     crate::VirtualList::__live_expose_fields(registry);
     crate::VirtualList::__live_expose(registry);
-    crate::DayMark::__live_expose_fields(registry);
-    crate::DayMark::__live_expose(registry);
-    crate::YearView::__live_expose_fields(registry);
-    crate::YearView::__live_expose(registry);
     crate::TreeNode::__live_expose_fields(registry);
     crate::TreeNode::__live_expose(registry);
     crate::TreeView::__live_expose_fields(registry);
@@ -1018,6 +1038,9 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::GridCurrent::__live_expose(registry);
     crate::DataGrid::__live_expose(registry);
     crate::DataGrid::__live_expose_part1(registry);
+    crate::book::__live_expose(registry);
+    #[cfg(feature = "testing")]
+    crate::testing::__live_expose(registry);
     #[cfg(feature = "charts")]
     registry.alias("ChartCurve", "Curve");
     #[cfg(feature = "charts")]
@@ -1134,6 +1157,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::HoverCard<crate::AnyView, crate::AnyView>>(registry);
     crate::live::view::<crate::Icon>(registry);
     crate::live::view::<crate::IconButton>(registry);
+    crate::live::view::<crate::DateTile>(registry);
     crate::live::view::<crate::IconTile>(registry);
     crate::live::view::<crate::Image>(registry);
     #[cfg(feature = "decode")]
@@ -1149,6 +1173,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::List<Vec<crate::AnyView>>>(registry);
     crate::live::view::<crate::ListItem>(registry);
     crate::live::view::<crate::Localized<crate::AnyView>>(registry);
+    crate::live::view::<crate::LogView>(registry);
     crate::live::view::<crate::LookupField>(registry);
     #[cfg(feature = "lottie")]
     crate::live::view::<crate::Lottie>(registry);
@@ -1176,6 +1201,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::QuarterTurn<crate::AnyView>>(registry);
     crate::live::view::<crate::RadioGroup>(registry);
     crate::live::view::<crate::Rating>(registry);
+    crate::live::view::<crate::Receipt>(registry);
     crate::live::view::<crate::RecurrenceEditor>(registry);
     crate::live::view::<crate::ReleaseNotes>(registry);
     crate::live::view::<crate::Ribbon>(registry);
@@ -1210,6 +1236,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::SidebarTrigger>(registry);
     crate::live::view::<crate::Skeleton>(registry);
     crate::live::view::<crate::Slider>(registry);
+    crate::live::view::<crate::Chronology>(registry);
     crate::live::view::<crate::SortableList>(registry);
     crate::live::view::<crate::Spacer>(registry);
     crate::live::view::<crate::Spinner>(registry);
@@ -1229,6 +1256,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::Table>(registry);
     crate::live::view::<crate::Tabs>(registry);
     crate::live::view::<crate::TagBox>(registry);
+    crate::live::view::<crate::TestId<crate::AnyView>>(registry);
     crate::live::view::<crate::Text>(registry);
     crate::live::view::<crate::TextArea>(registry);
     crate::live::view::<crate::TextField>(registry);
@@ -1250,7 +1278,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::TransformHandles>(registry);
     crate::live::view::<crate::TreeView>(registry);
     crate::live::view::<crate::ValueSlider>(registry);
-    crate::live::view::<crate::LogView>(registry);
     crate::live::view::<crate::VirtualList>(registry);
     crate::live::view::<crate::Wizard>(registry);
     crate::live::view::<crate::YearView>(registry);

@@ -8,6 +8,13 @@ use ravenrs_reactive::State;
 use ravenrs_style::{Semantic, Theme};
 use ravenrs_widgets::*;
 
+fn in_theme(view: impl View + 'static, theme: Theme) -> Ui {
+    let mut ui = Ui::new(view, theme);
+    ui.set_viewport(Size::new(800.0, 600.0), 1.0);
+    ui.update();
+    ui
+}
+
 fn ui(view: impl View + 'static) -> Ui {
     let mut ui = Ui::new(view, Theme::raven_dark());
     ui.set_viewport(Size::new(800.0, 600.0), 1.0);
@@ -222,6 +229,85 @@ fn tooltip_appears_on_hover() {
     let mut ui = ui(VStack::new((Tooltip::new(Text::new("Hover me"), "Explains things"),)).padding(80.0));
     let runs = glyph_runs(&ui);
     ui.handle_event(&Event::PointerMove { position: Point::new(90.0, 90.0) });
+    ui.update();
+    assert_eq!(glyph_runs(&ui), runs + 1);
+}
+
+/// Moves the clock to `at` in short frames, as a screen does, so what fades out is gone: the
+/// animations skip a long gap instead of jumping to its end.
+fn settle(ui: &mut Ui, from: f64, at: f64) {
+    let mut now = from;
+    while now < at {
+        now = (now + 1.0 / 60.0).min(at);
+        ui.set_time(now);
+        ui.update();
+    }
+    ui.update();
+}
+
+#[test]
+fn a_tooltip_opens_from_the_keyboard_and_escape_hides_it_without_moving_the_focus() {
+    let mut ui =
+        ui(VStack::new((Tooltip::new(Button::new("Save"), "Saves the draft"), Button::new("Other")))
+            .padding(80.0));
+    let runs = glyph_runs(&ui);
+    key(&mut ui, Key::Tab);
+    ui.update();
+    assert_eq!(glyph_runs(&ui), runs + 1, "the focus from the keyboard shows it");
+    let focused = ui.access_tree().focus;
+    assert!(focused.is_some());
+    key(&mut ui, Key::Escape);
+    settle(&mut ui, 0.0, 2.0);
+    assert_eq!(glyph_runs(&ui), runs, "Escape hides it");
+    assert_eq!(ui.access_tree().focus, focused, "and the focus stays on the button");
+    settle(&mut ui, 2.0, 4.0);
+    assert_eq!(glyph_runs(&ui), runs, "it does not come back by itself");
+    key(&mut ui, Key::Tab);
+    settle(&mut ui, 4.0, 6.0);
+    assert_eq!(glyph_runs(&ui), runs, "on the other button, nothing");
+    key(&mut ui, Key::Tab);
+    ui.update();
+    assert_eq!(glyph_runs(&ui), runs + 1, "a new visit shows it again");
+}
+
+#[test]
+fn a_tooltip_waits_before_it_opens_and_lingers_after_the_pointer_leaves() {
+    let mut ui = ui(VStack::new((Tooltip::new(Text::new("Hover me"), "Explains things")
+        .open_delay(0.5)
+        .close_delay(0.3),))
+    .padding(80.0));
+    let runs = glyph_runs(&ui);
+    ui.set_time(10.0);
+    ui.handle_event(&Event::PointerMove { position: Point::new(90.0, 90.0) });
+    ui.update();
+    assert_eq!(glyph_runs(&ui), runs, "not before the delay");
+    ui.set_time(10.6);
+    ui.update();
+    ui.update();
+    assert_eq!(glyph_runs(&ui), runs + 1, "after resting half a second");
+    ui.set_time(11.0);
+    ui.handle_event(&Event::PointerMove { position: Point::new(5.0, 5.0) });
+    ui.update();
+    assert_eq!(glyph_runs(&ui), runs + 1, "it stays a moment after the pointer leaves");
+    settle(&mut ui, 11.0, 12.0);
+    assert_eq!(glyph_runs(&ui), runs, "and then goes");
+    ui.set_time(13.0);
+    ui.handle_event(&Event::PointerMove { position: Point::new(90.0, 90.0) });
+    ui.update();
+    ui.set_time(13.2);
+    ui.handle_event(&Event::PointerMove { position: Point::new(5.0, 5.0) });
+    ui.update();
+    settle(&mut ui, 13.2, 14.0);
+    assert_eq!(glyph_runs(&ui), runs, "passing by quickly shows nothing");
+}
+
+#[test]
+fn a_tooltip_over_a_disabled_button_still_explains_it() {
+    let mut ui =
+        ui(VStack::new((Tooltip::new(Button::new("Send").disabled(true), "Fill in the address first"),))
+            .padding(80.0));
+    let runs = glyph_runs(&ui);
+    ui.handle_event(&Event::PointerMove { position: Point::new(95.0, 95.0) });
     ui.update();
     assert_eq!(glyph_runs(&ui), runs + 1);
 }
@@ -1408,4 +1494,346 @@ fn labels_fill_their_templates_in_each_language() {
     assert_eq!(pt.rating_value(3, 5), "3 de 5");
     assert_eq!(en.wizard_progress(2, 4), "Step 2 of 4");
     assert_eq!(pt.tag_add("azul"), "Adicionar \"azul\"");
+}
+
+#[test]
+fn a_rounded_avatar_is_a_square_with_md_corners_and_crops_its_picture_the_same() {
+    let corners = |ui: &Ui| quads(ui).iter().map(|q| q.corner_radii[0]).collect::<Vec<_>>();
+    let md = Theme::raven_dark().radii.md;
+    let circle = ui(Avatar::new("Ana Lima").size(36.0));
+    assert!(corners(&circle).contains(&18.0), "a circle by default: {:?}", corners(&circle));
+    let rounded = ui(Avatar::new("Ana Lima").size(36.0).shape(AvatarShape::Rounded));
+    assert!(corners(&rounded).contains(&md), "radius-md: {:?}", corners(&rounded));
+    assert!(!corners(&rounded).contains(&18.0));
+    let picture =
+        ravenrs_core::ImageData::from_fn(8, 8, |_, _| ravenrs_core::Color::WHITE).expect("a picture");
+    let mut photo =
+        ui(Avatar::new("Ana Lima").size(36.0).shape(AvatarShape::Rounded).image(Image::new(picture)));
+    let cropped = photo.scene().primitives().iter().find_map(|p| match p {
+        Primitive::Image(image) => Some(image.corner_radii),
+        _ => None,
+    });
+    assert_eq!(cropped, Some([md; 4]), "the picture takes the same corners");
+    assert!(photo.access_tree().find(ravenrs_core::Role::Image, "Ana Lima").is_some(), "and is still named");
+}
+
+#[test]
+fn a_stat_value_in_a_tone_reads_at_4_5_to_1_over_a_card_in_every_theme() {
+    for theme in [Theme::raven_dark(), Theme::raven_light(), Theme::raven_glass()] {
+        // The card over the canvas, as the eye sees a translucent glass surface.
+        let card = theme.color(Semantic::SurfaceElevated);
+        let ground = theme.color(Semantic::Canvas).lerp(card.with_alpha(1.0), card.a);
+        let ink = theme.color(Semantic::Ink);
+        for tone in [Tone::Accent, Tone::Success, Tone::Warning, Tone::Danger] {
+            let ui = in_theme(Stat::new("Pós-venda", "R$ 1.240").value_tone(tone), theme);
+            let painted = ui
+                .scene()
+                .primitives()
+                .iter()
+                .find_map(|p| match p {
+                    Primitive::Glyphs(run) if run.size == 30.0 => Some(run.color),
+                    _ => None,
+                })
+                .expect("the value is painted");
+            assert_ne!(painted, ink, "{tone:?} paints the value in its tone");
+            let ratio = painted.contrast_ratio(ground);
+            assert!(ratio >= 4.5, "{tone:?} reads at {ratio:.2}:1");
+        }
+        let plain = in_theme(Stat::new("Caixa", "R$ 2.180"), theme);
+        assert!(
+            plain
+                .scene()
+                .primitives()
+                .iter()
+                .any(|p| matches!(p, Primitive::Glyphs(run) if run.size == 30.0 && run.color == ink)),
+            "without a tone the value stays in ink"
+        );
+    }
+}
+
+#[test]
+fn a_select_with_an_icon_draws_it_before_the_value_in_ink_muted() {
+    let muted = Theme::raven_dark().color(Semantic::InkMuted);
+    let plain = ui(Select::new(State::new(0usize).binding(), ["Estúdio"]).label("Estúdio"));
+    let pinned =
+        ui(Select::new(State::new(0usize).binding(), ["Estúdio"]).label("Estúdio").icon(IconName::MapPin));
+    assert_eq!(glyph_runs(&pinned), glyph_runs(&plain) + 1, "one more run of glyphs: the icon");
+    let runs: Vec<(f32, bool)> = pinned
+        .scene()
+        .primitives()
+        .iter()
+        .filter_map(|p| match p {
+            Primitive::Glyphs(g) => g.glyphs.first().map(|first| (first.x, g.color == muted)),
+            _ => None,
+        })
+        .collect();
+    let icon = runs.iter().filter(|(_, m)| *m).map(|(x, _)| *x).fold(f32::MAX, f32::min);
+    let value = runs.iter().filter(|(_, m)| !*m).map(|(x, _)| *x).fold(f32::MAX, f32::min);
+    assert!(icon < value, "the icon comes before the value: {runs:?}");
+    let mut pinned = pinned;
+    assert!(pinned.access_tree().find(ravenrs_core::Role::ComboBox, "Estúdio").is_some(), "the same name");
+}
+
+#[test]
+fn a_dropdown_menu_opens_from_any_view_by_click_or_key_and_gives_it_the_focus_back() {
+    let open = State::new(false);
+    let mut ui = ui(VStack::new((DropdownMenu::new("Conta")
+        .trigger(HStack::new((Avatar::new("Ana Lima"), Text::new("Ana Lima"))).spacing(8.0))
+        .open(open.binding())
+        .item(MenuItem::new("Sair")),))
+    .padding(20.0));
+    let at = ui
+        .access_tree()
+        .find(ravenrs_core::Role::Button, "Conta")
+        .map(|n| n.bounds.center())
+        .expect("the view is a button named by the label");
+    click(&mut ui, at);
+    assert!(open.get(), "a click on the view opens the menu");
+    key(&mut ui, Key::Escape);
+    assert!(!open.get(), "Escape closes it");
+    key(&mut ui, Key::Enter);
+    assert!(open.get(), "the focus came back to the view, and Enter opens it again");
+}
+
+#[test]
+fn a_menu_title_names_its_group_and_the_arrows_pass_over_it() {
+    let picked = State::new(String::new());
+    let (first, second) = (picked.clone(), picked.clone());
+    let open = State::new(true);
+    let mut ui = ui(VStack::new((DropdownMenu::new("Conta")
+        .open(open.binding())
+        .item(MenuItem::new("Configurações").on_select(move || first.set("Configurações".to_owned())))
+        .separator()
+        .label("Tema")
+        .item(MenuItem::new("Claro").on_select(move || second.set("Claro".to_owned()))),))
+    .padding(20.0));
+    ui.update();
+    ui.update();
+    let tree = ui.access_tree();
+    assert!(
+        tree.find(ravenrs_core::Role::Group, "Tema").is_some(),
+        "the section is a group named by its title"
+    );
+    assert!(
+        tree.nodes
+            .iter()
+            .all(|n| n.role != ravenrs_core::Role::MenuItem || n.name.as_deref() != Some("TEMA")),
+        "the title is no item"
+    );
+    key(&mut ui, Key::ArrowDown);
+    key(&mut ui, Key::Enter);
+    assert_eq!(picked.get(), "Claro", "the arrow went from the first item over the title to the next");
+}
+
+#[test]
+fn a_menu_header_sits_above_the_items_without_taking_the_focus() {
+    let picked = State::new(String::new());
+    let chosen = picked.clone();
+    let open = State::new(true);
+    let mut ui = ui(VStack::new((DropdownMenu::new("Conta")
+        .open(open.binding())
+        .header(VStack::new((Text::new("Ana Lima"), Text::new("ana@exemplo.com"))))
+        .item(MenuItem::new("Sair").on_select(move || chosen.set("Sair".to_owned()))),))
+    .padding(20.0));
+    ui.update();
+    ui.update();
+    let tree = ui.access_tree();
+    let header = tree.nodes.iter().find(|n| n.name.as_deref() == Some("ana@exemplo.com")).map(|n| n.bounds);
+    let item = tree.find(ravenrs_core::Role::MenuItem, "Sair").map(|n| n.bounds);
+    let (header, item) = (header.expect("the header"), item.expect("the item"));
+    assert!(header.max_y() <= item.y(), "the header is above the items");
+    key(&mut ui, Key::Enter);
+    assert_eq!(picked.get(), "Sair", "the focus opened on the first item, not on the header");
+    assert!(!open.get(), "choosing it closed the menu");
+}
+
+#[test]
+fn a_monospaced_text_draws_every_character_at_the_same_width() {
+    // From the first glyph to the last: three advances, whatever frame the text sits in.
+    let span = |text: &str, mono: bool| {
+        let line = if mono { Text::new(text).mono() } else { Text::new(text) };
+        let ui = ui(line);
+        let xs: Vec<f32> = ui
+            .scene()
+            .primitives()
+            .iter()
+            .filter_map(|p| match p {
+                Primitive::Glyphs(g) => Some(g.glyphs.iter().map(|glyph| glyph.x).collect::<Vec<_>>()),
+                _ => None,
+            })
+            .flatten()
+            .collect();
+        assert_eq!(xs.len(), 4, "four glyphs of {text:?}");
+        xs[3] - xs[0]
+    };
+    let (thin, wide) = (span("iiii", true), span("MMMM", true));
+    assert!((thin - wide).abs() < 0.01, "monospaced: the same count, the same width ({thin} and {wide})");
+    assert!(span("iiii", false) < span("MMMM", false), "and Inter stays proportional");
+}
+
+#[test]
+fn a_receipt_reads_its_lines_in_order_and_the_total_by_name_and_amount() {
+    let mut ui = ui(Receipt::new()
+        .title("Cupom")
+        .line(ReceiptLine::new("FOTO 10X15", "30,00").detail("2 x 15,00"))
+        .line(ReceiptLine::new("ALBUM 20X30", "189,90"))
+        .summary("SUBTOTAL (2 ITENS)", "219,90")
+        .total("TOTAL A RECEBER", "R$ 219,90"));
+    let tree = ui.access_tree();
+    let lines: Vec<(Option<String>, Option<String>)> = tree
+        .nodes
+        .iter()
+        .filter(|n| n.role == ravenrs_core::Role::ListItem)
+        .map(|n| (n.name.clone(), n.value.clone()))
+        .collect();
+    assert_eq!(
+        lines,
+        [
+            (Some("FOTO 10X15".to_owned()), Some("30,00".to_owned())),
+            (Some("ALBUM 20X30".to_owned()), Some("189,90".to_owned()))
+        ],
+        "the lines in order, each with what it comes to"
+    );
+    let first = tree.find(ravenrs_core::Role::ListItem, "FOTO 10X15").expect("the first line");
+    assert_eq!(first.description.as_deref(), Some("2 x 15,00"), "how many at what price");
+    assert!(tree.find(ravenrs_core::Role::List, "Receipt items").is_some(), "a list");
+    let total = tree.find(ravenrs_core::Role::Status, "TOTAL A RECEBER").expect("the total");
+    assert_eq!(total.value.as_deref(), Some("R$ 219,90"));
+    let second = tree.find(ravenrs_core::Role::ListItem, "ALBUM 20X30").expect("the second line").bounds;
+    assert!(first.bounds.max_y() <= second.y(), "one under the other");
+    assert!(second.max_y() <= total.bounds.y(), "and the total at the foot");
+}
+
+#[test]
+fn an_empty_receipt_says_where_the_lines_will_show_and_draws_them_monospaced() {
+    let mut receipt = ui(Receipt::new().total("TOTAL A RECEBER", "R$ 0,00"));
+    let tree = receipt.access_tree();
+    assert!(tree.nodes.iter().any(|n| n.name.as_deref() == Some("The receipt shows here.")));
+    assert!(tree.find(ravenrs_core::Role::List, "Receipt items").is_none(), "no list without lines");
+    assert_eq!(
+        tree.find(ravenrs_core::Role::Status, "TOTAL A RECEBER").and_then(|n| n.value.clone()).as_deref(),
+        Some("R$ 0,00")
+    );
+    let mut own = ui(Receipt::new().empty_text("Passe o primeiro produto."));
+    assert!(own.access_tree().nodes.iter().any(|n| n.name.as_deref() == Some("Passe o primeiro produto.")));
+}
+
+/// The options of a choice, with their state: (name, selected, disabled, read only).
+fn options_of(ui: &mut Ui) -> Vec<(String, bool, bool, bool)> {
+    ui.access_tree()
+        .nodes
+        .iter()
+        .filter(|n| n.role == ravenrs_core::Role::RadioButton)
+        .map(|n| (n.name.clone().unwrap_or_default(), n.selected == Some(true), n.disabled, n.read_only))
+        .collect()
+}
+
+fn option_at(ui: &mut Ui, name: &str) -> Point {
+    ui.access_tree()
+        .find(ravenrs_core::Role::RadioButton, name)
+        .map(|n| n.bounds.center())
+        .unwrap_or_else(|| panic!("no option {name}"))
+}
+
+#[test]
+fn a_choice_skips_the_options_that_cannot_be_chosen() {
+    for segmented in [false, true] {
+        let chosen = State::new(0_usize);
+        let view: Box<dyn View> = if segmented {
+            Box::new(SegmentedControl::new(chosen.binding(), ["Dia", "Semana", "Mês"]).disable_option(1))
+        } else {
+            Box::new(RadioGroup::new(chosen.binding(), ["Dia", "Semana", "Mês"]).disable_option(1))
+        };
+        let mut ui = ui(VStack::new((view,)).padding(20.0));
+        let states = options_of(&mut ui);
+        assert_eq!(states[1], ("Semana".to_owned(), false, true, false), "{segmented}: off and said so");
+        let at = option_at(&mut ui, "Semana");
+        click(&mut ui, at);
+        assert_eq!(chosen.get(), 0, "{segmented}: a click on it chooses nothing");
+        key(&mut ui, Key::Tab);
+        key(&mut ui, Key::ArrowRight);
+        assert_eq!(chosen.get(), 2, "{segmented}: the arrow goes over it");
+        key(&mut ui, Key::ArrowLeft);
+        assert_eq!(chosen.get(), 0, "{segmented}: both ways");
+    }
+}
+
+#[test]
+fn a_choice_turned_off_leaves_the_tab_order_and_one_read_only_keeps_it_without_choosing() {
+    let chosen = State::new(0_usize);
+    let mut off = ui(VStack::new((
+        RadioGroup::new(chosen.binding(), ["A", "B"]).disabled(true),
+        Button::new("Depois"),
+    ))
+    .padding(20.0));
+    key(&mut off, Key::Tab);
+    let tree = off.access_tree();
+    let focused = tree.nodes.iter().find(|n| Some(n.id) == tree.focus).and_then(|n| n.name.clone());
+    assert_eq!(focused.as_deref(), Some("Depois"), "Tab goes past the group that is off");
+    let at = option_at(&mut off, "B");
+    click(&mut off, at);
+    assert_eq!(chosen.get(), 0);
+    assert!(options_of(&mut off).iter().all(|o| o.2), "every option says it is off");
+
+    let mut read =
+        ui(VStack::new((SegmentedControl::new(chosen.binding(), ["A", "B"]).read_only(true),)).padding(20.0));
+    key(&mut read, Key::Tab);
+    assert!(read.access_tree().focus.is_some(), "read only still takes the focus");
+    key(&mut read, Key::ArrowRight);
+    let at = option_at(&mut read, "B");
+    click(&mut read, at);
+    assert_eq!(chosen.get(), 0, "neither the arrow nor a click chooses");
+    assert!(options_of(&mut read).iter().all(|o| o.3), "and screen readers hear it is read only");
+}
+
+#[test]
+fn a_choice_with_every_option_off_or_none_at_all_chooses_nothing() {
+    let chosen = State::new(0_usize);
+    let mut ui = ui(VStack::new((
+        RadioGroup::new(chosen.binding(), ["A", "B"]).disable_option(0).disable_option(1),
+        RadioGroup::new(State::new(0_usize).binding(), Vec::<String>::new()),
+    ))
+    .padding(20.0));
+    key(&mut ui, Key::Tab);
+    assert!(ui.access_tree().focus.is_none(), "nothing to focus");
+    key(&mut ui, Key::ArrowRight);
+    assert_eq!(chosen.get(), 0);
+    assert_eq!(
+        options_of(&mut ui)[0],
+        ("A".to_owned(), true, true, false),
+        "the chosen one stays shown, off"
+    );
+}
+
+#[test]
+fn a_slider_that_is_off_or_read_only_never_moves_and_still_shows_the_value_the_app_sets() {
+    for (disabled, read_only) in [(true, false), (false, true)] {
+        let volume = State::new(40.0_f32);
+        let mut ui = ui(VStack::new((Slider::new(volume.binding())
+            .range(0.0, 100.0)
+            .step(5.0)
+            .label("Volume")
+            .width(240.0)
+            .disabled(disabled)
+            .read_only(read_only),))
+        .padding(20.0));
+        let bar = ui
+            .access_tree()
+            .find(ravenrs_core::Role::Slider, "Volume")
+            .map(|n| n.bounds)
+            .expect("the slider");
+        click(&mut ui, Point::new(bar.max_x() - 5.0, bar.center().y));
+        key(&mut ui, Key::Tab);
+        key(&mut ui, Key::ArrowRight);
+        assert_eq!(volume.get(), 40.0, "disabled {disabled}, read only {read_only}: nothing moves it");
+        assert_eq!(ui.access_tree().focus.is_some(), read_only, "only read only takes the focus");
+        volume.set(70.0);
+        ui.update();
+        let shown = ui
+            .access_tree()
+            .find(ravenrs_core::Role::Slider, "Volume")
+            .and_then(|n| n.numeric)
+            .map(|n| n.value);
+        assert_eq!(shown, Some(70.0), "a value set by the app still shows");
+    }
 }

@@ -10,3 +10,4 @@ use ravenrs_schedule::Timestamp;
 pub fn at(text: &str) -> Timestamp {
     text.parse().unwrap_or_else(|e| panic!("{text}: {e}"))
 }
+mod period;

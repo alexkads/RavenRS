@@ -229,9 +229,10 @@ impl View for TagBox {
                 let name = format!("{} {caption}", cx.labels().tag_remove);
                 let remove = cx.keyed_child(
                     util::hash_text(&key),
+                    // Mini keeps a tag inside the 40 of a field, as tall as the fields beside it.
                     &IconButton::new(IconName::X)
                         .label(name)
-                        .size(ButtonSize::Small)
+                        .size(ButtonSize::Mini)
                         .on_click(move || selected.update(|chosen| chosen.retain(|k| *k != key))),
                 );
                 // The button that removes a tag is found by the tag it removes.
@@ -275,7 +276,7 @@ impl View for TagBox {
         let border = if is_open {
             Border { width: 1.5, color: theme.color(Semantic::Accent) }
         } else {
-            let base = theme.color(Semantic::Border);
+            let base = theme.color(Semantic::ControlBorder);
             Border {
                 width: 1.0,
                 color: state.ink(if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base }),

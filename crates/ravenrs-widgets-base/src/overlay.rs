@@ -19,7 +19,7 @@ fn panel_paint(theme: &Theme) -> Paint {
         corner_radius: theme.radii.lg,
         border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
         shadow: Some(theme.elevation.raised),
-        ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
+        ..QuadPaint::new(theme.floating_surface())
     })
 }
 
@@ -55,6 +55,8 @@ pub struct Tooltip<V> {
     content: V,
     text: String,
     shortcut: Option<String>,
+    open_delay: f64,
+    close_delay: f64,
 }
 
 impl<V> fmt::Debug for Tooltip<V> {
@@ -65,9 +67,25 @@ impl<V> fmt::Debug for Tooltip<V> {
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<V: View> Tooltip<V> {
-    /// Shows `text` over `content` on hover.
+    /// Shows `text` over `content` while the pointer is over it, or while the keyboard's focus is
+    /// on it or inside it. Escape hides it, leaving the focus where it is, until the pointer or the
+    /// focus leaves and comes back.
     pub fn new(content: V, text: impl Into<String>) -> Self {
-        Self { content, text: text.into(), shortcut: None }
+        Self { content, text: text.into(), shortcut: None, open_delay: 0.0, close_delay: 0.0 }
+    }
+
+    /// Waits this many seconds of the pointer resting over the content before it shows (none by
+    /// default). The keyboard's focus shows it at once. Leaving before then shows nothing.
+    pub fn open_delay(mut self, seconds: f64) -> Self {
+        self.open_delay = seconds.max(0.0);
+        self
+    }
+
+    /// Stays this many seconds after the pointer and the focus leave (none by default), so it can
+    /// be read on the way to the next thing.
+    pub fn close_delay(mut self, seconds: f64) -> Self {
+        self.close_delay = seconds.max(0.0);
+        self
     }
 
     /// Shows this key as a key cap beside the text, such as `"⌘S"`.
@@ -131,9 +149,54 @@ impl<V: View> View for Tooltip<V> {
         );
         // Hoverable even when the content itself is not interactive.
         cx.cursor(node, CursorIcon::Default);
-        if cx.is_hover_within() {
+        let now = cx.now();
+        let (hover, focus) = (cx.is_hover_within(), cx.is_focus_visible_within());
+        // When the pointer came, when the pointer and the focus last were here, and whether
+        // Escape hid it for this visit.
+        let hovered_since = cx.use_state(|| None::<f64>);
+        let was_here = cx.use_state(|| false);
+        let left_at = cx.use_state(|| None::<f64>);
+        let dismissed = cx.use_state(|| false);
+        if hover {
+            if hovered_since.peek().is_none() {
+                hovered_since.set(Some(now));
+            }
+        } else if hovered_since.peek().is_some() {
+            hovered_since.set(None);
+        }
+        let here = hover || focus;
+        if here {
+            if !*was_here.peek() {
+                was_here.set(true);
+                left_at.set(None);
+            }
+        } else if *was_here.peek() {
+            was_here.set(false);
+            // Hidden by Escape, it does not linger; the next visit may show it again.
+            left_at.set((!*dismissed.peek()).then_some(now));
+            dismissed.set(false);
+        }
+        let rested = match *hovered_since.peek() {
+            Some(since) if now - since < self.open_delay => {
+                cx.wake_at(since + self.open_delay);
+                false
+            }
+            Some(_) => true,
+            None => false,
+        };
+        let lingering = match *left_at.peek() {
+            Some(left) if !here && now - left < self.close_delay => {
+                cx.wake_at(left + self.close_delay);
+                true
+            }
+            _ => false,
+        };
+        // Read so that Escape, which sets it from outside a build, builds the tooltip again.
+        let shown = !dismissed.get() && (focus || rested || lingering);
+        if shown {
             let bubble = KeyBubble { text: &self.text, keys: self.shortcut.as_deref() };
-            cx.overlay(node, Placement::AboveCenter, &bubble, None);
+            let hide = dismissed.clone();
+            cx.overlay(node, Placement::AboveCenter, &bubble, Some(Rc::new(move || hide.set(true))));
         }
         node
     }
@@ -492,6 +555,10 @@ impl MenuItem {
 pub enum Entry {
     Item(MenuItem),
     Separator,
+    /// A title over the items up to the next separator or title.
+    Label(String),
+    /// A view at the top of the menu, above a line.
+    Header(AnyView),
 }
 
 /// A button that opens a list of actions. The first item takes focus as the
@@ -506,6 +573,8 @@ pub struct DropdownMenu {
     icon_only: bool,
     entries: Vec<Entry>,
     open: Option<Binding<bool>>,
+    trigger: Option<AnyView>,
+    placement: Placement,
 }
 
 impl fmt::Debug for DropdownMenu {
@@ -526,6 +595,8 @@ impl DropdownMenu {
             icon_only: false,
             entries: Vec::new(),
             open: None,
+            trigger: None,
+            placement: Placement::Below,
         }
     }
 
@@ -533,6 +604,37 @@ impl DropdownMenu {
     /// first item takes the focus, as on a click) and the app knows when it closes.
     pub fn open(mut self, open: Binding<bool>) -> Self {
         self.open = Some(open);
+        self
+    }
+
+    /// Opens the menu from `view` in place of the button, as the account at the foot of a
+    /// sidebar: a click on the view, or Enter or Space with the focus on it, opens it, and Escape
+    /// gives the focus back to it. The label stays as the name screen readers announce, so make
+    /// it say what the view is ("Account").
+    pub fn trigger(mut self, view: impl View + 'static) -> Self {
+        self.trigger = Some(Box::new(view));
+        self
+    }
+
+    /// Where the menu opens from its trigger: below, by default; [`Placement::Right`] beside the
+    /// rail of a sidebar.
+    pub fn placement(mut self, placement: Placement) -> Self {
+        self.placement = placement;
+        self
+    }
+
+    /// A view at the top of the menu, above a line, as who is signed in: it takes no focus, and a
+    /// click on it closes nothing. A second call replaces the first.
+    pub fn header(mut self, view: impl View + 'static) -> Self {
+        self.entries.retain(|entry| !matches!(entry, Entry::Header(_)));
+        self.entries.insert(0, Entry::Header(Box::new(view)));
+        self
+    }
+
+    /// A title over the items that follow, up to the next separator or title, as "Theme" over
+    /// the themes. It takes no focus; screen readers hear those items as a group with its name.
+    pub fn label(mut self, text: impl Into<String>) -> Self {
+        self.entries.push(Entry::Label(text.into()));
         self
     }
 
@@ -899,6 +1001,17 @@ struct MenuLevel<'a> {
     pointer_in: Option<Rc<dyn Fn()>>,
 }
 
+/// The items under a title of a menu, as one group named by it.
+fn menu_section(cx: &mut BuildCx<'_>, name: &str, members: &[NodeId]) -> NodeId {
+    let node = cx.container(
+        LayoutStyle { align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
+        members,
+        Paint::None,
+    );
+    cx.semantics(node, Semantics::new(Role::Group).name(name));
+    node
+}
+
 impl View for MenuLevel<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let mut rows = Vec::new();
@@ -928,6 +1041,8 @@ impl View for MenuLevel<'_> {
             aim.due.set(None);
         }
         let mut item_index = 0;
+        // The items under a title, kept apart to become a group named by it.
+        let mut section: Option<(&str, Vec<NodeId>)> = None;
         for (i, entry) in self.entries.iter().enumerate() {
             match entry {
                 Entry::Item(item) => {
@@ -955,9 +1070,60 @@ impl View for MenuLevel<'_> {
                         aim: has_submenus.then(|| aim.clone()),
                         pointer_in: self.pointer_in.clone(),
                     };
-                    rows.push(cx.keyed_child(i as u64, &row));
+                    let child = cx.keyed_child(i as u64, &row);
+                    match &mut section {
+                        Some((_, members)) => members.push(child),
+                        None => rows.push(child),
+                    }
+                }
+                Entry::Label(text) => {
+                    if let Some((name, members)) = section.take() {
+                        rows.push(menu_section(cx, name, &members));
+                    }
+                    let color = cx.theme().color(Semantic::InkMuted);
+                    let title =
+                        util::label(cx, &text.to_uppercase(), ravenrs_style::TextStyle::Caption, None, color);
+                    let line = cx.container(
+                        LayoutStyle {
+                            height: Some(28.0),
+                            padding: Insets::symmetric(0.0, 10.0),
+                            align: Align::Center,
+                            ..LayoutStyle::stack(Axis::Horizontal)
+                        },
+                        &[title],
+                        Paint::None,
+                    );
+                    // The group says the name; the title itself is not read twice.
+                    cx.semantics(line, Semantics::hidden());
+                    rows.push(line);
+                    section = Some((text.as_str(), Vec::new()));
+                }
+                Entry::Header(view) => {
+                    let inner = cx.child(view.as_ref());
+                    rows.push(cx.container(
+                        LayoutStyle {
+                            padding: Insets::symmetric(8.0, 10.0),
+                            align: Align::Stretch,
+                            ..LayoutStyle::stack(Axis::Vertical)
+                        },
+                        &[inner],
+                        Paint::None,
+                    ));
+                    let line = cx.child(&crate::Divider::horizontal());
+                    rows.push(cx.container(
+                        LayoutStyle {
+                            padding: Insets::symmetric(4.0, 4.0),
+                            align: Align::Stretch,
+                            ..LayoutStyle::stack(Axis::Vertical)
+                        },
+                        &[line],
+                        Paint::None,
+                    ));
                 }
                 Entry::Separator => {
+                    if let Some((name, members)) = section.take() {
+                        rows.push(menu_section(cx, name, &members));
+                    }
                     let line = cx.child(&crate::Divider::horizontal());
                     rows.push(cx.container(
                         LayoutStyle {
@@ -970,6 +1136,9 @@ impl View for MenuLevel<'_> {
                     ));
                 }
             }
+        }
+        if let Some((name, members)) = section.take() {
+            rows.push(menu_section(cx, name, &members));
         }
         let node = panel(cx, &rows, 6.0, 220.0);
         cx.semantics(node, Semantics::new(Role::Menu));
@@ -991,16 +1160,45 @@ impl View for DropdownMenu {
         let own: State<bool> = cx.use_state(|| false);
         let open: Binding<bool> = self.open.clone().unwrap_or_else(|| own.binding());
         let toggle = open.clone();
-        let shown = if self.icon_only { String::new() } else { self.label.clone() };
-        let mut trigger =
-            Button::new(shown).style(self.style).size(self.size).on_click(move || toggle.set(!toggle.get()));
-        if !self.icon_only {
-            trigger = trigger.trailing_icon(IconName::ChevronDown);
-        }
-        if let Some(icon) = self.icon {
-            trigger = trigger.icon(icon);
-        }
-        let anchor = cx.child(&trigger);
+        let anchor = if let Some(view) = &self.trigger {
+            // Any view: it is clicked, or focused and pressed, as the button would be.
+            let inner = cx.child(view.as_ref());
+            let node = cx.container(
+                LayoutStyle { align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
+                &[inner],
+                Paint::None,
+            );
+            cx.on_click(node, Rc::new(move || toggle.set(!toggle.get())));
+            let by_key = open.clone();
+            cx.on_key(
+                node,
+                Rc::new(move |key, _| {
+                    let opens = matches!(key, ravenrs_core::Key::Enter | ravenrs_core::Key::Space);
+                    if opens {
+                        by_key.set(!by_key.get());
+                    }
+                    opens
+                }),
+            );
+            let radius = cx.theme().radii.md;
+            cx.focusable(node, radius);
+            cx.cursor(node, CursorIcon::Pointer);
+            cx.semantics(node, Semantics::new(Role::Button).name(self.label.clone()));
+            node
+        } else {
+            let shown = if self.icon_only { String::new() } else { self.label.clone() };
+            let mut trigger = Button::new(shown)
+                .style(self.style)
+                .size(self.size)
+                .on_click(move || toggle.set(!toggle.get()));
+            if !self.icon_only {
+                trigger = trigger.trailing_icon(IconName::ChevronDown);
+            }
+            if let Some(icon) = self.icon {
+                trigger = trigger.icon(icon);
+            }
+            cx.child(&trigger)
+        };
         menu_opener(cx, anchor, &open);
         let is_open = open.get();
         let name = self.icon_only.then(|| self.label.clone());
@@ -1019,7 +1217,7 @@ impl View for DropdownMenu {
             };
             cx.overlay(
                 anchor,
-                Placement::Below,
+                self.placement,
                 &MenuList { entries: &self.entries, close: close.clone(), on_side: None },
                 Some(close),
             );
@@ -1045,6 +1243,7 @@ pub struct Select {
     fill: bool,
     size: crate::ButtonSize,
     searchable: bool,
+    icon: Option<IconName>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -1060,6 +1259,7 @@ impl Select {
             state: util::EditorState::default(),
             size: crate::ButtonSize::Medium,
             searchable: false,
+            icon: None,
         }
     }
 
@@ -1108,6 +1308,13 @@ impl Select {
     /// Opens with a search box that filters the options as you type.
     pub fn searchable(mut self) -> Self {
         self.searchable = true;
+        self
+    }
+
+    /// An icon before the value, as a pin before a place, drawn as the chevron is: the same size and
+    /// ink-muted. The name and the value screen readers announce do not change.
+    pub fn icon(mut self, icon: IconName) -> Self {
+        self.icon = Some(icon);
         self
     }
 
@@ -1226,16 +1433,19 @@ impl View for Select {
             &[label],
             Paint::None,
         );
+        let side = if self.size == crate::ButtonSize::Mini { 12.0 } else { 16.0 };
+        let lead =
+            self.icon.map(|name| util::icon(cx, name, side, state.ink(theme.color(Semantic::InkMuted))));
         let chevron = util::icon(
             cx,
             if is_open { IconName::ChevronUp } else { IconName::ChevronDown },
-            if self.size == crate::ButtonSize::Mini { 12.0 } else { 16.0 },
+            side,
             state.ink(theme.color(Semantic::InkMuted)),
         );
         let border = if is_open {
             Border { width: 1.5, color: theme.color(Semantic::Accent) }
         } else {
-            let base = theme.color(Semantic::Border);
+            let base = theme.color(Semantic::ControlBorder);
             Border {
                 width: 1.0,
                 color: state.ink(if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base }),
@@ -1262,7 +1472,8 @@ impl View for Select {
             border: Some(border),
             ..QuadPaint::new(state.fill(theme.color(Semantic::Control)))
         };
-        let node = cx.container(style, &[label, chevron], Paint::Quad(paint));
+        let children: Vec<NodeId> = lead.into_iter().chain([label, chevron]).collect();
+        let node = cx.container(style, &children, Paint::Quad(paint));
         cx.semantics(label, Semantics::hidden());
         let mut semantics = Semantics::new(Role::ComboBox).value(current).expanded(is_open);
         if let Some(label) = &self.label {
@@ -1526,7 +1737,7 @@ impl View for DialogLayer<'_> {
                 corner_radius: theme.radii.xl,
                 border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
                 shadow: Some(theme.elevation.raised),
-                ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
+                ..QuadPaint::new(theme.floating_surface())
             }),
         );
         let mut semantics = Semantics::new(Role::Dialog).name(d.title.clone()).modal();

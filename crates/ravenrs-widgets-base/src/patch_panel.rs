@@ -145,7 +145,7 @@ pub struct PatchPanel {
     on_connect: Option<LinkHandler>,
     on_disconnect: Option<LinkHandler>,
     on_join: Option<JoinHandler>,
-    label: String,
+    label: Option<String>,
     background: Option<Color>,
 }
 
@@ -186,7 +186,7 @@ impl PatchPanel {
             on_connect: None,
             on_disconnect: None,
             on_join: None,
-            label: "Painel de tomadas".into(),
+            label: None,
             background: None,
         }
     }
@@ -276,7 +276,7 @@ impl PatchPanel {
 
     /// The name screen readers announce for the panel.
     pub fn label(mut self, label: impl Into<String>) -> Self {
-        self.label = label.into();
+        self.label = Some(label.into());
         self
     }
 
@@ -291,6 +291,8 @@ impl PatchPanel {
 struct Shared {
     panel: PatchPanel,
     kind: Rc<str>,
+    /// The words of the part of the app the panel is in.
+    labels: Rc<crate::Labels>,
     history: State<Vec<Vec<PatchLink>>>,
     redo: State<Vec<Vec<PatchLink>>>,
     keys: State<HashMap<PatchLink, u64>>,
@@ -407,21 +409,21 @@ impl Shared {
         let (out, inn) = match (jacks[a].flow, jacks[b].flow) {
             (JackFlow::Output, JackFlow::Input) => (a, b),
             (JackFlow::Input, JackFlow::Output) => (b, a),
-            (JackFlow::Output, JackFlow::Output) => return Err("Duas saídas não se ligam".into()),
-            (JackFlow::Input, JackFlow::Input) => return Err("Duas entradas não se ligam".into()),
+            (JackFlow::Output, JackFlow::Output) => return Err(self.labels.patch_two_outputs.clone()),
+            (JackFlow::Input, JackFlow::Input) => return Err(self.labels.patch_two_inputs.clone()),
         };
         if let Some(rule) = &self.panel.accept {
             rule(&jacks[out], &jacks[inn])?;
         } else {
             let (x, y) = (&jacks[out].signal, &jacks[inn].signal);
             if !x.is_empty() && !y.is_empty() && x != y {
-                return Err(format!("{} não recebe {}", jacks[inn].label, x));
+                return Err(self.labels.fill(&self.labels.patch_refuses, &[&jacks[inn].label, x]));
             }
         }
         let links = self.panel.links.get();
         let taken = links.iter().enumerate().any(|(i, l)| Some(i) != moving && l.to == jacks[inn].id);
         if taken {
-            return Err(format!("{} já está ocupada", jacks[inn].label));
+            return Err(self.labels.fill(&self.labels.patch_taken, &[&jacks[inn].label]));
         }
         Ok((out, inn))
     }
@@ -564,17 +566,22 @@ impl View for Socket {
             })
             .map(|k| shared.panel.jacks[k].label.as_str())
             .collect();
+        let words = &shared.labels;
         let way = match jack.flow {
-            JackFlow::Output => "saída",
-            JackFlow::Input => "entrada",
+            JackFlow::Output => &words.patch_output,
+            JackFlow::Input => &words.patch_input,
         };
-        let kind = if jack.signal.is_empty() { String::new() } else { format!(" de {}", jack.signal) };
+        let what = if jack.signal.is_empty() {
+            way.clone()
+        } else {
+            words.fill(&words.patch_of_signal, &[way, &jack.signal])
+        };
         let mut semantics = Semantics::new(Role::Button);
         semantics.name = Some(jack.label.clone());
         semantics.description = Some(if others.is_empty() {
-            format!("{way}{kind}, livre")
+            words.fill(&words.patch_free, &[&what])
         } else {
-            format!("{way}{kind}, ligada a {}", others.join(", "))
+            words.fill(&words.patch_connected_to, &[&what, &others.join(", ")])
         });
         cx.semantics(node, semantics);
         // Found by its id, which the app gives and the cables name.
@@ -588,13 +595,14 @@ impl View for Socket {
         cx.drag_source(node, DragPayload::new(&shared.kind, &jack.label, pull));
         let (check, plug) = (shared.clone(), shared.clone());
         let kind_check = shared.kind.clone();
+        let other = shared.labels.patch_other_panel.clone();
         cx.drop_target(
             node,
             move |payload| {
                 if payload.kind() != &*kind_check {
-                    return Err("Outro painel".into());
+                    return Err(other.clone());
                 }
-                let Some(&p) = payload.data::<Pull>() else { return Err("Outro painel".into()) };
+                let Some(&p) = payload.data::<Pull>() else { return Err(other.clone()) };
                 check.check(p.from, i, p.link).map(|_| ())
             },
             move |payload, _| {
@@ -637,6 +645,7 @@ impl View for PatchPanel {
         let shared = Rc::new(Shared {
             panel: self.clone(),
             kind: Rc::from(format!("patch-panel-{id}")),
+            labels: cx.labels(),
             history: cx.use_state(Vec::new),
             redo: cx.use_state(Vec::new),
             keys: cx.use_state(HashMap::new),
@@ -648,7 +657,9 @@ impl View for PatchPanel {
         let mut column = Vec::new();
         if self.front.is_some() {
             let flip = flipped.clone();
-            let label = if flipped.get() { "Ver a traseira" } else { "Virar" };
+            let labels = cx.labels();
+            let label =
+                if flipped.get() { labels.patch_show_back.clone() } else { labels.patch_flip.clone() };
             column.push(cx.child(
                 &Button::new(label).style(ButtonStyle::Secondary).on_click(move || flip.set(!flip.get())),
             ));
@@ -687,7 +698,7 @@ impl View for PatchPanel {
             Paint::None,
         );
         let mut semantics = Semantics::new(Role::Group);
-        semantics.name = Some(self.label.clone());
+        semantics.name = Some(self.label.clone().unwrap_or_else(|| cx.labels().patch_panel.clone()));
         cx.semantics(node, semantics);
         node
     }
@@ -774,9 +785,10 @@ impl PatchPanel {
         let panel = cx.container(style, &children, rounded(face));
         // Let go of on the panel's empty space: a plug taken out of an input unplugs.
         let (check, drop) = (shared.kind.clone(), shared.clone());
+        let other = shared.labels.patch_other_panel.clone();
         cx.drop_target(
             panel,
-            move |payload| if payload.kind() == &*check { Ok(()) } else { Err("Outro painel".into()) },
+            move |payload| if payload.kind() == &*check { Ok(()) } else { Err(other.clone()) },
             move |payload, _| {
                 if let Some(&p) = payload.data::<Pull>() {
                     drop.drop_on(p, None);

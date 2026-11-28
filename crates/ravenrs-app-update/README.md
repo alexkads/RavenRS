@@ -124,6 +124,35 @@ What it is made of, for an app that needs something else:
 
 **6. Show the commands in the README.** `APP.install_command_on(true)` (PowerShell) and `APP.install_command_on(false)` (a terminal) are the commands to paste; the app shows the one for its system when updating from inside fails.
 
+## An app that is a server: a service of the system
+
+A server (Raven CI) runs with no window and no one watching it, so the system's own manager of
+services starts it with the machine and again when it falls. `ServiceSpec` says what to run
+(binary, arguments, environment, `memory_max`, folder of logs, user or whole system) and
+`ServiceManager` writes the file each manager reads and asks it to start, stop or say how it is:
+
+| System | File | What it holds |
+|---|---|---|
+| Linux, systemd | `~/.config/systemd/user/<pacote>.service`, or `/etc/systemd/system` | `Restart=on-failure`, `MemoryMax=`, `KillSignal=SIGTERM`, `TimeoutStopSec`; `systemctl [--user] enable --now`, then `restart` |
+| macOS, launchd | `~/Library/LaunchAgents/<bundle_id>.plist`, or `/Library/LaunchDaemons` | `RunAtLoad`, `KeepAlive` when it falls, output in the folder of logs; `launchctl bootout` and `bootstrap`. No memory limit: macOS applies none to a service, and the file says so |
+| Windows, Task Scheduler | `<pasta>/<pacote>-tarefa.xml`, in UTF-16 | at logon (or at boot as SYSTEM), again a minute after it falls, no time limit; `schtasks /Create /XML` and `/Run`. No memory limit. A service of the Service Control Manager needs the binary to speak to it, and is left for when it can be tested on Windows |
+
+```rust
+use ravenrs_app_update::{ServiceManager, ServiceSpec};
+
+let spec = ServiceSpec::for_app(&APP, std::env::current_exe()?)
+    .args(["servir", "--endereco", "0.0.0.0:8080"])
+    .memory_max("1G");
+if let Some(manager) = ServiceManager::current() {
+    let done = manager.install(&spec)?; // the file written, the commands run, what to know
+}
+```
+
+`ServiceManager::dry_run(folder)` writes the files in `folder` and runs no command: the three
+systems are tested on any machine. The installer installs the service at the end when
+`<PREFIXO>_SERVICO=1` (`RCI_SERVICO=1 sh install.cmd`), by running the app's own
+`servico instalar`; an app with no such command is never asked.
+
 ## Why each app keeps a whole `install.cmd`
 
 The template is one, here; each app commits the copy made from it. A one-line `install.cmd` pointing at the template would not work:

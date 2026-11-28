@@ -59,6 +59,24 @@ pub struct ReportWords {
     pub pick_report: String,
     /// Opens a panel.
     pub open_panel: String,
+    /// What a number in good standing says.
+    pub level_good: String,
+    /// What a number that needs attention says.
+    pub level_attention: String,
+    /// What a critical number says.
+    pub level_critical: String,
+    /// What a tile says instead of a number its reader may not see.
+    pub restricted: String,
+    /// Prints a panel.
+    pub print_panel: String,
+    /// The columns of a printed panel: group, indicator, value and level.
+    pub panel_group: String,
+    /// See `panel_group`.
+    pub panel_indicator: String,
+    /// See `panel_group`.
+    pub panel_value: String,
+    /// See `panel_group`.
+    pub panel_level: String,
 }
 
 impl Default for ReportWords {
@@ -87,6 +105,15 @@ impl ReportWords {
             broken_layout: texts.get("report.broken_layout"),
             pick_report: texts.get("report.pick_report"),
             open_panel: texts.get("report.open_panel"),
+            level_good: texts.get("report.level_good"),
+            level_attention: texts.get("report.level_attention"),
+            level_critical: texts.get("report.level_critical"),
+            restricted: texts.get("report.restricted"),
+            print_panel: texts.get("report.print_panel"),
+            panel_group: texts.get("report.panel_group"),
+            panel_indicator: texts.get("report.panel_indicator"),
+            panel_value: texts.get("report.panel_value"),
+            panel_level: texts.get("report.panel_level"),
         }
     }
 

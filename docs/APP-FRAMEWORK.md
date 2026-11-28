@@ -548,7 +548,7 @@ CREATE POLICY own_tenant ON orders
 | Service | Address | Token | What to know |
 |---|---|---|---|
 | Your own PostgREST | where it listens; `.schema()` when it serves more than one | signed with its `jwt-secret` | `NOTIFY pgrst, 'reload schema'` after making tables |
-| Supabase | `https://<project>.supabase.co/rest/v1`, with `.api_key(publishable key)` | the session's access token from Supabase Auth (an hour); the publishable key alone is the `anon` role. A claim of the application's own goes in `app_metadata` | Every new table of `public` is granted to `anon` by default: revoke it where only those signed in may read. The firewall in front of the API answers 403 with a page of its own to a filter whose text looks like SQL injection (`B'; DROP TABLE …`), before the database sees it; writes in the body pass (#388) |
+| Supabase | `https://<project>.supabase.co/rest/v1`, with `.api_key(publishable key)` | the session's access token from Supabase Auth (an hour); the publishable key alone is the `anon` role. A claim of the application's own goes in `app_metadata` | Every new table of `public` is granted to `anon` by default: revoke it where only those signed in may read. The firewall in front of the API answers 403 with a page of its own to a filter whose text looks like SQL injection (`B'; DROP TABLE …`), before the database sees it; writes in the body pass. The space tells it apart from a refusal of PostgREST, which always comes in JSON: it fails with `SpaceError::Unavailable`, saying the service refused the request before the database, and never with `Denied`, which would blame the person's permission. Filters stay in the address: moving free text to the body would need a search function on the server for every query; until a real app needs it, change the filter, or ask Supabase to let the request through (#388) |
 | Neon Data API | the endpoint the console shows for the branch | from Neon Auth, or your own provider through its JWKS. Neon Auth's tokens last 15 minutes: give `token_source` a function that returns the current one | The anonymous role is `anonymous`. It does not hear `NOTIFY pgrst`: after making tables, press Refresh schema cache under Data API, or `PATCH {}` to `/projects/{project}/branches/{branch}/data-api/{database}` of Neon's API |
 
 Limits to know:
@@ -580,6 +580,7 @@ ravenrs_app_server::serve(listener, || {
 | `POST /api/batch` | Several writes that stay or go together |
 | `POST /api/validate/{entity}` | What the rules would say, with nothing kept |
 | `POST /api/run/{name}` | Something of the application's own, from `ApiService::endpoint`, with the permissions of who calls |
+| any path its `ApiService::fallback` answers | Routes of the application that change while it runs (the plugins of a CI), asked before the others, knowing who called (`Caller`); a raw body with its own type through `ApiResponse::raw`, and paths with no token through `ApiOptions::open` |
 | `GET /api/openapi.json`, `GET /api/me` | The description of what this person can reach; who they are |
 | `GET /api/live/{topic}` | The events of a topic as they happen, as Server-Sent Events, with `ApiOptions::live` (below) |
 | `GET /health` | The only route that needs no token |

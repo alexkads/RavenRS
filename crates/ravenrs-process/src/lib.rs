@@ -21,6 +21,10 @@
 //! On Linux and macOS the child leads a process group of its own, so stopping it reaches what it
 //! started: first a polite stop (`TERM`), then, after [`GRACE`], a forced one (`KILL`). On Windows
 //! the child runs with no console window and `taskkill /T` stops the tree.
+//!
+//! A child that ends on its own may leave behind what it started in the background (`sleep 600 &`,
+//! a daemon such as the server of `sccache`): they stay in its group. [`stop_group`] stops them,
+//! as a step of a build does when it ends, so nothing of a build outlives it.
 
 use std::collections::BTreeMap;
 use std::ffi::OsString;
@@ -69,6 +73,8 @@ pub enum ProcessError {
     Start(String),
     /// It did not answer in time.
     TimedOut,
+    /// This system cannot do what was asked, with what.
+    Unsupported(String),
 }
 
 impl std::fmt::Display for ProcessError {
@@ -77,6 +83,7 @@ impl std::fmt::Display for ProcessError {
             Self::NotFound(program) => write!(f, "{program} is not installed, or not in PATH"),
             Self::Start(why) => write!(f, "it could not start: {why}"),
             Self::TimedOut => write!(f, "it did not answer in time"),
+            Self::Unsupported(what) => write!(f, "this system cannot {what}"),
         }
     }
 }
@@ -126,6 +133,8 @@ pub struct Spec {
     stdin: bool,
     timeout: Option<Duration>,
     line_limit: usize,
+    user: Option<String>,
+    leftovers: bool,
 }
 
 impl Spec {
@@ -139,8 +148,10 @@ impl Spec {
             allowed: Vec::new(),
             vars: BTreeMap::new(),
             stdin: false,
+            leftovers: false,
             timeout: None,
             line_limit: LINE_LIMIT,
+            user: None,
         }
     }
 
@@ -192,6 +203,29 @@ impl Spec {
         self
     }
 
+    /// Runs it as the user `name`, so it reads and writes only what that user may: a build agent
+    /// that must not read the server's files.
+    ///
+    /// On Linux and macOS, a process of root switches the child's user and group itself (the ids
+    /// come from `id`). Anyone else runs it through `sudo -n -u NAME --preserve-env=…`, which fails
+    /// at once, saying so, when sudo has no rule letting this user run the program as `NAME`
+    /// without a password; the rule needs `SETENV` for the variables of [`env`](Self::env), as
+    /// `raven ALL=(ci) NOPASSWD:SETENV: /usr/local/bin/raven-ci-agent`. On Windows it is refused
+    /// with [`ProcessError::Unsupported`]: running as another user there needs that user's password.
+    pub fn user(mut self, name: impl Into<String>) -> Self {
+        self.user = Some(name.into());
+        self
+    }
+
+    /// Stops what it leaves running in its group the moment it ends on its own ([`stop_group`]),
+    /// before waiting for its streams: a `sleep 600 &` holds the output open, and without this the
+    /// child would seem to run until the sleep ends. What was stopped is in
+    /// [`Control::leftovers`]. A step of a build asks for it, so nothing of a build outlives it.
+    pub fn stop_leftovers(mut self) -> Self {
+        self.leftovers = true;
+        self
+    }
+
     /// Cuts lines longer than `limit` bytes into lines of that length.
     pub fn line_limit(mut self, limit: usize) -> Self {
         self.line_limit = limit.max(1);
@@ -202,8 +236,14 @@ impl Spec {
     fn command(&self) -> Result<Command, ProcessError> {
         let program = resolve(&self.program)
             .ok_or_else(|| ProcessError::NotFound(self.program.to_string_lossy().into_owned()))?;
-        let mut command = Command::new(program);
-        command.args(&self.args);
+        let mut command = match &self.user {
+            None => {
+                let mut command = Command::new(program);
+                command.args(&self.args);
+                command
+            }
+            Some(user) => as_user(user, program, &self.args, &self.vars)?,
+        };
         if let Some(dir) = &self.dir {
             command.current_dir(dir);
         }
@@ -233,6 +273,7 @@ impl Spec {
             pid,
             stdin: Arc::new(Mutex::new(child.stdin.take())),
             stop: Arc::new(AtomicBool::new(false)),
+            leftovers: self.leftovers.then(|| Arc::new(Mutex::new(Vec::new()))),
         };
         let readers: Vec<_> = [
             child.stdout.take().map(|s| read_lines(s, send.clone(), Event::Out, self.line_limit)),
@@ -254,6 +295,54 @@ impl Spec {
     pub fn output(self) -> Result<Output, ProcessError> {
         Ok(self.spawn()?.wait())
     }
+}
+
+/// The command that runs `program` with `args` as `user`. See [`Spec::user`].
+#[cfg(unix)]
+fn as_user(
+    user: &str,
+    program: PathBuf,
+    args: &[OsString],
+    vars: &BTreeMap<String, String>,
+) -> Result<Command, ProcessError> {
+    use std::os::unix::process::CommandExt;
+    let id = |flag: &str, of: Option<&str>| -> Result<u32, ProcessError> {
+        let mut asked = Command::new("id");
+        asked.arg(flag);
+        if let Some(of) = of {
+            asked.arg(of);
+        }
+        let out = asked.output().map_err(|e| ProcessError::Start(format!("id {flag}: {e}")))?;
+        String::from_utf8_lossy(&out.stdout)
+            .trim()
+            .parse()
+            .map_err(|_| ProcessError::Start(format!("there is no user {}", of.unwrap_or("running"))))
+    };
+    if id("-u", None)? == 0 {
+        let (uid, gid) = (id("-u", Some(user))?, id("-g", Some(user))?);
+        let mut command = Command::new(program);
+        command.args(args).uid(uid).gid(gid);
+        return Ok(command);
+    }
+    let sudo = resolve("sudo").ok_or_else(|| ProcessError::NotFound("sudo".to_owned()))?;
+    let mut command = Command::new(sudo);
+    command.args(["-n", "-u", user]);
+    if !vars.is_empty() {
+        let names: Vec<&str> = vars.keys().map(String::as_str).collect();
+        command.arg(format!("--preserve-env={}", names.join(",")));
+    }
+    command.arg("--").arg(program).args(args);
+    Ok(command)
+}
+
+#[cfg(not(unix))]
+fn as_user(
+    user: &str,
+    _: PathBuf,
+    _: &[OsString],
+    _: &BTreeMap<String, String>,
+) -> Result<Command, ProcessError> {
+    Err(ProcessError::Unsupported(format!("run a program as the user {user} without their password")))
 }
 
 /// Starts the child alone: a process group of its own, or with no console window.
@@ -330,6 +419,11 @@ fn watch(
     // What it started is stopped too, even when it ended on its own leaving them behind.
     if forced.is_some() {
         stop_tree(control.pid, &mut child);
+    } else if let Some(left) = &control.leftovers {
+        let stopped = stop_group(control.pid);
+        if let Ok(mut left) = left.lock() {
+            *left = stopped;
+        }
     }
     control.close();
     for reader in readers {
@@ -380,6 +474,58 @@ fn stop_tree(pid: u32, child: &mut Child) {
     signal("-KILL");
     let _ = child.kill();
     let _ = child.wait();
+}
+
+/// Stops what is left of the process group of `pid`, the child of a [`Running`] that ended: what it
+/// started in the background and never waited for. A polite stop (`TERM`), then, after [`GRACE`],
+/// a forced one (`KILL`). It gives the names of the processes it found, one per process (none when
+/// the group had ended), so whoever asked can say what was left.
+///
+/// A process that left the group on purpose (`setsid`, as a daemon that detaches does) is not in
+/// it and stays. On Windows, where the tree of a child ended on its own is not kept, it does
+/// nothing and gives none.
+#[cfg(unix)]
+pub fn stop_group(pid: u32) -> Vec<String> {
+    if !group_alive(pid) {
+        return Vec::new();
+    }
+    let listed = Command::new("pgrep")
+        .args(["-l", "-g", &pid.to_string()])
+        .stderr(Stdio::null())
+        .output()
+        .map(|out| String::from_utf8_lossy(&out.stdout).into_owned())
+        .unwrap_or_default();
+    let mut names: Vec<String> = listed
+        .lines()
+        .filter_map(|line| line.split_once(' ').map(|(_, name)| name.trim().to_owned()))
+        .filter(|name| !name.is_empty())
+        .collect();
+    if names.is_empty() {
+        names.push("?".to_owned());
+    }
+    let group = format!("-{pid}");
+    let signal = |name: &str| {
+        let _ = Command::new("kill")
+            .args([name, "--", &group])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    };
+    signal("-TERM");
+    let until = Instant::now() + GRACE;
+    while Instant::now() < until && group_alive(pid) {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    if group_alive(pid) {
+        signal("-KILL");
+    }
+    names
+}
+
+/// On Windows the tree of a child that ended is not kept: nothing to stop.
+#[cfg(not(unix))]
+pub fn stop_group(_pid: u32) -> Vec<String> {
+    Vec::new()
 }
 
 /// Whether any process of the group `pid` still runs.
@@ -437,6 +583,30 @@ impl Running {
         self.control.clone()
     }
 
+    /// Stops it as [`Control::stop`] does, and waits at most `within` for it and what it started
+    /// to end: how it ended, or `None` when it had not ended in time.
+    ///
+    /// [`Control::stop`] only asks: a thread of this crate sends the polite stop and, after
+    /// [`GRACE`], the forced one. A program that ends right after asking (a test, a server that
+    /// stops) takes that thread with it, and the child is left running on its own. Waiting here
+    /// keeps the asker alive until the child is gone. Give `within` more than [`GRACE`], so the
+    /// forced stop has its time.
+    pub fn stop_and_wait(&self, within: Duration) -> Option<End> {
+        self.control.stop();
+        let until = Instant::now() + within;
+        loop {
+            let left = until.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return None;
+            }
+            match self.events.recv_timeout(left) {
+                Ok(Event::Ended(end)) => return Some(end),
+                Ok(_) => {}
+                Err(_) => return None,
+            }
+        }
+    }
+
     /// Waits for it to end and gives everything it said.
     pub fn wait(self) -> Output {
         let mut output = Output { stdout: Vec::new(), stderr: Vec::new(), end: End::Code(-1) };
@@ -468,12 +638,19 @@ pub struct Control {
     pid: u32,
     stdin: Arc<Mutex<Option<ChildStdin>>>,
     stop: Arc<AtomicBool>,
+    leftovers: Option<Arc<Mutex<Vec<String>>>>,
 }
 
 impl Control {
     /// The child's process id.
     pub fn pid(&self) -> u32 {
         self.pid
+    }
+
+    /// With [`Spec::stop_leftovers`], once it ended: the names of what it had left running in its
+    /// group and was stopped, one per process. None otherwise.
+    pub fn leftovers(&self) -> Vec<String> {
+        self.leftovers.as_ref().and_then(|left| left.lock().ok().map(|left| left.clone())).unwrap_or_default()
     }
 
     /// Writes a line to its input, as typed in a terminal. False when its input is closed.
@@ -541,4 +718,66 @@ pub fn version(
         .chain(output.stderr)
         .find(|l| !l.trim().is_empty())
         .ok_or(ProcessError::TimedOut)
+}
+
+/// What a process may hold: the most memory, and how many cores' worth of time.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Limits {
+    /// The most memory, in bytes.
+    pub memory_bytes: Option<u64>,
+    /// How many cores' worth of time it gets: `2.0` is two cores, `0.5` half of one.
+    pub cores: Option<f64>,
+}
+
+/// A process put in a cgroup of its own by [`confine`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Confined {
+    /// The folder of its cgroup, under `/sys/fs/cgroup`.
+    pub cgroup: PathBuf,
+}
+
+/// Puts the process `pid` (and what it starts from then on) in a cgroup of its own, `name`, under
+/// the one it is in, with `limits`: `memory.max` and `cpu.max` of cgroup v2, which the system holds
+/// whatever the process does. What a build agent does to itself.
+///
+/// It needs the cgroup it is in delegated to its user (a systemd service with `Delegate=yes`) or
+/// root; without that it fails saying which file it could not write, and nothing is changed but
+/// an empty folder. Only Linux has cgroups: elsewhere it is [`ProcessError::Unsupported`].
+#[cfg(target_os = "linux")]
+pub fn confine(pid: u32, name: &str, limits: &Limits) -> Result<Confined, ProcessError> {
+    let failed = |what: &Path, e: std::io::Error| ProcessError::Start(format!("{}: {e}", what.display()));
+    let own = std::fs::read_to_string(format!("/proc/{pid}/cgroup"))
+        .map_err(|e| ProcessError::Start(e.to_string()))?;
+    let relative = own
+        .lines()
+        .find_map(|line| line.strip_prefix("0::"))
+        .ok_or_else(|| ProcessError::Unsupported("find a cgroup v2 (this system has only v1)".to_owned()))?;
+    let base = Path::new("/sys/fs/cgroup").join(relative.trim_start_matches('/'));
+    let cgroup = if base.file_name().is_some_and(|n| n == name) { base.clone() } else { base.join(name) };
+    std::fs::create_dir_all(&cgroup).map_err(|e| failed(&cgroup, e))?;
+    let procs = cgroup.join("cgroup.procs");
+    std::fs::write(&procs, pid.to_string()).map_err(|e| failed(&procs, e))?;
+    if cgroup != base {
+        // A cgroup with processes cannot hand controllers down; the process left it just now.
+        let control = base.join("cgroup.subtree_control");
+        let _ = std::fs::write(&control, "+memory +cpu");
+    }
+    if let Some(bytes) = limits.memory_bytes {
+        let file = cgroup.join("memory.max");
+        std::fs::write(&file, bytes.to_string()).map_err(|e| failed(&file, e))?;
+    }
+    if let Some(cores) = limits.cores {
+        let file = cgroup.join("cpu.max");
+        let quota = (cores * 100_000.0).round().max(1_000.0) as u64;
+        std::fs::write(&file, format!("{quota} 100000")).map_err(|e| failed(&file, e))?;
+    }
+    Ok(Confined { cgroup })
+}
+
+/// Only Linux has cgroups: see the Linux version.
+#[cfg(not(target_os = "linux"))]
+pub fn confine(_pid: u32, _name: &str, _limits: &Limits) -> Result<Confined, ProcessError> {
+    Err(ProcessError::Unsupported(
+        "hold a limit of memory and cores by cgroup, which only Linux has".to_owned(),
+    ))
 }

@@ -198,6 +198,12 @@ pub enum Command {
         /// `#id` or the text shown.
         target: String,
     },
+    /// Clicks the target twice in quick succession: what opens a row of a grid (#921).
+    #[serde(rename = "double-click")]
+    DoubleClick {
+        /// `#id` or the text shown.
+        target: String,
+    },
     /// Scrolls the target into sight, even a row a long list has not built yet.
     Scroll {
         /// `#id` or the text shown.
@@ -356,6 +362,7 @@ impl Command {
             | Self::SetValue { target, .. }
             | Self::ShowMenu { target }
             | Self::Dismiss { target }
+            | Self::DoubleClick { target }
             | Self::Drag { target, .. } => Some(target),
             _ => None,
         }
@@ -373,6 +380,7 @@ impl Command {
             Self::SetValue { target: t, text } => e2e.locate(target(t)).set_value(text),
             Self::ShowMenu { target: t } => e2e.locate(target(t)).show_menu(),
             Self::Dismiss { target: t } => e2e.locate(target(t)).dismiss(),
+            Self::DoubleClick { target: t } => e2e.locate(target(t)).double_click(),
             Self::Scroll { target: t } => e2e.locate(target(t)).scroll_into_view(),
             Self::Drag { target: t, to } => e2e.locate(target(t)).drag_to(&target(to)),
             Self::Check { target: t, text } => {

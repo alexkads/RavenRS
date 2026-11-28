@@ -1,0 +1,33 @@
+[package]
+name = "raven-ci-plugin-api"
+description = "What a plugin of Raven CI implements: a ravenrs-app Module with one extension point for each thing the CI does, and the host services it asks for by permission."
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[features]
+# A fake plugin for each extension point and a fake host, for the tests of the core and the
+# self-test of the tool.
+testing = []
+# The main of a plugin written in Rust that runs apart, as an external one: serve(plugin), and
+# --manifesto, which writes its plugin.toml.
+serve = ["dep:toml"]
+
+[dependencies]
+# The bytes of attachments and of the bodies of routes, in the lines of the protocol.
+base64 = "0.23"
+ravenrs-app.workspace = true
+ravenrs-app-i18n.workspace = true
+# Without the bridge to the FlowCanvas: a plugin compiled on its own builds no drawing.
+ravenrs-flows = { path = "../../../../crates/ravenrs-flows", default-features = false }
+serde.workspace = true
+serde_json.workspace = true
+toml = { version = "1", default-features = false, features = ["display", "serde", "std"], optional = true }
+
+[dev-dependencies]
+raven-ci-plugin-api = { path = ".", features = ["testing", "serve"] }
+
+[lints]
+workspace = true

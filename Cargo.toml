@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "examples/*", "tools/*"]
+members = ["crates/*", "examples/*", "tools/*", "tools/*/crates/*", "tools/raven-ci/plugins/exemplo-rust"]
 # Applications of their own, opened and built apart: they prove a package works outside this workspace.
 exclude = ["examples/contracts"]
 
@@ -82,7 +82,9 @@ ravenrs-sheet = { version = "27.1.28", path = "crates/ravenrs-sheet" }
 ravenrs-spreadsheet = { version = "27.1.28", path = "crates/ravenrs-spreadsheet" }
 ravenrs-report-server = { version = "27.1.28", path = "crates/ravenrs-report-server" }
 ravenrs-metrics = { version = "27.1.28", path = "crates/ravenrs-metrics" }
+ravenrs-mail = { version = "27.1.28", path = "crates/ravenrs-mail" }
 ravenrs-git = { version = "27.1.28", path = "crates/ravenrs-git" }
+ravenrs-junit = { version = "27.1.28", path = "crates/ravenrs-junit" }
 ravenrs-schedule = { version = "27.1.28", path = "crates/ravenrs-schedule" }
 ravenrs-secrets = { version = "27.1.28", path = "crates/ravenrs-secrets" }
 ravenrs-report-viewer = { version = "27.1.28", path = "crates/ravenrs-report-viewer" }

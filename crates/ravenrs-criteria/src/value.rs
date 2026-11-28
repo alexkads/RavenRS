@@ -189,6 +189,29 @@ impl Value {
         }
     }
 
+    /// A whole number of cents, as money is kept: `None` for a number with a fraction, one
+    /// outside `i64`, or anything else, in place of a silent `round() as i64`.
+    ///
+    /// ```
+    /// use ravenrs_criteria::Value;
+    ///
+    /// assert_eq!(Value::Number(1250.0).cents(), Some(1250));
+    /// assert_eq!(Value::Number(12.5).cents(), None);
+    /// ```
+    pub fn cents(&self) -> Option<i64> {
+        // 2^63, the first number past `i64`; every f64 below it in size is a whole i64 or has a
+        // fraction, which the first test refuses.
+        const EDGE: f64 = 9_223_372_036_854_775_808.0;
+        match self {
+            Self::Number(n) if n.fract() == 0.0 && (-EDGE..EDGE).contains(n) =>
+            {
+                #[allow(clippy::cast_possible_truncation)]
+                Some(*n as i64)
+            }
+            _ => None,
+        }
+    }
+
     /// The value as a date: dates and ISO 8601 text.
     pub fn as_date(&self) -> Option<DateTime> {
         match self {

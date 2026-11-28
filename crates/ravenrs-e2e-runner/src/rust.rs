@@ -94,6 +94,7 @@ fn command_code(command: &Command) -> String {
         }
         Command::ShowMenu { target } => format!("Command::ShowMenu {{ target: {} }}", s(target)),
         Command::Dismiss { target } => format!("Command::Dismiss {{ target: {} }}", s(target)),
+        Command::DoubleClick { target } => format!("Command::DoubleClick {{ target: {} }}", s(target)),
         Command::Scroll { target } => format!("Command::Scroll {{ target: {} }}", s(target)),
         Command::Drag { target, to } => format!("Command::Drag {{ target: {}, to: {} }}", s(target), s(to)),
         Command::Wait { target, text } => format!(

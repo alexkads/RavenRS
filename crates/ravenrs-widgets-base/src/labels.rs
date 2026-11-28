@@ -62,8 +62,23 @@ pub struct Labels {
     pub log_name: String,
     /// The search field of a `LogView`.
     pub log_search: String,
-    /// The button that takes a `LogView` back to its last line and follows it again.
-    pub log_go_to_end: String,
+    /// The switch of a `LogView` that keeps it on its last line as lines come.
+    pub log_follow_end: String,
+    /// The button of a `LogView` that saves its lines as a file.
+    pub log_download: String,
+    /// What a `LogView` says while one section is shown alone; `{0}` is its title.
+    pub log_only: String,
+    /// The button of a `LogView` that shows every section again.
+    pub log_show_all: String,
+    /// What a `ProgressBar` reads after its value when it went past a marker; `{marker}` is the
+    /// marker's name, as "above the limit 0.85".
+    pub progress_above: String,
+    /// What a `ProgressBar` reads when its value has not reached a marker; `{marker}` is its name.
+    pub progress_below: String,
+    /// What a `ProgressBar` reads when its value sits on a marker; `{marker}` is its name.
+    pub progress_at: String,
+    /// The name of a `ProgressBar`'s marker given none; `{value}` is where it is, as "85%".
+    pub progress_mark: String,
     /// How many lines of a `LogView` hold what is searched; `{0}` is the count.
     pub log_matches: String,
     /// What a folded section of a `LogView` hides; `{0}` is how many lines.
@@ -251,6 +266,14 @@ pub struct Labels {
     pub wizard_error: String,
     /// The bar between two panes, for screen readers.
     pub split_resize: String,
+    /// The arrow that folds a pane of a `SplitPanes`; `{0}` is the pane's name.
+    /// [`Labels::split_collapse`] fills it in.
+    pub split_collapse: String,
+    /// The arrow that brings a folded pane back; `{0}` is the pane's name.
+    /// [`Labels::split_expand`] fills it in.
+    pub split_expand: String,
+    /// What a pane of a `SplitPanes` without a name is called.
+    pub split_pane: String,
     /// What dragging a `FloatingPanel` by its header does.
     pub panel_move: String,
     /// Reduces a `FloatingPanel` to its header.
@@ -306,6 +329,58 @@ pub struct Labels {
     /// What an option of a `TagBox` says when it adds what was typed, where `{0}`
     /// is what was typed. [`Labels::tag_add`] fills it in.
     pub tag_add: String,
+    /// A date outside the days a picker allows.
+    pub date_out_of_range: String,
+    /// A time outside the times a picker allows.
+    pub time_out_of_range: String,
+    /// The button that opens the dialog of a `Ribbon` group; `{0}` is the group.
+    pub ribbon_group_options: String,
+    /// How many boxes an `InputOtp` has, for screen readers; `{0}` is the count.
+    pub verification_code_digits: String,
+    /// A `Pagination`, for screen readers.
+    pub pagination: String,
+    /// The button of a `Pagination` to the page before.
+    pub pagination_previous: String,
+    /// The button of a `Pagination` to the page after.
+    pub pagination_next: String,
+    /// A `Breadcrumb`, for screen readers.
+    pub breadcrumb: String,
+    /// What a `PatchPanel` is called without a label of its own.
+    pub patch_panel: String,
+    /// A jack of a `PatchPanel` that sends.
+    pub patch_output: String,
+    /// A jack of a `PatchPanel` that takes.
+    pub patch_input: String,
+    /// A jack and its signal; `{0}` is the jack's kind, `{1}` the signal.
+    pub patch_of_signal: String,
+    /// A jack with no cable; `{0}` is what it is.
+    pub patch_free: String,
+    /// A jack with cables; `{0}` is what it is, `{1}` the jacks it goes to.
+    pub patch_connected_to: String,
+    /// Why a cable cannot join two outputs.
+    pub patch_two_outputs: String,
+    /// Why a cable cannot join two inputs.
+    pub patch_two_inputs: String,
+    /// Why a jack refuses a signal; `{0}` is the jack, `{1}` the signal.
+    pub patch_refuses: String,
+    /// Why an input refuses a second cable; `{0}` is the jack.
+    pub patch_taken: String,
+    /// Why a plug from another panel is refused.
+    pub patch_other_panel: String,
+    /// The button that turns a `PatchPanel` to its back.
+    pub patch_show_back: String,
+    /// The button that turns a `PatchPanel` to its front.
+    pub patch_flip: String,
+    /// What `validate::email` says of an address that does not look like one.
+    pub invalid_email: String,
+    /// What `validate::min_length` says; `{0}` is how many characters.
+    pub min_length: String,
+    /// What a `Receipt` with no lines says.
+    pub receipt_empty: String,
+    /// The list of the lines of a `Receipt`, for screen readers.
+    pub receipt_lines: String,
+    /// The button at the end of a `Tabs` bar with the tabs that do not fit.
+    pub tabs_more: String,
     /// Where a `Wizard` stands, where `{0}` is its step and `{1}` its count.
     /// [`Labels::wizard_progress`] fills it in.
     pub wizard_progress: String,
@@ -467,6 +542,21 @@ pub struct Labels {
     pub weekdays: [String; 7],
     /// January to December.
     pub months: [String; 12],
+    /// Sunday to Saturday, whole, as a date written out says them.
+    /// [`Labels::weekday_name`] picks one.
+    pub weekday_names: [String; 7],
+    /// The day after today. [`Labels::relative_day`] uses it.
+    pub tomorrow: String,
+    /// A day ahead, where `{0}` is how many days. [`Labels::relative_day`] fills it in.
+    pub in_days: String,
+    /// A day past, where `{0}` is how many days. [`Labels::relative_day`] fills it in.
+    pub days_ago: String,
+    /// A date written out, where `{0}` is the day of the week, `{1}` the day, `{2}` the month and
+    /// `{3}` the year. [`Labels::written_date`] fills it in.
+    pub written_date: String,
+    /// A date written out with its day of the week, with the parts of [`Self::written_date`].
+    /// [`Labels::full_date`] fills it in.
+    pub full_date: String,
     /// Between a month and its year, such as `" "` or `" de "`.
     pub month_year: String,
     /// How people here write a date, for a date picker, where `{0}` is the day and `{1}` the month
@@ -562,7 +652,19 @@ pub struct Labels {
     /// After the count of events an `EventCalendar` day has no room for.
     pub calendar_more: String,
     /// Month, week and day, as an `EventCalendar` offers its views.
-    pub calendar_views: [String; 3],
+    pub calendar_views: [String; 6],
+    /// The seasons, from the one that starts in December as the south calls it: summer,
+    /// autumn, winter, spring.
+    pub seasons: [String; 4],
+    /// A season with its year; `{0}` is the season, `{1}` the year. [`Labels::season_title`]
+    /// fills it in.
+    pub season_title: String,
+    /// What the agenda of an `EventCalendar` says when nothing falls in it.
+    pub calendar_agenda_empty: String,
+    /// A day with one event, for screen readers.
+    pub calendar_one_event: String,
+    /// A day with more events; `{0}` is how many. [`Labels::calendar_events`] picks.
+    pub calendar_events: String,
     /// The name of an `EventCalendar`'s choice of view.
     pub calendar_view_name: String,
     /// An `EventCalendar`'s back button, by week or by day.
@@ -1274,7 +1376,14 @@ impl Labels {
             list_name: texts.get("widgets.list_name"),
             log_name: texts.get("widgets.log_name"),
             log_search: texts.get("widgets.log_search"),
-            log_go_to_end: texts.get("widgets.log_go_to_end"),
+            log_follow_end: texts.get("widgets.log_follow_end"),
+            log_download: texts.get("widgets.log_download"),
+            log_only: texts.get("widgets.log_only"),
+            log_show_all: texts.get("widgets.log_show_all"),
+            progress_above: texts.get("widgets.progress_above"),
+            progress_below: texts.get("widgets.progress_below"),
+            progress_at: texts.get("widgets.progress_at"),
+            progress_mark: texts.get("widgets.progress_mark"),
             log_matches: texts.get("widgets.log_matches"),
             log_folded: texts.get("widgets.log_folded"),
             log_point_line: texts.get("widgets.log_point_line"),
@@ -1368,6 +1477,9 @@ impl Labels {
             wizard_done: texts.get("widgets.wizard_done"),
             wizard_error: texts.get("widgets.wizard_error"),
             split_resize: texts.get("widgets.split_resize"),
+            split_collapse: texts.get("widgets.split_collapse"),
+            split_expand: texts.get("widgets.split_expand"),
+            split_pane: texts.get("widgets.split_pane"),
             panel_move: texts.get("widgets.panel_move"),
             panel_minimize: texts.get("widgets.panel_minimize"),
             panel_restore: texts.get("widgets.panel_restore"),
@@ -1395,6 +1507,32 @@ impl Labels {
             grid_expand_row: texts.get("widgets.grid_expand_row"),
             grid_collapse_row: texts.get("widgets.grid_collapse_row"),
             tag_add: texts.get("widgets.tag_add"),
+            date_out_of_range: texts.get("widgets.date_out_of_range"),
+            time_out_of_range: texts.get("widgets.time_out_of_range"),
+            ribbon_group_options: texts.get("widgets.ribbon_group_options"),
+            verification_code_digits: texts.get("widgets.verification_code_digits"),
+            pagination: texts.get("widgets.pagination"),
+            pagination_previous: texts.get("widgets.pagination_previous"),
+            pagination_next: texts.get("widgets.pagination_next"),
+            breadcrumb: texts.get("widgets.breadcrumb"),
+            patch_panel: texts.get("widgets.patch_panel"),
+            patch_output: texts.get("widgets.patch_output"),
+            patch_input: texts.get("widgets.patch_input"),
+            patch_of_signal: texts.get("widgets.patch_of_signal"),
+            patch_free: texts.get("widgets.patch_free"),
+            patch_connected_to: texts.get("widgets.patch_connected_to"),
+            patch_two_outputs: texts.get("widgets.patch_two_outputs"),
+            patch_two_inputs: texts.get("widgets.patch_two_inputs"),
+            patch_refuses: texts.get("widgets.patch_refuses"),
+            patch_taken: texts.get("widgets.patch_taken"),
+            patch_other_panel: texts.get("widgets.patch_other_panel"),
+            patch_show_back: texts.get("widgets.patch_show_back"),
+            patch_flip: texts.get("widgets.patch_flip"),
+            invalid_email: texts.get("widgets.invalid_email"),
+            min_length: texts.get("widgets.min_length"),
+            receipt_empty: texts.get("widgets.receipt_empty"),
+            receipt_lines: texts.get("widgets.receipt_lines"),
+            tabs_more: texts.get("widgets.tabs_more"),
             wizard_progress: texts.get("widgets.wizard_progress"),
             culture: texts.get("widgets.culture"),
             loading: texts.get("widgets.loading"),
@@ -1474,6 +1612,12 @@ impl Labels {
             today: texts.get("widgets.today"),
             weekdays: texts.array("widgets.weekdays"),
             months: texts.array("widgets.months"),
+            weekday_names: texts.array("widgets.weekday_names"),
+            tomorrow: texts.get("widgets.tomorrow"),
+            in_days: texts.get("widgets.in_days"),
+            days_ago: texts.get("widgets.days_ago"),
+            written_date: texts.get("widgets.written_date"),
+            full_date: texts.get("widgets.full_date"),
             month_year: texts.get("widgets.month_year"),
             short_date: texts.get("widgets.short_date"),
             form_errors: texts.get("widgets.form_errors"),
@@ -1521,6 +1665,11 @@ impl Labels {
             step_down: texts.get("widgets.step_down"),
             calendar_more: texts.get("widgets.calendar_more"),
             calendar_views: texts.array("widgets.calendar_views"),
+            seasons: texts.array("widgets.seasons"),
+            season_title: texts.get("widgets.season_title"),
+            calendar_agenda_empty: texts.get("widgets.calendar_agenda_empty"),
+            calendar_one_event: texts.get("widgets.calendar_one_event"),
+            calendar_events: texts.get("widgets.calendar_events"),
             calendar_view_name: texts.get("widgets.calendar_view_name"),
             calendar_previous: texts.get("widgets.calendar_previous"),
             calendar_next: texts.get("widgets.calendar_next"),
@@ -1906,7 +2055,7 @@ impl Labels {
 
     /// A date the way people here write it, for a date picker.
     pub fn short_date(&self, date: Date) -> String {
-        let month = &self.months[usize::from(date.month().clamp(1, 12)) - 1];
+        let month = self.month_abbr(date);
         format_with(&self.short_date, |index, out| {
             match index {
                 0 => write!(out, "{:02}", date.day()),
@@ -1914,7 +2063,7 @@ impl Labels {
                 2 => write!(out, "{:04}", date.year()),
                 3 => write!(out, "{}", date.day()),
                 4 => {
-                    out.extend(month.chars().take(3));
+                    out.push_str(&month);
                     Ok(())
                 }
                 _ => return false,
@@ -1926,6 +2075,36 @@ impl Labels {
     /// What a `TagBox` option says when it adds `typed`.
     pub fn tag_add(&self, typed: &str) -> String {
         ravenrs_app_i18n::format(&self.tag_add, &[typed])
+    }
+
+    /// Fills in one of these words that has `{0}`, `{1}`... with `parts`, such as
+    /// `labels.fill(&labels.patch_taken, &["Saída 1"])`.
+    pub fn fill(&self, words: &str, parts: &[&str]) -> String {
+        ravenrs_app_i18n::format(words, parts)
+    }
+
+    /// A season with the year most of it is in.
+    pub fn season_title(&self, season: &str, year: i32) -> String {
+        ravenrs_app_i18n::format(&self.season_title, &[season, &year.to_string()])
+    }
+
+    /// How many events a day has, for screen readers: "1 event", "3 events".
+    pub fn calendar_events(&self, count: usize) -> String {
+        if count == 1 {
+            self.calendar_one_event.clone()
+        } else {
+            ravenrs_app_i18n::format(&self.calendar_events, &[&count.to_string()])
+        }
+    }
+
+    /// The arrow that folds the pane called `pane`.
+    pub fn split_collapse(&self, pane: &str) -> String {
+        ravenrs_app_i18n::format(&self.split_collapse, &[pane])
+    }
+
+    /// The arrow that brings back the folded pane called `pane`.
+    pub fn split_expand(&self, pane: &str) -> String {
+        ravenrs_app_i18n::format(&self.split_expand, &[pane])
     }
 
     /// Where a `Wizard` stands, at `step` of `count`.
@@ -1985,6 +2164,53 @@ impl Labels {
     /// A full date, for screen readers: `15 November 2026`, `15 novembro de 2026`.
     pub fn long_date(&self, date: Date) -> String {
         format!("{} {}", date.day(), self.month_title(date))
+    }
+
+    /// A day as people say it from `today`: today, tomorrow, yesterday, in N days or N days ago.
+    ///
+    /// ```
+    /// use ravenrs_widgets_base::{Date, Labels};
+    ///
+    /// let today = Date::new(2026, 11, 14).expect("a day");
+    /// let pt = Labels::pt_br();
+    /// assert_eq!(pt.relative_day(today.add_days(1), today), "Amanhã");
+    /// assert_eq!(pt.relative_day(today.add_days(-3), today), "Há 3 dias");
+    /// ```
+    pub fn relative_day(&self, day: Date, today: Date) -> String {
+        match day.to_days() - today.to_days() {
+            0 => self.today.clone(),
+            1 => self.tomorrow.clone(),
+            -1 => self.yesterday.clone(),
+            ahead if ahead > 1 => ravenrs_app_i18n::format(&self.in_days, &[&ahead.to_string()]),
+            past => ravenrs_app_i18n::format(&self.days_ago, &[&past.unsigned_abs().to_string()]),
+        }
+    }
+
+    /// The day of the week of `date`, whole: `Saturday`, `sábado`.
+    pub fn weekday_name(&self, date: Date) -> String {
+        self.weekday_names[usize::from(date.weekday().min(6))].clone()
+    }
+
+    /// The month of `date` in three letters, as [`Self::short_date`] writes it: `Nov`, `nov`.
+    pub fn month_abbr(&self, date: Date) -> String {
+        self.months[usize::from(date.month().clamp(1, 12)) - 1].chars().take(3).collect()
+    }
+
+    /// A date written out: `November 14, 2026`, `14 de novembro de 2026`.
+    pub fn written_date(&self, date: Date) -> String {
+        self.date_words(&self.written_date, date)
+    }
+
+    /// A date written out with its day of the week: `Saturday, November 14, 2026`,
+    /// `sábado, 14 de novembro de 2026`, as the long date (`D`) of a report's culture.
+    pub fn full_date(&self, date: Date) -> String {
+        self.date_words(&self.full_date, date)
+    }
+
+    fn date_words(&self, template: &str, date: Date) -> String {
+        let month = &self.months[usize::from(date.month().clamp(1, 12)) - 1];
+        let (weekday, day, year) = (self.weekday_name(date), date.day().to_string(), date.year().to_string());
+        ravenrs_app_i18n::format(template, &[&weekday, &day, month, &year])
     }
 }
 

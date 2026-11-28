@@ -491,6 +491,95 @@ impl View for IconTile {
     }
 }
 
+/// A day in a small block, as a calendar leaf: the day in two digits over the month in three
+/// letters, such as `14` over `NOV`, in the app's language. Screen readers hear the whole date,
+/// "sábado, 14 de novembro de 2026", from [`Labels::full_date`](crate::Labels::full_date).
+///
+/// ```
+/// use ravenrs_widgets::{Date, DateTile, Tone};
+///
+/// let day = Date::new(2026, 11, 14).expect("a day");
+/// let tile = DateTile::new(day).size(72.0).tone(Tone::Accent);
+/// let over_a_band = DateTile::new(day).outlined();
+/// # let _ = (tile, over_a_band);
+/// ```
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct DateTile {
+    date: Date,
+    size: f32,
+    tone: Tone,
+    outlined: bool,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl DateTile {
+    /// A neutral block of 56 logical pixels showing `date`.
+    pub fn new(date: Date) -> Self {
+        Self { date, size: 56.0, tone: Tone::Neutral, outlined: false }
+    }
+
+    /// The side of the square in logical pixels, 56 by default. Above 64 the day is a title.
+    pub fn size(mut self, size: f32) -> Self {
+        self.size = size;
+        self
+    }
+
+    /// The color: `Neutral` is the control's ground with ink, `Accent` the accent with the ink
+    /// that goes on it, and the other tones their color with that ink too.
+    pub fn tone(mut self, tone: Tone) -> Self {
+        self.tone = tone;
+        self
+    }
+
+    /// Only the outline, in the tone's ink, to sit over a colored band.
+    pub fn outlined(mut self) -> Self {
+        self.outlined = true;
+        self
+    }
+}
+
+impl View for DateTile {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let labels = cx.labels();
+        let (ground, ink) = match self.tone {
+            Tone::Neutral => (theme.color(Semantic::Control), theme.color(Semantic::Ink)),
+            Tone::Accent => (theme.color(Semantic::Accent), theme.color(Semantic::OnAccent)),
+            tone => (tone.color(&theme), theme.color(Semantic::OnAccent)),
+        };
+        let style = if self.size > 64.0 { TextStyle::Title } else { TextStyle::Headline };
+        let day = util::label(cx, &format!("{:02}", self.date.day()), style, Some(Weight::BOLD), ink);
+        let month =
+            util::label(cx, &labels.month_abbr(self.date).to_uppercase(), TextStyle::Caption, None, ink);
+        for part in [day, month] {
+            cx.semantics(part, Semantics::hidden());
+        }
+        let paint = if self.outlined {
+            QuadPaint {
+                corner_radius: theme.radii.lg,
+                border: Some(ravenrs_core::Border { width: 1.0, color: ink }),
+                ..QuadPaint::new(Color::TRANSPARENT)
+            }
+        } else {
+            QuadPaint { corner_radius: theme.radii.lg, ..QuadPaint::new(ground) }
+        };
+        let node = cx.container(
+            LayoutStyle {
+                width: Some(self.size),
+                height: Some(self.size),
+                align: Align::Center,
+                justify: Justify::Center,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[day, month],
+            Paint::Quad(paint),
+        );
+        cx.semantics(node, Semantics::new(Role::Image).name(labels.full_date(self.date)));
+        node
+    }
+}
+
 /// What an area shows when it has nothing: an icon, a title, a sentence and what to do.
 ///
 /// ```
@@ -940,9 +1029,8 @@ impl View for DaySeparator {
             DayText::Free(text) => text.clone(),
             DayText::Day { day, today } => {
                 let labels = cx.labels();
-                match today.to_days() - day.to_days() {
-                    0 => labels.today.clone(),
-                    1 => labels.yesterday.clone(),
+                match day.to_days() - today.to_days() {
+                    0 | -1 => labels.relative_day(*day, *today),
                     _ => labels.short_date(*day),
                 }
             }
