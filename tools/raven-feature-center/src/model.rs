@@ -160,7 +160,7 @@ fn actions() -> EntityInfo {
         "ActionDemo",
         "Tipos de Action",
         ACTIONS,
-        "Selecione um registro e use a barra: Action simples, com confirmação, com valor digitado, com escolha, com janela e abrindo um endereço. \
+        "Cada linha aberta tem Fechar no fim, que fecha só aquela. Selecione um registro e use a barra: Action simples, com confirmação, com valor digitado, com escolha, com janela e abrindo um endereço. \
          Só para abertos só acende quando todos os selecionados estão abertos, e dentro do formulário há uma Action no próprio layout. \
          Fechar e dobrar não tem código: é declarada com o que muda em cada registro, passa pelas regras e grava todos ou nenhum.",
     )

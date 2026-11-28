@@ -107,6 +107,9 @@ pub enum ActionCategory {
     /// On a form, inside its layout and not above it, in the place with this name that its entity
     /// asks for with [`EntityInfo::form_actions`](crate::EntityInfo::form_actions).
     InForm(String),
+    /// On each row of a list, as a button at the end of the row: it runs on that row's record,
+    /// and lights up only on the rows that meet its [`Action::target_criteria`].
+    InRow,
 }
 
 /// Whether views inside others count.
@@ -844,6 +847,12 @@ impl Action {
         self.set_active(REASON_SCOPE, self.0.scope.covers(view, context));
         self.set_enabled(REASON_SELECTION, self.0.selection.allows(selected.len()));
         self.set_enabled(REASON_CRITERIA, self.meets_criteria(selected, environment));
+    }
+
+    /// Whether this record meets its [`Action::target_criteria`], as a row of a list asks before
+    /// lighting its button. With none, any record does.
+    pub fn fits(&self, record: &Object, environment: &Environment) -> bool {
+        self.meets_criteria(std::slice::from_ref(record), environment)
     }
 
     fn meets_criteria(&self, selected: &[Object], environment: &Environment) -> bool {

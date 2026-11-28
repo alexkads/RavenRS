@@ -20,6 +20,7 @@ replace the API statuses and adapter guarantees below.
 | Action scope, selection dependency and target criteria | ✅ `TargetScope`, `Selection`, `CriteriaMode` | |
 | Mapping actions to containers in the model | ⬜ by category for now | |
 | Actions inside a form's layout | ✅ `ActionCategory::InForm`, `EntityInfo::form_actions` | |
+| Actions on each row of a generated list | ✅ `ActionCategory::InRow`: a button at the end of each row, on only where `target_criteria` holds (`Action::fits`), run on that row's record by the same path as the others; gone for whoever lacks the operation it `requires` | #865 |
 | Messages from actions | ✅ `ActionContext::message`: kind, duration, a button and what runs once it is gone | |
 | Actions whose work runs in the background, with progress and cancel | ✅ `Action::background`, `JobContext`; the window shows the bar and Cancel, lists read again as records come | |
 | View and window controllers, frames, modules | ✅ | |
