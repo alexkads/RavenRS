@@ -150,7 +150,10 @@ fn application() -> App {
             .navigation("Aplicação")
             .icon("lock")
             .control(crate::fechamento::PAGE, crate::fechamento::ID),
+    );
+    app = app.dashboard(
         DashboardInfo::new(crate::acesso::ID, crate::acesso::PAGE)
+            .navigation("Aplicação")
             .icon("clock")
             .control(crate::acesso::PAGE, crate::acesso::ID),
     );

@@ -1,7 +1,6 @@
 //! The screens of access for a while: granting it with a reason and hours, the password shown
 //! once, and revoking a user, with a confirmation (#857).
 
-
 use ravenrs_app::{
     AccessError, Action, ActionCategory, Message, MessageKind, SECURITY_USER, Selection,
     TemporaryAccessPolicy, Value,
@@ -80,6 +79,7 @@ struct GrantForm {
     granted: State<Option<String>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl GrantForm {
     fn new(session: Session, words: Words, policy: TemporaryAccessPolicy) -> Self {
         Self {
