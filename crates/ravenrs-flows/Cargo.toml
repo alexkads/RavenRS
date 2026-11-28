@@ -1,6 +1,6 @@
 [package]
 name = "ravenrs-flows"
-workspace = "../../camadas/automacao"
+workspace = "../../camadas/fluxos"
 description = "Runs flows drawn on a RavenRS FlowCanvas: a versioned definition, a catalog of node kinds, a checked plan, and runs that pass items from node to node, whole, from a node or one node alone."
 version.workspace = true
 edition.workspace = true

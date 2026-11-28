@@ -93,7 +93,7 @@ Para saber por que um XML seria rejeitado, ou por que uma assinatura não confer
 ## XSD e conferências independentes
 
 ```bash
-cargo test --manifest-path camadas/fiscal/Cargo.toml -p ravenrs-nfe --all-features
+cargo test --manifest-path camadas/fiscal-motores/Cargo.toml -p ravenrs-nfe --all-features
 ```
 
 ```bash

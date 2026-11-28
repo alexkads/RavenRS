@@ -269,7 +269,7 @@ fn apart(check: &mut Check, all: bool) -> Result<Vec<String>, crate::run::Failed
     Ok(listed.lines().map(str::trim).filter(|line| !line.is_empty()).map(str::to_owned).collect())
 }
 
-/// A layer of the library (W1 to W9): a workspace in `camadas/` whose members stay in `crates/` (#1086).
+/// A layer of the library (W1 to W13): a workspace in `camadas/` whose members stay in `crates/` (#1086).
 fn is_layer(folder: &str) -> bool {
     folder.starts_with("camadas/")
 }
@@ -579,13 +579,17 @@ pub fn release(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
     lint_examples(check)?;
     public_api(check)?;
 
+    // A warning, not a failure: a light package loose in an expensive layer (#1096).
+    check.step("no light package sits loose in an expensive layer");
+    check.run(PYTHON, &["scripts/camadas.py", "pesos"])?;
+
     // Every workspace, in the order of camadas.toml (#1087): the library's layers, the root (the
-    // tooling, W10), then the showcase, Raven CI and the applications.
+    // tooling, W14), then the showcase, Raven CI and the applications.
     let every_apart = apart(check, true)?;
     let (layers, above): (Vec<String>, Vec<String>) =
         every_apart.iter().cloned().partition(|line| is_layer(folder_and_packages(line).0));
     check_apart(check, &layers, true)?;
-    check.step("clippy (native), the root: the tooling (W10)");
+    check.step("clippy (native), the root: the tooling (W14)");
     clippy(check, &["--workspace".to_owned()])?;
     check_apart(check, &above, true)?;
     // The library's packages are in their layers' workspaces (#1086): `-p` goes to the layer's manifest.

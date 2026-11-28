@@ -91,7 +91,7 @@ No ambiente `Sandbox`, o emissor recusa um transporte que chegue à rede.
 ## Conferências independentes
 
 ```sh
-cargo test --manifest-path camadas/fiscal/Cargo.toml -p ravenrs-nfe --all-features
+cargo test --manifest-path camadas/fiscal-motores/Cargo.toml -p ravenrs-nfe --all-features
 scripts/validar-xsd.sh <pasta com os esquemas PL_010>
 ```
 

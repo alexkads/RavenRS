@@ -10,7 +10,7 @@
 # naquela pasta; com `um_workspace_por_pacote`, cada pacote é um workspace na pasta dele. O
 # `scripts/camadas.py deps --write` escreve neles a cópia do Cargo.toml da raiz (F1, #1084).
 #
-# As camadas da biblioteca (W1 a W9) têm o workspace em `camadas/<nome>/Cargo.toml` e os membros
+# As camadas da biblioteca (W1 a W13) têm o workspace em `camadas/<nome>/Cargo.toml` e os membros
 # continuam em `crates/`: cada um diz `workspace = "../../camadas/<nome>"` no `[package]`, e a raiz
 # lista só o que sobrou nela (F3, #1086). Os dois o `deps --write` escreve.
 #
@@ -27,8 +27,27 @@ pacotes = [
     "ravenrs-criteria", "ravenrs-app-i18n", "ravenrs-barcode", "ravenrs-process", "ravenrs-perifericos",
 ]
 
-[widgets]
+[fluxos]
 rotulo = "W2"
+# Os motores leves ficam logo acima do núcleo, porque só usam o núcleo (F5, #1096).
+separada = true
+pasta = "camadas/fluxos"
+pacotes = ["ravenrs-flows", "ravenrs-flows-runtime", "ravenrs-git"]
+
+[fiscal-motores]
+rotulo = "W3"
+separada = true
+pasta = "camadas/fiscal-motores"
+pacotes = ["ravenrs-dfe", "ravenrs-nfe", "ravenrs-nfse", "ravenrs-pagamento", "ravenrs-pos"]
+
+[rede]
+rotulo = "W4"
+separada = true
+pasta = "camadas/rede"
+pacotes = ["ravenrs-mail", "ravenrs-secrets", "ravenrs-metrics"]
+
+[widgets]
+rotulo = "W5"
 separada = true
 pasta = "camadas/widgets"
 pacotes = [
@@ -39,7 +58,7 @@ pacotes = [
 ]
 
 [plataforma]
-rotulo = "W3"
+rotulo = "W6"
 separada = true
 pasta = "camadas/plataforma"
 pacotes = [
@@ -48,7 +67,7 @@ pacotes = [
 ]
 
 [documentos]
-rotulo = "W4"
+rotulo = "W7"
 separada = true
 pasta = "camadas/documentos"
 pacotes = [
@@ -58,7 +77,7 @@ pacotes = [
 ]
 
 [app]
-rotulo = "W5"
+rotulo = "W8"
 separada = true
 pasta = "camadas/app"
 pacotes = [
@@ -67,16 +86,15 @@ pacotes = [
 ]
 
 [servicos]
-rotulo = "W6"
+rotulo = "W9"
 separada = true
 pasta = "camadas/servicos"
 pacotes = [
     "ravenrs-app-postgres", "ravenrs-app-postgrest", "ravenrs-app-server", "ravenrs-report-server",
-    "ravenrs-mail", "ravenrs-secrets", "ravenrs-metrics",
 ]
 
 [telas]
-rotulo = "W7"
+rotulo = "W10"
 separada = true
 pasta = "camadas/telas"
 pacotes = [
@@ -86,25 +104,28 @@ pacotes = [
 ]
 
 [fiscal]
-rotulo = "W8"
+rotulo = "W11"
 separada = true
 pasta = "camadas/fiscal"
 pacotes = [
-    "ravenrs-dfe", "ravenrs-nfe", "ravenrs-nfse", "ravenrs-pagamento", "ravenrs-pos", "ravenrs-app-nfe",
-    "ravenrs-app-pos",
+    "ravenrs-app-nfe", "ravenrs-app-pos",
 ]
 
 [automacao]
-rotulo = "W9"
+rotulo = "W12"
 separada = true
 pasta = "camadas/automacao"
-pacotes = [
-    "ravenrs-flows", "ravenrs-flows-runtime", "ravenrs-flow-bpmn", "ravenrs-flow-export", "ravenrs-git",
-    "ravenrs-ai", "ravenrs-movie-video",
-]
+pacotes = ["ravenrs-flow-bpmn", "ravenrs-flow-export"]
+
+[ia-video]
+rotulo = "W13"
+# A IA local (candle) e o vídeo (openh264) só compilam quando são a tarefa (F5, #1096; #348).
+separada = true
+pasta = "camadas/ia-video"
+pacotes = ["ravenrs-ai", "ravenrs-movie-video"]
 
 [infra]
-rotulo = "W10"
+rotulo = "W14"
 # A camada que fica no workspace da raiz: o `cargo xtask` mora nela e só roda daqui (F4, #1087).
 raiz = true
 pacotes = [
@@ -113,14 +134,14 @@ pacotes = [
 ]
 
 [vitrine]
-rotulo = "W11"
+rotulo = "W15"
 # Um workspace por pacote: o feature-center e o ComponentBook usam a galeria por caminho (F2, #1085).
 separada = true
 um_workspace_por_pacote = true
 pacotes = ["raven-feature-center", "component-gallery", "raven-component-book"]
 
 [raven-ci]
-rotulo = "W12"
+rotulo = "W16"
 separada = true
 pasta = "tools/raven-ci"
 pacotes = [

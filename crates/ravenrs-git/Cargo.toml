@@ -1,6 +1,6 @@
 [package]
 name = "ravenrs-git"
-workspace = "../../camadas/automacao"
+workspace = "../../camadas/fluxos"
 description = "Git for RavenRS services, over the git installed on the machine: shallow clones, pull request refs, merging into the target with the conflicts named, and credentials kept out of the command line and the remote's address."
 version.workspace = true
 edition.workspace = true

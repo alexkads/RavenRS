@@ -1,6 +1,6 @@
 [package]
 name = "ravenrs-secrets"
-workspace = "../../camadas/servicos"
+workspace = "../../camadas/rede"
 description = "A vault for RavenRS apps and servers: secrets sealed with ChaCha20-Poly1305, a key kept apart from them, opaque references, separate rights to use, reveal and administer, rotation, revocation and one way to keep values out of logs."
 version.workspace = true
 edition.workspace = true

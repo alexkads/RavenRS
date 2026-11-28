@@ -4,7 +4,7 @@
 # >>> camadas.py: gerado do Cargo.toml da raiz por `python3 scripts/camadas.py deps --write`; não edite à mão
 [workspace]
 resolver = "3"
-members = ["../../crates/ravenrs-app-postgres", "../../crates/ravenrs-app-postgrest", "../../crates/ravenrs-app-server", "../../crates/ravenrs-mail", "../../crates/ravenrs-metrics", "../../crates/ravenrs-report-server", "../../crates/ravenrs-secrets"]
+members = ["../../crates/ravenrs-app-postgres", "../../crates/ravenrs-app-postgrest", "../../crates/ravenrs-app-server", "../../crates/ravenrs-report-server"]
 
 [workspace.package]
 version = "27.1.28"
