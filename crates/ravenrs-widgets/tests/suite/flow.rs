@@ -1991,3 +1991,18 @@ fn a_strip_of_stages_is_as_wide_as_its_diagram_where_nothing_stretches_it() {
     let empty = strip_in(1400.0, FlowGraph::new(), fitting);
     assert!((empty - 240.0).abs() < 1.0, "{empty}");
 }
+
+#[test]
+fn a_canvas_in_a_column_of_no_height_still_shows() {
+    let graph = State::new(graph());
+    // A column that fits what it holds, inside a scroll: nothing gives the canvas a height.
+    let canvas = FlowCanvas::new(graph.binding()).label("Fluxo de vendas");
+    let page =
+        ScrollView::new(VStack::new((Text::new("Fluxos"), canvas)).align(ravenrs_layout::Align::Stretch));
+    let mut ui = Ui::new(page, Theme::raven_dark());
+    ui.set_viewport(Size::new(900.0, 600.0), 1.0);
+    settle(&mut ui);
+    let tree = ui.access_tree();
+    let found = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Fluxo de vendas")).expect("the canvas");
+    assert!(found.bounds.height() >= 240.0, "it keeps a least height: {:?}", found.bounds);
+}

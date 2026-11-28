@@ -562,6 +562,10 @@ pub type FlowConnector = Rc<dyn Fn(&FlowGraph, FlowEdge) -> FlowEdge>;
 /// not, the diagram stays as it was, nothing goes into the history, and the reason shows.
 pub type FlowGuard = Rc<dyn Fn(&FlowGraph, &FlowGraph, &FlowChange) -> Result<(), String>>;
 
+/// The least height of a canvas given no height of its own, so it never collapses to nothing in a
+/// column that gives it none.
+const LEAST_HEIGHT: f32 = 240.0;
+
 /// A diagram of nodes joined by connections, on an endless surface with a dotted grid.
 ///
 /// * Drag the surface or turn the wheel to pan; pinch, or turn the wheel with Cmd/Ctrl, to zoom
@@ -3347,6 +3351,9 @@ impl View for FlowCanvas {
                 width: self.width,
                 height: self.height,
                 grow: self.grow,
+                // With no height of its own, growing in a column that gives none would leave it at 0
+                // and the diagram would not show: it keeps a least height instead (#750).
+                min_height: self.height.is_none().then_some(LEAST_HEIGHT),
                 align: Align::Start,
                 align_self: Some(if self.width.is_some() { Align::Start } else { Align::Stretch }),
                 overflow_hidden: true,

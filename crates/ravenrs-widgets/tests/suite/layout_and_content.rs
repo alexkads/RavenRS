@@ -325,3 +325,37 @@ fn text_sits_in_the_middle_or_at_the_end_of_the_width_it_is_stretched_to() {
     assert!((150.0..250.0).contains(&(center.0 + (center.1 - center.0) / 2.0)), "{center:?}");
     assert!((end.0 - start.0 - 2.0 * shift).abs() < 2.0, "{start:?} {center:?} {end:?}");
 }
+
+#[test]
+fn a_paragraph_beside_an_icon_wraps_inside_its_card() {
+    let long = "Uma frase longa ao lado de um ícone, dentro de um cartão estreito. ".repeat(6);
+    let paragraph = long.trim().to_owned();
+    let card = Card::new(
+        HStack::new((Icon::new(IconName::Info), VStack::new((Text::new(paragraph.clone()),)).grow(1.0)))
+            .spacing(8.0)
+            .align(Align::Start),
+    );
+    let mut ui = ui(VStack::new((card,)).width(600.0));
+    let tree = ui.access_tree();
+    let text =
+        tree.nodes.iter().find(|n| n.name.as_deref() == Some(paragraph.as_str())).expect("the paragraph");
+    let card = quads(&ui).into_iter().map(|q| q.rect).find(|r| r.height() > 30.0).expect("the card");
+    assert!((card.width() - 600.0).abs() < 0.5, "the card holds to its column: {card:?}");
+    let card_right = card.max_x();
+    assert!(
+        text.bounds.max_x() <= card_right + 0.5,
+        "the text ends at {} past the card at {card_right}",
+        text.bounds.max_x()
+    );
+    assert!(text.bounds.height() > 30.0, "it took more than one line: {:?}", text.bounds);
+}
+
+#[test]
+fn a_scroll_view_takes_a_stack_on_its_own() {
+    let one = ui(ScrollView::new(VStack::new((Text::new("a"), Text::new("b")))).height(200.0));
+    let tuple = ui(ScrollView::new((VStack::new((Text::new("a"), Text::new("b"))),)).height(200.0));
+    let rects =
+        |ui: &Ui| ui.scene().primitives().iter().filter(|p| matches!(p, Primitive::Glyphs(_))).count();
+    assert_eq!(rects(&one), rects(&tuple));
+    assert_eq!(rects(&one), 2);
+}
