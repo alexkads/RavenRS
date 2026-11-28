@@ -291,13 +291,14 @@ fn the_group_and_sort_panel_lists_moves_adds_and_removes_levels() {
     let mut ui = designer();
     press(&mut ui, Role::Button, "Vendas por região");
     press(&mut ui, Role::Tab, "Design");
-    // The third tab of the dock does not fit beside the other two: it is in the tabs' menu (#1009).
-    let more = names(&mut ui, Role::Button)
-        .into_iter()
-        .find(|n| n == "Mais abas" || n == "More tabs")
-        .expect("the menu of the tabs that do not fit");
-    press(&mut ui, Role::Button, &more);
+    // The dock is narrow for its three tabs: the last one is in the "Mais abas" menu (#1009),
+    // and choosing it there brings it to the bar.
+    press(&mut ui, Role::Button, "Mais abas");
     press(&mut ui, Role::MenuItem, "Agrupar e ordenar");
+    assert!(
+        ui.access_tree().find(Role::Tab, "Agrupar e ordenar").and_then(|t| t.selected) == Some(true),
+        "the panel's tab is open in the bar"
+    );
     assert_eq!(group_titles(&mut ui), ["1. [Region]", "2. [City]"]);
     assert!(
         names(&mut ui, Role::Button).iter().any(|n| n == "Remover a ordenação 1"),

@@ -1,5 +1,5 @@
 # cargo-deny: license, advisory, ban and source policy for RavenRS.
-# Run with `cargo deny check` (part of scripts/check.sh when cargo-deny is installed).
+# Run with `cargo deny check` (part of cargo xtask pr when cargo-deny is installed).
 
 [graph]
 all-features = true

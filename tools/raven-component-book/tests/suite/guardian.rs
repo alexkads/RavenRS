@@ -79,7 +79,7 @@ fn the_written_system_is_whole_and_locked_to_the_code() {
     assert!(!dir.join("project/components/Cover/README.md").exists());
     // A copy of what was written compares clean; one changed file and one stray file do not.
     // Compared with the copy just written, not written again: measuring every component is what
-    // takes the time, and `verify` is writing and then comparing (scripts/check.sh runs it).
+    // takes the time, and `verify` is writing and then comparing (cargo xtask pr runs it).
     let copy = dir.with_extension("copy");
     copy_folder(&dir, &copy);
     assert!(export::compare(&copy, &dir, &written).unwrap().is_clean());

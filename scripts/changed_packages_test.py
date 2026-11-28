@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Tests of how scripts/changed-packages.py reads Cargo.toml and Cargo.lock: what it skips is what
-the quick check does not run, so a mistake here hides a broken package. scripts/check.sh runs it."""
+the quick check does not run, so a mistake here hides a broken package. cargo xtask pr runs it."""
 import importlib.util
 import pathlib
 import unittest

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # How long frames take, against the budgets in docs/QUALITY.md. Run before each release,
-# plugged in, on the reference Mac. It is not part of scripts/check.sh: time on a laptop
+# plugged in, on the reference Mac. It is not part of cargo xtask pr: time on a laptop
 # is noisy, and small regressions are what the gate's exact counters catch.
 #
 # Noise almost only adds time, so the estimate is the best of three separate processes.

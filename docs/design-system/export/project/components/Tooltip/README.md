@@ -23,11 +23,12 @@ Hugs its content: 262 × 96 pt in a parent of 760 pt.
 The pointer over the first control, the focus brought to it with Tab and the button held down on it, measured in Raven Dark on the story Example:
 
 - **Hover** on "It stays out of the way": fill bg-300 → mix(ink, bg-300, 6); adds a rect (ink); adds a text (null).
-- **Focus** on "It stays out of the way": adds a rect (border 2.0 focus-ring).
+- **Focus** on "It stays out of the way": adds a rect (border 2.0 focus-ring); adds a rect (ink); adds a text (null).
 - **Pressed** on "It stays out of the way": adds a rect (border 0.97 border); adds a text (null); adds a rect (ink); adds a text (null).
 
 ## Behavior
 
+- **Keys** its first control handles once focused: `Escape`.
 - **Accessibility**: role `Button` "It stays out of the way".
 - **Focus order** (Tab): Button "It stays out of the way" → Button "Save the file" → Button "Open a file".
 
@@ -41,7 +42,7 @@ Measured from what RavenRS paints, in points. Colors are tokens; `token@N` is th
 
 ## API
 
-Builder methods: `new`, `shortcut`.
+Builder methods: `close_delay`, `new`, `open_delay`, `shortcut`.
 
 ## Example
 

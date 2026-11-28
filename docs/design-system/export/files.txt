@@ -480,6 +480,9 @@ project/components/EmptyState/EmptyState.json
 project/components/HeroBanner/README.md
 project/components/HeroBanner/preview.html
 project/components/HeroBanner/HeroBanner.json
+project/components/DateTile/README.md
+project/components/DateTile/preview.html
+project/components/DateTile/DateTile.json
 project/components/IconTile/README.md
 project/components/IconTile/preview.html
 project/components/IconTile/IconTile.json
@@ -576,6 +579,9 @@ project/components/TransformHandles/TransformHandles.json
 project/components/ZoomPanView/README.md
 project/components/ZoomPanView/preview.html
 project/components/ZoomPanView/ZoomPanView.json
+project/components/Chronology/README.md
+project/components/Chronology/preview.html
+project/components/Chronology/Chronology.json
 project/components/AppShell/README.md
 project/components/AppShell/preview.html
 project/components/AppShell/AppShell.json

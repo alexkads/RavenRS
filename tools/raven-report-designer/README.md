@@ -34,7 +34,7 @@ From a checkout: `cargo run -p raven-report-designer`.
 
 ## Limits
 
-- The web build is made with scripts/build-web.sh raven-report-designer.
+- The web build is made with cargo xtask web raven-report-designer.
 
 ## As a product
 
