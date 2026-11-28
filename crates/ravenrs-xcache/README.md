@@ -48,7 +48,7 @@ The 23m01s with an empty cache is not the cache: it is `CARGO_INCREMENTAL=0`, wh
 
 **Clippy.** `cargo clippy` puts `clippy-driver` in front of rustc for every member of the workspace, but lints only the packages named on its command line (`CARGO_PRIMARY_PACKAGE`). For the other members, the workspace crates the linted ones depend on, `clippy-driver` is rustc with nothing added, so the wrapper runs rustc itself and those come from the cache like any library. The linted ones still compile every time.
 
-**Proc macros.** A proc macro links, so it is compiled every time. Compiled with the same remapping it is the same macro in every worktree, so the crates that use it are told apart by what the macro was built from, not by the bytes of a library the linker stamped with one build directory.
+**Proc macros.** A proc macro links, and it is kept like a library (#1032): the linker is one of its inputs, so its key also has the linker, from `-C linker=` or the `cc` rustc uses without it, by what it says to `--version`. The crates that use a macro are told apart by what it was built from, not by the bytes of the library, which the linker may stamp with one build directory: compiled or restored, the macro carries the same name in every worktree. A library with a real path in it is kept for its own paths only, as anything else.
 
 **Storage.** Files are named by the SHA-256 of their content and written to a temporary file, then renamed, so a build stopped halfway leaves nothing that reads as whole. A restore checks the size and the hash; a file that changed on disk is refused, the crate is compiled, and the good file replaces it. Restoring is a copy, which is a copy-on-write clone on APFS. The dep-info Cargo reads is kept with markers and written back with the paths of the worktree it is restored into.
 
@@ -57,7 +57,6 @@ The 23m01s with an empty cache is not the cache: it is `CARGO_INCREMENTAL=0`, wh
 | What | Why | Planned |
 |---|---|---|
 | Executables, test binaries, `cdylib`, `dylib` | They link; the linker's inputs are not all known | yes |
-| Proc macros | They link (but their users are shared, see above) | yes |
 | Clippy on the packages it lints | `clippy-driver` compiles in rustc's place, with its lints | yes |
 | Incremental compiles | They depend on the state in the build directory | no: turn it off for the build |
 | rustdoc, build script runs | They do not go through `RUSTC_WRAPPER` | yes |
@@ -74,7 +73,7 @@ The 23m01s with an empty cache is not the cache: it is `CARGO_INCREMENTAL=0`, wh
 
 ## Where it goes from here
 
-In order: Clippy on workspace crates; executables, tests and proc macros (linking); build script runs; rustdoc; `wasm-bindgen` and `wasm-opt` as a cache of tasks, keyed by their inputs, arguments and tool versions; a limit on parallel compiles under memory pressure; C and C++; a remote store. Test results are never kept in place of running the tests.
+In order: Clippy on the packages it lints; executables and tests (linking); build script runs; rustdoc; `wasm-bindgen` and `wasm-opt` as a cache of tasks, keyed by their inputs, arguments and tool versions; a limit on parallel compiles under memory pressure; C and C++; a remote store. Test results are never kept in place of running the tests.
 
 The design read sccache, ccache, Kache, zccache and Corgi for what each does best. No code was copied.
 

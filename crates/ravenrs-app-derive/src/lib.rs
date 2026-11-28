@@ -38,7 +38,8 @@ use syn::{DeriveInput, Error, Result, parse_macro_input};
 /// * `display_format = "{:.2} %"`, how its value shows when it is not being edited.
 /// * On a reference: `lookup_filter = "[flow] = ?flow"`, `none_caption = "..."`. On a collection:
 ///   `back_reference = "..."`, `aggregated`. `secret` never leaves a secured space. `badge` shows the value as a badge in a list, and `list_detail = "..."` another field under it. `non_cloneable` stays behind on cloning, and
-///   `most_bytes = 1024` limits a picture or a file.
+///   `most_bytes = 1024` limits a picture or a file. `row_version`, on an integer, is the version
+///   of the record: keeping one someone else kept after it was read is refused.
 ///
 /// On the struct, as many as needed:
 ///
@@ -245,6 +246,9 @@ fn field_tokens(field: &FieldSpec) -> Tokens {
     }
     if let Some(field) = &attrs.list_detail {
         then(quote!(.list_detail(#field)));
+    }
+    if attrs.row_version {
+        then(quote!(.row_version()));
     }
     if attrs.non_cloneable {
         then(quote!(.non_cloneable()));

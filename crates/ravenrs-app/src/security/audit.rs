@@ -336,7 +336,11 @@ impl AuditedObjectSpace {
             }
             if let Some(object) = object {
                 let fresh = entity.new_object();
-                for field in entity.fields.iter().filter(|field| settings.covers(field, &name)) {
+                for field in entity
+                    .fields
+                    .iter()
+                    .filter(|field| !field.is_row_version && settings.covers(field, &name))
+                {
                     let new = object.get(&field.name);
                     match (change, old) {
                         (Change::New(_), _) => {

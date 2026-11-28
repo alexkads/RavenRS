@@ -286,9 +286,23 @@ impl View for DetailView {
                 }
             }
         }
-        match note {
-            Some(note) => cx.child(&VStack::new((note, layout)).spacing(12.0).align(Align::Stretch)),
-            None => cx.child(&layout),
+        // Someone else kept this record in between: both sides, and reloading one click away.
+        let conflict = session.conflict().map(|conflict| {
+            let words = session.words();
+            let reloading = session.clone();
+            Alert::new(words.conflict_question.clone(), conflict.message.clone())
+                .tone(Tone::Warning)
+                .action(words.conflict_reload.clone(), move || reloading.reload_form())
+        });
+        match (conflict, note) {
+            (Some(conflict), Some(note)) => {
+                cx.child(&VStack::new((conflict, note, layout)).spacing(12.0).align(Align::Stretch))
+            }
+            (Some(conflict), None) => {
+                cx.child(&VStack::new((conflict, layout)).spacing(12.0).align(Align::Stretch))
+            }
+            (None, Some(note)) => cx.child(&VStack::new((note, layout)).spacing(12.0).align(Align::Stretch)),
+            (None, None) => cx.child(&layout),
         }
     }
 }

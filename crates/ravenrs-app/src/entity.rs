@@ -165,6 +165,9 @@ pub struct FieldInfo {
     pub kind: FieldKind,
     /// It identifies the record.
     pub is_key: bool,
+    /// It counts the times the record was kept, so that keeping over what someone else kept
+    /// after it was read is refused with [`SpaceError::Outdated`](crate::SpaceError::Outdated).
+    pub is_row_version: bool,
     /// It can be seen but not changed.
     pub read_only: bool,
     /// It has a column in lists.
@@ -250,6 +253,7 @@ impl FieldInfo {
             in_detail: true,
             in_lookup: false,
             is_key: false,
+            is_row_version: false,
             read_only: false,
             calculated: None,
             default_value,
@@ -297,6 +301,18 @@ impl FieldInfo {
     /// Makes it the key, typed by people, as a code is.
     pub fn typed_key(mut self) -> Self {
         self.is_key = true;
+        self
+    }
+
+    /// Makes it the version of the record, an integer: storage starts it at 1, adds one each
+    /// time the record is kept, and refuses keeping a record read at another version with
+    /// [`SpaceError::Outdated`](crate::SpaceError::Outdated). Read-only, and out of lists and forms.
+    pub fn row_version(mut self) -> Self {
+        self.is_row_version = true;
+        self.read_only = true;
+        self.in_list = false;
+        self.in_detail = false;
+        self.non_cloneable = true;
         self
     }
 
@@ -1023,6 +1039,16 @@ impl EntityInfo {
         self.fields.iter().find(|f| f.is_key)
     }
 
+    /// The field that holds the version of a record, when its records have one.
+    pub fn row_version_field(&self) -> Option<&FieldInfo> {
+        self.fields.iter().find(|f| f.is_row_version)
+    }
+
+    /// The version of this record, when its records have one: 0 for one never kept with it.
+    pub fn version_of(&self, object: &Object) -> Option<i64> {
+        self.row_version_field().map(|field| object.integer(&field.name).unwrap_or(0))
+    }
+
     /// The field that names a record: the first in lookups, or else the first with text.
     pub fn default_property(&self) -> Option<&FieldInfo> {
         self.fields
@@ -1049,6 +1075,14 @@ impl EntityInfo {
             1 => {}
             0 => return wrong("it has no key field".into()),
             n => return wrong(format!("it has {n} key fields, and only one can be")),
+        }
+        if self.fields.iter().filter(|f| f.is_row_version).count() > 1 {
+            return wrong("it has more than one row version field".into());
+        }
+        if let Some(field) = self.row_version_field()
+            && (field.is_key || field.calculated.is_some() || !matches!(field.kind, FieldKind::Integer))
+        {
+            return wrong(format!("the row version {} has to be a stored integer, not the key", field.name));
         }
         for (i, field) in self.fields.iter().enumerate() {
             if self.fields[..i].iter().any(|f| f.name == field.name) {

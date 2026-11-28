@@ -26,6 +26,7 @@ fn order() -> EntityInfo {
         .field(FieldInfo::new("twice", FieldKind::Integer).calculated("[seats] * 2"))
         .field(FieldInfo::new("seats", FieldKind::Integer))
         .field(FieldInfo::new("on", FieldKind::Date))
+        .field(FieldInfo::new("version", FieldKind::Integer).row_version())
         .field(FieldInfo::new(
             "state",
             FieldKind::Enum(vec![EnumOption::new("o", "Open"), EnumOption::new("c", "Closed")]),
@@ -323,6 +324,30 @@ fn writing_follows_the_same_permissions_as_the_screens() {
         api.send(ApiRequest::new("POST", "/api/data/Order").bearer(&caio).json(&json!({ "name": "x" })));
     assert_eq!(reader.status, 403);
     assert_eq!(api.send(ApiRequest::new("DELETE", "/api/data/Order/2").bearer(&caio)).status, 403);
+}
+
+#[test]
+fn keeping_over_what_someone_else_kept_after_reading_is_refused() {
+    let mut api = Api::new();
+    let ana = api.token("ana");
+    let read = api.send(ApiRequest::new("GET", "/api/data/Order/1").bearer(&ana));
+    assert_eq!(read.body["version"], json!(1), "{read:?}");
+    let first = ApiRequest::new("PATCH", "/api/data/Order/1").bearer(&ana);
+    let answer = api.send(first.json(&json!({ "name": "Primeiro", "version": 1 })));
+    assert_eq!(answer.status, 200, "{answer:?}");
+    let second = ApiRequest::new("PATCH", "/api/data/Order/1").bearer(&ana);
+    let answer = api.send(second.json(&json!({ "name": "Segundo", "version": 1 })));
+    assert_eq!(answer.status, 409, "{answer:?}");
+    assert_eq!(answer.body["error"], json!("outdated"));
+    assert_eq!(answer.body["outdated"], json!({ "entity": "Order", "key": "1", "read": 1, "stored": 2 }));
+    assert_eq!(api.stored("Order", 1.0, "name"), Value::Text("Primeiro".into()), "the first one stays");
+    assert_eq!(api.stored("Order", 1.0, "version"), Value::Number(2.0));
+    let without = ApiRequest::new("PATCH", "/api/data/Order/1").bearer(&ana);
+    let answer = api.send(without.json(&json!({ "name": "Sem versão" })));
+    assert_eq!(answer.status, 200, "without a version the last one wins: {answer:?}");
+    let new = ApiRequest::new("POST", "/api/data/Order").bearer(&ana);
+    let answer = api.send(new.json(&json!({ "name": "Novo", "version": 7 })));
+    assert_eq!(answer.status, 400, "a new record starts at one: {answer:?}");
 }
 
 #[test]

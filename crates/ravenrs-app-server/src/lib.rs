@@ -181,11 +181,13 @@ pub struct Failure {
     violations: Option<Json>,
     /// Which operation of a batch it was.
     operation: Option<usize>,
+    /// For a record someone else kept after it was read: its entity, key and versions.
+    outdated: Option<Box<Json>>,
 }
 
 impl Failure {
     fn new(status: u16, code: &'static str, message: impl Into<String>) -> Self {
-        Self { status, code, message: message.into(), violations: None, operation: None }
+        Self { status, code, message: message.into(), violations: None, operation: None, outdated: None }
     }
 
     /// What was asked does not fit.
@@ -215,6 +217,9 @@ impl Failure {
         if let (Some(operation), Some(object)) = (self.operation, body.as_object_mut()) {
             object.insert("operation".to_owned(), json!(operation));
         }
+        if let (Some(outdated), Some(object)) = (self.outdated, body.as_object_mut()) {
+            object.insert("outdated".to_owned(), *outdated);
+        }
         ApiResponse::json(self.status, body)
     }
 }
@@ -242,6 +247,15 @@ impl From<SpaceError> for Failure {
             SpaceError::Refused(why) => Self::new(422, "refused", why),
             error @ SpaceError::DuplicateKey { .. } => Self::new(409, "conflict", error.to_string()),
             SpaceError::Conflict(why) => Self::new(409, "conflict", why),
+            error @ SpaceError::Outdated { .. } => {
+                let mut failure = Self::new(409, "outdated", error.to_string());
+                if let SpaceError::Outdated { entity, key, read, stored } = error {
+                    failure.outdated = Some(Box::new(
+                        json!({ "entity": entity, "key": key, "read": read, "stored": stored }),
+                    ));
+                }
+                failure
+            }
             // What went wrong in storage is for the log, and not for whoever is asking.
             other => {
                 tracing::error!(error = %other, "storage failed");

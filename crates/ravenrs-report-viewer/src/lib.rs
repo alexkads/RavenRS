@@ -686,6 +686,8 @@ impl View for PageView {
         let node = cx.container(LayoutStyle::stack(Axis::Vertical), &[canvas], Paint::None);
         // Screen readers get the page's text; everyone else sees the drawing.
         cx.semantics(node, Semantics::new(Role::Image).name(self.text.clone()));
+        // The page on show, for a scenario to read its text with `mention #page = ...`.
+        cx.test_id(node, "page");
         node
     }
 }

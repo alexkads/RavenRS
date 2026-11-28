@@ -53,6 +53,8 @@ mod centro;
 #[cfg(feature = "app")]
 pub mod contas;
 #[cfg(feature = "app")]
+pub mod entrada;
+#[cfg(feature = "app")]
 pub mod fechamento;
 #[cfg(feature = "app")]
 pub mod menu;
@@ -72,6 +74,8 @@ pub mod servico;
 pub mod servidor;
 #[cfg(feature = "app")]
 pub mod vencimentos;
+#[cfg(feature = "app")]
+pub mod versao_registro;
 #[cfg(feature = "app")]
 pub use centro::*;
 

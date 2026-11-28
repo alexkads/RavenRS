@@ -16,10 +16,15 @@ use crate::{EntityInfo, Object, ObjectSpace, Query, SpaceError};
 
 /// The shortest password taken, in characters.
 pub const MIN_PASSWORD_CHARS: usize = 8;
-/// Wrong passwords in a row before an account waits.
-const MOST_FAILED_ATTEMPTS: f64 = 5.0;
-/// How long it waits, in minutes.
-const LOCKED_MINUTES: i64 = 15;
+/// Wrong passwords in a row before an account waits, unless [`UserDirectory::with_lockout`] says.
+const MOST_FAILED_ATTEMPTS: u32 = 5;
+/// How long it waits, in minutes, unless [`UserDirectory::with_lockout`] says.
+const LOCKED_MINUTES: u32 = 15;
+
+/// What an application asks of a new password besides its length, given the user's name and the
+/// password: `Err` carries the words shown to the person, as they are. See
+/// [`UserDirectory::with_password_policy`].
+pub type PasswordPolicy = Rc<dyn Fn(&str, &str) -> Result<(), String>>;
 
 /// What someone gave to sign in.
 #[derive(Clone, Default)]
@@ -96,6 +101,8 @@ pub enum PasswordError {
     NotAllowed,
     /// There is no such user.
     NoSuchUser,
+    /// The password policy of the application refused it, in its own words.
+    Refused(String),
     /// Something else went wrong.
     Failed(String),
 }
@@ -108,7 +115,7 @@ impl fmt::Display for PasswordError {
             Self::SameAsCurrent => f.write_str("the new password has to be another one"),
             Self::NotAllowed => f.write_str("this password cannot be changed by this person"),
             Self::NoSuchUser => f.write_str("there is no such user"),
-            Self::Failed(why) => f.write_str(why),
+            Self::Refused(why) | Self::Failed(why) => f.write_str(why),
         }
     }
 }
@@ -134,11 +141,19 @@ fn failed(error: SpaceError) -> AuthError {
 pub struct UserDirectory {
     space: SpaceMaker,
     roles: Rc<Vec<Role>>,
+    policy: Option<PasswordPolicy>,
+    most_attempts: u32,
+    locked_minutes: u32,
 }
 
 impl fmt::Debug for UserDirectory {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("UserDirectory").field("roles", &self.roles).finish_non_exhaustive()
+        f.debug_struct("UserDirectory")
+            .field("roles", &self.roles)
+            .field("policy", &self.policy.is_some())
+            .field("most_attempts", &self.most_attempts)
+            .field("locked_minutes", &self.locked_minutes)
+            .finish_non_exhaustive()
     }
 }
 
@@ -147,9 +162,76 @@ impl UserDirectory {
     /// Over what this makes. `roles` are what the application declares in code: a role record of
     /// the same name gets what they say, and one is created if missing.
     pub fn new(space: SpaceMaker, roles: Vec<Role>) -> Result<Self, SpaceError> {
-        let directory = Self { space, roles: Rc::new(roles) };
+        let directory = Self {
+            space,
+            roles: Rc::new(roles),
+            policy: None,
+            most_attempts: MOST_FAILED_ATTEMPTS,
+            locked_minutes: LOCKED_MINUTES,
+        };
         directory.ensure_roles()?;
         Ok(directory)
+    }
+
+    /// Asks `policy` about every new password, after its length: creating the first
+    /// administrator, someone changing their own and an administrator giving one. It gets the
+    /// user's name and the password, and what it says in `Err` is what the person reads, as
+    /// [`PasswordError::Refused`]. The password is never kept or written anywhere by this.
+    pub fn with_password_policy(self, policy: impl Fn(&str, &str) -> Result<(), String> + 'static) -> Self {
+        Self { policy: Some(Rc::new(policy)), ..self }
+    }
+
+    /// After `attempts` wrong passwords in a row an account waits `minutes`, during which even
+    /// the right password is refused. The usual is 5 and 15. Neither turns the lockout off: an
+    /// `attempts` of 0 counts as 1 and `minutes` of 0 as 1, so a wait is never shorter than a
+    /// minute.
+    pub fn with_lockout(self, attempts: u32, minutes: u32) -> Self {
+        Self { most_attempts: attempts.max(1), locked_minutes: minutes.max(1), ..self }
+    }
+
+    /// Whether a new password for `name` would be taken: its length, then the policy.
+    pub fn check_password(&self, name: &str, password: &str) -> Result<(), PasswordError> {
+        if password.chars().count() < MIN_PASSWORD_CHARS {
+            return Err(PasswordError::TooShort);
+        }
+        match &self.policy {
+            Some(policy) => policy(name, password).map_err(PasswordError::Refused),
+            None => Ok(()),
+        }
+    }
+
+    fn checked_hash(&self, name: &str, password: &str) -> Result<String, PasswordError> {
+        self.check_password(name, password)?;
+        hash_password(password).map_err(PasswordError::Failed)
+    }
+
+    /// Lets someone waiting after too many wrong passwords sign in again, keeping their password.
+    /// Only an administrator does this, and it goes to the audit trail of `by` with no password.
+    pub fn unlock(&self, by: &SecurityContext, user: &Value) -> Result<(), SpaceError> {
+        if !by.with(Permissions::is_administrator) {
+            return Err(by.denied());
+        }
+        let mut space = (self.space)();
+        let Some(mut record) = space.find(SECURITY_USER, user)? else {
+            return Err(SpaceError::Conflict("there is no such user".to_owned()));
+        };
+        record.set("failed_attempts", 0.0);
+        record.set("locked_until", Value::Null);
+        space.save(record)?;
+        space.commit()?;
+        if let Some(trail) = by.trail() {
+            trail.custom(SECURITY_USER, user, "locked_until", "Unlocked");
+        }
+        Ok(())
+    }
+
+    /// Until when this user waits after too many wrong passwords, or nothing if they do not.
+    pub fn locked_until(&self, user: &Value) -> Result<Option<DateTime>, SpaceError> {
+        let now = crate::local_now();
+        Ok((self.space)().find(SECURITY_USER, user)?.and_then(|record| match record.get("locked_until") {
+            Value::Date(until) if (until.days, until.seconds) > (now.days, now.seconds) => Some(until),
+            _ => None,
+        }))
     }
 
     /// A unit of work with no permissions, for what the security system does itself.
@@ -187,7 +269,7 @@ impl UserDirectory {
         if name.trim().is_empty() {
             return Err(PasswordError::Failed("a user has a name".to_owned()));
         }
-        let hash = checked_hash(password)?;
+        let hash = self.checked_hash(name.trim(), password)?;
         let mut space = (self.space)();
         let roles = space.query(SECURITY_ROLE, &Query::all()).map_err(wrong)?;
         let role = match roles.iter().find(|row| row.get("administrative") == Value::Bool(true)) {
@@ -284,10 +366,10 @@ impl UserDirectory {
 
     /// Sets the password of a user, with no questions: who may do this is up to the caller.
     fn write_password(&self, key: &Value, password: &str, temporary: bool) -> Result<(), PasswordError> {
-        let hash = checked_hash(password)?;
         let wrong = |error: SpaceError| PasswordError::Failed(error.to_string());
         let mut space = (self.space)();
         let mut user = space.find(SECURITY_USER, key).map_err(wrong)?.ok_or(PasswordError::NoSuchUser)?;
+        let hash = self.checked_hash(&user.text("name"), password)?;
         user.set("password_hash", hash);
         user.set("must_change_password", temporary);
         user.set("failed_attempts", 0.0);
@@ -301,13 +383,6 @@ impl UserDirectory {
 fn can_sign_in(user: &Object) -> bool {
     user.get("active") == Value::Bool(true)
         && !super::temporary::expired(user, "expires_at", crate::local_now())
-}
-
-fn checked_hash(password: &str) -> Result<String, PasswordError> {
-    if password.chars().count() < MIN_PASSWORD_CHARS {
-        return Err(PasswordError::TooShort);
-    }
-    hash_password(password).map_err(PasswordError::Failed)
 }
 
 impl Authenticator for UserDirectory {
@@ -339,9 +414,9 @@ impl Authenticator for UserDirectory {
                 Value::Number(count) => count + 1.0,
                 _ => 1.0,
             };
-            if attempts >= MOST_FAILED_ATTEMPTS {
+            if attempts >= f64::from(self.most_attempts) {
                 user.set("failed_attempts", 0.0);
-                let seconds = i64::from(now.seconds) + LOCKED_MINUTES * 60;
+                let seconds = i64::from(now.seconds) + i64::from(self.locked_minutes) * 60;
                 user.set(
                     "locked_until",
                     Value::Date(DateTime {

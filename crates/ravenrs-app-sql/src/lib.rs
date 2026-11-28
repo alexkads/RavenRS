@@ -11,7 +11,7 @@ use std::rc::Rc;
 
 use ravenrs_app::{
     Change, ChangeSet, EntityInfo, FieldInfo, FieldKind, ModelError, Object, ObjectSpace, Query, SpaceError,
-    SpaceEvent, SpaceWatcher, Value, exact_decimals, key_of, key_text, run_query,
+    SpaceEvent, SpaceWatcher, Value, exact_decimals, key_of, key_text, next_version, run_query,
 };
 use ravenrs_criteria::{DateTime, Dialect, Environment, SqlParam, to_sql};
 
@@ -639,7 +639,8 @@ impl<B: SqlBackend> SqlObjectSpace<B> {
         };
         match change {
             Change::New(object) => {
-                let object = prepared(object)?;
+                let mut object = prepared(object)?;
+                next_version(&entity.info, &mut object, true);
                 let stored: Vec<&FieldInfo> = entity.stored().collect();
                 let columns: Vec<String> =
                     stored.iter().map(|f| quoted(entity.map.column_of(&f.name))).collect();
@@ -650,7 +651,9 @@ impl<B: SqlBackend> SqlObjectSpace<B> {
                 backend.execute(&sql, &values).map_err(failed)?;
             }
             Change::Updated(object) => {
-                let object = prepared(object)?;
+                let mut object = prepared(object)?;
+                let read = entity.info.version_of(&object);
+                next_version(&entity.info, &mut object, false);
                 let stored: Vec<&FieldInfo> = entity.stored().filter(|f| !f.is_key).collect();
                 let sets: Vec<String> = stored
                     .iter()
@@ -659,15 +662,32 @@ impl<B: SqlBackend> SqlObjectSpace<B> {
                         format!("{} = {}", quoted(entity.map.column_of(&f.name)), backend.slot(at + 1))
                     })
                     .collect();
-                let sql = format!(
+                let mut sql = format!(
                     "UPDATE {table} SET {} WHERE {key_column} = {}",
                     sets.join(", "),
                     backend.slot(stored.len() + 1)
                 );
                 let mut values: Vec<Value> = stored.iter().map(|f| object.get(&f.name)).collect();
                 values.push(object.get(&key_field.name));
+                // Only over the version it was read at: someone else's keeping in between leaves
+                // nothing to change, in the same statement, so no other writer gets in the middle.
+                let version = entity.info.row_version_field().zip(read);
+                if let Some((field, read)) = version {
+                    let column = quoted(entity.map.column_of(&field.name));
+                    sql.push_str(&format!(" AND COALESCE({column}, 0) = {}", backend.slot(stored.len() + 2)));
+                    values.push(Value::Number(read as f64));
+                }
                 let changed = backend.execute(&sql, &values).map_err(failed)?;
                 if changed == 0 {
+                    let key = object.get(&key_field.name);
+                    if let (Some((_, read)), Some(now)) = (version, self.stored_record(&entity.info, &key)?) {
+                        return Err(SpaceError::Outdated {
+                            entity: entity.info.name.clone(),
+                            key: key_text(&key).unwrap_or_default(),
+                            read,
+                            stored: entity.info.version_of(&now),
+                        });
+                    }
                     return Err(SpaceError::Conflict(format!("a record of {} is gone", entity.info.name)));
                 }
             }

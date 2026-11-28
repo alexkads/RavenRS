@@ -6563,6 +6563,7 @@ dependencies = [
  "ravenrs-app-update",
  "ravenrs-e2e",
  "ravenrs-e2e-wire",
+ "ravenrs-report",
  "ravenrs-report-designer",
  "tracing",
  "tracing-subscriber",

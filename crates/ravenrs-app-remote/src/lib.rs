@@ -93,6 +93,15 @@ fn message_of(body: &Json) -> String {
 
 fn space_error(status: u16, body: &Json, denied: &str) -> SpaceError {
     let message = message_of(body);
+    if let Some(outdated) = body.get("outdated").filter(|_| status == 409) {
+        let text = |name: &str| outdated.get(name).and_then(Json::as_str).unwrap_or_default().to_owned();
+        return SpaceError::Outdated {
+            entity: text("entity"),
+            key: text("key"),
+            read: outdated.get("read").and_then(Json::as_i64).unwrap_or_default(),
+            stored: outdated.get("stored").and_then(Json::as_i64),
+        };
+    }
     match status {
         400 => SpaceError::BadQuery(message),
         401 | 403 => SpaceError::Denied(denied.to_owned()),
@@ -447,6 +456,10 @@ fn changed_body(entity: &EntityInfo, object: &Object, before: Option<&Object>) -
         if before.is_none_or(|before| before.get(&field.name) != value) {
             body.insert(field.name.clone(), value_to_json(&value));
         }
+    }
+    // With the version it was read at, so that the server refuses it over someone else's.
+    if let Some(field) = entity.row_version_field().filter(|_| !body.is_empty()) {
+        body.insert(field.name.clone(), value_to_json(&object.get(&field.name)));
     }
     body
 }

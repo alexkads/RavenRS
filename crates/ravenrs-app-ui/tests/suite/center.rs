@@ -324,6 +324,54 @@ fn what_two_people_changed_in_the_same_field_takes_a_decision() {
     assert_eq!(read(&database, &key, "name"), Value::Text("Mesa minha".into()));
 }
 
+fn versioned() -> EntityInfo {
+    product().field(FieldInfo::new("version", FieldKind::Integer).row_version())
+}
+
+#[test]
+fn two_people_on_the_same_field_of_a_versioned_record_see_both_sides_and_can_reload() {
+    let (mut mine, mut theirs, database, key) = two_people(versioned());
+    mine.open("Product", &key);
+    theirs.open("Product", &key);
+    mine.type_into("Name", " minha");
+    theirs.type_into("Name", " dela");
+    theirs.press("Save");
+    assert_eq!(read(&database, &key, "version"), Value::Number(2.0));
+    mine.press("Save");
+    assert!(mine.says("They changed Name too"));
+    assert!(mine.says("Name: yours is Mesa minha, kept now is Mesa dela."), "both sides");
+    mine.press("Cancel");
+    assert!(mine.session.has_unsaved_changes(), "what was typed stays until asked");
+    assert!(mine.says("Someone else changed this record"), "the form keeps saying so");
+    mine.press("Reload");
+    assert!(!mine.session.has_unsaved_changes(), "the form holds what is kept now");
+    assert!(!mine.says("Reload"), "and the warning is gone");
+    assert_eq!(read(&database, &key, "name"), Value::Text("Mesa dela".into()), "nothing of mine kept");
+    mine.type_into("Name", " depois");
+    mine.press("Save");
+    assert_eq!(
+        read(&database, &key, "name"),
+        Value::Text("Mesa dela depois".into()),
+        "read again, it is kept"
+    );
+    assert_eq!(read(&database, &key, "version"), Value::Number(3.0));
+}
+
+#[test]
+fn keeping_mine_over_a_versioned_record_moves_its_version_on() {
+    let (mut mine, mut theirs, database, key) = two_people(versioned());
+    mine.open("Product", &key);
+    theirs.open("Product", &key);
+    mine.type_into("Name", " minha");
+    theirs.type_into("Name", " dela");
+    theirs.press("Save");
+    mine.press("Save");
+    mine.press("Keep mine");
+    assert_eq!(read(&database, &key, "name"), Value::Text("Mesa minha".into()));
+    assert_eq!(read(&database, &key, "version"), Value::Number(3.0), "over theirs, read again");
+    assert!(!mine.says("Reload"), "nothing left to decide");
+}
+
 #[test]
 fn a_record_someone_else_deleted_cannot_be_saved_and_says_so() {
     let (mut mine, _theirs, database, key) = two_people(product());

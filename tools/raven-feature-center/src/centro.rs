@@ -177,6 +177,12 @@ fn application() -> App {
             .control(crate::registro::PAGE, crate::registro::ID),
     );
     app = app.dashboard(
+        DashboardInfo::new(crate::versao_registro::ID, crate::versao_registro::PAGE)
+            .navigation("Aplicação")
+            .icon("history")
+            .control(crate::versao_registro::PAGE, crate::versao_registro::ID),
+    );
+    app = app.dashboard(
         DashboardInfo::new(crate::fechamento::ID, crate::fechamento::PAGE)
             .navigation("Aplicação")
             .icon("lock")
@@ -187,6 +193,12 @@ fn application() -> App {
             .navigation("Aplicação")
             .icon("clock")
             .control(crate::acesso::PAGE, crate::acesso::ID),
+    );
+    app = app.dashboard(
+        DashboardInfo::new(crate::entrada::ID, crate::entrada::PAGE)
+            .navigation("Aplicação")
+            .icon("shield")
+            .control(crate::entrada::PAGE, crate::entrada::ID),
     );
     app = app.dashboard(
         DashboardInfo::new(crate::vencimentos::ID, crate::vencimentos::PAGE)
@@ -243,8 +255,12 @@ fn register_controls(session: &Session) {
     session.register_control(THEME_EDITOR, || Box::new(ThemeEditor::new()) as AnyView);
     session.register_control(model::COUNTER_WINDOW, actions::counter_control());
     session.register_control(crate::registro::ID, || Box::new(crate::registro::RecordPage) as AnyView);
+    session.register_control(crate::versao_registro::ID, || {
+        Box::new(crate::versao_registro::RowVersionPage) as AnyView
+    });
     session.register_control(crate::fechamento::ID, || Box::new(crate::fechamento::ClosingPage) as AnyView);
     session.register_control(crate::acesso::ID, || Box::new(crate::acesso::TemporaryAccessPage) as AnyView);
+    session.register_control(crate::entrada::ID, || Box::new(crate::entrada::SecureDoorPage) as AnyView);
     session
         .register_control(crate::vencimentos::ID, || Box::new(crate::vencimentos::DueDigestPage) as AnyView);
     session.register_control(crate::contas::ID, || Box::new(crate::contas::FinancePage) as AnyView);

@@ -2544,6 +2544,43 @@ fn masks_follow_their_pattern_take_rules_of_their_own_and_say_when_they_are_comp
 }
 
 #[test]
+fn a_record_kept_over_a_version_someone_else_kept_is_refused() {
+    let mut c = Center::memory("ana");
+    c.press("Versão do registro");
+    c.settle();
+    // What EntityInfo and FieldInfo declare and work out.
+    for line in [
+        "Versão gravada (version_of): 1",
+        "Campo da versão (row_version_field): version",
+        "Título (field_named): largo true, foco true, na lista true",
+        "Arquivo: aceita [\"pdf\"], até 1000000 bytes, fica ao clonar: true",
+        "Código digitado: true, na escolha: true; colunas do formulário: 2; lista só de [active] = True",
+        "[pages] > 1 cabe no esquema (schema): true; [nada] > 1: false",
+        "Folhas calculadas (compute): 6",
+        "Título editável (appearance_of): true",
+        "Sem calculados (strip_calculated): false",
+    ] {
+        assert!(c.says(line), "{line}: {:?}", c.texts());
+    }
+    // Bia opens it at version 1, Ana keeps it at 2, and Bia keeping hers is refused.
+    c.press("Bia abre");
+    c.press("Ana grava");
+    assert!(c.says("Ana: gravado."), "{:?}", c.texts());
+    assert!(c.says("Versão gravada (version_of): 2"), "{:?}", c.texts());
+    assert!(c.says("Título editável (appearance_of): false"), "a rule over the version: {:?}", c.texts());
+    c.press("Bia grava");
+    assert!(c.says("Bia: recusado, leu a versão 1 e a gravada é a 2. Nada foi gravado."), "{:?}", c.texts());
+    assert!(c.says("Título gravado: Contrato da Ana"), "Ana's stays: {:?}", c.texts());
+    // Opened again, at the version kept now, it is kept.
+    c.press("Bia abre");
+    c.press("Bia grava");
+    assert!(c.says("Bia: gravado."), "{:?}", c.texts());
+    assert!(c.says("Versão gravada (version_of): 3"), "{:?}", c.texts());
+    c.press("Recomeçar");
+    assert!(c.says("Versão gravada (version_of): 1"), "{:?}", c.texts());
+}
+
+#[test]
 fn a_record_reads_each_field_in_its_type_and_changes_by_field() {
     let mut c = Center::memory("ana");
     c.press("Registro");
@@ -2707,6 +2744,51 @@ fn a_tenant_moves_to_another_database_from_its_backup() {
     // restore, keeping a copy first.
     c.press("Restaurar o backup");
     assert!(c.says("Restaurado o backup de T1 · cópia de antes: guardada"), "{:?}", c.texts());
+}
+
+#[test]
+fn the_secure_door_refuses_weak_passwords_waits_after_wrong_ones_and_ends_idle_sessions() {
+    let mut c = Center::memory("ana");
+    c.press("Entrada segura");
+    c.settle();
+    // new, aside and into_view: a door of its own, with nobody in it yet.
+    assert!(c.says("Portaria nova: crie o administrador."), "{:?}", c.texts());
+    assert!(c.says("Regras desta portaria"), "{:?}", c.texts());
+    // password_policy: the first administrator is refused in the page's own words.
+    c.type_into("Nome", "bia");
+    c.type_into("Nova senha", "senhafraca");
+    c.type_into("Repita a senha", "senhafraca");
+    c.press("Criar administrador");
+    assert!(c.says("Use ao menos um número."), "{:?}", c.texts());
+    c.type_into("Nova senha", " 1");
+    c.type_into("Repita a senha", " 1");
+    c.press("Criar administrador");
+    // role, merge and temporary_access: bia is in, as the administrator of the door.
+    assert!(c.says("Recados"), "{:?}", c.texts());
+    // idle_timeout: a key renews the time; then nothing for longer goes back to the door.
+    c.ui.set_time(100.0);
+    c.key(ravenrs_core::Key::Escape);
+    c.ui.set_time(200.0);
+    assert!(c.says("Recados"), "{:?}", c.texts());
+    c.ui.set_time(400.0);
+    assert!(c.says("A sessão foi encerrada por inatividade."), "{:?}", c.texts());
+    assert!(!c.says("Recados"), "{:?}", c.texts());
+    // door: the page arranges the screen of signing in.
+    assert!(c.says("PORTARIA DE DEMONSTRAÇÃO"), "{:?}", c.texts());
+    // lockout: three wrong passwords and even the right one waits.
+    c.type_into("Nome", "bia");
+    for wrong in ["errada 1", "errada 2", "errada 3"] {
+        c.type_into("Senha", wrong);
+        c.press("Entrar");
+    }
+    c.type_into("Senha", "senhafraca 1");
+    c.press("Entrar");
+    assert!(c.says("aguardando depois de muitas tentativas"), "{:?}", c.texts());
+    assert!(!c.says("Recados"), "{:?}", c.texts());
+    // sign_in_action: start the door over, with nobody in it.
+    c.press("Recomeçar a portaria");
+    assert!(c.says("Portaria recomeçada 1 vez(es): ninguém cadastrado."), "{:?}", c.texts());
+    assert!(c.says("Criar administrador"), "{:?}", c.texts());
 }
 
 #[test]

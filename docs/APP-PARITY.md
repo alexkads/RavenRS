@@ -62,6 +62,7 @@ replace the API statuses and adapter guarantees below.
 | Policy changed while running, by administrators on generated screens | ✅ `security_entities`; losing a role takes effect at once | |
 | Permissions that follow associations | 🟡 aggregated collections go with their owner; everything else asks for permission on both sides, as the documented manual mode does | |
 | Signing in with passwords, lockout, password changes, other ways in | ✅ `SecuredApp`, `UserDirectory`, `Authenticator`. No OpenID Connect, LDAP or second factor built in: `Authenticator` and `IdentityProvider` are where they go | #615 |
+| Password policy, lockout limits and sessions that end when idle | ✅ `SecuredApp::password_policy(rule)`, a function of the name and the password (also `UserDirectory::with_password_policy`) is asked about every new password, after its length: the first administrator, changing one's own, the forced change and one given by an administrator, and its words show on the form (`PasswordError::Refused`). `SecuredApp::lockout(attempts, minutes)` (`UserDirectory::with_lockout`) replaces 5 and 15. `UserDirectory::unlock(by, user)`, and Unlock user on the list of users, let someone waiting in with their password, for an administrator only, with a note on the audit trail and no password. `SecuredApp::idle_timeout(duration)` takes the session back to the door after that long with no key, click, pointer movement or scrolling, by the clock of the window | #382 |
 | Access for a while with a reason and a deadline, and revoking a user | 🟡 `TemporaryAccessPolicy`, `SecurityContext::grant_temporary_access` and `revoke_user`, `UserDirectory::end_expired`, `expires_at` on the user and the `SecurityTemporaryAccess` record. `SecuredApp::temporary_access(policy)` turns off who expired before each sign in and, in an open session, at most every `check_every`, so its next screen reads nothing. On the list of users, Grant temporary access (reason and hours, the password shown once) and Revoke access (with a confirmation); the web API ends the session of a user expired or revoked on the next call | #857 |
 | Audit trail: author, old and new values, modes, settings, collections, custom data | ✅ `AuditedObjectSpace`, `AuditSettings`, `AuditTrail::custom`. Only what goes through it is seen | |
 | A list as a chart | 🟡 `Chart` editor: bars, lines, areas and pies, summed by argument, money in whole units. Not exported or printed with the list | |
@@ -79,7 +80,7 @@ replace the API statuses and adapter guarantees below.
 | Migrations of a managed schema, entities from an existing database, model differences in a database | ✅ `migration`, added columns, `entities_from_schema`, `SqliteModelStore` | |
 | Translated captions and options, rules in the model | ✅ `translation`, `set_language`, `Rules` under an entity | |
 | Records no storage keeps, services, initial records | ✅ `transient`, `ListView::source`, `service`, `Module::initial_records` | |
-| Concurrent changes | 🟡 `merge_changes`: different fields both stand, the same field asks. Read and write are not one transaction yet, and records carry no version | #241 |
+| Concurrent changes | 🟡 `merge_changes`: different fields both stand, the same field asks, showing both values. `FieldInfo::row_version` gives each record a version that storage starts at 1 and adds one to on each keeping; keeping a record someone else kept after it was read is refused with `SpaceError::Outdated`, in memory, SQLite, PostgreSQL and through the server. The form then offers to reload, and to keep one's own only to whom may write the record as it is kept now. Deleting, PostgREST and the revision of an aggregate carry no version yet | #241, #1073, #1074 |
 | Custom fields in the model, stored or calculated | ✅ `$new` under `Members`, `App::administrator_settings`, `App::storage_for`; plain values only | |
 | Keys: number, text, GUID | ✅ `FieldKind::Guid` | |
 | More editors: criteria, tags, predefined values, masks, progress, display formats, titled groups | ✅ `criteria_of`, `FieldKind::Tags`, `predefined`, `edit_mask`, `Progress`, `display_format`, `group`. A Rust struct does not expand into a group by itself | |
@@ -134,9 +135,9 @@ Every adapter of `ObjectSpace` runs the same battery, `ravenrs_app_testkit::cont
 
 | Adapter | Two programs creating records at once | An update over another program's |
 |---|---|---|
-| `MemoryDatabase` | different keys | the last commit wins |
-| `ravenrs-app-sqlite` | the second commit fails | the last commit wins |
-| `ravenrs-app-postgres` | the second commit fails | the last commit wins |
+| `MemoryDatabase` | different keys | conflict |
+| `ravenrs-app-sqlite` | the second commit fails | conflict |
+| `ravenrs-app-postgres` | the second commit fails | conflict |
 | `ravenrs-app-postgrest` | the second commit fails | the last commit wins |
 
-"The second commit fails" means both took the same next key, and the second commit is refused whole: one program at a time should create records there. "The last commit wins" holds for deleting a record another program changed, too. Both wait for a version on each record (#241).
+"The second commit fails" means both took the same next key, and the second commit is refused whole: one program at a time should create records there. "Conflict" holds for entities with a `FieldInfo::row_version`: the update is refused with `SpaceError::Outdated`, and nothing of its commit is kept; without one, the last commit wins. Deleting a record another program changed is done in every adapter, as a delete takes no version yet (#1073).

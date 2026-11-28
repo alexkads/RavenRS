@@ -51,7 +51,7 @@ pub enum KeyRace {
     /// They get different keys: the storage hands them out.
     Distinct,
     /// Both take the same next key, and the second commit fails as a whole, with nothing written:
-    /// one program at a time should create records there (#241).
+    /// one program at a time should create records there.
     SecondCommitFails,
 }
 
@@ -61,18 +61,19 @@ pub enum KeyRace {
 pub struct Capabilities {
     /// Two programs creating records at once.
     pub keys: KeyRace,
-    /// A change to a record another program changed since it was read is refused as a
-    /// [`SpaceError::Conflict`]; without it, the last commit wins.
+    /// On an entity with a [row version](ravenrs_app::FieldInfo::row_version), a change to a
+    /// record another program kept since it was read is refused as a [`SpaceError::Outdated`];
+    /// without it, the last commit wins.
     pub lost_updates_detected: bool,
 }
 
 impl Capabilities {
     /// `MemoryDatabase`: one program, so its spaces share the numbering.
-    pub const MEMORY: Self = Self { keys: KeyRace::Distinct, lost_updates_detected: false };
+    pub const MEMORY: Self = Self { keys: KeyRace::Distinct, lost_updates_detected: true };
     /// `ravenrs-app-sqlite`.
-    pub const SQLITE: Self = Self { keys: KeyRace::SecondCommitFails, lost_updates_detected: false };
+    pub const SQLITE: Self = Self { keys: KeyRace::SecondCommitFails, lost_updates_detected: true };
     /// `ravenrs-app-postgres`.
-    pub const POSTGRES: Self = Self { keys: KeyRace::SecondCommitFails, lost_updates_detected: false };
+    pub const POSTGRES: Self = Self { keys: KeyRace::SecondCommitFails, lost_updates_detected: true };
     /// `ravenrs-app-postgrest`.
     pub const POSTGREST: Self = Self { keys: KeyRace::SecondCommitFails, lost_updates_detected: false };
 
@@ -271,6 +272,11 @@ fn plain() -> EntityInfo {
         .field(FieldInfo::new("rate", FieldKind::Decimal(2)))
         .field(FieldInfo::new("active", FieldKind::Boolean))
         .field(FieldInfo::new("twice", FieldKind::Integer).calculated("[seats] * 2"))
+}
+
+/// A plain record with a version, so that keeping over another program's is refused.
+fn versioned() -> EntityInfo {
+    plain().field(FieldInfo::new("version", FieldKind::Integer).row_version())
 }
 
 fn three_plain(space: &mut dyn ObjectSpace) -> Result<(), String> {
@@ -831,36 +837,54 @@ fn keys_from_two_programs(adapter: &dyn Adapter) -> Result<Outcome, String> {
                 ["Alfa", "Beta", "Gama", "Um"],
                 "nothing of the second commit stayed, and the first is whole"
             );
-            Ok(Outcome::Limited(
-                "two programs creating records at once: the second commit fails, whole (#241)",
-            ))
+            Ok(Outcome::Limited("two programs creating records at once: the second commit fails, whole"))
         }
     }
 }
 
 fn update_from_two_programs(adapter: &dyn Adapter) -> Result<Outcome, String> {
-    let store = store(adapter, "updates", &[plain()])?;
+    let store = store(adapter, "updates", &[versioned()])?;
     three_plain(&mut *(store.space)())?;
     let mut one = (store.space)();
     let mut two = (store.again)();
     let mut mine = one.query("Plain", &filtered("[name] = 'Beta'")).map_err(wrong)?.remove(0);
     let mut theirs = two.query("Plain", &filtered("[name] = 'Beta'")).map_err(wrong)?.remove(0);
+    let mut other = two.query("Plain", &filtered("[name] = 'Gama'")).map_err(wrong)?.remove(0);
     let key = mine.get("id");
     theirs.set("seats", Value::Number(20.0));
     two.save(theirs).map_err(wrong)?;
     two.commit().map_err(wrong)?;
+    // Another record, read before and kept after, is not in the way of anyone.
+    other.set("seats", Value::Number(30.0));
+    one.save(other).map_err(wrong)?;
+    one.commit().map_err(|e| format!("a different record conflicted: {e}"))?;
     mine.set("seats", Value::Number(10.0));
     one.save(mine).map_err(wrong)?;
+    add(&mut *one, "Plain", &[("name", "Delta".into())])?;
     let committed = one.commit();
-    let kept = (store.space)().find("Plain", &key).map_err(wrong)?.ok_or("Beta")?.get("seats");
+    let reader = (store.space)();
+    let kept = reader.find("Plain", &key).map_err(wrong)?.ok_or("Beta")?;
+    let deltas = names(&*reader, "Plain", &filtered("[name] = 'Delta'"))?.len();
     if adapter.capabilities().lost_updates_detected {
-        ensure!(matches!(committed, Err(SpaceError::Conflict(_))), "a lost update gave {committed:?}");
-        same!(kept, Value::Number(20.0));
+        let expected = SpaceError::Outdated {
+            entity: "Plain".into(),
+            key: ravenrs_app::key_text(&key).unwrap_or_default(),
+            read: 1,
+            stored: Some(2),
+        };
+        same!(committed, Err(expected), "a lost update");
+        same!(kept.get("seats"), Value::Number(20.0));
+        same!(kept.get("version"), Value::Number(2.0), "one more for each keeping");
+        same!(deltas, 0, "nothing of the refused commit");
+        let gama = reader.query("Plain", &filtered("[name] = 'Gama'")).map_err(wrong)?.remove(0);
+        same!(gama.get("version"), Value::Number(2.0));
+        let alfa = reader.query("Plain", &filtered("[name] = 'Alfa'")).map_err(wrong)?.remove(0);
+        same!(alfa.get("version"), Value::Number(1.0), "a new record starts at one");
         return Ok(Outcome::Passed);
     }
     committed.map_err(wrong)?;
-    same!(kept, Value::Number(10.0), "the last commit wins");
-    Ok(Outcome::Limited("an update over another program's: the last commit wins (#241)"))
+    same!(kept.get("seats"), Value::Number(10.0), "the last commit wins");
+    Ok(Outcome::Limited("an update over another program's: the last commit wins (#1073)"))
 }
 
 fn delete_what_another_changed(adapter: &dyn Adapter) -> Result<Outcome, String> {
@@ -876,17 +900,10 @@ fn delete_what_another_changed(adapter: &dyn Adapter) -> Result<Outcome, String>
     one.delete("Plain", &key).map_err(wrong)?;
     let committed = one.commit();
     let kept = (store.space)().find("Plain", &key).map_err(wrong)?;
-    if adapter.capabilities().lost_updates_detected {
-        ensure!(
-            matches!(committed, Err(SpaceError::Conflict(_))),
-            "deleting a changed record gave {committed:?}"
-        );
-        ensure!(kept.is_some(), "the changed record is gone");
-        return Ok(Outcome::Passed);
-    }
+    // A delete takes only the key, and no version it was read at (#1073).
     committed.map_err(wrong)?;
     ensure!(kept.is_none(), "the record is still there");
-    Ok(Outcome::Limited("deleting what another program changed since: it is deleted (#241)"))
+    Ok(Outcome::Limited("deleting what another program changed since: it is deleted (#1073)"))
 }
 
 fn delete(adapter: &dyn Adapter) -> Result<Outcome, String> {
