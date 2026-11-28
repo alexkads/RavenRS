@@ -11,12 +11,14 @@ The window of an application made from its model: navigation by module, lists, f
 | `name` | text | `Raven Contas` | The application's name, at the top of the navigation. |
 | `subtitle` | text | `` | A line under the name; empty, none. |
 | `theme_menu` | on/off | `true` | The theme menu at the foot of the navigation. |
+| `section` | text | `` | The section that gathers the group Cadastros, which then is one item with its lists in a submenu; empty, none. |
 
 ## Stories
 
-- **Lists**: 728 × 441 pt, settings `{"name":"Raven Contas","subtitle":"","theme_menu":true}`
-- **With subtitle**: 728 × 441 pt, settings `{"name":"Raven Contas","subtitle":"Finanças da família","theme_menu":true}`
-- **No theme menu**: 728 × 441 pt, settings `{"name":"Raven Contas","subtitle":"","theme_menu":false}`
+- **Lists**: 728 × 441 pt, settings `{"name":"Raven Contas","section":"","subtitle":"","theme_menu":true}`
+- **With subtitle**: 728 × 441 pt, settings `{"name":"Raven Contas","section":"","subtitle":"Finanças da família","theme_menu":true}`
+- **No theme menu**: 728 × 441 pt, settings `{"name":"Raven Contas","section":"","subtitle":"","theme_menu":false}`
+- **In sections**: 728 × 441 pt, settings `{"name":"Raven Contas","section":"Finanças","subtitle":"","theme_menu":true}`
 
 ## Sizing
 
@@ -68,6 +70,8 @@ Measured from what RavenRS paints, in points. Colors are tokens; `token@N` is th
 | Lists | Cell "R$ 1.250,50" | 120.0 × 36.0 | — | — | — | — | — | — |
 | Lists | Row | 864.0 × 36.0 | 0.0 | bg-300@40 | — | Inter 400 13.0px ink | — | 56.0 |
 | Lists | Status "Mostrando Contas" | 0.0 × 0.0 | — | — | — | — | — | — |
+| In sections | Navigation "Navegação" | 248.0 × 441.0 | 0.0 | bg-100 | — | Inter 600 17.0px ink | folder 16.0px ink-muted | space-3 |
+| In sections | Button "Cadastros" | 224.0 × 36.0 | radius-md | transparent | — | Inter 400 15.0px ink-muted | folder 16.0px ink-muted | 10.0 |
 
 ## Example
 

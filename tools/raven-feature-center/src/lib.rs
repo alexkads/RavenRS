@@ -55,6 +55,8 @@ pub mod contas;
 #[cfg(feature = "app")]
 pub mod fechamento;
 #[cfg(feature = "app")]
+pub mod menu;
+#[cfg(feature = "app")]
 pub mod model;
 #[cfg(feature = "app")]
 pub mod painel;

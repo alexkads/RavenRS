@@ -2794,6 +2794,48 @@ fn a_chronology_shows_the_milestones_in_order_and_opens_one() {
 }
 
 #[test]
+fn the_menu_gathers_groups_in_a_section_and_unfolds_the_one_showing() {
+    let mut c = Center::memory("ana");
+    c.press("Menu com seções");
+    let node = |c: &mut Center, name: &str| {
+        c.settle();
+        c.ui.access_tree()
+            .nodes
+            .into_iter()
+            .find(|n| n.role == Role::Button && n.name.as_deref() == Some(name))
+    };
+    // navigation_section: the two groups share the title and are items with submenus.
+    assert!(c.says("CADASTROS DA IGREJA"), "{:?}", c.texts());
+    assert_eq!(
+        node(&mut c, "Membresia").and_then(|n| n.expanded),
+        Some(true),
+        "the screen showing is its own"
+    );
+    assert!(node(&mut c, "Membros da igreja").is_some_and(|n| n.selected == Some(true)));
+    assert_eq!(node(&mut c, "Escola dominical").and_then(|n| n.expanded), Some(false), "the other is folded");
+    assert!(node(&mut c, "Turmas da escola").is_none());
+    // A group in no section keeps its own title.
+    assert!(c.says("TESOURARIA DA IGREJA"), "{:?}", c.texts());
+    assert!(node(&mut c, "Tesouraria da igreja").is_none(), "a title, not an item");
+    // A click unfolds the group, and its item opens the screen.
+    c.press("Escola dominical");
+    assert_eq!(node(&mut c, "Escola dominical").and_then(|n| n.expanded), Some(true));
+    c.press("Turmas da escola");
+    assert!(node(&mut c, "Turmas da escola").is_some_and(|n| n.selected == Some(true)), "{:?}", c.texts());
+    c.press("Ofertas do culto");
+    assert!(node(&mut c, "Ofertas do culto").is_some_and(|n| n.selected == Some(true)));
+    c.press("Membresia");
+    assert!(node(&mut c, "Membros da igreja").is_none(), "a second click folds it");
+    // The keyboard: right unfolds the group that has the focus and left folds it.
+    let group = node(&mut c, "Membresia").expect("the group").id;
+    c.ui.perform_action(group, AccessAction::Focus);
+    c.key(ravenrs_core::Key::ArrowRight);
+    assert_eq!(node(&mut c, "Membresia").and_then(|n| n.expanded), Some(true), "focus: {:?}", c.focused());
+    c.key(ravenrs_core::Key::ArrowLeft);
+    assert_eq!(node(&mut c, "Membresia").and_then(|n| n.expanded), Some(false));
+}
+
+#[test]
 fn a_status_shows_as_a_badge_and_the_phone_goes_under_the_name() {
     let mut c = Center::memory("ana");
     c.press("Selo e linha de apoio");

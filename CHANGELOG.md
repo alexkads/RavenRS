@@ -331,6 +331,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 - `App::brand` and `App::brand_subtitle` (and the same on `AppShell`) put a mark, the title and a line under it at the top of the navigation. Reduced to icons, only the mark stays, and screen readers hear the title and the line, as with any `SidebarBrand`.
 - `App::navigation_count` puts a `NavigationCount` beside an item of the navigation, worked out again whenever records change, with words of its own for screen readers (`NavigationCount::spoken`, `SidebarItem::count_spoken`).
+- `App::navigation_section` gathers groups of the navigation under a section title: each group in it is one item with its screens in a submenu, open while one of them is showing. ([#840](https://github.com/alexkads/RavenRS/issues/840))
+- `App::inside_another` and `AppShell::inside_another` show an application as a page of another, which keeps Cmd/Ctrl+K and Cmd/Ctrl+B. ([#840](https://github.com/alexkads/RavenRS/issues/840))
 - Cmd/Ctrl+K in an `AppShell` opens a `CommandPalette` with the places of the navigation the person can open.
 - Reports take the colors of the theme on screen: `ravenrs_grid_export::paper_colors`, `document_of_with` and `export_with`, `Session::theme`, and the list report of `ReportModule` uses them. Paper stays white, so a dark theme keeps dark text.
 - A theme chooses the series of a chart after the first in `Theme::charts`, `Theme::set_color` or its tokens, as `chart-2` to `chart-5`, and the `ThemeEditor` has a group for them. `Palette` does not change.
