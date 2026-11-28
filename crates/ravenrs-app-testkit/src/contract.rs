@@ -140,7 +140,7 @@ enum Outcome {
 }
 
 /// Every case, by name.
-const CASES: [(&str, Case); 15] = [
+const CASES: [(&str, Case); 16] = [
     ("types", types),
     ("filters_and_order", filters_and_order),
     ("pages_only_and_calculated", pages_only_and_calculated),
@@ -148,6 +148,7 @@ const CASES: [(&str, Case); 15] = [
     ("all_or_nothing", all_or_nothing),
     ("gone_record_conflicts", gone_record_conflicts),
     ("state_machine", state_machine),
+    ("sealed_and_amendment", sealed_and_amendment),
     ("rules_and_watchers", rules_and_watchers),
     ("audit_in_the_same_commit", audit_in_the_same_commit),
     ("permission_denied", permission_denied),
@@ -514,6 +515,65 @@ fn state_machine(adapter: &dyn Adapter) -> Result<Outcome, String> {
     ensure!(refused.is_err(), "a transition the machine does not have went through");
     let kept = (store.space)().find("Order", &key).map_err(wrong)?.ok_or("the order")?;
     same!(kept.get("state"), Value::Text("c".into()));
+    Ok(Outcome::Passed)
+}
+
+/// A sealed record is refused when changed directly, and an amendment with its reason changes it in
+/// the same commit and is kept as written (#856).
+fn sealed_and_amendment(adapter: &dyn Adapter) -> Result<Outcome, String> {
+    use ravenrs_app::{Amendment, Seal};
+    let lesson = EntityInfo::new("Lesson")
+        .field(FieldInfo::new("id", FieldKind::Integer).key())
+        .field(FieldInfo::new("status", FieldKind::Text))
+        .field(FieldInfo::new("present", FieldKind::Integer))
+        .sealed(Seal::when("[status] = 'closed'"));
+    let correction = EntityInfo::new("LessonCorrection")
+        .field(FieldInfo::new("id", FieldKind::Integer).key())
+        .field(FieldInfo::new("lesson_id", FieldKind::Reference("Lesson".into())))
+        .field(FieldInfo::new("present", FieldKind::Integer))
+        .field(FieldInfo::new("reason", FieldKind::LongText))
+        .field(FieldInfo::new("previous", FieldKind::LongText))
+        .amends(
+            Amendment::correction("Lesson", "lesson_id")
+                .copies(["present"])
+                .reason("reason", 10)
+                .before("previous"),
+        );
+    let store = store(adapter, "sealed", &[lesson, correction])?;
+    let mut space = (store.space)();
+    let key = add(&mut *space, "Lesson", &[("status", "closed".into()), ("present", Value::Number(3.0))])?;
+    space.commit().map_err(wrong)?;
+
+    let mut space = (store.space)();
+    let mut found = space.find("Lesson", &key).map_err(wrong)?.ok_or("the lesson")?;
+    found.set("present", 9.0);
+    let refused = space.save(found).and_then(|()| space.commit());
+    ensure!(refused.is_err(), "a closed record was changed directly");
+
+    let correct = |reason: &str| -> Result<(), String> {
+        let mut space = (store.space)();
+        let mut object = space.new_object("LessonCorrection").map_err(wrong)?;
+        object.set("lesson_id", key.clone());
+        object.set("present", 5.0);
+        object.set("reason", reason);
+        space.insert(object).map_err(wrong)?;
+        space.commit().map_err(wrong)
+    };
+    ensure!(correct("curta").is_err(), "a correction with a short reason went through");
+    correct("lista de presença errada").map_err(|e| format!("a justified correction was refused: {e}"))?;
+    let kept = (store.again)().find("Lesson", &key).map_err(wrong)?.ok_or("the lesson")?;
+    same!(kept.integer("present"), Some(5));
+    let mut written = (store.space)()
+        .query("LessonCorrection", &Query::all())
+        .map_err(wrong)?
+        .pop()
+        .ok_or("the correction")?;
+    ensure!(written.text("previous").contains("\"present\":3"), "what was before is not kept");
+
+    let mut space = (store.space)();
+    written.set("reason", "outro motivo qualquer");
+    let refused = space.save(written).and_then(|()| space.commit());
+    ensure!(refused.is_err(), "a kept correction was changed");
     Ok(Outcome::Passed)
 }
 

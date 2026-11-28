@@ -66,6 +66,7 @@ replace the API statuses and adapter guarantees below.
 | A list as a tree | 🟡 `Tree` editor over a reference to itself. Columns take the `TreeGrid` | #401 |
 | A pivot grid over a list | ⬜ takes the `PivotGrid` | #403 |
 | State machines: states, transitions, actions and appearance by state | 🟡 `StateMachine`, refused in the object space. Declared in code; defining them at run time is not there | #616 |
+| Sealed records changed only by a justified amendment, in the same commit and audited | 🟡 `Seal`, `Amendment` (correction and closing), refused in every object space. The generated "Correct" action and the database guards are not there yet | #856 |
 | Reminders of records: come up when due, put off, dismiss | 🟡 `Reminder`, for the application only: no channels outside it, and a change made by someone else shows on the next read | #617 |
 | PDF viewer for files, rich text and spreadsheet editors | ⬜ `DocumentViewer` shows the engine's documents, and does not read PDF files. The engines are there (`ravenrs-pdf`, `ravenrs-word`, `ravenrs-sheet`); the editors on top of them are not | #404, #405 |
 | Replaceable list editors | ✅ `register_list_editor`, picked by `EditorType` or `DefaultListEditor` in the model | |

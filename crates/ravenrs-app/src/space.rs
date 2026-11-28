@@ -552,7 +552,7 @@ impl fmt::Debug for MemoryDatabase {
 /// The version of [`MemoryDatabase::export_json`]'s format.
 const RECORDS_FORMAT: u64 = 1;
 
-fn value_to_json(value: &Value) -> serde_json::Value {
+pub(crate) fn value_to_json(value: &Value) -> serde_json::Value {
     match value {
         Value::Null => serde_json::Value::Null,
         Value::Bool(b) => serde_json::Value::Bool(*b),
@@ -591,6 +591,7 @@ impl MemoryDatabase {
         for entity in &entities {
             entity.check()?;
         }
+        crate::check_amendment_model(&entities)?;
         Ok(Self {
             entities: Rc::new(entities),
             tables: Rc::new(RefCell::new(Tables { next_key: 1, ..Tables::default() })),
@@ -823,7 +824,41 @@ impl MemoryObjectSpace {
                 Change::Deleted { .. } => {}
             }
         }
-        Ok(())
+        let tables = self.database.tables.borrow();
+        let mut stored = |entity: &EntityInfo, key: &Value| {
+            let found = key_text(key).and_then(|key| tables.rows.get(&entity.name)?.get(&key).cloned());
+            Ok(found)
+        };
+        crate::check_amendments(&self.database.entities, self.changes.list(), &mut stored)
+    }
+
+    /// Writes a new amendment on its target before it waits, all or nothing.
+    fn amended(&mut self, info: &EntityInfo, object: Object) -> Result<Object, SpaceError> {
+        if info.amendment.is_none() {
+            return Ok(object);
+        }
+        // One kept already is refused by the commit, never written again on its target.
+        let kept = key_of(info, &object).is_some_and(|key| self.committed_has(&info.name, &key));
+        if kept {
+            return Ok(object);
+        }
+        let first_time = key_of(info, &object).is_none_or(|key| {
+            !matches!(
+                self.changes.position(info, &key).map(|at| &self.changes.list()[at]),
+                Some(Change::New(_))
+            )
+        });
+        let before = self.changes.clone();
+        let database = self.database.clone();
+        let mut stored = |entity: &EntityInfo, key: &Value| {
+            let tables = database.tables.borrow();
+            Ok(key_text(key).and_then(|key| tables.rows.get(&entity.name)?.get(&key).cloned()))
+        };
+        let result = crate::apply_amendment(self, info, object, &mut stored, first_time);
+        if result.is_err() {
+            self.changes = before;
+        }
+        result
     }
 }
 
@@ -865,12 +900,14 @@ impl ObjectSpace for MemoryObjectSpace {
 
     fn save(&mut self, object: Object) -> Result<(), SpaceError> {
         let info = self.entity(object.entity())?.clone();
+        let object = self.amended(&info, object)?;
         let exists = key_of(&info, &object).is_some_and(|key| self.committed_has(&info.name, &key));
         self.changes.save(&info, object, exists)
     }
 
     fn insert(&mut self, object: Object) -> Result<(), SpaceError> {
         let info = self.entity(object.entity())?.clone();
+        let object = self.amended(&info, object)?;
         let exists = key_of(&info, &object).is_some_and(|key| self.committed_has(&info.name, &key));
         self.changes.insert(&info, object, exists)
     }
