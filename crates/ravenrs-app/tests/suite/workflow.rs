@@ -204,3 +204,55 @@ fn a_reminder_goes_by_the_records_with_a_time_and_whom_it_is_for() {
         .reminder(Reminder::new("when"));
     assert!(not_a_date.check().is_err());
 }
+
+#[test]
+fn a_locked_state_changes_only_its_state_and_what_it_lets_go() {
+    use ravenrs_app::{
+        EntityInfo, FieldInfo, FieldKind, MemoryDatabase, ObjectSpace, SpaceError, StateMachine,
+    };
+    let bill = EntityInfo::new("Bill")
+        .field(FieldInfo::new("id", FieldKind::Integer).key())
+        .field(FieldInfo::new("status", FieldKind::Text))
+        .field(FieldInfo::new("amount", FieldKind::Money))
+        .field(FieldInfo::new("paid", FieldKind::Money))
+        .state_machine(
+            StateMachine::new("status")
+                .state("open", "Open")
+                .state("paid", "Paid")
+                .start("open")
+                .transition("open", "paid", "Pay")
+                .transition("paid", "open", "Reverse")
+                .locked("paid")
+                .unlocked_with(["paid"]),
+        );
+    let database = MemoryDatabase::new(vec![bill]).expect("a valid model");
+    let mut space = database.space();
+    let mut record = space.new_object("Bill").expect("the entity");
+    record.set("status", "paid");
+    let refused = space.insert(record.clone()).and_then(|()| space.commit());
+    assert!(refused.is_err(), "a new record started paid");
+    space.rollback();
+    record.set("status", "open");
+    record.set("amount", 1_000.0);
+    let key = record.get("id");
+    space.insert(record).expect("kept");
+    space.commit().expect("kept");
+    let change = |status: &str, amount: f64, paid: f64| {
+        let mut space = database.space();
+        let mut found = space.find("Bill", &key).expect("reads").expect("there");
+        found.set("status", status);
+        found.set("amount", amount);
+        found.set("paid", paid);
+        space.save(found).and_then(|()| space.commit())
+    };
+    change("paid", 1_000.0, 1_000.0).expect("paid");
+    assert!(matches!(change("paid", 2_000.0, 1_000.0), Err(SpaceError::Refused(_))), "a paid amount changed");
+    assert!(change("open", 2_000.0, 0.0).is_err(), "leaving changed what it does not let go");
+    change("open", 1_000.0, 0.0).expect("reversed, with what it lets go");
+    change("open", 2_000.0, 0.0).expect("an open record changes freely");
+    let wrong = EntityInfo::new("X")
+        .field(FieldInfo::new("id", FieldKind::Integer).key())
+        .field(FieldInfo::new("status", FieldKind::Text))
+        .state_machine(StateMachine::new("status").state("a", "A").locked("b"));
+    assert!(wrong.check().is_err(), "it locks a state that is not there");
+}

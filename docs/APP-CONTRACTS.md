@@ -154,6 +154,7 @@ In one commit, written to the audit trail when the context has one, it creates t
 With a policy, the list of users has Grant temporary access, which asks the reason and the hours and shows the user, the deadline and the password once, and Revoke access, which asks first.
 
 The web API reads who a session is on each call, so a user expired or revoked gets 401 on the next one.
+
 ### Due dates summed up for each person
 
 An entity with a due date declares how it is summed up, apart from `Reminder`, whose field is put off and dismissed: a `DueDigest` never writes to its field.
@@ -177,6 +178,26 @@ EntityInfo::new("Invoice").due_digest(
 On opening, a session shows a message per entity with a `DueDigest`, by the person's preference and permissions, with a button that opens its list; `App::due_digest_notice(false)` turns it off, and `show_due_digests(session)` shows it where an application wants.
 
 What waits (#860): the list filtered by what is pending and the days, the choice in `AppShell`, and the texts in `ravenrs-app-i18n`.
+
+### Bills, settlements and installments
+
+`ravenrs_app_library::finance` brings the entities (`finance_category`, `ledger_entry`, `commitment`, `settlement`, or `LibraryModule::finance()`) and services over `&mut dyn ObjectSpace` that write all they do in one unit of work and commit it, or roll it back:
+
+- `settle(space, bill, SettleInput::new(on, principal).interest(..).fine(..).discount(..), today)` writes the settlement, the cash book entry of the total and the bill as `partial` or `paid`. A date after `today`, an amount below zero, a discount that leaves nothing and more than what is open are refused, and nothing is written.
+- `reverse(space, settlement, reason, today)` needs a reason; it writes an entry of the opposite sign that points to the first, marks the settlement reversed and gives the bill back what it settled. Nothing is deleted.
+- `split(space, bill, n, first_due)` and `plan(amount, n, first_due)` divide with `allocate`, the rest in the last, on the same day of the following months or the last day of a shorter one; the bill becomes `split`. `cancel` on it cancels only the installments still open.
+
+The rules hold wherever records are kept: the status moves only by the declared ways, each while `settled` agrees with it; `paid`, `cancelled` and `split` are `StateMachine::locked`, so nothing but the status changes, and `settled` only together with it (`unlocked_with`); an entry written by a settlement and a reversed settlement are sealed.
+
+`position(space, today)` gives what is open to pay and to receive and how much of each is overdue; `statement(space, from, to)` gives the cash book with the balance before, each line with its balance, and the balance at the end; both read as the space shows the records.
+
+`annual(space, year)` gives the twelve months with what came in, went out and the balance by category; `forecast(space, month, today)` gives the open bills due in the month, what is left of them and how many are overdue.
+
+`category_guard(stored)` is a watcher for each unit of work: a bill or an entry with a category of the other kind is refused, and so are deleting a category in use and changing it to a kind its movements do not have.
+
+`LibraryModule::finance()` brings `FinanceActions`: Settle (what is left, today), Split (in the installments typed) and Reverse (with the reason typed), each with its id and needing `Write`, enabled only on the records they fit.
+
+What waits (#859): the printed documents of the reports and the review screen of a settlement with interest, fine and discount. The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
 
 ## Scenarios
 

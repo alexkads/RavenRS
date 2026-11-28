@@ -134,6 +134,7 @@ demonstrations! {
     fechamento => "Fechamento de período",
     acesso_temporario => "Acesso temporário",
     resumo_de_vencimentos => "Resumo de vencimentos",
+    contas_a_pagar_e_receber => "Contas a pagar e receber",
     api_service => "Serviço da API",
     leitores_de_tela_e_teclado => "Leitores de tela e teclado",
     pessoas => "Pessoas",

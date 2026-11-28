@@ -66,7 +66,7 @@ replace the API statuses and adapter guarantees below.
 | A list on a calendar, and on a timeline of resources | 🟡 `Calendar` shows a month, and `Scheduler` a row per resource where records move, resize and get created. No recurring events or day and week views of hours | #227, #568 |
 | A list as a tree | 🟡 `Tree` editor over a reference to itself. Columns take the `TreeGrid` | #401 |
 | A pivot grid over a list | ⬜ takes the `PivotGrid` | #403 |
-| State machines: states, transitions, actions and appearance by state | 🟡 `StateMachine`, refused in the object space. Declared in code; defining them at run time is not there | #616 |
+| State machines: states, transitions, actions and appearance by state | 🟡 `StateMachine`, refused in the object space, with `locked` states in which a stored record changes in nothing but its state. Declared in code; defining them at run time is not there | #616 |
 | Sealed records changed only by a justified amendment, in the same commit and audited | 🟡 `Seal`, `Amendment` (correction and closing), refused in every object space. The generated "Correct" action and the database guards are not there yet | #856 |
 | Period closing: approved versions with the document's hash, frozen records, justified reopening | 🟡 `PeriodClosing`, `approve`, `reopen` and `archived_document`, refused in every object space. Documents go to any `AttachmentStore`, `PostgresAttachmentStore` (`BYTEA`) among them. The generated actions and screen and a lock against approving while a record is written are not there yet | #855 |
 | Reminders of records: come up when due, put off, dismiss | 🟡 `Reminder`, for the application only: no channels outside it, and a change made by someone else shows on the next read | #617 |
@@ -85,6 +85,7 @@ replace the API statuses and adapter guarantees below.
 | Dashboards switched by variants | ✅ `DashboardInfo::variant` | |
 | Translating captions outside the code | ✅ `export_captions`, `import_captions`, as CSV | |
 | Ready-made records | ✅ `ravenrs-app-library`: person, organization, address, country, task, event, note and file | |
+| Bills to pay and to receive with the cash book | 🟡 `ravenrs_app_library::finance`: categories, cash book, bills and settlements; `settle` with interest, fine and discount, in part or in full, `reverse` by an entry of the opposite sign, `split` and `plan` to the cent, `cancel`, `position`, `statement`, `annual`, `forecast` and `category_guard`, and the actions Settle, Split and Reverse (`FinanceActions`, each needing `Write`). Printed reports and the review screens of a settlement are not there yet | #859 |
 | Clone object | ✅ `CloneModule`: only what says it can be, with `non_cloneable` and `aggregated` | |
 | File attachments | ✅ `AttachmentStore`, out of the record, with a button to save the file | |
 | Deleted records kept in a recycle bin, restored or purged | ⬜ `delete` removes the record; the audit trail keeps what it held, and nothing brings it back | #613 |

@@ -2697,6 +2697,37 @@ fn the_due_digest_follows_the_profile_and_the_days_ahead() {
 }
 
 #[test]
+fn a_bill_is_settled_in_part_reversed_and_split_to_the_cent() {
+    let mut c = Center::memory("ana");
+    c.press("Contas a pagar e receber");
+    c.settle();
+    assert!(c.says("Luz: open, R$ 100,00, saldo R$ 100,00"), "{:?}", c.texts());
+    assert!(c.says("Prévia em 3: 31/01 R$ 33,33, 28/02 R$ 33,33, 31/03 R$ 33,34"), "{:?}", c.texts());
+    // SettleInput::new, and a date after today.
+    c.press("Baixa com data de amanhã");
+    assert!(c.says("Recusado: the settlement date cannot be after today"), "{:?}", c.texts());
+    c.press("Baixa parcial de 40");
+    assert!(c.says("Luz: partial, R$ 100,00, saldo R$ 60,00"), "{:?}", c.texts());
+    // interest, fine, discount and total.
+    c.press("Baixar com juros, multa e desconto");
+    assert!(c.says("Baixa de R$ 64,00 no caixa."), "{:?}", c.texts());
+    assert!(c.says("Caixa: 2 lançamento(s), R$ 104,00"), "{:?}", c.texts());
+    c.press("Mudar o valor da conta");
+    assert!(c.texts().iter().any(|t| t.starts_with("Recusado: Bills: it is Paid")), "{:?}", c.texts());
+    c.press("Estornar sem motivo");
+    assert!(c.says("Recusado: a reversal says why"), "{:?}", c.texts());
+    c.press("Estornar a última baixa");
+    assert!(c.says("Luz: partial, R$ 100,00, saldo R$ 60,00"), "{:?}", c.texts());
+    assert!(c.says("Caixa: 3 lançamento(s), R$ 40,00"), "{:?}", c.texts());
+    c.press("Recomeçar");
+    c.press("Parcelar em 3");
+    assert!(c.says("Parcelada em 3."), "{:?}", c.texts());
+    assert!(c.says("Luz (3/3): open, R$ 33,34, saldo R$ 33,34"), "{:?}", c.texts());
+    c.press("Cancelar a conta");
+    assert!(c.says("Luz (1/3): cancelled, R$ 33,33, saldo R$ 33,33"), "{:?}", c.texts());
+}
+
+#[test]
 fn a_chronology_shows_the_milestones_in_order_and_opens_one() {
     let mut c = Center::memory("ana");
     c.press("Cronologia");
