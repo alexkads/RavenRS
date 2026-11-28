@@ -32,7 +32,9 @@ fn every_flag_in_the_manifest_is_one_the_program_reads() {
     let main = include_str!("../../src/main.rs");
     let tool = manifest();
     for command in names(&tool["commands"], "command") {
-        for flag in command.split_whitespace().filter(|word| word.starts_with("--") && word.len() > 2) {
+        // `cargo run --manifest-path … -- <flags>`: what comes before ` -- ` is cargo's, not the Studio's.
+        let program = command.split_once(" -- ").map_or(command, |(_, flags)| flags);
+        for flag in program.split_whitespace().filter(|word| word.starts_with("--") && word.len() > 2) {
             assert!(main.contains(&format!("\"{flag}\"")), "main.rs does not read {flag}");
         }
     }

@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-report-viewer"
+workspace = "../../camadas/telas"
 description = "Document viewer for RavenRS Reporting: pages, zoom, thumbnails, text search and a parameter panel, on desktop and the web."
 version.workspace = true
 edition.workspace = true

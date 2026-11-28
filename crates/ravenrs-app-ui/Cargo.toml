@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-app-ui"
+workspace = "../../camadas/telas"
 description = "Screens for a RavenRS business application: lists, forms, commands and the shell, generated from the application model."
 version.workspace = true
 edition.workspace = true

@@ -286,15 +286,15 @@ What each group of capabilities uses today and where the rest is followed. *Mast
 Everything below runs on synthetic data, with no account, credential or private database, from a clone of the repository:
 
 ```bash
-cargo test -p ravenrs-app-requests
+cargo test --manifest-path camadas/app/Cargo.toml -p ravenrs-app-requests
 ```
 
 ```bash
-cargo test -p ravenrs-app --test suite manifest::
+cargo test --manifest-path camadas/app/Cargo.toml -p ravenrs-app --test suite manifest::
 ```
 
 ```bash
-cargo test -p ravenrs-app-sqlite --test suite space::a_database_held_by_another_connection_is_a_temporary_failure
+cargo test --manifest-path camadas/app/Cargo.toml -p ravenrs-app-sqlite --test suite space::a_database_held_by_another_connection_is_a_temporary_failure
 ```
 
 ```bash

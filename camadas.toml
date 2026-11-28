@@ -9,9 +9,15 @@
 # `separada = true`: a camada já é um workspace Cargo fora do da raiz. Com `pasta`, um workspace
 # naquela pasta; com `um_workspace_por_pacote`, cada pacote é um workspace na pasta dele. O
 # `scripts/camadas.py deps --write` escreve neles a cópia do Cargo.toml da raiz (F1, #1084).
+#
+# As camadas da biblioteca (W1 a W9) têm o workspace em `camadas/<nome>/Cargo.toml` e os membros
+# continuam em `crates/`: cada um diz `workspace = "../../camadas/<nome>"` no `[package]`, e a raiz
+# lista só o que sobrou nela (F3, #1086). Os dois o `deps --write` escreve.
 
 [nucleo]
 rotulo = "W1"
+separada = true
+pasta = "camadas/nucleo"
 pacotes = [
     "ravenrs-core", "ravenrs-reactive", "ravenrs-style", "ravenrs-layout", "ravenrs-text",
     "ravenrs-graphics", "ravenrs-animation", "ravenrs-lottie", "ravenrs-live", "ravenrs-live-derive",
@@ -20,6 +26,8 @@ pacotes = [
 
 [widgets]
 rotulo = "W2"
+separada = true
+pasta = "camadas/widgets"
 pacotes = [
     "ravenrs-widgets-base", "ravenrs-widgets-kit", "ravenrs-widgets-charts", "ravenrs-widgets-chat",
     "ravenrs-widgets-dock", "ravenrs-widgets-grid", "ravenrs-widgets-imaging", "ravenrs-widgets-lists",
@@ -29,6 +37,8 @@ pacotes = [
 
 [plataforma]
 rotulo = "W3"
+separada = true
+pasta = "camadas/plataforma"
 pacotes = [
     "ravenrs-render", "ravenrs-wayland-gestures", "ravenrs-platform-native", "ravenrs-platform-web",
     "ravenrs-movie", "ravenrs",
@@ -36,6 +46,8 @@ pacotes = [
 
 [documentos]
 rotulo = "W4"
+separada = true
+pasta = "camadas/documentos"
 pacotes = [
     "ravenrs-report", "ravenrs-report-export", "ravenrs-report-pdf", "ravenrs-report-xlsx",
     "ravenrs-report-label", "ravenrs-pdf", "ravenrs-word", "ravenrs-deck", "ravenrs-sheet",
@@ -44,6 +56,8 @@ pacotes = [
 
 [app]
 rotulo = "W5"
+separada = true
+pasta = "camadas/app"
 pacotes = [
     "ravenrs-app", "ravenrs-app-spec", "ravenrs-app-derive", "ravenrs-app-sql", "ravenrs-app-sqlite",
     "ravenrs-app-testkit", "ravenrs-app-requests",
@@ -51,6 +65,8 @@ pacotes = [
 
 [servicos]
 rotulo = "W6"
+separada = true
+pasta = "camadas/servicos"
 pacotes = [
     "ravenrs-app-postgres", "ravenrs-app-postgrest", "ravenrs-app-server", "ravenrs-report-server",
     "ravenrs-mail", "ravenrs-secrets", "ravenrs-metrics",
@@ -58,6 +74,8 @@ pacotes = [
 
 [telas]
 rotulo = "W7"
+separada = true
+pasta = "camadas/telas"
 pacotes = [
     "ravenrs-report-viewer", "ravenrs-report-designer", "ravenrs-spreadsheet", "ravenrs-app-ui",
     "ravenrs-app-a11y", "ravenrs-app-library", "ravenrs-app-update", "ravenrs-app-remote",
@@ -66,6 +84,8 @@ pacotes = [
 
 [fiscal]
 rotulo = "W8"
+separada = true
+pasta = "camadas/fiscal"
 pacotes = [
     "ravenrs-dfe", "ravenrs-nfe", "ravenrs-nfse", "ravenrs-pagamento", "ravenrs-pos", "ravenrs-app-nfe",
     "ravenrs-app-pos",
@@ -73,6 +93,8 @@ pacotes = [
 
 [automacao]
 rotulo = "W9"
+separada = true
+pasta = "camadas/automacao"
 pacotes = [
     "ravenrs-flows", "ravenrs-flows-runtime", "ravenrs-flow-bpmn", "ravenrs-flow-export", "ravenrs-git",
     "ravenrs-ai", "ravenrs-movie-video",

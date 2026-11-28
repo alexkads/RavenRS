@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-sheet"
+workspace = "../../camadas/documentos"
 description = "Headless spreadsheet engine for RavenRS: cells, styles, formulas with 500+ functions, recalculation, number formats, XLSX/XLS/CSV reading and writing and password-protected workbooks."
 version.workspace = true
 edition.workspace = true

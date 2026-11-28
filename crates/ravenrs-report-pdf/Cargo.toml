@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-report-pdf"
+workspace = "../../camadas/documentos"
 description = "PDF export for RavenRS Reporting: vector pages with embedded, subset fonts, in pure Rust."
 version.workspace = true
 edition.workspace = true

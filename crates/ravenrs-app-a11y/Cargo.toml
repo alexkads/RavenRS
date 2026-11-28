@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-app-a11y"
+workspace = "../../camadas/telas"
 description = "Accessibility of a RavenRS business application: accessible names from the model, announcements, and an audit that walks a generated app."
 version.workspace = true
 edition.workspace = true

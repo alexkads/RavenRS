@@ -293,11 +293,17 @@ fn generated_tests_compile_with_reserved_titles_and_helper_names() {
     }
     let source = folder.join("generated.rs");
     std::fs::write(&source, modules).unwrap();
+    // One `-L` per build unit: a warm target with several workspaces has thousands (#1086), more
+    // than a command line takes. rustc reads them from a file instead.
+    let search: String =
+        dependencies.iter().map(|dir| format!("-L\ndependency={}\n", dir.display())).collect();
+    let arguments = folder.join("search-paths");
+    std::fs::write(&arguments, search).unwrap();
     let result = std::process::Command::new("rustc")
         .args(["--edition=2024", "--test", "--emit=metadata"])
         .arg("--extern")
         .arg(format!("ravenrs_e2e_wire={}", wire.display()))
-        .args(dependencies.iter().flat_map(|dir| ["-L".to_owned(), format!("dependency={}", dir.display())]))
+        .arg(format!("@{}", arguments.display()))
         .arg("--out-dir")
         .arg(&folder)
         .arg(&source)

@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-app-remote"
+workspace = "../../camadas/telas"
 description = "A RavenRS application over the web API of ravenrs-app-server, on the desktop and in the browser."
 version.workspace = true
 edition.workspace = true

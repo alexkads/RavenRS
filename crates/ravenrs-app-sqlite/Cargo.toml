@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-app-sqlite"
+workspace = "../../camadas/app"
 description = "Records of a RavenRS business application in SQLite: on tables it creates, or on tables that already exist."
 version.workspace = true
 edition.workspace = true

@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-schedule"
+workspace = "../../camadas/widgets"
 description = "Scheduling for RavenRS apps and servers: cron and interval triggers in a time zone, what to do with a run the program missed while it was down, and a guard so one job never runs twice at once."
 version.workspace = true
 edition.workspace = true

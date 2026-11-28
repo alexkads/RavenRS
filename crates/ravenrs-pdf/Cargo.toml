@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-pdf"
+workspace = "../../camadas/documentos"
 description = "Headless PDF engine for RavenRS: reading (encryption included), writing, merging and splitting, attachments, fonts and page rendering to pixels, in pure Rust."
 version.workspace = true
 edition.workspace = true

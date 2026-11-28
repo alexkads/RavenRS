@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-movie-video"
+workspace = "../../camadas/automacao"
 description = "Turns a RavenRS film into an ordinary video file, with its boxes, clicks and narration, to publish outside the app."
 version.workspace = true
 edition.workspace = true

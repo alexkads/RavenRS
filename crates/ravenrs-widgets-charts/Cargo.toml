@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-widgets-charts"
+workspace = "../../camadas/widgets"
 description = "RavenRS charts, barcodes, Sankey diagrams and FlowCanvas, drawn with ravenrs-graphics. Applications use them through ravenrs-widgets."
 version.workspace = true
 edition.workspace = true

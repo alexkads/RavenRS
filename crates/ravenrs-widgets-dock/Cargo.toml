@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-widgets-dock"
+workspace = "../../camadas/widgets"
 description = "RavenRS DockArea, with panels that dock, float, tab and are saved as text, and the Ribbon. Applications use them through ravenrs-widgets."
 version.workspace = true
 edition.workspace = true

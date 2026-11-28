@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-graphics"
+workspace = "../../camadas/nucleo"
 description = "Vector shapes, chart layout and barcodes for RavenRS: logic shared by reports, the UI and anything else that draws them."
 version.workspace = true
 edition.workspace = true

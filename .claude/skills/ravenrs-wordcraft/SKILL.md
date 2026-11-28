@@ -100,10 +100,10 @@ scripts/storytold/merge.py wordcraft $S/old $S/new
 
 ```bash
 # num slot fixo (slot-a ou slot-b), com o target dele: sem CARGO_TARGET_DIR
-cargo test -p ravenrs-word
-cargo clippy -p ravenrs-word --all-targets -- -D warnings
-cargo check -p ravenrs-word --target wasm32-unknown-unknown
-cargo tree -p ravenrs-word | grep -c 'git+'   # tem de dar 0
+cargo test --manifest-path camadas/documentos/Cargo.toml -p ravenrs-word
+cargo clippy --manifest-path camadas/documentos/Cargo.toml -p ravenrs-word --all-targets -- -D warnings
+cargo check --manifest-path camadas/documentos/Cargo.toml -p ravenrs-word --target wasm32-unknown-unknown
+cargo tree --manifest-path camadas/documentos/Cargo.toml -p ravenrs-word | grep -c 'git+'   # tem de dar 0
 cargo xtask pr
 ```
 

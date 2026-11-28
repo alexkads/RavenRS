@@ -185,6 +185,12 @@ missing_docs = "warn"
 unwrap_used = "warn"
 expect_used = "warn"
 
+# Each workspace apart carries the whole list of the root's dependencies (camadas.toml, #1080) and
+# uses part of it: without this, Cargo warns about every entry the workspace does not use.
+
+[workspace.lints.cargo]
+unused_workspace_dependencies = "allow"
+
 [profile.dev]
 # Each worktree has its own target/; keep backtraces with file and line, drop the rest.
 debug = "line-tables-only"

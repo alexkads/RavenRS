@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-nfe"
+workspace = "../../camadas/fiscal"
 description = "BETA, proof of concept: NF-e/NFC-e engine for RavenRS with a SEFAZ sandbox. Not homologated, blocks production, must not issue real fiscal documents."
 version.workspace = true
 edition.workspace = true

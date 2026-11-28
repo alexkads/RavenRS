@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-platform-web"
+workspace = "../../camadas/plataforma"
 description = "RavenRS browser backend: a <canvas> rendered with WebGPU from WebAssembly."
 version.workspace = true
 edition.workspace = true

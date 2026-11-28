@@ -1,0 +1,198 @@
+# A camada automacao do RavenRS, um workspace Cargo (camadas.toml, #1086).
+# Os membros ficam em crates/; abra este workspace para trabalhar nela.
+
+# >>> camadas.py: gerado do Cargo.toml da raiz por `python3 scripts/camadas.py deps --write`; não edite à mão
+[workspace]
+resolver = "3"
+members = ["../../crates/ravenrs-ai", "../../crates/ravenrs-flow-bpmn", "../../crates/ravenrs-flow-export", "../../crates/ravenrs-flows", "../../crates/ravenrs-flows-runtime", "../../crates/ravenrs-git", "../../crates/ravenrs-movie-video"]
+
+[workspace.package]
+version = "27.1.28"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/alexkads/RavenRS"
+homepage = "https://alexkads.github.io/RavenRS/"
+authors = ["Alex S S Fonseca <alexkads@gmail.com>"]
+
+[workspace.dependencies]
+ravenrs = { version = "27.1.28", path = "../../crates/ravenrs" }
+ravenrs-core = { version = "27.1.28", path = "../../crates/ravenrs-core" }
+ravenrs-animation = { version = "27.1.28", path = "../../crates/ravenrs-animation" }
+ravenrs-reactive = { version = "27.1.28", path = "../../crates/ravenrs-reactive" }
+ravenrs-layout = { version = "27.1.28", path = "../../crates/ravenrs-layout" }
+ravenrs-text = { version = "27.1.28", path = "../../crates/ravenrs-text" }
+ravenrs-style = { version = "27.1.28", path = "../../crates/ravenrs-style" }
+ravenrs-render = { version = "27.1.28", path = "../../crates/ravenrs-render" }
+ravenrs-widgets = { version = "27.1.28", path = "../../crates/ravenrs-widgets", default-features = false }
+ravenrs-widgets-base = { version = "27.1.28", path = "../../crates/ravenrs-widgets-base", default-features = false }
+ravenrs-widgets-kit = { version = "27.1.28", path = "../../crates/ravenrs-widgets-kit", default-features = false }
+ravenrs-widgets-chat = { version = "27.1.28", path = "../../crates/ravenrs-widgets-chat", default-features = false }
+ravenrs-widgets-charts = { version = "27.1.28", path = "../../crates/ravenrs-widgets-charts", default-features = false }
+ravenrs-widgets-imaging = { version = "27.1.28", path = "../../crates/ravenrs-widgets-imaging", default-features = false }
+ravenrs-widgets-dock = { version = "27.1.28", path = "../../crates/ravenrs-widgets-dock", default-features = false }
+ravenrs-widgets-scheduler = { version = "27.1.28", path = "../../crates/ravenrs-widgets-scheduler", default-features = false }
+ravenrs-widgets-lists = { version = "27.1.28", path = "../../crates/ravenrs-widgets-lists", default-features = false }
+ravenrs-widgets-grid = { version = "27.1.28", path = "../../crates/ravenrs-widgets-grid", default-features = false }
+ravenrs-wayland-gestures = { version = "27.1.28", path = "../../crates/ravenrs-wayland-gestures" }
+ravenrs-platform-native = { version = "27.1.28", path = "../../crates/ravenrs-platform-native" }
+ravenrs-platform-web = { version = "27.1.28", path = "../../crates/ravenrs-platform-web" }
+ravenrs-barcode = { version = "27.1.28", path = "../../crates/ravenrs-barcode" }
+ravenrs-graphics = { version = "27.1.28", path = "../../crates/ravenrs-graphics" }
+ravenrs-nfe = { version = "27.1.28", path = "../../crates/ravenrs-nfe" }
+ravenrs-dfe = { version = "27.1.28", path = "../../crates/ravenrs-dfe" }
+ravenrs-nfse = { version = "27.1.28", path = "../../crates/ravenrs-nfse" }
+ravenrs-pagamento = { version = "27.1.28", path = "../../crates/ravenrs-pagamento" }
+ravenrs-report = { version = "27.1.28", path = "../../crates/ravenrs-report" }
+ravenrs-report-export = { version = "27.1.28", path = "../../crates/ravenrs-report-export" }
+ravenrs-report-label = { version = "27.1.28", path = "../../crates/ravenrs-report-label" }
+ravenrs-perifericos = { version = "27.1.28", path = "../../crates/ravenrs-perifericos" }
+ravenrs-grid-export = { version = "27.1.28", path = "../../crates/ravenrs-grid-export" }
+ravenrs-flow-export = { version = "27.1.28", path = "../../crates/ravenrs-flow-export" }
+ravenrs-flows = { version = "27.1.28", path = "../../crates/ravenrs-flows" }
+ravenrs-flows-runtime = { version = "27.1.28", path = "../../crates/ravenrs-flows-runtime" }
+ravenrs-process = { version = "27.1.28", path = "../../crates/ravenrs-process" }
+ravenrs-agent-cli = { version = "27.1.28", path = "../../crates/ravenrs-agent-cli" }
+ravenrs-flow-bpmn = { version = "27.1.28", path = "../../crates/ravenrs-flow-bpmn" }
+ravenrs-app = { version = "27.1.28", path = "../../crates/ravenrs-app" }
+ravenrs-app-a11y = { version = "27.1.28", path = "../../crates/ravenrs-app-a11y" }
+ravenrs-app-ui = { version = "27.1.28", path = "../../crates/ravenrs-app-ui" }
+ravenrs-app-i18n = { version = "27.1.28", path = "../../crates/ravenrs-app-i18n" }
+ravenrs-app-derive = { version = "27.1.28", path = "../../crates/ravenrs-app-derive" }
+ravenrs-live = { version = "27.1.28", path = "../../crates/ravenrs-live" }
+ravenrs-live-derive = { version = "27.1.28", path = "../../crates/ravenrs-live-derive" }
+ravenrs-app-sqlite = { version = "27.1.28", path = "../../crates/ravenrs-app-sqlite" }
+ravenrs-app-sql = { version = "27.1.28", path = "../../crates/ravenrs-app-sql" }
+ravenrs-app-postgres = { version = "27.1.28", path = "../../crates/ravenrs-app-postgres" }
+ravenrs-app-postgrest = { version = "27.1.28", path = "../../crates/ravenrs-app-postgrest" }
+ravenrs-app-server = { version = "27.1.28", path = "../../crates/ravenrs-app-server" }
+ravenrs-app-remote = { version = "27.1.28", path = "../../crates/ravenrs-app-remote" }
+ravenrs-app-testkit = { version = "27.1.28", path = "../../crates/ravenrs-app-testkit" }
+ravenrs-e2e = { version = "27.1.28", path = "../../crates/ravenrs-e2e" }
+ravenrs-e2e-wire = { version = "27.1.28", path = "../../crates/ravenrs-e2e-wire" }
+ravenrs-e2e-runner = { version = "27.1.28", path = "../../crates/ravenrs-e2e-runner" }
+ravenrs-app-requests = { version = "27.1.28", path = "../../crates/ravenrs-app-requests" }
+ravenrs-app-library = { version = "27.1.28", path = "../../crates/ravenrs-app-library" }
+ravenrs-app-nfe = { version = "27.1.28", path = "../../crates/ravenrs-app-nfe" }
+ravenrs-pos = { version = "27.1.28", path = "../../crates/ravenrs-pos" }
+ravenrs-app-pos = { version = "27.1.28", path = "../../crates/ravenrs-app-pos" }
+ravenrs-app-report = { version = "27.1.28", path = "../../crates/ravenrs-app-report" }
+ravenrs-app-update = { version = "27.1.28", path = "../../crates/ravenrs-app-update" }
+ravenrs-report-pdf = { version = "27.1.28", path = "../../crates/ravenrs-report-pdf" }
+ravenrs-report-xlsx = { version = "27.1.28", path = "../../crates/ravenrs-report-xlsx" }
+ravenrs-sheet = { version = "27.1.28", path = "../../crates/ravenrs-sheet" }
+ravenrs-spreadsheet = { version = "27.1.28", path = "../../crates/ravenrs-spreadsheet" }
+ravenrs-report-server = { version = "27.1.28", path = "../../crates/ravenrs-report-server" }
+ravenrs-metrics = { version = "27.1.28", path = "../../crates/ravenrs-metrics" }
+ravenrs-mail = { version = "27.1.28", path = "../../crates/ravenrs-mail" }
+ravenrs-git = { version = "27.1.28", path = "../../crates/ravenrs-git" }
+ravenrs-junit = { version = "27.1.28", path = "../../crates/ravenrs-junit" }
+ravenrs-schedule = { version = "27.1.28", path = "../../crates/ravenrs-schedule" }
+ravenrs-secrets = { version = "27.1.28", path = "../../crates/ravenrs-secrets" }
+ravenrs-report-viewer = { version = "27.1.28", path = "../../crates/ravenrs-report-viewer" }
+ravenrs-report-designer = { version = "27.1.28", path = "../../crates/ravenrs-report-designer" }
+ravenrs-criteria = { version = "27.1.28", path = "../../crates/ravenrs-criteria", default-features = false }
+ravenrs-ai = { version = "27.1.28", path = "../../crates/ravenrs-ai" }
+ravenrs-lottie = { version = "27.1.28", path = "../../crates/ravenrs-lottie" }
+ravenrs-movie = { version = "27.1.28", path = "../../crates/ravenrs-movie" }
+ravenrs-movie-video = { version = "27.1.28", path = "../../crates/ravenrs-movie-video" }
+ravenrs-app-spec = { version = "27.1.28", path = "../../crates/ravenrs-app-spec" }
+ravenrs-project = { version = "27.1.28", path = "../../crates/ravenrs-project" }
+
+wgpu = "30.0.1"
+# Without "wayland-csd-adwaita": its font stack (ttf-parser) is unmaintained (RUSTSEC-2026-0192);
+# Wayland windows use winit's built-in fallback frame instead.
+winit = { version = "0.30.13", default-features = false, features = ["rwh_06", "x11", "wayland", "wayland-dlopen"] }
+accesskit = "0.25.2"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+arboard = { version = "3.7.0", default-features = false, features = ["wayland-data-control"] }
+accesskit_winit = { version = "0.34.2", default-features = false, features = ["accesskit_unix", "async-io", "rwh_06"] }
+taffy = { version = "0.15.1", default-features = false, features = ["std", "taffy_tree", "flexbox", "grid", "content_size"] }
+parley = { version = "0.12.0", default-features = false, features = ["std"] }
+swash = "0.2.10"
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg"] }
+bytemuck = { version = "1.25", features = ["derive"] }
+pollster = "0.4"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# Pinned exactly: the `wasm-bindgen` CLI used to post-process the .wasm must match.
+wasm-bindgen = "=0.2.130"
+wasm-bindgen-futures = "0.4.80"
+js-sys = "0.3.80"
+web-sys = "0.3.107"
+console_error_panic_hook = "0.1.7"
+proptest = { version = "1", default-features = false, features = ["std"] }
+criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
+# Only for the ravenrs-mcp tool; nothing in the framework depends on these.
+rmcp = { version = "3.9.0", default-features = false, features = ["server", "macros", "transport-io"] }
+tokio = { version = "1.54", default-features = false, features = ["macros", "rt"] }
+syn = { version = "2.0.119", default-features = false, features = ["full", "parsing", "printing", "visit"] }
+proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
+quote = "1.0.47"
+regex-lite = "0.1"
+argon2 = { version = "0.5", default-features = false, features = ["alloc", "password-hash"] }
+uuid = { version = "1", default-features = false, features = ["v4", "js"] }
+rusqlite = { version = "0.41", features = ["bundled"] }
+trybuild = "1"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+unwrap_used = "warn"
+expect_used = "warn"
+
+# Each workspace apart carries the whole list of the root's dependencies (camadas.toml, #1080) and
+# uses part of it: without this, Cargo warns about every entry the workspace does not use.
+
+[workspace.lints.cargo]
+unused_workspace_dependencies = "allow"
+
+[profile.dev]
+# Each worktree has its own target/; keep backtraces with file and line, drop the rest.
+debug = "line-tables-only"
+
+# Third-party crates built with some optimisation: the tests drive the UI, SQLite (its C is compiled
+# with this level too), text shaping and images, which are many times slower at opt-level 0. The
+# workspace's own crates stay unoptimised, so they still build fast and debug as written.
+
+[profile.dev.package."*"]
+opt-level = 1
+# No debug information for them: less to compile and link, as Cargo's build performance guide
+# recommends. Backtraces still name the workspace's own lines.
+debug = false
+
+# The spreadsheet evaluator budgets its stack for recursive LAMBDA calls; unoptimised frames are
+# several times larger, so the same formula would stop much earlier in debug builds.
+
+[profile.dev.package.ravenrs-sheet]
+opt-level = 1
+
+# The PDF engine's tests recurse as deep as hostile files do and decrypt with every key length; at
+# opt-level 0 they overflow the stack or take minutes, so it builds as PdfCraft builds it.
+
+[profile.dev.package.ravenrs-pdf]
+opt-level = 1
+
+# The presentation engine is built as DeckCraft builds it: its tests nest groups as deep as a
+# saved file may, which overflows the stack in unoptimised frames, and decode video frames.
+
+[profile.dev.package.ravenrs-deck]
+opt-level = 1
+
+[profile.release]
+# Smaller WASM binaries; native release builds benefit as well.
+lto = "thin"
+codegen-units = 1
+opt-level = 3
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+lto = true
+panic = "abort"
+
+# <<< camadas.py

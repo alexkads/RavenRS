@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-widgets-lists"
+workspace = "../../camadas/widgets"
 description = "RavenRS long lists and what is built on them: VirtualList, Filmstrip, PagedDocumentView, FileBrowser, YearView, SortableList, DocumentTabs and TreeView. Applications use them through ravenrs-widgets."
 version.workspace = true
 edition.workspace = true

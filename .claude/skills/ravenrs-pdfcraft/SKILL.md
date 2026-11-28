@@ -107,10 +107,10 @@ scripts/storytold/merge.py pdfcraft $S/old $S/new
 
 ```bash
 # num slot fixo (slot-a ou slot-b), com o target dele: sem CARGO_TARGET_DIR
-cargo test -p ravenrs-pdf --no-fail-fast
-cargo clippy -p ravenrs-pdf --all-targets -- -D warnings
-cargo check -p ravenrs-pdf --target wasm32-unknown-unknown
-cargo tree -p ravenrs-pdf | grep -c 'git+'   # tem de dar 0
+cargo test --manifest-path camadas/documentos/Cargo.toml -p ravenrs-pdf --no-fail-fast
+cargo clippy --manifest-path camadas/documentos/Cargo.toml -p ravenrs-pdf --all-targets -- -D warnings
+cargo check --manifest-path camadas/documentos/Cargo.toml -p ravenrs-pdf --target wasm32-unknown-unknown
+cargo tree --manifest-path camadas/documentos/Cargo.toml -p ravenrs-pdf | grep -c 'git+'   # tem de dar 0
 cargo xtask pr
 ```
 

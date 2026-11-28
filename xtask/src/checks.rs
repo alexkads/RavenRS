@@ -70,6 +70,28 @@ pub fn cheap(check: &mut Check) -> Done {
     );
     check
         .run("cargo", &["run", "-q", "-p", "ravenrs-lint", "--", "--workspace", "--only", "module_cycle"])?;
+    // The library's layers are workspaces of their own (#1086): the lint reads each through its manifest.
+    for line in apart(check, true)? {
+        let (folder, _) = folder_and_packages(&line);
+        if is_layer(folder) {
+            let manifest = format!("{folder}/Cargo.toml");
+            check.run(
+                "cargo",
+                &[
+                    "run",
+                    "-q",
+                    "-p",
+                    "ravenrs-lint",
+                    "--",
+                    "--manifest-path",
+                    &manifest,
+                    "--workspace",
+                    "--only",
+                    "module_cycle",
+                ],
+            )?;
+        }
+    }
 
     check.step("the widgets' crates keep their layers: no family depends on another");
     check.run(PYTHON, &["scripts/check-widget-layers.py"])?;
@@ -154,7 +176,7 @@ fn tests(check: &mut Check, selection: &[String], documented: Option<&[String]>)
     check.substep("compile the tests", "cargo", &strs(&compile))?;
     check.substep("run the tests", "cargo", &strs(&run))?;
     let mut doc = match documented {
-        None => vec!["test".to_owned(), "--doc".to_owned(), "--workspace".to_owned()],
+        None => [vec!["test".to_owned(), "--doc".to_owned()], selection.to_vec()].concat(),
         Some([]) => return Ok(()),
         Some(names) => [vec!["test".to_owned(), "--doc".to_owned()], packages(names)].concat(),
     };
@@ -247,6 +269,48 @@ fn apart(check: &mut Check, all: bool) -> Result<Vec<String>, crate::run::Failed
     Ok(listed.lines().map(str::trim).filter(|line| !line.is_empty()).map(str::to_owned).collect())
 }
 
+/// A layer of the library (W1 to W9): a workspace in `camadas/` whose members stay in `crates/` (#1086).
+fn is_layer(folder: &str) -> bool {
+    folder.starts_with("camadas/")
+}
+
+/// The manifest of the layer that has `package`, from the lines of `camadas.py workspaces`.
+fn layer_manifest(lines: &[String], package: &str) -> Result<String, crate::run::Failed> {
+    lines
+        .iter()
+        .map(|line| folder_and_packages(line))
+        .find(|(folder, own)| is_layer(folder) && own.contains(&package))
+        .map(|(folder, _)| format!("{folder}/Cargo.toml"))
+        .ok_or_else(|| failure(format!("{package} is in no layer of camadas.toml")))
+}
+
+/// `packages` grouped by the manifest of their layer, in the order of the layers.
+fn by_layer(lines: &[String], packages: &[&str]) -> Result<Vec<(String, Vec<String>)>, crate::run::Failed> {
+    let mut groups: Vec<(String, Vec<String>)> = Vec::new();
+    for line in lines {
+        let (folder, own) = folder_and_packages(line);
+        let mine: Vec<String> =
+            packages.iter().filter(|name| own.contains(name)).map(|name| (*name).to_owned()).collect();
+        if is_layer(folder) && !mine.is_empty() {
+            groups.push((format!("{folder}/Cargo.toml"), mine));
+        }
+    }
+    Ok(groups)
+}
+
+/// The workspaces apart a check covers: those the change touches and, when something every package
+/// builds with changed, every layer of the library too.
+fn apart_for(check: &mut Check, all: bool) -> Result<Vec<String>, crate::run::Failed> {
+    let touched = apart(check, false)?;
+    if !all {
+        return Ok(touched);
+    }
+    let mut lines: Vec<String> =
+        apart(check, true)?.into_iter().filter(|line| is_layer(folder_and_packages(line).0)).collect();
+    lines.extend(touched.into_iter().filter(|line| !is_layer(folder_and_packages(line).0)));
+    Ok(lines)
+}
+
 /// A line of `camadas.py workspaces`: the folder, then its packages.
 fn folder_and_packages(line: &str) -> (&str, Vec<&str>) {
     let mut words = line.split_whitespace();
@@ -277,7 +341,8 @@ fn check_apart(check: &mut Check, lines: &[String], with_tests: bool) -> Done {
             lint_example(check, folder, package)?;
         }
         if with_tests {
-            tests(check, &on, Some(&[]))?;
+            // A layer of the library has doctests; an application, none worth the build.
+            tests(check, &on, if is_layer(folder) { None } else { Some(&[]) })?;
         }
     }
     if folders.iter().any(|folder| SHOWCASE.contains(&folder.as_str())) {
@@ -291,9 +356,9 @@ fn check_apart(check: &mut Check, lines: &[String], with_tests: bool) -> Done {
 /// gate: the tests are `dev`'s while working and `pr`'s before a merge.
 pub fn lint(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
     cheap(check)?;
-    let touched_apart = apart(check, false)?;
-    check_apart(check, &touched_apart, false)?;
     let selection = select(check)?;
+    let touched_apart = apart_for(check, selection.all)?;
+    check_apart(check, &touched_apart, false)?;
     if selection.all {
         println!("something every package builds with changed: clippy on the whole workspace");
         check.mode = "lint, ALL".to_owned();
@@ -318,9 +383,9 @@ pub fn lint(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
 /// and the public API are the pull request's.
 pub fn dev(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
     cheap(check)?;
-    let touched_apart = apart(check, false)?;
-    check_apart(check, &touched_apart, true)?;
     let selection = select(check)?;
+    let touched_apart = apart_for(check, selection.all)?;
+    check_apart(check, &touched_apart, true)?;
     if selection.all {
         println!("something every package builds with changed: clippy proves the whole workspace compiles;");
         println!("its tests are the pull request's (cargo xtask pr)");
@@ -357,9 +422,9 @@ fn base_name() -> String {
 /// the public API when the change reaches them.
 pub fn pr(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
     cheap(check)?;
-    let touched_apart = apart(check, false)?;
-    check_apart(check, &touched_apart, true)?;
     let selection = select(check)?;
+    let touched_apart = apart_for(check, selection.all)?;
+    check_apart(check, &touched_apart, true)?;
     if selection.all {
         println!("something every package builds with changed: the whole workspace");
         check.mode = "pr, ALL".to_owned();
@@ -374,8 +439,12 @@ pub fn pr(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
     if selection.lint {
         lint_examples(check)?;
     }
-    // rustdoc on nightly takes a while: only when the change reaches the facade it reads.
-    if selection.reached.iter().any(|name| name == "ravenrs-widgets") {
+    // rustdoc on nightly takes a while: only when the change reaches the facade it reads, which
+    // only the core's and the widgets' layers do (#1086).
+    if touched_apart
+        .iter()
+        .any(|line| ["camadas/nucleo", "camadas/widgets"].contains(&folder_and_packages(line).0))
+    {
         public_api(check)?;
     }
     let showcase_checked = touched_apart.iter().any(|line| SHOWCASE.contains(&folder_and_packages(line).0));
@@ -514,16 +583,20 @@ pub fn release(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
     clippy(check, &["--workspace".to_owned()])?;
     let every_apart = apart(check, true)?;
     check_apart(check, &every_apart, true)?;
+    // The library's packages are in their layers' workspaces (#1086): `-p` goes to the layer's manifest.
+    let layer = |package: &str| layer_manifest(&every_apart, package);
 
     check.step("CLI templates: every model and target compiles");
     check.run("cargo", &["test", "-p", "cargo-ravenrs", "--test", "cli", "--", "--ignored"])?;
 
     check.step("clippy (wasm32)");
     for list in [WASM, WASM_ALONE] {
-        let mut args = vec!["clippy".to_owned()];
-        args.extend(with_flag("-p", list));
-        args.extend(["--target", "wasm32-unknown-unknown", "--", "-D", "warnings"].map(str::to_owned));
-        check.run("cargo", &strs(&args))?;
+        for (manifest, names) in by_layer(&every_apart, list)? {
+            let mut args = vec!["clippy".to_owned(), "--manifest-path".to_owned(), manifest];
+            args.extend(packages(&names));
+            args.extend(["--target", "wasm32-unknown-unknown", "--", "-D", "warnings"].map(str::to_owned));
+            check.run("cargo", &strs(&args))?;
+        }
     }
     for folder in WASM_APPS {
         let manifest = format!("{folder}/Cargo.toml");
@@ -546,10 +619,15 @@ pub fn release(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
     tests(check, &["--workspace".to_owned()], None)?;
 
     check.step("ravenrs-dfe and ravenrs-nfe with the real network code, against local servers only");
-    check.run("cargo", &["test", "-p", "ravenrs-dfe", "-p", "ravenrs-nfe", "--all-features"])?;
+    let fiscal = layer("ravenrs-dfe")?;
+    check.run(
+        "cargo",
+        &["test", "--manifest-path", &fiscal, "-p", "ravenrs-dfe", "-p", "ravenrs-nfe", "--all-features"],
+    )?;
 
     check.step("optional features are optional");
-    check.run("cargo", &["check", "-p", "ravenrs", "--no-default-features"])?;
+    let platform = layer("ravenrs")?;
+    check.run("cargo", &["check", "--manifest-path", &platform, "-p", "ravenrs", "--no-default-features"])?;
     let families = [
         "ravenrs-widgets-base",
         "ravenrs-widgets-kit",
@@ -562,11 +640,14 @@ pub fn release(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
         "ravenrs-widgets-chat",
         "ravenrs-widgets",
     ];
-    let mut args = vec!["check".to_owned()];
+    let mut args = vec!["check".to_owned(), "--manifest-path".to_owned(), layer("ravenrs-widgets")?];
     args.extend(with_flag("-p", &families));
     args.push("--no-default-features".to_owned());
     check.run("cargo", &strs(&args))?;
-    let tree = check.output("cargo", &["tree", "-p", "ravenrs", "--no-default-features", "-e", "normal"])?;
+    let tree = check.output(
+        "cargo",
+        &["tree", "--manifest-path", &platform, "-p", "ravenrs", "--no-default-features", "-e", "normal"],
+    )?;
     if tree.lines().any(|line| line.contains("ravenrs-graphics") || line.contains("tiny-skia")) {
         return Err(failure("an app without the charts feature must not build the rasterizer"));
     }
@@ -574,15 +655,19 @@ pub fn release(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
     check.step("minimum supported Rust version (1.88)");
     let toolchains = check.output("rustup", &["toolchain", "list"]).unwrap_or_default();
     if toolchains.lines().any(|line| line.starts_with("1.88")) {
-        let mut args = vec!["+1.88".to_owned(), "check".to_owned(), "--workspace".to_owned()];
-        args.extend(with_flag("--exclude", NOT_ON_MSRV));
-        check.run("cargo", &strs(&args))?;
-        let folders = every_apart.iter().map(|line| folder_and_packages(line).0);
-        for folder in folders.filter(|folder| !NOT_ON_MSRV_APART.contains(folder)) {
-            check.run(
-                "cargo",
-                &["+1.88", "check", "--workspace", "--manifest-path", &format!("{folder}/Cargo.toml")],
-            )?;
+        check.run("cargo", &["+1.88", "check", "--workspace"])?;
+        for line in &every_apart {
+            let (folder, own) = folder_and_packages(line);
+            if NOT_ON_MSRV_APART.contains(&folder) {
+                continue;
+            }
+            let manifest = format!("{folder}/Cargo.toml");
+            let mut args = ["+1.88", "check", "--workspace", "--manifest-path", manifest.as_str()]
+                .map(str::to_owned)
+                .to_vec();
+            let left_out: Vec<&str> = NOT_ON_MSRV.iter().copied().filter(|name| own.contains(name)).collect();
+            args.extend(with_flag("--exclude", &left_out));
+            check.run("cargo", &strs(&args))?;
         }
     } else {
         println!("skipped: install it with 'rustup toolchain install 1.88'");
@@ -591,6 +676,10 @@ pub fn release(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
     check.step("dependencies: advisories, licenses, sources (cargo-deny)");
     if check.output("cargo", &["deny", "--version"]).is_ok() {
         check.run("cargo", &["deny", "check"])?;
+        for line in every_apart.iter().filter(|line| is_layer(folder_and_packages(line).0)) {
+            let manifest = format!("{}/Cargo.toml", folder_and_packages(line).0);
+            check.run("cargo", &["deny", "--manifest-path", &manifest, "check"])?;
+        }
     } else {
         println!("skipped: install it with 'cargo install cargo-deny --locked'");
     }
@@ -613,6 +702,13 @@ pub fn release(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
     if std::env::var("RAVENRS_GATE").is_ok_and(|v| v == "1") {
         check.step("benchmarks compile");
         check.run("cargo", &["bench", "--workspace", "--no-run", "--quiet"])?;
+        for line in every_apart.iter().filter(|line| is_layer(folder_and_packages(line).0)) {
+            let manifest = format!("{}/Cargo.toml", folder_and_packages(line).0);
+            check.run(
+                "cargo",
+                &["bench", "--manifest-path", &manifest, "--workspace", "--no-run", "--quiet"],
+            )?;
+        }
         check.step("performance gate: exact counters against perf/baseline.json");
         check.run(
             "cargo",
@@ -621,13 +717,24 @@ pub fn release(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
     }
 
     check.step("API docs (broken links fail)");
-    let mut args = ["doc", "--no-deps", "--workspace", "--features", "ravenrs-widgets/code", "--quiet"]
-        .map(str::to_owned)
-        .to_vec();
+    let mut args = ["doc", "--no-deps", "--workspace", "--quiet"].map(str::to_owned).to_vec();
     args.extend(with_flag("--exclude", NOT_DOCUMENTED));
-    let mut doc = check.command("cargo", &strs(&args));
-    doc.env("RUSTDOCFLAGS", "-D warnings");
-    check.run_command(doc, "cargo", &strs(&args))?;
+    let mut runs = vec![args];
+    for line in every_apart.iter().filter(|line| is_layer(folder_and_packages(line).0)) {
+        let (folder, own) = folder_and_packages(line);
+        let mut args =
+            ["doc", "--no-deps", "--workspace", "--quiet", "--manifest-path"].map(str::to_owned).to_vec();
+        args.push(format!("{folder}/Cargo.toml"));
+        if own.contains(&"ravenrs-widgets") {
+            args.extend(["--features", "ravenrs-widgets/code"].map(str::to_owned));
+        }
+        runs.push(args);
+    }
+    for args in runs {
+        let mut doc = check.command("cargo", &strs(&args));
+        doc.env("RUSTDOCFLAGS", "-D warnings");
+        check.run_command(doc, "cargo", &strs(&args))?;
+    }
     check.run(PYTHON, &["scripts/check-component-list.py"])?;
 
     check.step("web builds");
@@ -653,6 +760,25 @@ mod tests {
         assert_eq!(selection.reached.len(), 3);
         assert!(selection.deferred.is_empty());
         assert!(Selection::parse("ALL=1\n").all);
+    }
+
+    #[test]
+    fn a_package_of_the_library_is_reached_through_its_layer() {
+        let lines = [
+            "camadas/nucleo ravenrs-core ravenrs-text".to_owned(),
+            "camadas/widgets ravenrs-widgets ravenrs-widgets-base".to_owned(),
+            "examples/hello-world hello-world".to_owned(),
+        ];
+        assert_eq!(layer_manifest(&lines, "ravenrs-widgets-base").unwrap(), "camadas/widgets/Cargo.toml");
+        assert!(layer_manifest(&lines, "hello-world").is_err(), "an application is not a layer");
+        let groups = by_layer(&lines, &["ravenrs-widgets", "ravenrs-core", "nowhere"]).unwrap();
+        assert_eq!(
+            groups,
+            [
+                ("camadas/nucleo/Cargo.toml".to_owned(), vec!["ravenrs-core".to_owned()]),
+                ("camadas/widgets/Cargo.toml".to_owned(), vec!["ravenrs-widgets".to_owned()]),
+            ]
+        );
     }
 
     #[test]

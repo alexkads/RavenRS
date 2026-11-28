@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-core"
+workspace = "../../camadas/nucleo"
 description = "Geometry, color, input events and the display list shared by every RavenRS crate."
 version.workspace = true
 edition.workspace = true

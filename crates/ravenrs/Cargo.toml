@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs"
+workspace = "../../camadas/plataforma"
 description = "RavenRS: beautiful native interfaces, powered by Rust. One declarative UI for desktop and WebAssembly, drawn on the GPU."
 version.workspace = true
 edition.workspace = true

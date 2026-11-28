@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-lottie"
+workspace = "../../camadas/nucleo"
 description = "A Lottie player of our own for RavenRS: reads the JSON, works out each frame's curves and leaves them in the display list. No GPU, no widgets."
 version.workspace = true
 edition.workspace = true

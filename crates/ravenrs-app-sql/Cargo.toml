@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-app-sql"
+workspace = "../../camadas/app"
 description = "What SQL databases have in common for RavenRS applications: records on tables, as an ObjectSpace, over a backend for each database."
 version.workspace = true
 edition.workspace = true

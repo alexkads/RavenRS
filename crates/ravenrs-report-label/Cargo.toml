@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-report-label"
+workspace = "../../camadas/documentos"
 description = "RavenRS Reporting on label printers: documents as 1-bit bitmaps at the printer's resolution, sent as ZPL II, EPL2/PPLB, PPLA or TSPL."
 version.workspace = true
 edition.workspace = true

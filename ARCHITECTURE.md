@@ -33,7 +33,23 @@ The survey was done against the official repositories and docs (October 2026). N
 
 ## 3. Crate graph
 
-The packages are grouped in layers, listed bottom-up in `camadas.toml` (#1080): core, widgets, platform, document engines, application framework, services, screens, fiscal, automation, tooling, the showcase, Raven CI and the applications. A package uses only its own layer and the ones below it, `[dev-dependencies]` included; `scripts/check-camadas.py`, run by every `cargo xtask` check, refuses a package outside the map and an edge that goes up. Each layer becomes a Cargo workspace of its own, so work on one layer never builds the ones above. The applications, the showcase and Raven CI already are (#1084, #1085): `scripts/camadas.py` lists them and keeps the copy of the root's dependencies in each one current.
+The packages are grouped in layers, listed bottom-up in `camadas.toml` (#1080): core, widgets, platform, document engines, application framework, services, screens, fiscal, automation, tooling, the showcase, Raven CI and the applications. A package uses only its own layer and the ones below it, `[dev-dependencies]` included; `scripts/camadas.py check`, run by every `cargo xtask` check, refuses a package outside the map and an edge that goes up. Each layer is a Cargo workspace of its own, so work on one layer never builds the ones above. The library's layers live in `camadas/<layer>/Cargo.toml` with their members in `crates/` (#1086); the applications, the showcase and Raven CI in their own folders (#1084, #1085); the root keeps the tooling until F4. `scripts/camadas.py` lists them and keeps the copy of the root's dependencies in each one current.
+
+Where to open the editor for each task:
+
+| Task | Workspace | Builds |
+|---|---|---|
+| core, reactive, layout, text, criteria | `camadas/nucleo` | W1 |
+| a widget | `camadas/widgets` | W1, W2 |
+| renderer, platforms, the `ravenrs` facade | `camadas/plataforma` | W1 to W3 |
+| a document engine (report, pdf, word, deck, sheet) | `camadas/documentos` | W1, W2, W4 |
+| the application framework | `camadas/app` | W1, W5 and what it uses |
+| network and databases | `camadas/servicos` | W6 and below |
+| report viewer and designer, spreadsheet, app screens | `camadas/telas` | W7 and below |
+| fiscal, point of sale | `camadas/fiscal` | W8 and below |
+| flows, git, local AI, video | `camadas/automacao` | W9 and below |
+| xtask, lint, mcp, cargo-ravenrs | the root | W10 and what it uses |
+| the showcase, an application, Raven CI | its folder | itself and the library it uses |
 
 ```
 ravenrs-core ─────────────┬──────────────┬──────────────┬─────────────┐

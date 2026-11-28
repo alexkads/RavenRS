@@ -83,17 +83,26 @@ fn page_file(caption: &str) -> Option<(&'static str, Option<&'static str>)> {
         })
 }
 
-/// Whether `text` calls `demo(name, caption, …)` with this caption as the second argument.
+/// Whether `text` calls `demo(name, caption, …)` with this caption as the second argument. The
+/// name is the entity's, between quotes or in a constant (`demo(CLOSING_TERM, "…", …)`, #1090).
 fn declares_demo(text: &str, caption: &str) -> bool {
     let quoted = format!("{caption:?},");
     text.match_indices(&quoted).any(|(at, _)| {
-        // Before the caption: `demo(`, the entity's name between quotes and a comma.
+        // Before the caption: `demo(`, the entity's name and a comma.
         let before = text[..at].trim_end();
         let Some(before) = before.strip_suffix(',') else { return false };
         let before = before.trim_end();
-        let Some(name_end) = before.strip_suffix('"') else { return false };
-        let Some(open) = name_end.rfind('"') else { return false };
-        name_end[..open].trim_end().ends_with("demo(")
+        let rest = if let Some(name_end) = before.strip_suffix('"') {
+            let Some(open) = name_end.rfind('"') else { return false };
+            &name_end[..open]
+        } else {
+            let name = before.trim_end_matches(|c: char| c.is_ascii_alphanumeric() || c == '_');
+            if name.len() == before.len() {
+                return false;
+            }
+            name
+        };
+        rest.trim_end().ends_with("demo(")
     })
 }
 
@@ -232,6 +241,18 @@ mod tests {
         assert!(file.ends_with("/model.rs"), "{file}");
         assert_eq!(id, None);
         assert_eq!(page_file("Página que não existe"), None);
+    }
+
+    #[test]
+    fn a_demo_names_its_entity_between_quotes_or_in_a_constant() {
+        assert!(declares_demo("demo(\n    \"Rules\",\n    \"Regras\",\n    X,", "Regras"));
+        assert!(declares_demo(
+            "demo(\n    CLOSING_TERM,\n    \"Semestres aprovados\",\n",
+            "Semestres aprovados"
+        ));
+        // Not a demo: the caption is the first argument, or another call has it.
+        assert!(!declares_demo("demo(\"Semestres aprovados\", X)", "Semestres aprovados"));
+        assert!(!declares_demo("other(CLOSING_TERM, \"Semestres aprovados\",", "Semestres aprovados"));
     }
 
     #[test]

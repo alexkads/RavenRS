@@ -13,5 +13,6 @@ fn finds_this_package_and_its_sources() {
     // The binary in src/bin is inside src, so src is read once.
     assert_eq!(this.source_dirs, [Path::new(env!("CARGO_MANIFEST_DIR")).join("src")]);
     assert!(!this.uses_ravenrs);
-    assert!(packages.iter().any(|p| p.name == "family-finance" && p.uses_ravenrs));
+    // The applications are workspaces of their own (#1084): a tool of the root's that uses RavenRS.
+    assert!(packages.iter().any(|p| p.name != "ravenrs-lint" && p.uses_ravenrs));
 }

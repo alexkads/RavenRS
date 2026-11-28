@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-widgets-imaging"
+workspace = "../../camadas/widgets"
 description = "RavenRS instruments for pictures (Histogram, Ruler, CurveEditor, ZoomPanView, CropOverlay, Eyedropper, CompareView and more) and the Lottie player. Applications use them through ravenrs-widgets."
 version.workspace = true
 edition.workspace = true

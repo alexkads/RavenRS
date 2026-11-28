@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-criteria"
+workspace = "../../camadas/nucleo"
 description = "A criteria and expression language: parse, print, evaluate over any rows, validate, and translate to parameterized SQL."
 version.workspace = true
 edition.workspace = true

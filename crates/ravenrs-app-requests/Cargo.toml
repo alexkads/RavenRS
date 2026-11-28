@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-app-requests"
+workspace = "../../camadas/app"
 description = "An optional ravenrs-app package of requests decided step by step: steps and who decides come from the application, decisions are idempotent and each one leaves an event written in the same commit."
 version.workspace = true
 edition.workspace = true

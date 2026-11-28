@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-flows-runtime"
+workspace = "../../camadas/automacao"
 description = "Durable runs of ravenrs-flows on SQLite: a queue workers claim with a lease, checkpoints after every node, resuming without repeating what was done, waits that outlive the app, reruns and retention."
 version.workspace = true
 edition.workspace = true

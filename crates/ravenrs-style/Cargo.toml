@@ -1,5 +1,6 @@
 [package]
 name = "ravenrs-style"
+workspace = "../../camadas/nucleo"
 description = "RavenRS design tokens and the Raven Dark, Raven Light and Raven Glass themes."
 version.workspace = true
 edition.workspace = true
