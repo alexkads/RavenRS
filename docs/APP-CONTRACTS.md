@@ -93,6 +93,18 @@ The result distinguishes six meanings, all of them in `SpaceError` (`crates/rave
 
 Messages never reveal that data the person cannot reach exists.
 
+### Sealed records and amendments
+
+A sealed entity (`EntityInfo::sealed(Seal::when("[status] = 'closed'"))`) says, by an expression over the record **as stored**, when a record is closed. A closed record is not changed or deleted directly: the commit refuses it with `SpaceError::Refused`, naming the entity that amends it. The only way in is an amendment, a record of another entity declared with `EntityInfo::amends`:
+
+- `Amendment::correction(target, reference)` corrects a closed target, which stays closed. A correction of an open target is refused ("correct it on its own form").
+- `Amendment::closing(target, reference)` closes, ends or transfers an open target, which has to be closed after it. A target has one closing at most: a second is refused because the target is closed already.
+- `.copies([..])` writes fields of the same name on the target, `.marks(field)` sets a yes-or-no field there, `.reason(field, n)` asks for a reason of at least `n` characters, `.before(field)` keeps, as JSON, the target's values that change, and `.apply(|amendment, target, space| ..)` does the rest in the same unit of work, such as creating the record a transfer goes to.
+
+The amendment is written on its target as it is inserted (`apply_amendment`, called by every space here: memory, SQL and PostgREST), so whatever wraps the space sees the change to the target: `AuditedObjectSpace` keeps both, the amendment and the target's old and new values, in the same commit. If `apply` fails, nothing it did waits. The commit checks it all with `check_amendments`, reading what storage has inside the transaction: an amendment that is kept is never changed or deleted.
+
+Permissions: creating an amendment needs `Create` on the amendment entity and `Read` on the target, not `Write` on the target. An `object_permission` that denies `Write` on closed records still holds for direct edits.
+
 ## Scenarios
 
 Each scenario has one owner issue, where its checklist lives. The text of the interface may change; the observable result is the contract. Sketches V01–V16 and diagrams D01–D03 are in the [visual appendix of #253](https://github.com/alexkads/RavenRS/issues/253#issuecomment-6828194062).

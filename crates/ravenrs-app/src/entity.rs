@@ -7,12 +7,17 @@ use ravenrs_criteria::{Criteria, Environment, FieldType, Record, Schema, Scope, 
 
 // What the entity keeps of its rules, actions and workflow: data only. The code that runs them
 // lives in its own module and imports them from here, so it can stand on the entity.
+pub(crate) mod amendment_types;
 pub(crate) mod appearance_types;
 pub(crate) mod record_actions;
 pub(crate) mod rules;
 pub(crate) mod workflow_types;
 
 pub use crate::model_node::ModelNode;
+pub use amendment_types::{
+    Amendment, AmendmentApply, AmendmentKind, Seal, StoredLookup, apply_amendment, check_amendment_model,
+    check_amendments,
+};
 pub use appearance_types::{AppearanceContext, AppearanceRule, AppearanceTarget, Tint};
 pub use record_actions::{RecordAction, Selection};
 pub use rules::{Comparison, Operand, Rule, RuleKind, Severity, TextComparison};
@@ -660,6 +665,10 @@ pub struct EntityInfo {
     /// The fields its form goes through first with the keyboard, in this order. The form shows
     /// them in the same order, so the eye and the keyboard go the same way.
     pub focus_order: Vec<String>,
+    /// When one of its records, as stored, is closed and changes only by an amendment.
+    pub seal: Option<crate::Seal>,
+    /// The closed records of another entity its records amend.
+    pub amendment: Option<crate::Amendment>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
@@ -693,6 +702,8 @@ impl EntityInfo {
             form_actions: Vec::new(),
             singleton: false,
             focus_order: Vec::new(),
+            seal: None,
+            amendment: None,
         }
     }
 
@@ -827,6 +838,19 @@ impl EntityInfo {
         self
     }
 
+    /// Its records, once stored meeting this seal, change only by an amendment.
+    pub fn sealed(mut self, seal: crate::Seal) -> Self {
+        self.seal = Some(seal);
+        self
+    }
+
+    /// Its records amend the closed records of another entity. They are kept as written: once
+    /// committed, they are not changed or deleted.
+    pub fn amends(mut self, amendment: crate::Amendment) -> Self {
+        self.amendment = Some(amendment);
+        self
+    }
+
     /// An appearance that holds while its field is in this state.
     pub fn state_appearance(self, field: &str, state: &str, rule: crate::AppearanceRule) -> Self {
         let state = state.replace('\'', "''");
@@ -920,6 +944,14 @@ impl EntityInfo {
         }
         for action in &self.actions {
             action.check(self).map_err(|e| ModelError(format!("{}: {}", self.name, e.0)))?;
+        }
+        if let Some(seal) = &self.seal
+            && let Err(e) = Criteria::parse(&seal.when)
+        {
+            return wrong(format!("its seal does not read: {e}"));
+        }
+        if let Some(problem) = self.amendment.as_ref().and_then(|amendment| amendment.problem(self)) {
+            return wrong(problem);
         }
         for machine in &self.state_machines {
             if self.field_named(&machine.field).is_none() {

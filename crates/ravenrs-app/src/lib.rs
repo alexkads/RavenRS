@@ -66,10 +66,12 @@ pub use action_types::{ActionInput, MessageKind};
 pub use appearance::Appearance;
 pub use controller::{ViewController, WindowController};
 pub use entity::{
-    AppearanceContext, AppearanceRule, AppearanceTarget, Comparison, DataAccess, EXACT_DIGITS, EntityInfo,
-    EnumOption, FieldInfo, FieldKind, ListFilter, ModelError, ModelNode, Object, Operand, RecordAction,
-    Reminder, Rule, RuleKind, Selection, Severity, StateMachine, TextComparison, Tint, Transition,
-    ViewVariant, check_transitions, exact_decimal, exact_decimals, local_now, local_today,
+    Amendment, AmendmentApply, AmendmentKind, AppearanceContext, AppearanceRule, AppearanceTarget,
+    Comparison, DataAccess, EXACT_DIGITS, EntityInfo, EnumOption, FieldInfo, FieldKind, ListFilter,
+    ModelError, ModelNode, Object, Operand, RecordAction, Reminder, Rule, RuleKind, Seal, Selection,
+    Severity, StateMachine, StoredLookup, TextComparison, Tint, Transition, ViewVariant, apply_amendment,
+    check_amendment_model, check_amendments, check_transitions, exact_decimal, exact_decimals, local_now,
+    local_today,
 };
 pub use files::{AttachmentStore, MemoryAttachmentStore};
 pub use frame::{Frame, FrameContext, FrameEvent, ViewInfo, ViewKind};
