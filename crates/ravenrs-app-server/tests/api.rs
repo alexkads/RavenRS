@@ -1121,3 +1121,26 @@ fn a_fallback_answers_its_own_paths_knows_who_asked_and_leaves_the_rest_to_the_a
     assert_eq!(api.send(ApiRequest::new("GET", "/api/me").bearer(&token)).status, 200);
     assert_eq!(api.send(ApiRequest::new("GET", "/api/data/Order")).status, 401);
 }
+
+#[test]
+fn a_user_whose_deadline_passed_loses_the_session_on_the_next_call() {
+    // Access for a while (#857): past `expires_at` the session ends, as when a user is turned off.
+    let mut api = Api::new();
+    let token = api.token("bia");
+    assert_eq!(api.send(ApiRequest::new("GET", "/api/data/Order").bearer(&token)).status, 200);
+    let mut space = api.database.space();
+    let users = space.query(SECURITY_USER, &Query::all()).unwrap();
+    let mut bia = users.into_iter().find(|user| user.get("name") == Value::Text("bia".into())).unwrap();
+    let now = ravenrs_app::local_now();
+    bia.set(
+        "expires_at",
+        Value::Date(ravenrs_criteria::DateTime { days: now.days - 1, seconds: now.seconds }),
+    );
+    space.save(bia).unwrap();
+    space.commit().unwrap();
+    assert_eq!(api.send(ApiRequest::new("GET", "/api/data/Order").bearer(&token)).status, 401);
+    assert_eq!(api.send(ApiRequest::new("GET", "/api/me").bearer(&token)).status, 401, "the session is over");
+    let again =
+        ApiRequest::new("POST", "/api/auth/token").json(&json!({ "name": "bia", "password": PASSWORD }));
+    assert_eq!(api.send(again).status, 401, "and it does not sign in again");
+}

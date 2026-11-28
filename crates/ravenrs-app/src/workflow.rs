@@ -44,6 +44,24 @@ impl StateMachine {
         self
     }
 
+    /// A stored record in this state changes in nothing but its state, by a declared way: a bill
+    /// paid or a period closed. Checked where records are kept, as the ways are.
+    pub fn locked(mut self, state: impl Into<String>) -> Self {
+        self.locked.push(state.into());
+        self
+    }
+
+    /// These fields may change together with the state when a record leaves a locked state, as
+    /// what was paid changes when a payment is reversed.
+    pub fn unlocked_with<I, S>(mut self, fields: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.unlocked_with.extend(fields.into_iter().map(Into::into));
+        self
+    }
+
     /// The last way declared only opens for records this expression holds for.
     pub fn when(mut self, expression: impl Into<String>) -> Self {
         if let Some(last) = self.transitions.last_mut() {
@@ -56,6 +74,9 @@ impl StateMachine {
         let known = |code: &str| self.states.iter().any(|(state, _)| state == code);
         if self.states.is_empty() {
             return Some(format!("the states of {} are not declared", self.field));
+        }
+        if let Some(state) = self.locked.iter().find(|state| !known(state)) {
+            return Some(format!("{state}, which it locks, is not a state of {}", self.field));
         }
         if let Some(start) = self.start.as_deref().filter(|start| !known(start)) {
             return Some(format!("{} starts in {start}, which is not one of its states", self.field));

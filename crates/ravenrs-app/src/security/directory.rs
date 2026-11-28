@@ -256,9 +256,7 @@ impl UserDirectory {
     pub fn identity_of(&self, name: &str) -> Result<Option<Identity>, SpaceError> {
         let space = (self.space)();
         match self.user_named(&*space, name)? {
-            Some(user) if user.get("active") == Value::Bool(true) => {
-                self.identity_from(&*space, &user).map(Some)
-            }
+            Some(user) if can_sign_in(&user) => self.identity_from(&*space, &user).map(Some),
             _ => Ok(None),
         }
     }
@@ -267,9 +265,7 @@ impl UserDirectory {
     pub fn identity_by_key(&self, key: &Value) -> Result<Option<Identity>, SpaceError> {
         let space = (self.space)();
         match space.find(SECURITY_USER, key)? {
-            Some(user) if user.get("active") == Value::Bool(true) => {
-                self.identity_from(&*space, &user).map(Some)
-            }
+            Some(user) if can_sign_in(&user) => self.identity_from(&*space, &user).map(Some),
             _ => Ok(None),
         }
     }
@@ -301,6 +297,12 @@ impl UserDirectory {
     }
 }
 
+/// Whether a user can sign in now: active, and their deadline, if any, not passed.
+fn can_sign_in(user: &Object) -> bool {
+    user.get("active") == Value::Bool(true)
+        && !super::temporary::expired(user, "expires_at", crate::local_now())
+}
+
 fn checked_hash(password: &str) -> Result<String, PasswordError> {
     if password.chars().count() < MIN_PASSWORD_CHARS {
         return Err(PasswordError::TooShort);
@@ -310,6 +312,8 @@ fn checked_hash(password: &str) -> Result<String, PasswordError> {
 
 impl Authenticator for UserDirectory {
     fn authenticate(&self, credentials: &Credentials) -> Result<Identity, AuthError> {
+        // Whoever's deadline passed is turned off before anyone is looked at.
+        self.end_expired(crate::local_now()).map_err(failed)?;
         let mut space = (self.space)();
         let Some(mut user) = self.user_named(&*space, &credentials.name).map_err(failed)? else {
             NOBODY.with(|hash| verify_password(&credentials.password, hash));
@@ -440,6 +444,10 @@ impl SecurityContext {
 
     pub(crate) fn directory(&self) -> &UserDirectory {
         &self.directory
+    }
+
+    pub(crate) fn trail(&self) -> Option<&Rc<AuditTrail>> {
+        self.trail.as_ref()
     }
 
     /// Reads who they are again, after their records may have changed: losing a role, or being

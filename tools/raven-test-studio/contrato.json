@@ -1723,6 +1723,14 @@
   },
   {
    "crate": "ravenrs-widgets-kit",
+   "tipo": "DateTile",
+   "rts": {
+    "ids": [],
+    "acoes": []
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-kit",
    "tipo": "DateTimePicker",
    "rts": {
     "ids": [],
@@ -2341,6 +2349,16 @@
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "ParameterForm",
+   "rts": {
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
+   }
+  },
+  {
+   "crate": "ravenrs-widgets-lists",
+   "tipo": "Chronology",
    "rts": {
     "ids": [],
     "acoes": [

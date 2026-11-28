@@ -6667,6 +6667,7 @@ dependencies = [
  "regex-lite",
  "rust_decimal",
  "serde_json",
+ "sha2 0.10.9",
  "syn 2.0.119",
  "trybuild",
  "uuid",
@@ -6706,11 +6707,15 @@ name = "ravenrs-app-library"
 version = "27.1.28"
 dependencies = [
  "ravenrs-app",
+ "ravenrs-app-postgres",
+ "ravenrs-app-sql",
+ "ravenrs-app-sqlite",
  "ravenrs-app-ui",
  "ravenrs-core",
  "ravenrs-criteria",
  "ravenrs-style",
  "ravenrs-widgets",
+ "rusqlite",
 ]
 
 [[package]]

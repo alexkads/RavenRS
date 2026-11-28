@@ -9,8 +9,8 @@ use ravenrs_app::{
     SecurityContext, SpaceMaker, UserDirectory, Value, security_entities,
 };
 use ravenrs_app_report::{
-    ANALYTICS_DASHBOARD, ANALYTICS_TILE, AnalyticsModule, AnalyticsPanel, PanelChart, REPORT_DEFINITION,
-    ReportWords, StoredReportsModule, analytics_entities, report_entity,
+    ANALYTICS_DASHBOARD, ANALYTICS_TILE, AnalyticsModule, AnalyticsPanel, IndicatorLevel, PanelChart,
+    REPORT_DEFINITION, ReportWords, StoredReportsModule, Thresholds, analytics_entities, report_entity,
 };
 use ravenrs_app_ui::{AppShell, Session, SystemModule};
 use ravenrs_core::{AccessAction, Role as AccessRole, Size};
@@ -454,6 +454,200 @@ fn a_panel_names_one_control_per_tile_from_the_struct_of_the_record() {
         .pie::<Sale>("Divisão", "item", "amount:Sum")
         .info();
     let captions: Vec<_> = info.items.iter().map(|item| (item.caption.as_str(), item.id.as_str())).collect();
-    assert_eq!(captions, [("Total", "Shop.tile0"), ("Divisão", "Shop.tile1")]);
+    assert_eq!(captions, [("Total", "Shop.tile0"), ("Divisão", "Shop.tile1"), ("Loja", "Shop.print")]);
     assert_eq!(info.icon.as_deref(), Some("layout-dashboard"));
+}
+
+/// The records `order` holds sum 150 in whole units and count two.
+fn levels_panel() -> AnalyticsPanel {
+    AnalyticsPanel::new("Levels", "Gestão")
+        .number_in("Order", "Total", "cost:Sum")
+        .level(Thresholds::at_least(120.0, 60.0))
+        .number_in("Order", "Média", "cost:Average")
+        .level(Thresholds::at_least(100.0, 60.0))
+        .number_in("Order", "Pedidos", "")
+        .level(Thresholds::at_most(0.0, 0.0))
+        .number_in("Order", "Só a cadeira", "cost:Sum")
+        .filtered("[name] = 'Cadeira'")
+        .level(Thresholds::at_least(75.0, 50.0))
+}
+
+fn open_levels(world: &mut World) -> String {
+    levels_panel().register(&world.session);
+    world.settle();
+    world.session.open_view("Levels_DashboardView");
+    world.texts().join(" | ")
+}
+
+#[test]
+fn a_number_shows_its_level_by_the_thresholds() {
+    assert_eq!(Thresholds::at_least(75.0, 50.0).level(80.0), Some(IndicatorLevel::Good));
+    assert_eq!(Thresholds::at_least(75.0, 50.0).level(60.0), Some(IndicatorLevel::Attention));
+    assert_eq!(Thresholds::at_least(75.0, 50.0).level(40.0), Some(IndicatorLevel::Critical));
+    assert_eq!(Thresholds::at_most(0.0, 0.0).level(0.0), Some(IndicatorLevel::Good));
+    assert_eq!(Thresholds::at_most(0.0, 0.0).level(1.0), Some(IndicatorLevel::Critical));
+    assert_eq!(Thresholds::level_with(|_| None).level(1.0), None);
+    assert_eq!(
+        IndicatorLevel::worst([IndicatorLevel::Good, IndicatorLevel::Critical, IndicatorLevel::Attention]),
+        Some(IndicatorLevel::Critical)
+    );
+    let database = database();
+    let info = levels_panel().info();
+    let source = database.clone();
+    let mut world = World::over(move || source.space(), move |builder| builder.dashboard(info), None);
+    let said = open_levels(&mut world);
+    // 150 total, 75 on average, two orders, 50 for the chair.
+    assert!(said.contains("On track"), "the total: {said}");
+    assert!(said.contains("Attention"), "the average: {said}");
+    assert!(said.contains("Critical"), "the count above zero, and the chair at 50: {said}");
+    let tree = world.ui.access_tree();
+    let badges = tree
+        .nodes
+        .iter()
+        .filter(|node| matches!(node.name.as_deref(), Some("On track" | "Attention" | "Critical")))
+        .count();
+    assert_eq!(badges, 4, "{said}");
+}
+
+#[test]
+fn a_number_its_reader_may_not_see_is_restricted_never_zero() {
+    let database = database();
+    let info = levels_panel().info();
+    let no_cost = Role::new("Secretaria").policy(PermissionPolicy::ReadOnlyAll).member_permission(
+        "Order",
+        ["cost"],
+        None,
+        [Operation::Read],
+        Access::Deny,
+    );
+    let mut world = secured_with(&database, no_cost, move |builder| builder.dashboard(info.clone()));
+    let said = open_levels(&mut world);
+    assert!(said.contains("Restricted to your role"), "{said}");
+    assert!(
+        !said.contains("Attention") && !said.contains("On track"),
+        "a restricted tile has no level: {said}"
+    );
+    assert!(said.contains("Pedidos") && said.contains("Critical"), "the count needs no cost: {said}");
+
+    let info = levels_panel().info();
+    let nothing = Role::new("Visitante")
+        .policy(PermissionPolicy::DenyAll)
+        .navigation_permission("Levels_DashboardView", Access::Allow);
+    let mut world = secured_with(&database, nothing, move |builder| builder.dashboard(info.clone()));
+    let said = open_levels(&mut world);
+    assert!(!said.contains(" 0 ") && !said.contains("R$ 0") && !said.contains("Critical"), "{said}");
+}
+
+/// Two areas: sales, which a role without `cost` may not read, and orders, which needs nothing.
+fn grouped_panel() -> AnalyticsPanel {
+    AnalyticsPanel::new("Areas", "Gestão à vista")
+        .group("Vendas")
+        .group_note("Em dia a partir de R$ 120,00 vendidos.")
+        .group_view("Order_ListView", "Ver pedidos")
+        .number_in("Order", "Total vendido", "cost:Sum")
+        .level(Thresholds::at_least(120.0, 60.0))
+        .number_with("Ticket médio", &["Order.cost"], |space| {
+            let orders = space.query("Order", &Query::all()).map_err(|e| e.to_string())?;
+            let total: f64 = orders.iter().filter_map(|order| order.number("cost")).sum();
+            Ok(total / 100.0 / orders.len().max(1) as f64)
+        })
+        .level(Thresholds::at_least(100.0, 50.0))
+        .group("Pedidos")
+        .number_in("Order", "Pedidos abertos", "")
+        .level(Thresholds::at_most(0.0, 0.0))
+}
+
+fn open_grouped(world: &mut World) -> String {
+    grouped_panel().register(&world.session);
+    world.settle();
+    world.session.open_view("Areas_DashboardView");
+    world.texts().join(" | ")
+}
+
+#[test]
+fn a_group_shows_the_worst_level_its_rule_and_its_view() {
+    let database = database();
+    let info = grouped_panel().info();
+    let captions: Vec<_> = info.items.iter().map(|item| item.id.as_str()).collect();
+    assert_eq!(captions, ["Areas.group0", "Areas.group1", "Areas.print"]);
+    let source = database.clone();
+    let mut world = World::over(move || source.space(), move |builder| builder.dashboard(info), None);
+    let said = open_grouped(&mut world);
+    // 150 sold is on track, 75 on average needs attention: the group is at attention.
+    assert!(
+        said.contains("Vendas") && said.contains("Total vendido") && said.contains("Ticket médio"),
+        "{said}"
+    );
+    assert!(said.contains("Em dia a partir de R$ 120,00 vendidos."), "{said}");
+    assert!(said.contains("75"), "the computed number: {said}");
+    let tree = world.ui.access_tree();
+    let named = |name: &str| tree.nodes.iter().filter(|node| node.name.as_deref() == Some(name)).count();
+    assert_eq!(named("Attention"), 2, "the average and its group: {said}");
+    assert_eq!(named("Critical"), 2, "two open orders and their group: {said}");
+    world.press("Ver pedidos");
+    assert!(world.says("Mesa") && world.says("Cadeira"), "the button opens the list: {:?}", world.texts());
+}
+
+#[test]
+fn a_group_all_restricted_says_only_that_and_the_print_follows_the_screen() {
+    let database = database();
+    let info = grouped_panel().info();
+    let no_cost = Role::new("Secretaria").policy(PermissionPolicy::ReadOnlyAll).member_permission(
+        "Order",
+        ["cost"],
+        None,
+        [Operation::Read],
+        Access::Deny,
+    );
+    let mut world = secured_with(&database, no_cost, move |builder| builder.dashboard(info.clone()));
+    let said = open_grouped(&mut world);
+    assert!(said.contains("Restricted to your role"), "{said}");
+    assert!(!said.contains("Em dia a partir") && !said.contains("Ver pedidos"), "no rule nor button: {said}");
+    assert!(said.contains("Pedidos abertos") && said.contains("Critical"), "the other group stays: {said}");
+
+    let document = grouped_panel().document(&world.session);
+    let text = format!("{document:?}");
+    assert!(text.contains("Restricted to your role") && text.contains("Pedidos abertos"), "{text}");
+    assert!(!text.contains("150"), "no value of a restricted number on paper");
+    world.press("Print panel");
+    let shown = world.texts().join(" ");
+    assert!(shown.contains("Page 1 of 1") && shown.contains("Print"), "the viewer opens: {shown}");
+    assert!(
+        shown.contains("Vendas Total vendido Restricted to your role")
+            && shown.contains("Pedidos abertos 2 Critical"),
+        "the same reading as the screen: {shown}"
+    );
+}
+
+#[test]
+fn a_kept_tile_shows_the_level_its_record_declares() {
+    let database = database();
+    let mut space = database.space();
+    let mut panel = space.new_object(ANALYTICS_DASHBOARD).expect("known");
+    panel.set("name", "Metas");
+    let key = panel.get("id");
+    space.save(panel.clone()).expect("saved");
+    for (at, title, series, good, attention, higher) in
+        [(0.0, "Vendido", "cost:Sum", 120.0, 60.0, true), (1.0, "Pedidos", "", 0.0, 0.0, false)]
+    {
+        let mut tile = space.new_object(ANALYTICS_TILE).expect("known");
+        tile.set("dashboard_id", key.clone());
+        tile.set("title", title);
+        tile.set("position", at);
+        tile.set("target_entity", "Order");
+        tile.set("kind", "number");
+        tile.set("series", series);
+        tile.set("good_from", good);
+        tile.set("attention_from", attention);
+        tile.set("higher_is_better", higher);
+        space.save(tile).expect("saved");
+    }
+    space.commit().expect("committed");
+    let mut world = World::plain(&database);
+    world.session.open_view("AnalyticsDashboard_ListView");
+    world.settle();
+    world.run("OpenPanel", Some(panel));
+    let said = world.texts().join(" | ");
+    // 150 sold, from 120 up: on track; two orders, lower being better from zero: critical.
+    assert!(said.contains("On track") && said.contains("Critical"), "{said}");
 }
