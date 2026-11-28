@@ -95,15 +95,6 @@ pub fn cheap(check: &mut Check) -> Done {
     check.step("every tool in tools/ is a product: version, news, installer, icons, tests (tools/README.md)");
     check.run(PYTHON, &["scripts/check-tools.py"])?;
 
-    check.step("the feature center shows every component with every feature (skill ravenrs-feature-center)");
-    check.run(PYTHON, &["scripts/feature-center-coverage.py"])?;
-
-    check.step(
-        "every component follows RCB: ComponentBook with its stories, or pending with its issue (#754, #768)",
-    );
-    check.run(PYTHON, &["scripts/rcb-coverage.py", "--self-test"])?;
-    check.run(PYTHON, &["scripts/rcb-coverage.py"])?;
-
     check.step(
         "every type keeps the testability contract of the RTS, or is pending with its issue (#734, #736)",
     );
@@ -185,37 +176,47 @@ fn design_system(check: &mut Check) -> Done {
     check.run(PYTHON, &["scripts/gen-design-system.py", "--check"])
 }
 
+/// The examples ravenrs-lint runs on: the house follows its own rules.
+const LINTED: &[(&str, &str)] =
+    &[("examples/component-gallery", "component-gallery"), ("examples/family-finance", "family-finance")];
+
 fn lint_examples(check: &mut Check) -> Done {
-    // The examples are the showcase, and the house follows its own rules.
     check.step("ravenrs-lint on the examples");
-    check.run("cargo", &["run", "-q", "-p", "ravenrs-lint", "--", "-p", "component-gallery"])?;
-    lint_family_finance(check)
-}
-
-/// family-finance is a workspace of its own (#1084): the lint reads it through its manifest.
-fn lint_family_finance(check: &mut Check) -> Done {
-    check.run(
-        "cargo",
-        &[
-            "run",
-            "-q",
-            "-p",
-            "ravenrs-lint",
-            "--",
-            "--manifest-path",
-            "examples/family-finance/Cargo.toml",
-            "-p",
-            "family-finance",
-        ],
-    )
-}
-
-/// The design system needs checking when the change reaches RCB, or touches the copy, its script
-/// or a file RCB embeds from outside any package (the guide, include_str!, and the catalog).
-fn design_reached(check: &Check, selection: &Selection) -> bool {
-    if selection.reached.iter().any(|name| name == "raven-component-book") {
-        return true;
+    for (folder, package) in LINTED {
+        lint_example(check, folder, package)?;
     }
+    Ok(())
+}
+
+/// Each linted example is a workspace of its own (#1084, #1085): the lint reads it through its manifest.
+fn lint_example(check: &mut Check, folder: &str, package: &str) -> Done {
+    let manifest = format!("{folder}/Cargo.toml");
+    check
+        .run("cargo", &["run", "-q", "-p", "ravenrs-lint", "--", "--manifest-path", &manifest, "-p", package])
+}
+
+/// The showcase: the feature center, the gallery and the ComponentBook, each a workspace of its
+/// own (#1085). A component's pull request is its layer's; its page in the feature center and its
+/// stories come in the batch's pull request to the showcase, which these checks gate.
+const SHOWCASE: &[&str] =
+    &["tools/raven-feature-center", "examples/component-gallery", "tools/raven-component-book"];
+
+/// The checks of the showcase's batch: every component in the feature center with every feature,
+/// every component following RCB, and the design system RCB writes.
+fn showcase(check: &mut Check) -> Done {
+    check.step("the feature center shows every component with every feature (skill ravenrs-feature-center)");
+    check.run(PYTHON, &["scripts/feature-center-coverage.py"])?;
+    check.step(
+        "every component follows RCB: ComponentBook with its stories, or pending with its issue (#754, #768)",
+    );
+    check.run(PYTHON, &["scripts/rcb-coverage.py", "--self-test"])?;
+    check.run(PYTHON, &["scripts/rcb-coverage.py"])?;
+    design_system(check)
+}
+
+/// The design system needs checking, outside the showcase's batch, when the change touches the
+/// copy, its script or a file RCB embeds from outside any package (the guide and the catalog).
+fn design_reached(check: &Check) -> bool {
     let base = std::env::var("CHECK_BASE").unwrap_or_else(|_| "origin/master".to_owned());
     let Ok(fork) = check.output("git", &["merge-base", "HEAD", &base]) else { return false };
     let paths = [
@@ -246,23 +247,41 @@ fn apart(check: &mut Check, all: bool) -> Result<Vec<String>, crate::run::Failed
     Ok(listed.lines().map(str::trim).filter(|line| !line.is_empty()).map(str::to_owned).collect())
 }
 
+/// A line of `camadas.py workspaces`: the folder, then its packages.
+fn folder_and_packages(line: &str) -> (&str, Vec<&str>) {
+    let mut words = line.split_whitespace();
+    let folder = words.next().unwrap_or_default();
+    (folder, words.collect())
+}
+
 /// rustfmt, clippy and, unless `lint`, the tests of each workspace apart that `folders` names.
-fn check_apart(check: &mut Check, folders: &[String], with_tests: bool) -> Done {
-    for folder in folders {
+fn check_apart(check: &mut Check, lines: &[String], with_tests: bool) -> Done {
+    let mut folders = Vec::new();
+    for line in lines {
+        let (folder, own) = folder_and_packages(line);
+        folders.push(folder.to_owned());
         let manifest = format!("{folder}/Cargo.toml");
         let on = ["--manifest-path".to_owned(), manifest.clone(), "--workspace".to_owned()];
         check.step(&format!(
             "{folder}, a workspace of its own: rustfmt, clippy{}",
             if with_tests { ", tests" } else { "" }
         ));
-        check.run("cargo", &["fmt", "--all", "--check", "--manifest-path", &manifest])?;
+        // Only its own packages: `--all` would also format every path dependency, the library.
+        let mut fmt = vec!["fmt", "--check", "--manifest-path", manifest.as_str()];
+        for package in &own {
+            fmt.extend(["-p", package]);
+        }
+        check.run("cargo", &fmt)?;
         clippy(check, &on)?;
-        if folder == "examples/family-finance" {
-            lint_family_finance(check)?;
+        if let Some((_, package)) = LINTED.iter().find(|(linted, _)| *linted == folder) {
+            lint_example(check, folder, package)?;
         }
         if with_tests {
             tests(check, &on, Some(&[]))?;
         }
+    }
+    if folders.iter().any(|folder| SHOWCASE.contains(&folder.as_str())) {
+        showcase(check)?;
     }
     Ok(())
 }
@@ -346,7 +365,6 @@ pub fn pr(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
         check.mode = "pr, ALL".to_owned();
         lint_examples(check)?;
         public_api(check)?;
-        design_system(check)?;
         check.step("clippy (native), the whole workspace");
         clippy(check, &["--workspace".to_owned()])?;
         check.step("tests, the whole workspace");
@@ -360,7 +378,8 @@ pub fn pr(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
     if selection.reached.iter().any(|name| name == "ravenrs-widgets") {
         public_api(check)?;
     }
-    if design_reached(check, &selection) {
+    let showcase_checked = touched_apart.iter().any(|line| SHOWCASE.contains(&folder_and_packages(line).0));
+    if !showcase_checked && design_reached(check) {
         design_system(check)?;
     }
     if selection.reached.is_empty() {
@@ -408,8 +427,6 @@ const WASM: &[&str] = &[
     "ravenrs-app-library",
     "ravenrs-app-report",
     "ravenrs-report-designer",
-    "raven-feature-center",
-    "component-gallery",
     "ravenrs-sheet",
     "ravenrs-spreadsheet",
     "ravenrs-barcode",
@@ -419,6 +436,8 @@ const WASM: &[&str] = &[
 
 /// The applications built for the browser, each in its own workspace (#1084).
 const WASM_APPS: &[&str] = &[
+    "tools/raven-feature-center",
+    "examples/component-gallery",
     "examples/quick-app",
     "examples/quick-plan",
     "examples/calculator",
@@ -443,12 +462,12 @@ const NOT_ON_MSRV: &[&str] = &[
     "ravenrs-spreadsheet",
     "ravenrs-app-sqlite",
     "ravenrs-flows-runtime",
-    "raven-feature-center",
-    "component-gallery",
 ];
 
 /// The workspaces apart that the minimum Rust version does not build. Raven CI asks for 1.89.
 const NOT_ON_MSRV_APART: &[&str] = &[
+    "tools/raven-feature-center",
+    "examples/component-gallery",
     "tools/raven-channel-video",
     "examples/tasks-sqlite",
     "examples/spreadsheet",
@@ -466,7 +485,7 @@ const NOT_ON_MSRV_APART: &[&str] = &[
 ];
 
 /// What the API docs leave out: applications, whose docs nobody reads.
-const NOT_DOCUMENTED: &[&str] = &["raven-feature-center", "component-gallery", "xtask"];
+const NOT_DOCUMENTED: &[&str] = &["xtask"];
 
 /// The examples whose web build the site publishes.
 const WEB: &[&str] = &[
@@ -490,7 +509,6 @@ pub fn release(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
     cheap(check)?;
     lint_examples(check)?;
     public_api(check)?;
-    design_system(check)?;
 
     check.step("clippy (native)");
     clippy(check, &["--workspace".to_owned()])?;
@@ -559,9 +577,8 @@ pub fn release(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
         let mut args = vec!["+1.88".to_owned(), "check".to_owned(), "--workspace".to_owned()];
         args.extend(with_flag("--exclude", NOT_ON_MSRV));
         check.run("cargo", &strs(&args))?;
-        for folder in
-            every_apart.iter().filter(|folder| !NOT_ON_MSRV_APART.iter().any(|not| folder.ends_with(not)))
-        {
+        let folders = every_apart.iter().map(|line| folder_and_packages(line).0);
+        for folder in folders.filter(|folder| !NOT_ON_MSRV_APART.contains(folder)) {
             check.run(
                 "cargo",
                 &["+1.88", "check", "--workspace", "--manifest-path", &format!("{folder}/Cargo.toml")],
@@ -581,7 +598,16 @@ pub fn release(check: &mut Check) -> Result<&'static str, crate::run::Failed> {
     check.step("every example downloads from the playground as a project that builds");
     check.run(
         "cargo",
-        &["test", "-p", "component-gallery", "--test", "suite", "projects::", "--", "--ignored"],
+        &[
+            "test",
+            "--manifest-path",
+            "examples/component-gallery/Cargo.toml",
+            "--test",
+            "suite",
+            "projects::",
+            "--",
+            "--ignored",
+        ],
     )?;
 
     if std::env::var("RAVENRS_GATE").is_ok_and(|v| v == "1") {

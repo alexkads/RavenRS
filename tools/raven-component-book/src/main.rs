@@ -1,4 +1,4 @@
-//! `cargo run -p raven-component-book` opens the book.
+//! `cargo run --manifest-path tools/raven-component-book/Cargo.toml` opens the book.
 //!
 //! `--json <folder>` writes the JSON of every component and `index.json`, as Storybook's;
 //! `--claude-design <folder>` writes the files of the design system the design tool reads under

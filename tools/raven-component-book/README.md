@@ -35,15 +35,15 @@ A design made "with the RavenRS components" is only buildable when the designer 
 ## Use it
 
 ```bash
-cargo run -p raven-component-book
+cargo run --manifest-path tools/raven-component-book/Cargo.toml
 ```
 
 ```bash
-cargo run -p raven-component-book -- --claude-design target/design-system --sha "$(git rev-parse --short HEAD)"
+cargo run --manifest-path tools/raven-component-book/Cargo.toml -- --claude-design target/design-system --sha "$(git rev-parse --short HEAD)"
 ```
 
 ```bash
-cargo run -p raven-component-book -- --json target/component-book
+cargo run --manifest-path tools/raven-component-book/Cargo.toml -- --json target/component-book
 ```
 
 The window lists the components by family, with a search; the story on screen is the real component, live; its settings change it at once (Controles), its measurements are below it (Medidas) and so is its code (Código). The status bar says how many components give their stories and how many are pending.

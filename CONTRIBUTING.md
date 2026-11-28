@@ -16,10 +16,10 @@ Thank you for helping make RavenRS the most complete free component library for 
 You need Rust stable 1.88+. For the web build, also `rustup target add wasm32-unknown-unknown` and `cargo install wasm-bindgen-cli --version 0.2.130 --locked`.
 
 ```bash
-cargo run -p component-gallery --release
+cargo run --manifest-path examples/component-gallery/Cargo.toml --release
 ```
 
-The applications in `examples/` and `tools/`, and Raven CI, are Cargo workspaces of their own (`camadas.toml`, #1080): the root workspace holds the library, the showcase and the tooling, so work on the library never builds an application. Run an application through its manifest, from the root (`cargo run --manifest-path examples/family-finance/Cargo.toml`), or from its folder. Every workspace builds into the root's `target/` (`.cargo/config.toml`). Each one carries a copy of the root's versions, dependencies, lints and profiles, which `python3 scripts/camadas.py deps --write` writes after a change to the root `Cargo.toml`; `cargo xtask` fails while a copy is stale. A new package goes into a section of `camadas.toml` in the same pull request.
+The applications in `examples/` and `tools/`, the showcase (feature center, gallery, ComponentBook) and Raven CI are Cargo workspaces of their own (`camadas.toml`, #1080): the root workspace holds the library and the tooling, so work on the library never builds an application or the showcase. Run an application through its manifest, from the root (`cargo run --manifest-path examples/family-finance/Cargo.toml`), or from its folder. Every workspace builds into the root's `target/` (`.cargo/config.toml`). Each one carries a copy of the root's versions, dependencies, lints and profiles, which `python3 scripts/camadas.py deps --write` writes after a change to the root `Cargo.toml`; `cargo xtask` fails while a copy is stale. A new package goes into a section of `camadas.toml` in the same pull request.
 
 Each worktree builds the ~780 external dependencies once. A compiler cache shares them between checkouts, so a new branch starts from the workspace crates only:
 
@@ -65,6 +65,8 @@ The tests run on [cargo-nextest](https://nexte.st), which runs every test binary
 At the end, passing or failing, each check prints how long each step took, slowest first, and whether the build directory started empty; the test step is split into compiling and running, followed by the ten slowest tests. The table is saved to `<target>/check-timings/last.txt`, so two runs compare with `diff`. To see which crates take the compile time, run it with `RAVENRS_CHECK_TIMINGS=1`: Cargo then writes its per-crate report, and the check prints where.
 
 ## Adding a component
+
+A component lands in two pull requests (#1080, #1085). The first is its layer's: the crate, its tests, its docs and its testability, in the workspace of that layer, so it builds only that layer and the ones below. The second is the showcase's batch, right after, in the showcase's workspaces (`tools/raven-feature-center`, `examples/component-gallery`, `tools/raven-component-book`): its page in the feature center with every feature, its sample in the gallery, its stories in the ComponentBook and the design system. `cargo xtask pr` runs `scripts/feature-center-coverage.py`, `scripts/rcb-coverage.py` and `scripts/gen-design-system.py --check` when a change touches the showcase, and `cargo xtask release` always does, so a component with no page fails in the batch at the latest. One batch can carry the pages of several components.
 
 A component is done when it:
 

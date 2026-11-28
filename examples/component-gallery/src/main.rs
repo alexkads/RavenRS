@@ -1,4 +1,4 @@
-//! Native entry point: `cargo run -p component-gallery --release`.
+//! Native entry point: `cargo run --manifest-path examples/component-gallery/Cargo.toml --release`.
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<(), ravenrs::native::PlatformError> {

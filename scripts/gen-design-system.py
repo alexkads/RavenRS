@@ -17,7 +17,8 @@ import sys
 
 root = pathlib.Path(__file__).resolve().parent.parent
 folder = root / "docs" / "design-system" / "export"
-rcb = ["cargo", "run", "-q", "-p", "raven-component-book", "--"]
+# The ComponentBook is a workspace of its own (#1085): cargo reaches it through its manifest.
+rcb = ["cargo", "run", "-q", "--manifest-path", "tools/raven-component-book/Cargo.toml", "--"]
 
 
 def drift(report):

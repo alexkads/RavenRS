@@ -12,7 +12,8 @@ workspace Cargo fora do da raiz: a que tem `pasta` é um workspace naquela pasta
                                         nenhum Cargo.lock resolve um crate externo noutra versão
     scripts/camadas.py deps --write     escreve essa cópia em cada workspace separado e cria o
                                         Cargo.lock que faltar, a partir do da raiz
-    scripts/camadas.py workspaces       as pastas dos workspaces separados, na ordem das camadas
+    scripts/camadas.py workspaces       as pastas dos workspaces separados, na ordem das camadas,
+                                        cada uma seguida dos pacotes dela (uma por linha)
     scripts/camadas.py workspaces --mudados
                                         só as que a mudança contra CHECK_BASE (origin/master) toca
     scripts/camadas.py --self-test      confere o próprio script, com uma aresta plantada
@@ -149,6 +150,12 @@ def separados(camadas, pastas=None):
 
 def workspaces(camadas):
     return [pasta for pasta, _ in separados(camadas)]
+
+
+def pacotes_de(camadas, pasta, pastas=None):
+    """Os pacotes do workspace em `pasta`: o dela e os dos membros."""
+    pastas = pastas if pastas is not None else pastas_dos_pacotes()
+    return sorted(nome for nome, lugar in pastas.items() if lugar == pasta or lugar.startswith(pasta + "/"))
 
 
 def secoes(texto):
@@ -326,6 +333,7 @@ def autoteste():
     assert divergencias({".": {"sha2": {"0.11.1"}}, "examples/c": {"sha2": {"0.10.9"}}}) == []
     assert [serie(v) for v in ("1.2.3", "0.10.7", "0.0.4", "2.0.0-rc.1")] == ["1", "0.10", "0.0.4", "2"]
 
+    assert pacotes_de(camadas, "tools/ci", pastas) == ["ci", "ci-core"], pacotes_de(camadas, "tools/ci", pastas)
     assert workspaces_de(["tools/ci/crates/x/src/lib.rs", "crates/a/x.rs"], ["examples/c", "tools/ci"]) == ["tools/ci"]
     assert workspaces_de(["examples/c/Cargo.toml", "examples/cd/x"], ["examples/c", "tools/ci"]) == ["examples/c"]
     print("camadas.py: autoteste passou")
@@ -353,8 +361,9 @@ def main():
             sys.exit("\n".join(problemas))
         print(f"{len(workspaces(camadas))} workspaces separados em dia com a raiz, sem versão divergente")
     elif comando == "workspaces":
+        pastas = pastas_dos_pacotes()
         for pasta in mudados(camadas) if "--mudados" in args else workspaces(camadas):
-            print(pasta)
+            print(pasta, *pacotes_de(camadas, pasta, pastas))
     else:
         sys.exit(f"camadas.py: comando desconhecido {comando}; use check, deps ou workspaces")
 

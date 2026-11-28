@@ -656,7 +656,7 @@ fn the_model_editor_changes_a_caption_for_the_administrator_only() {
 }
 
 /// Draws a list in each theme, to look at a change on the real screens:
-/// `FC_SCREENSHOTS=folder cargo test -p raven-feature-center --test tour draw_the_lists`.
+/// `FC_SCREENSHOTS=folder cargo test --manifest-path tools/raven-feature-center/Cargo.toml --test tour draw_the_lists`.
 #[test]
 fn draw_the_lists() {
     use ravenrs_render::{GpuContext, Renderer, wgpu};

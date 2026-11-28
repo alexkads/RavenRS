@@ -1,6 +1,6 @@
 # component-gallery
 
-`cargo run -p component-gallery`.
+`cargo run --manifest-path examples/component-gallery/Cargo.toml`.
 
 ## End-to-end tests (Raven Test Studio)
 

@@ -87,6 +87,9 @@ pacotes = [
 
 [vitrine]
 rotulo = "W11"
+# Um workspace por pacote: o feature-center e o ComponentBook usam a galeria por caminho (F2, #1085).
+separada = true
+um_workspace_por_pacote = true
 pacotes = ["raven-feature-center", "component-gallery", "raven-component-book"]
 
 [raven-ci]

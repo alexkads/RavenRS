@@ -1,11 +1,13 @@
 ---
 name: ravenrs-feature-center
-description: Regra obrigatória do RavenRS - todo componente criado ou alterado entra no tools/raven-feature-center (Raven Feature Center) com todos os seus recursos públicos, cada um com demonstração e passo no tour, no mesmo PR. Vale para widgets das famílias ravenrs-widgets-*, motores com tela e tipos do framework de aplicação ravenrs-app*. Diz onde pôr a página, como montar, o manifesto recursos.json e o script de cobertura que o cargo xtask pr roda. Use sempre que for criar um componente, acrescentar ou mudar um pub fn, um evento, uma variante ou um atalho de um componente, mexer no raven-feature-center, ou quando o cargo xtask pr acusar feature-center-coverage, mesmo que o pedido não cite o raven-feature-center.
+description: Regra obrigatória do RavenRS - todo componente criado ou alterado entra no tools/raven-feature-center (Raven Feature Center) com todos os seus recursos públicos, cada um com demonstração e passo no tour, no PR de lote da vitrine logo depois do PR da camada (#1085). Vale para widgets das famílias ravenrs-widgets-*, motores com tela e tipos do framework de aplicação ravenrs-app*. Diz onde pôr a página, como montar, o manifesto recursos.json e o script de cobertura que o cargo xtask pr roda. Use sempre que for criar um componente, acrescentar ou mudar um pub fn, um evento, uma variante ou um atalho de um componente, mexer no raven-feature-center, ou quando o cargo xtask pr acusar feature-center-coverage, mesmo que o pedido não cite o raven-feature-center.
 ---
 
 # Todo componente no Centro de Recursos
 
-Decisão do Alex em 15/11/2026 (#579, #580): **o `tools/raven-feature-center` é a vitrine única do RavenRS.** Um componente criado ou alterado entra nele com **todos** os recursos públicos, cada um com demonstração e passo em `tests/suite/tour.rs`, **no mesmo PR**. Sem isso, o PR não está pronto, e o `cargo xtask pr` falha.
+Decisão do Alex em 15/11/2026 (#579, #580): **o `tools/raven-feature-center` é a vitrine única do RavenRS.** Um componente criado ou alterado entra nele com **todos** os recursos públicos, cada um com demonstração e passo em `tests/suite/tour.rs`.
+
+**Desde a F2 da #1080 (#1085), em dois PRs.** A vitrine (feature-center, galeria e ComponentBook) é um workspace à parte, cada um na pasta dele, e não está no grafo da biblioteca. O componente entra no **PR da camada dele**, que compila só a camada e as de baixo. A página, a amostra na galeria, as histórias do RCB e o design system vêm no **PR de lote da vitrine**, logo depois; um lote pode levar as páginas de vários componentes. O `cargo xtask pr` roda `feature-center-coverage.py`, `rcb-coverage.py` e `gen-design-system.py --check` quando a mudança toca a vitrine, e o `cargo xtask release` sempre roda. Assim, componente sem página é recusado no lote, e o lote não sai sem fechar a conta. Para rodar o centro: `cargo run --manifest-path tools/raven-feature-center/Cargo.toml`.
 
 O centro mostra o que o framework faz, permite revisar as telas e prova que tudo ainda funciona. O `examples/component-gallery` sai até o fim da #579: o centro ganha parâmetros de abertura (`modo`, `pagina`, `incorporado`) para servir também ao site, ao Playground, ao perf e ao vídeo. Até lá, a amostra curta de um componente continua na galeria, e a demonstração completa fica no centro.
 
@@ -117,14 +119,14 @@ Cada família tem um grupo na navegação e uma pasta. Um componente por página
 
 - **Não embrulhar nem estender o componente no exemplo para a demonstração ficar bonita.** O que faltar vira recurso do próprio componente, no crate dele (memória `recursos-dentro-do-componente`, regra "a casa segue o padrão").
 - **Não inventar visual.** Ajuste de UX feito no centro vira padrão da biblioteca (`ravenrs-widgets`, `ravenrs-app-ui`, `docs/design-system/README.md`). Redesenho passa antes pelo Claude Design.
-- **Não deixar o recurso para outro PR.** O componente muda e é demonstrado no mesmo PR.
+- **Não deixar o recurso para depois do lote.** O componente muda no PR da camada e é demonstrado no PR de lote da vitrine que vem logo em seguida; o lote não fecha com recurso sem página.
 
 ## Como verificar
 
 ```bash
 ./scripts/feature-center-coverage.py
-cargo nextest run -p raven-feature-center
-cargo run -p raven-feature-center
+cargo nextest run --manifest-path tools/raven-feature-center/Cargo.toml
+cargo run --manifest-path tools/raven-feature-center/Cargo.toml
 cargo xtask web raven-feature-center && python3 -m http.server -d tools/raven-feature-center/web 8099
 ```
 

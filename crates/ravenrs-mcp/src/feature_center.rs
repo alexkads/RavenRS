@@ -119,19 +119,20 @@ pub fn describe(entry: &Entry) -> Value {
         Some((file, Some(id))) => {
             value["id"] = json!(id);
             value["source"] = json!(file);
-            value["run"] =
-                json!(format!("cargo run -p raven-feature-center -- --modo componentes --pagina {id}"));
+            value["run"] = json!(format!(
+                "cargo run --manifest-path tools/raven-feature-center/Cargo.toml -- --modo componentes --pagina {id}"
+            ));
             value["web"] = json!(format!("index.html?modo=componentes&pagina={id}"));
         }
         Some((file, None)) => {
             value["source"] = json!(file);
             value["run"] = json!(format!(
-                "cargo run -p raven-feature-center, then open \"{caption}\" in the navigation"
+                "cargo run --manifest-path tools/raven-feature-center/Cargo.toml, then open \"{caption}\" in the navigation"
             ));
         }
         None => {
             value["run"] = json!(format!(
-                "cargo run -p raven-feature-center, then open \"{caption}\" in the navigation"
+                "cargo run --manifest-path tools/raven-feature-center/Cargo.toml, then open \"{caption}\" in the navigation"
             ));
         }
     }
@@ -200,7 +201,7 @@ pub fn search(
         "shown": shown,
         "waiting": waiting,
         "components": components,
-        "modes": "cargo run -p raven-feature-center opens the whole center (sign in as ana, bia or caio, password raven-demo); --modo componentes opens only the pages of the components, --modo playground the examples, and --incorporado only the page",
+        "modes": "cargo run --manifest-path tools/raven-feature-center/Cargo.toml opens the whole center (sign in as ana, bia or caio, password raven-demo); --modo componentes opens only the pages of the components, --modo playground the examples, and --incorporado only the page",
     }))
 }
 
