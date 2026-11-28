@@ -1121,7 +1121,7 @@ struct Card {
 /// Measures every entry `list` gives and writes its card, on several threads, and gives the cards
 /// back in the order of the list.
 ///
-/// Measuring is most of the time `--verify` takes in `scripts/check.sh`, and one entry does not
+/// Measuring is most of the time `--verify` takes in `cargo xtask pr`, and one entry does not
 /// depend on another. A story draws through views that stay on the thread that made them, so each
 /// thread asks `list` for its own copy and measures the entries whose turn it takes. The result
 /// does not depend on how many threads there are. `CARGO_BUILD_JOBS` limits them, as it limits

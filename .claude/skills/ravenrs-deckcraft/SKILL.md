@@ -128,7 +128,7 @@ cargo clippy -p ravenrs-deck --all-targets -- -D warnings
 cargo check -p ravenrs-deck --target wasm32-unknown-unknown
 cargo tree -p ravenrs-deck | grep -c 'git+'   # tem de dar 0
 cargo deny check
-scripts/check.sh
+cargo xtask pr
 ```
 
 Os testes de origem (1638 no `b0c77eb`, mais o exemplo de `lib.rs`) têm de passar todos:

@@ -527,7 +527,7 @@ def main():
         path.write_text(text)
         report[name] = "written"
     register()
-    # What the script writes is kept as rustfmt writes it, so check.sh finds nothing to change.
+    # What the script writes is kept as rustfmt writes it, so cargo xtask pr finds nothing to change.
     written = [str(p) for p in (ROOT / "crates").glob("ravenrs-widgets*/src/book/*.rs") if p.read_text().startswith(MARK)]
     written += [str(p) for p in (ROOT / "crates").glob("ravenrs-widgets*/src/book.rs")]
     subprocess.run(["rustfmt", "--edition", "2024", "--config-path", str(ROOT / "rustfmt.toml"), *written], check=False)

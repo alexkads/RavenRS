@@ -10,6 +10,7 @@ use ravenrs_criteria::{Criteria, Environment, FieldType, Record, Schema, Scope, 
 pub(crate) mod amendment_types;
 pub(crate) mod appearance_types;
 pub(crate) mod closing_types;
+pub(crate) mod due_digest_types;
 pub(crate) mod record_actions;
 pub(crate) mod rules;
 pub(crate) mod workflow_types;
@@ -25,6 +26,7 @@ pub use closing_types::{
     check_closing, check_closing_model, closing_digest, closing_key, closing_versions,
     missing_closing_entities, reopen,
 };
+pub use due_digest_types::DueDigest;
 pub use record_actions::{RecordAction, Selection};
 pub use rules::{Comparison, Operand, Rule, RuleKind, Severity, TextComparison};
 pub use workflow_types::{Reminder, StateMachine, Transition, check_transitions, local_now, local_today};
@@ -696,7 +698,7 @@ pub struct EntityInfo {
     /// When to remind people of a record.
     pub reminder: Option<crate::Reminder>,
     /// How what falls due in its records is summed up for each person.
-    pub due_digest: Option<crate::DueDigest>,
+    pub due_digest: Option<DueDigest>,
     /// Actions that set fields of the records selected.
     pub actions: Vec<crate::RecordAction>,
     /// What the list editors are told about this list: an editor's settings node, and in it names and values.
@@ -958,7 +960,7 @@ impl EntityInfo {
 
     /// Its records fall due: each person gets, as they choose, a summary of what is overdue and
     /// what falls due in the next days, with the amounts only if they may read them.
-    pub fn due_digest(mut self, digest: crate::DueDigest) -> Self {
+    pub fn due_digest(mut self, digest: DueDigest) -> Self {
         self.due_digest = Some(digest);
         self
     }
