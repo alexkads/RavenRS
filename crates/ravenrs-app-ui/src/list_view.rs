@@ -8,12 +8,13 @@ use ravenrs_app::{
     MessageKind, ModelNode, Object, Query, Severity, Value, ViewInfo, validate_in_place,
 };
 use ravenrs_grid_export::export;
+use ravenrs_layout::Align;
 use ravenrs_reactive::{Binding, State};
 use ravenrs_widgets::grid::{GridQuery, Row, Value as Cell, to_table};
 use ravenrs_widgets::{
-    BuildCx, CellEdit, DataGrid, GridCellStyle, GridColumn, GridCurrent, GridData, GridPage, GridRequest,
-    GridResponder, GridRowAction, GridTable, Keyed, NodeId, RemoteRows, SelectionMode, SortDirection, Text,
-    View,
+    AnyView, BuildCx, Card, CellEdit, DataGrid, GridCellStyle, GridColumn, GridCurrent, GridData, GridPage,
+    GridRequest, GridResponder, GridRowAction, GridTable, HStack, Keyed, NodeId, RemoteRows, SelectionMode,
+    SortDirection, Stat, Text, VStack, View, ViewExt,
 };
 
 use crate::session::Session;
@@ -730,7 +731,7 @@ impl View for ListView {
             Some(rows) => DataGrid::remote(rows, columns),
             None => DataGrid::new(data, columns),
         };
-        let grid = match node.text("EmptyText") {
+        let grid = match empty_text_for(session, &entity, node) {
             Some(text) => grid.empty_text(text),
             None => grid,
         };
@@ -798,12 +799,82 @@ impl View for ListView {
             Some(shape) => shape(grid),
             None => grid,
         };
+        let strip = if self.compact { None } else { indicator_strip(session, &entity, node) };
         // Another set of columns starts over, since the grid keeps what it knows by position.
-        match only {
-            Some(names) => cx.child(&Keyed::new(hash_of(&names.join(",")), grid)),
-            None => cx.child(&grid),
+        match (only, strip) {
+            (Some(names), Some(strip)) => cx.child(
+                &VStack::new((strip, Keyed::new(hash_of(&names.join(",")), grid)))
+                    .spacing(12.0)
+                    .align(Align::Stretch),
+            ),
+            (Some(names), None) => cx.child(&Keyed::new(hash_of(&names.join(",")), grid)),
+            (None, Some(strip)) => cx.child(&VStack::new((strip, grid)).spacing(12.0).align(Align::Stretch)),
+            (None, None) => cx.child(&grid),
         }
     }
+}
+
+/// What an empty list says: its text and, for whom may create a record, the next step; for whom
+/// may only read, that records show up once someone allowed adds them.
+fn empty_text_for(session: &Session, entity: &EntityInfo, node: &ravenrs_app::ModelNode) -> Option<String> {
+    let text = node.text("EmptyText");
+    let Some(hint) = node.text("EmptyHint") else { return text.map(str::to_owned) };
+    let creates = session
+        .frame()
+        .security()
+        .is_none_or(|security| security.with(|p| p.can(ravenrs_app::Operation::Create, &entity.name, None)));
+    let second = if creates { hint.to_owned() } else { session.words().empty_read_only.clone() };
+    Some(match text {
+        Some(text) => format!("{text} {second}"),
+        None => second,
+    })
+}
+
+/// The numbers above a list, read over all the records of its entity as the person may read
+/// them. One whose reader may not read the entity or the field it sums says it is restricted,
+/// never zero.
+fn indicator_strip(session: &Session, entity: &EntityInfo, node: &ravenrs_app::ModelNode) -> Option<AnyView> {
+    let indicators = node.get("Indicators")?;
+    let mut items: Vec<&ravenrs_app::ModelNode> = indicators.children.iter().collect();
+    items.sort_by_key(|item| item.integer("Index").unwrap_or(0));
+    let words = session.words();
+    let security = session.frame().security();
+    let stats: Vec<AnyView> = items
+        .into_iter()
+        .map(|item| {
+            let caption = item.text("Caption").unwrap_or_default().to_owned();
+            let series = item.text("Series").unwrap_or_default().to_owned();
+            let field = series.split(':').next().unwrap_or_default().trim().to_owned();
+            let readable = security.as_ref().is_none_or(|security| {
+                security.with(|p| {
+                    p.can(ravenrs_app::Operation::Read, &entity.name, None)
+                        && (field.is_empty()
+                            || p.can_field(ravenrs_app::Operation::Read, &entity.name, &field, None))
+                })
+            });
+            let value = if readable {
+                let query = match item.text("Filter").map(ravenrs_app::Criteria::parse) {
+                    Some(Ok(criteria)) => Query::all().filter(criteria),
+                    Some(Err(error)) => {
+                        return Box::new(Card::new(Stat::new(caption, error.to_string()))) as AnyView;
+                    }
+                    None => Query::all(),
+                };
+                let objects =
+                    session.frame().space().borrow().query(&entity.name, &query).unwrap_or_default();
+                crate::summary_text(session, entity, &objects, &series).unwrap_or_else(|why| why)
+            } else {
+                words.restricted.clone()
+            };
+            let stat = Stat::new(caption, value);
+            let stat = match item.text("Note") {
+                Some(note) => stat.caption(note),
+                None => stat,
+            };
+            Box::new(Card::new(stat).grow(1.0)) as AnyView
+        })
+        .collect();
+    (!stats.is_empty()).then(|| Box::new(HStack::new(stats).spacing(12.0).align(Align::Stretch)) as AnyView)
 }
 
 /// Keeps a value changed right on a list, in the record as storage has it now, if its rules let it
