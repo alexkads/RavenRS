@@ -637,3 +637,80 @@ mod at_the_door {
         assert!(!format!("{app:?}").contains("correct horse"));
     }
 }
+
+#[test]
+fn a_temporary_access_ends_in_the_open_session_once_its_deadline_passes() {
+    use std::cell::Cell;
+    use std::rc::Rc;
+    let database = database();
+    let hours = Rc::new(Cell::new(0_u32));
+    let clock = hours.clone();
+    let policy = ravenrs_app::TemporaryAccessPolicy::new("Support")
+        .check_every(std::time::Duration::from_secs(60))
+        .clock(move || {
+            let now = ravenrs_app::local_now();
+            ravenrs_criteria::DateTime { days: now.days + i64::from(clock.get()) / 24, seconds: now.seconds }
+        });
+    let source = database.clone();
+    let app = SecuredApp::new(
+        "Shop",
+        move || source.space(),
+        |_| App::new("Shop").entity_info(order()).entity_info(invoice()),
+    )
+    .role(Role::new("Support").policy(PermissionPolicy::ReadOnlyAll))
+    .temporary_access(policy.clone());
+    let mut world = World::over(app);
+    first_administrator(&mut world);
+    world.press("Sign out");
+    let raw = database.clone();
+    let maker: ravenrs_app::SpaceMaker = Rc::new(move || Box::new(raw.space()) as Box<dyn ObjectSpace>);
+    let directory = ravenrs_app::UserDirectory::new(maker, Vec::new()).expect("roles");
+    let admin = directory.identity_of("ana").expect("reads").expect("ana");
+    let mut entities = vec![order(), invoice(), audit_entity()];
+    entities.extend(security_entities());
+    let context =
+        ravenrs_app::SecurityContext::new(admin, directory, entities, ravenrs_app::RoleMerge::AnyRole);
+    let granted = context.grant_temporary_access(&policy, "suporte do caixa", 24).expect("granted");
+    world.sign_in(&granted.user_name, &granted.password);
+    assert!(world.says("First"), "support reads the orders");
+    // A day later, the next screen of the open session reads nothing.
+    hours.set(48);
+    let open = |world: &mut World, name: &str| {
+        world.settle();
+        let tree = world.ui.access_tree();
+        let names: Vec<String> = tree.nodes.iter().filter_map(|n| n.name.clone()).collect();
+        let id = tree
+            .nodes
+            .iter()
+            .find(|n| n.name.as_deref() == Some(name))
+            .unwrap_or_else(|| panic!("{name} is not in {names:?}"))
+            .id;
+        world.ui.perform_action(id, AccessAction::Click);
+        world.settle();
+    };
+    open(&mut world, "Invoices");
+    assert!(!world.says("First") && world.says("0 of 0 rows"), "an expired session still reads");
+    world.settle();
+    let tree = world.ui.access_tree();
+    assert!(
+        !tree.nodes.iter().any(|n| n.name.as_deref() == Some("Orders")),
+        "and still has its way to the orders"
+    );
+    world.press("Sign out");
+    world.sign_in(&granted.user_name, &granted.password);
+    assert!(world.says("Sign in"), "an expired user still gets in");
+}
+
+#[test]
+fn a_temporary_access_to_a_role_that_is_not_there_or_administrative_is_refused() {
+    let database = database();
+    let source = database.clone();
+    let missing = SecuredApp::new("Shop", move || source.space(), |_| App::new("Shop").entity_info(order()))
+        .temporary_access(ravenrs_app::TemporaryAccessPolicy::new("Support"));
+    assert!(missing.build().is_err());
+    let source = database.clone();
+    let admin = SecuredApp::new("Shop", move || source.space(), |_| App::new("Shop").entity_info(order()))
+        .role(Role::new("Support").administrative())
+        .temporary_access(ravenrs_app::TemporaryAccessPolicy::new("Support"));
+    assert!(admin.build().is_err());
+}

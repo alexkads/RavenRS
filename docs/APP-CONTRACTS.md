@@ -146,7 +146,9 @@ In one commit, written to the audit trail when the context has one, it creates t
 - Only an administrator does either (`AccessError::NotAllowed`). An access that ended is sealed: it does not change again.
 - `TemporaryAccessPolicy::clock` reads the time from elsewhere, so a test moves past the deadline without waiting.
 
-What waits (#857): the actions and screens in `SecurityModule`, `SecuredApp::temporary_access` calling `end_expired` every `check_every`, and the same check on the web API.
+`SecuredApp::temporary_access(policy)` checks, when it is built, that the role is there and not administrative; it ends who expired before each sign in and, at most every `check_every` by the policy's clock, when a screen of an open session opens.
+
+What waits (#857): the actions and screens in `SecurityModule` and the same check on the web API.
 
 ## Scenarios
 
