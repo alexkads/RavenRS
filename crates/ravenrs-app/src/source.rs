@@ -376,6 +376,9 @@ fn field_info(
     if let Some(field) = &attrs.list_detail {
         info = info.list_detail(field.value());
     }
+    if attrs.row_version {
+        info = info.row_version();
+    }
     if attrs.non_cloneable {
         info = info.non_cloneable();
     }

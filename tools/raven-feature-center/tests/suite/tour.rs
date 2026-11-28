@@ -2544,6 +2544,43 @@ fn masks_follow_their_pattern_take_rules_of_their_own_and_say_when_they_are_comp
 }
 
 #[test]
+fn a_record_kept_over_a_version_someone_else_kept_is_refused() {
+    let mut c = Center::memory("ana");
+    c.press("Versão do registro");
+    c.settle();
+    // What EntityInfo and FieldInfo declare and work out.
+    for line in [
+        "Versão gravada (version_of): 1",
+        "Campo da versão (row_version_field): version",
+        "Título (field_named): largo true, foco true, na lista true",
+        "Arquivo: aceita [\"pdf\"], até 1000000 bytes, fica ao clonar: true",
+        "Código digitado: true, na escolha: true; colunas do formulário: 2; lista só de [active] = True",
+        "[pages] > 1 cabe no esquema (schema): true; [nada] > 1: false",
+        "Folhas calculadas (compute): 6",
+        "Título editável (appearance_of): true",
+        "Sem calculados (strip_calculated): false",
+    ] {
+        assert!(c.says(line), "{line}: {:?}", c.texts());
+    }
+    // Bia opens it at version 1, Ana keeps it at 2, and Bia keeping hers is refused.
+    c.press("Bia abre");
+    c.press("Ana grava");
+    assert!(c.says("Ana: gravado."), "{:?}", c.texts());
+    assert!(c.says("Versão gravada (version_of): 2"), "{:?}", c.texts());
+    assert!(c.says("Título editável (appearance_of): false"), "a rule over the version: {:?}", c.texts());
+    c.press("Bia grava");
+    assert!(c.says("Bia: recusado, leu a versão 1 e a gravada é a 2. Nada foi gravado."), "{:?}", c.texts());
+    assert!(c.says("Título gravado: Contrato da Ana"), "Ana's stays: {:?}", c.texts());
+    // Opened again, at the version kept now, it is kept.
+    c.press("Bia abre");
+    c.press("Bia grava");
+    assert!(c.says("Bia: gravado."), "{:?}", c.texts());
+    assert!(c.says("Versão gravada (version_of): 3"), "{:?}", c.texts());
+    c.press("Recomeçar");
+    assert!(c.says("Versão gravada (version_of): 1"), "{:?}", c.texts());
+}
+
+#[test]
 fn a_record_reads_each_field_in_its_type_and_changes_by_field() {
     let mut c = Center::memory("ana");
     c.press("Registro");

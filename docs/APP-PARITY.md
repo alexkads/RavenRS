@@ -80,7 +80,7 @@ replace the API statuses and adapter guarantees below.
 | Migrations of a managed schema, entities from an existing database, model differences in a database | ✅ `migration`, added columns, `entities_from_schema`, `SqliteModelStore` | |
 | Translated captions and options, rules in the model | ✅ `translation`, `set_language`, `Rules` under an entity | |
 | Records no storage keeps, services, initial records | ✅ `transient`, `ListView::source`, `service`, `Module::initial_records` | |
-| Concurrent changes | 🟡 `merge_changes`: different fields both stand, the same field asks. Read and write are not one transaction yet, and records carry no version | #241 |
+| Concurrent changes | 🟡 `merge_changes`: different fields both stand, the same field asks, showing both values. `FieldInfo::row_version` gives each record a version that storage starts at 1 and adds one to on each keeping; keeping a record someone else kept after it was read is refused with `SpaceError::Outdated`, in memory, SQLite, PostgreSQL and through the server. The form then offers to reload, and to keep one's own only to whom may write the record as it is kept now. Deleting, PostgREST and the revision of an aggregate carry no version yet | #241, #1073, #1074 |
 | Custom fields in the model, stored or calculated | ✅ `$new` under `Members`, `App::administrator_settings`, `App::storage_for`; plain values only | |
 | Keys: number, text, GUID | ✅ `FieldKind::Guid` | |
 | More editors: criteria, tags, predefined values, masks, progress, display formats, titled groups | ✅ `criteria_of`, `FieldKind::Tags`, `predefined`, `edit_mask`, `Progress`, `display_format`, `group`. A Rust struct does not expand into a group by itself | |
@@ -135,9 +135,9 @@ Every adapter of `ObjectSpace` runs the same battery, `ravenrs_app_testkit::cont
 
 | Adapter | Two programs creating records at once | An update over another program's |
 |---|---|---|
-| `MemoryDatabase` | different keys | the last commit wins |
-| `ravenrs-app-sqlite` | the second commit fails | the last commit wins |
-| `ravenrs-app-postgres` | the second commit fails | the last commit wins |
+| `MemoryDatabase` | different keys | conflict |
+| `ravenrs-app-sqlite` | the second commit fails | conflict |
+| `ravenrs-app-postgres` | the second commit fails | conflict |
 | `ravenrs-app-postgrest` | the second commit fails | the last commit wins |
 
-"The second commit fails" means both took the same next key, and the second commit is refused whole: one program at a time should create records there. "The last commit wins" holds for deleting a record another program changed, too. Both wait for a version on each record (#241).
+"The second commit fails" means both took the same next key, and the second commit is refused whole: one program at a time should create records there. "Conflict" holds for entities with a `FieldInfo::row_version`: the update is refused with `SpaceError::Outdated`, and nothing of its commit is kept; without one, the last commit wins. Deleting a record another program changed is done in every adapter, as a delete takes no version yet (#1073).

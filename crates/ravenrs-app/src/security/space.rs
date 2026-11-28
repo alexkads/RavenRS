@@ -165,7 +165,9 @@ impl SecuredObjectSpace {
             {
                 return Err(self.context.denied());
             }
-            for field in stored_fields(entity).filter(|field| !field.is_key && field.calculated.is_none()) {
+            for field in
+                stored_fields(entity).filter(|f| !f.is_key && !f.is_row_version && f.calculated.is_none())
+            {
                 let value = object.get(&field.name);
                 if value != fresh.get(&field.name)
                     && !permissions.can_field(Operation::Write, name, &field.name, Some(object))
@@ -187,7 +189,9 @@ impl SecuredObjectSpace {
         stored: &Object,
     ) -> Result<Option<Object>, SpaceError> {
         let stored = &self.followed(entity, stored);
-        let writable = || stored_fields(entity).filter(|field| field.calculated.is_none());
+        // The version is the storage's to check, and not a change of the person's.
+        let writable =
+            || stored_fields(entity).filter(|field| field.calculated.is_none() && !field.is_row_version);
         let changed = self.context.with(|permissions| {
             let name = &entity.name;
             let mut changed = false;

@@ -30,6 +30,7 @@ fn order() -> EntityInfo {
         .field(FieldInfo::new("owner", FieldKind::Text))
         .field(FieldInfo::new("cost", FieldKind::Money))
         .field(FieldInfo::new("day", FieldKind::Date))
+        .field(FieldInfo::new("version", FieldKind::Integer).row_version())
         .rule(Rule::required("name"))
 }
 
@@ -242,6 +243,31 @@ fn what_the_server_refuses_is_refused_there_and_then_and_can_be_put_right() {
     let mut space = database.space();
     space.save(mine).unwrap();
     assert!(matches!(space.commit().unwrap_err(), SpaceError::Denied(_)));
+}
+
+#[test]
+fn keeping_over_what_someone_else_kept_on_the_server_is_refused_as_outdated() {
+    let (client, stored) = desktop();
+    let database = signed_in(&client, "bia");
+    let mut record = by_name(&database, "Da bia");
+    assert_eq!(record.get("version"), Value::Number(1.0));
+    let key = record.get("id");
+    let mut other = stored.space();
+    let mut theirs = other.find("Order", &key).unwrap().unwrap();
+    theirs.set("name", "Dela");
+    other.save(theirs).unwrap();
+    other.commit().unwrap();
+    record.set("name", "Minha");
+    let mut space = database.space();
+    space.save(record).unwrap();
+    let expected = SpaceError::Outdated {
+        entity: "Order".into(),
+        key: ravenrs_app::key_text(&key).unwrap(),
+        read: 1,
+        stored: Some(2),
+    };
+    assert_eq!(space.commit(), Err(expected));
+    assert_eq!(stored.space().find("Order", &key).unwrap().unwrap().get("name"), Value::Text("Dela".into()));
 }
 
 #[test]

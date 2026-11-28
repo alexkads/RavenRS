@@ -75,6 +75,15 @@ pub struct Words {
     pub conflict_detail: String,
     /// Keeps one's own changes over the other person's.
     pub conflict_answer: String,
+    /// Both sides of a field changed by two people: `{0}` the field, `{1}` this person's value
+    /// and `{2}` the one kept now.
+    pub conflict_values: String,
+    /// Drops one's own changes and shows the record as it is kept now.
+    pub conflict_reload: String,
+    /// What reloading does.
+    pub conflict_reload_detail: String,
+    /// Why this person cannot keep theirs over the other person's.
+    pub conflict_locked: String,
     /// What a way of showing a list says when something it needs is missing.
     pub list_editor_needs: String,
     /// A row of a timeline for records that point to no resource.
@@ -254,6 +263,10 @@ impl Words {
             conflict_question: texts.get("ui.conflict_question"),
             conflict_detail: texts.get("ui.conflict_detail"),
             conflict_answer: texts.get("ui.conflict_answer"),
+            conflict_values: texts.get("ui.conflict_values"),
+            conflict_reload: texts.get("ui.conflict_reload"),
+            conflict_reload_detail: texts.get("ui.conflict_reload_detail"),
+            conflict_locked: texts.get("ui.conflict_locked"),
             list_editor_needs: texts.get("ui.list_editor_needs"),
             no_resource: texts.get("ui.no_resource"),
             chart_count: texts.get("ui.chart_count"),

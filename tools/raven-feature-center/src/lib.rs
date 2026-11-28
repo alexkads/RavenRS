@@ -73,6 +73,8 @@ pub mod servidor;
 #[cfg(feature = "app")]
 pub mod vencimentos;
 #[cfg(feature = "app")]
+pub mod versao_registro;
+#[cfg(feature = "app")]
 pub use centro::*;
 
 #[cfg(feature = "widgets")]
