@@ -182,9 +182,11 @@ impl UserDirectory {
     }
 
     /// After `attempts` wrong passwords in a row an account waits `minutes`, during which even
-    /// the right password is refused. The usual is 5 and 15; `attempts` of 0 counts as 1.
+    /// the right password is refused. The usual is 5 and 15. Neither turns the lockout off: an
+    /// `attempts` of 0 counts as 1 and `minutes` of 0 as 1, so a wait is never shorter than a
+    /// minute.
     pub fn with_lockout(self, attempts: u32, minutes: u32) -> Self {
-        Self { most_attempts: attempts.max(1), locked_minutes: minutes, ..self }
+        Self { most_attempts: attempts.max(1), locked_minutes: minutes.max(1), ..self }
     }
 
     /// Whether a new password for `name` would be taken: its length, then the policy.

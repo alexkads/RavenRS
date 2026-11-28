@@ -62,7 +62,15 @@ fn door(parts: &DoorParts) -> AnyView {
 fn secured(restart: Rc<dyn Fn()>) -> AnyView {
     let mut entities = security_entities();
     entities.push(notes());
-    let database = MemoryDatabase::new(entities).unwrap_or_else(|e| panic!("the page's model: {e}"));
+    let database = match MemoryDatabase::new(entities) {
+        Ok(database) => database,
+        // A model the database refuses is shown on the page, not a crash of the whole center.
+        Err(e) => {
+            return Box::new(
+                Text::new(format!("Não foi possível montar a portaria: {e}")).foreground(Semantic::Warning),
+            );
+        }
+    };
     SecuredApp::new("Portaria", move || database.space(), |_| App::new("Portaria").entity_info(notes()))
         .language(Language::BrazilianPortuguese)
         .role(Role::new("Visitantes").policy(PermissionPolicy::ReadOnlyAll))

@@ -1183,6 +1183,22 @@ fn the_lockout_follows_its_limits_and_an_administrator_unlocks_without_the_passw
 }
 
 #[test]
+fn a_lockout_of_zero_still_locks_for_a_minute_after_one_wrong_password() {
+    let world = world();
+    let directory = world.directory.clone().with_lockout(0, 0);
+    let ana = directory.create_first_administrator("ana", "correct horse").expect("created");
+    assert!(directory.authenticate(&Credentials::new("ana", "wrong one")).is_err());
+    let until = directory.locked_until(&ana.key).expect("reads").expect("0 attempts counts as 1");
+    let now = ravenrs_app::local_now();
+    let seconds = (until.days - now.days) * 86_400 + i64::from(until.seconds) - i64::from(now.seconds);
+    assert!((59..=60).contains(&seconds), "0 minutes counts as 1: {seconds}");
+    assert!(
+        directory.authenticate(&Credentials::new("ana", "correct horse")).is_err(),
+        "the wait is real, even for the right password"
+    );
+}
+
+#[test]
 fn the_usual_lockout_is_still_five_wrong_passwords() {
     let world = world();
     signed_up(&world, "ana");

@@ -393,8 +393,10 @@ impl SecuredApp {
     }
 
     /// After `attempts` wrong passwords in a row an account waits `minutes`, and even the right
-    /// password is refused meanwhile. The usual is 5 and 15. An administrator lets someone in
-    /// earlier, keeping their password, with `UserDirectory::unlock`.
+    /// password is refused meanwhile. The usual is 5 and 15. Neither turns the lockout off: 0
+    /// attempts counts as 1 and 0 minutes as 1, as in `UserDirectory::with_lockout`. An
+    /// administrator lets someone in earlier, keeping their password, with
+    /// `UserDirectory::unlock`.
     pub fn lockout(mut self, attempts: u32, minutes: u32) -> Self {
         self.lockout = Some((attempts, minutes));
         self

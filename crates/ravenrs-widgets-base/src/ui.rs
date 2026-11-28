@@ -2570,3 +2570,48 @@ fn same_key(wanted: &Key, pressed: &Key) -> bool {
         (a, b) => a == b,
     }
 }
+
+#[cfg(test)]
+mod activity_tests {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    use ravenrs_core::{Event, Key, Modifiers, Point, Size};
+
+    use crate::context::UiActivity;
+    use crate::{BuildCx, NodeId, Text, Ui, View};
+
+    /// Writes down, under its own name, every key and scroll it is told about.
+    struct Watching {
+        log: Rc<RefCell<Vec<String>>>,
+    }
+
+    impl View for Watching {
+        fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+            for name in ["first", "second"] {
+                let log = self.log.clone();
+                cx.observe_activity(Rc::new(move |activity, _| match activity {
+                    UiActivity::KeyPressed => log.borrow_mut().push(format!("{name}: key")),
+                    UiActivity::Scrolled(at) => log.borrow_mut().push(format!("{name}: scroll {}", at.x)),
+                    _ => {}
+                }));
+            }
+            cx.child(&Text::new("watched"))
+        }
+    }
+
+    #[test]
+    fn every_observer_hears_keys_and_scrolling_in_the_order_they_asked() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let mut ui = Ui::new(Watching { log: log.clone() }, ravenrs_style::Theme::raven_dark());
+        ui.set_viewport(Size::new(200.0, 100.0), 1.0);
+        ui.update();
+        ui.handle_event(&Event::KeyDown { key: Key::Character("a".into()), modifiers: Modifiers::default() });
+        ui.handle_event(&Event::Scroll { position: Point::new(12.0, 5.0), delta: Point::new(0.0, 3.0) });
+        assert_eq!(
+            *log.borrow(),
+            ["first: key", "second: key", "first: scroll 12", "second: scroll 12"],
+            "both observers are told, and which key is never said"
+        );
+    }
+}
