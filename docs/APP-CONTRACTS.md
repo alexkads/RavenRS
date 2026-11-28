@@ -105,6 +105,8 @@ The amendment is written on its target as it is inserted (`apply_amendment`, cal
 
 Permissions: creating an amendment needs `Create` on the amendment entity and `Read` on the target, not `Write` on the target. An `object_permission` that denies `Write` on closed records still holds for direct edits.
 
+In SQLite and PostgreSQL the database itself can refuse a sealed record written by other ways than the framework: `SqlBuilder::sealed_guards()`, called after the entities, writes once, as a migration, a trigger on each sealed table that refuses an update or a delete of a row whose stored values meet the seal. The commit of an amendment writes down, in its own transaction, the records it changes (in `raven_amending`), so the triggers let only those through, and takes them away before it ends. SQLite refuses with `RAISE(ABORT, ...)`, PostgreSQL with `ERRCODE '23514'`. A database with no way to say it holds only to the rules of the framework.
+
 Each amendment gets an action on its target, by itself: `<Amendment>.Amend`, with the caption of the amendment entity, as "Correct the lesson". It is on for one record that can take it (sealed, for a correction; not sealed yet, for a closing), and only whoever can create the amendment sees it (`Action::requires_on`). It opens a new amendment on its form already pointing to the record (`ActionContext::open_new`), for the reason and the new values; saving it is what applies it.
 
 ### Period closing
@@ -212,7 +214,9 @@ The rules hold wherever records are kept: the status moves only by the declared 
 
 Settle opens a window to review the settlement (`settle_review`, an entity no storage keeps), filled with today and what is open; the person changes the date, interest, fine and discount, sees the total that goes to the cash book, and OK settles what it says.
 
-What waits (#859): the printed documents of the reports. The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
+The reports print as documents, in `ravenrs-app-report`: `statement_document`, `annual_document`, `position_document` and `forecast_document` take what the services read through the person's space and write money and dates in a `Culture`, with the heads of the columns from the catalog (`report.finance_*`). Each gives a `Document` to show, print or keep as PDF.
+
+The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
 
 ## Scenarios
 

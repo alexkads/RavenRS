@@ -2729,6 +2729,9 @@ fn a_bill_is_settled_in_part_reversed_and_split_to_the_cent() {
     assert!(c.says("Luz (3/3): open, R$ 33,34, saldo R$ 33,34"), "{:?}", c.texts());
     c.press("Cancelar a conta");
     assert!(c.says("Luz (1/3): cancelled, R$ 33,33, saldo R$ 33,33"), "{:?}", c.texts());
+    // statement_document and position_document: the reports print as documents.
+    c.press("Imprimir extrato e posição");
+    assert!(c.texts().iter().any(|t| t.starts_with("Impresso: extrato com ")), "{:?}", c.texts());
 }
 
 #[test]

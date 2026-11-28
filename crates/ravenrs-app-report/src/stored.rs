@@ -103,6 +103,44 @@ pub struct ReportWords {
     pub closing_replaced: String,
     /// Opens the document of a version.
     pub closing_open: String,
+    /// A word of the printed finance reports.
+    pub finance_statement: String,
+    /// A word of the printed finance reports.
+    pub finance_date: String,
+    /// A word of the printed finance reports.
+    pub finance_description: String,
+    /// A word of the printed finance reports.
+    pub finance_amount: String,
+    /// A word of the printed finance reports.
+    pub finance_balance: String,
+    /// A word of the printed finance reports.
+    pub finance_opening: String,
+    /// A word of the printed finance reports.
+    pub finance_closing: String,
+    /// A word of the printed finance reports.
+    pub finance_annual: String,
+    /// A word of the printed finance reports.
+    pub finance_month: String,
+    /// A word of the printed finance reports.
+    pub finance_income: String,
+    /// A word of the printed finance reports.
+    pub finance_expense: String,
+    /// A word of the printed finance reports.
+    pub finance_net: String,
+    /// A word of the printed finance reports.
+    pub finance_position: String,
+    /// A word of the printed finance reports.
+    pub finance_open: String,
+    /// A word of the printed finance reports.
+    pub finance_overdue: String,
+    /// A word of the printed finance reports.
+    pub finance_payable: String,
+    /// A word of the printed finance reports.
+    pub finance_receivable: String,
+    /// A word of the printed finance reports.
+    pub finance_forecast: String,
+    /// A word of the printed finance reports.
+    pub finance_due: String,
 }
 
 impl Default for ReportWords {
@@ -153,6 +191,25 @@ impl ReportWords {
             closing_reopened: texts.get("report.closing_reopened"),
             closing_replaced: texts.get("report.closing_replaced"),
             closing_open: texts.get("report.closing_open"),
+            finance_statement: texts.get("report.finance_statement"),
+            finance_date: texts.get("report.finance_date"),
+            finance_description: texts.get("report.finance_description"),
+            finance_amount: texts.get("report.finance_amount"),
+            finance_balance: texts.get("report.finance_balance"),
+            finance_opening: texts.get("report.finance_opening"),
+            finance_closing: texts.get("report.finance_closing"),
+            finance_annual: texts.get("report.finance_annual"),
+            finance_month: texts.get("report.finance_month"),
+            finance_income: texts.get("report.finance_income"),
+            finance_expense: texts.get("report.finance_expense"),
+            finance_net: texts.get("report.finance_net"),
+            finance_position: texts.get("report.finance_position"),
+            finance_open: texts.get("report.finance_open"),
+            finance_overdue: texts.get("report.finance_overdue"),
+            finance_payable: texts.get("report.finance_payable"),
+            finance_receivable: texts.get("report.finance_receivable"),
+            finance_forecast: texts.get("report.finance_forecast"),
+            finance_due: texts.get("report.finance_due"),
         }
     }
 

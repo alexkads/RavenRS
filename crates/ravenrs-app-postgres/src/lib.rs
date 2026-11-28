@@ -474,6 +474,29 @@ impl SqlBackend for PostgresBackend {
         format!(" OFFSET {offset}")
     }
 
+    fn old_key_text(&self, column: &str) -> String {
+        format!("OLD.\"{}\"::text", column.replace('"', "\"\""))
+    }
+
+    fn sealed_guard(&self, table: &str, entity: &str, sealed: &str, key: &str) -> Option<String> {
+        let quoted = |name: &str| format!("\"{}\"", name.replace('"', "\"\""));
+        let text = |value: &str| format!("'{}'", value.replace('\'', "''"));
+        let (function, trigger) =
+            (quoted(&format!("raven_sealed_{table}")), quoted(&format!("raven_sealed_{table}")));
+        let refused = text(&format!("{entity}: it is sealed: change it by an amendment"));
+        Some(format!(
+            "CREATE OR REPLACE FUNCTION {function}() RETURNS trigger LANGUAGE plpgsql AS $guard$ BEGIN \
+             IF ({sealed}) AND NOT EXISTS (SELECT 1 FROM {amending} WHERE entity = {entity_text} AND record = {key}) THEN \
+             RAISE EXCEPTION USING MESSAGE = {refused}, ERRCODE = '23514'; END IF; \
+             IF TG_OP = 'DELETE' THEN RETURN OLD; END IF; RETURN NEW; END $guard$; \
+             DROP TRIGGER IF EXISTS {trigger} ON {table}; \
+             CREATE TRIGGER {trigger} BEFORE UPDATE OR DELETE ON {table} FOR EACH ROW EXECUTE FUNCTION {function}();",
+            amending = ravenrs_app_sql::AMENDING,
+            entity_text = text(entity),
+            table = quoted(table),
+        ))
+    }
+
     fn columns_of(&self, table: &str) -> Result<Vec<String>, SqlError> {
         let sql = "SELECT column_name::text FROM information_schema.columns \
                    WHERE table_schema = current_schema() AND table_name = $1";

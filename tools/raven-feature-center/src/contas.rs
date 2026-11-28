@@ -91,6 +91,28 @@ impl Demo {
         self.answer(done);
     }
 
+    /// Prints the statement of the month and the position of what is open, as documents.
+    fn print(&mut self) {
+        let (culture, words) = (ravenrs_criteria::Culture::pt_br(), ravenrs_app_report::ReportWords::pt_br());
+        let space = self.database.space();
+        let from = DateTime { days: today().days - 30, seconds: 0 };
+        let printed = finance::statement(&space, from, today()).and_then(|statement| {
+            let position = finance::position(&space, today())?;
+            Ok((
+                ravenrs_app_report::statement_document(&statement, &culture, &words),
+                ravenrs_app_report::position_document(&position, &culture, &words),
+            ))
+        });
+        self.said = match printed {
+            Ok((statement, position)) => format!(
+                "Impresso: extrato com {} linhas e posição com {} linhas.",
+                statement.page_text(0).len(),
+                position.page_text(0).len()
+            ),
+            Err(error) => format!("Recusado: {error}"),
+        };
+    }
+
     fn change_paid(&mut self) {
         let mut space = self.database.space();
         let done = space
@@ -180,6 +202,7 @@ impl View for FinancePage {
                     step("Estornar a última baixa", |d| d.reverse_last("pago em duplicidade")),
                     step("Parcelar em 3", Demo::split),
                     step("Cancelar a conta", Demo::cancel),
+                    step("Imprimir extrato e posição", Demo::print),
                     step("Recomeçar", |d| *d = Demo::new()),
                 ))
                 .spacing(8.0),

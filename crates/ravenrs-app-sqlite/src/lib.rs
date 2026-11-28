@@ -322,6 +322,26 @@ impl SqlBackend for SqliteBackend {
         format!(" LIMIT -1 OFFSET {offset}")
     }
 
+    fn sealed_guard(&self, table: &str, entity: &str, sealed: &str, key: &str) -> Option<String> {
+        let quoted = |name: &str| format!("\"{}\"", name.replace('"', "\"\""));
+        let text = |value: &str| format!("'{}'", value.replace('\'', "''"));
+        let refused = text(&format!("{entity}: it is sealed: change it by an amendment"));
+        let allowed = format!(
+            "NOT EXISTS (SELECT 1 FROM {} WHERE entity = {} AND record = {key})",
+            ravenrs_app_sql::AMENDING,
+            text(entity)
+        );
+        let trigger = |operation: &str| {
+            format!(
+                "DROP TRIGGER IF EXISTS {name}; CREATE TRIGGER {name} BEFORE {operation} ON {table} FOR EACH ROW \
+                 WHEN ({sealed}) AND {allowed} BEGIN SELECT RAISE(ABORT, {refused}); END;",
+                name = quoted(&format!("raven_sealed_{table}_{}", operation.to_lowercase())),
+                table = quoted(table),
+            )
+        };
+        Some(format!("{} {}", trigger("UPDATE"), trigger("DELETE")))
+    }
+
     fn columns_of(&self, table: &str) -> Result<Vec<String>, SqlError> {
         let columns = columns_of(&self.0, table).map_err(|e| sql_error(&e))?;
         Ok(columns.into_iter().map(|column| column.name).collect())
