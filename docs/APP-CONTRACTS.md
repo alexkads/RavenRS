@@ -197,7 +197,9 @@ The rules hold wherever records are kept: the status moves only by the declared 
 
 `LibraryModule::finance()` brings `FinanceActions`: Settle (what is left, today), Split (in the installments typed) and Reverse (with the reason typed), each with its id and needing `Write`, enabled only on the records they fit.
 
-What waits (#859): the printed documents of the reports and the review screen of a settlement with interest, fine and discount. The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
+Settle opens a window to review the settlement (`settle_review`, an entity no storage keeps), filled with today and what is open; the person changes the date, interest, fine and discount, sees the total that goes to the cash book, and OK settles what it says.
+
+What waits (#859): the printed documents of the reports. The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
 
 ## Scenarios
 
