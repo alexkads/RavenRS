@@ -591,8 +591,12 @@ fn control_props(e: &Editor) -> impl View + use<> {
             },
         ))
         .compact();
-        let text: AnyView =
-            if is_field { Box::new(with_editor(e, text, ExpressionTarget::Control)) } else { Box::new(text) };
+        // The label's text carries a test id, for a scenario to fill whatever label is selected (#723).
+        let text: AnyView = if is_field {
+            Box::new(with_editor(e, text, ExpressionTarget::Control))
+        } else {
+            Box::new(text.test_id("field:text"))
+        };
         rows.push(Box::new(FormField::new(if is_field { "Expressão" } else { "Texto" }, text).hint(
             if is_field {
                 "Ex.: [Preco] * [Qtd], Sum([Total]), Iif([Pago], 'Sim', 'Não')"

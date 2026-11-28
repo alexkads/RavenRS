@@ -99,7 +99,8 @@ scripts/storytold/merge.py wordcraft $S/old $S/new
 ## Testar
 
 ```bash
-CARGO_TARGET_DIR=<scratchpad>/target cargo test -p ravenrs-word
+# num slot fixo (slot-a ou slot-b), com o target dele: sem CARGO_TARGET_DIR
+cargo test -p ravenrs-word
 cargo clippy -p ravenrs-word --all-targets -- -D warnings
 cargo check -p ravenrs-word --target wasm32-unknown-unknown
 cargo tree -p ravenrs-word | grep -c 'git+'   # tem de dar 0

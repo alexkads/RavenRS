@@ -562,6 +562,10 @@ impl View for ControlView {
             Paint::Quad(QuadPaint { border: Some(outline), ..QuadPaint::new(fill) }),
         );
         cx.clip(node);
+        // Found by its name, never by its place: `parte:rotulo1` (#723).
+        if let Some(name) = c.name.as_deref().filter(|n| !n.is_empty()) {
+            cx.test_id(node, &format!("parte:{name}"));
+        }
         // Click selects; dragging moves, also into another band.
         let (e2, band, index, zoom) = (e.clone(), self.band, self.index, z);
         let band_width = self.width / z;

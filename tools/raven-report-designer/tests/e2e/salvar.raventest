@@ -1,0 +1,10 @@
+scenario: Raven Report Designer: inserir um rótulo e salvar
+// Na cópia da fatura: um rótulo novo pela faixa, o texto escrito nas Propriedades, conferido na prévia e salvo no arquivo.
+open Raven Report Designer                                              | Abrir o designer
+click Inserir                                                           | Ir à página Inserir
+click #command:Rótulo                                                   | Inserir um rótulo
+wait #parte:rotulo1                                                     | O rótulo está na faixa
+fill #field:text = Conferido pelo RTS                     | Escrever o texto nas Propriedades
+click Visualizar                                                        | Ver a prévia
+mention #page = Conferido pelo RTS                        | A prévia mostra o texto
+click Salvar                                                            | Salvar no arquivo

@@ -1,8 +1,7 @@
 scenario: Raven Report Designer: abrir a fatura
-// O designer abre na galeria de modelos; a fatura abre na prévia, com a sua página, e o JSON abre pela aba.
+// O designer abre a cópia da fatura de exemplo, sem galeria; a prévia tem a sua página, e o JSON abre pela aba.
 open Raven Report Designer                                              | Abrir o designer
-mention Comece por um modelo pronto ou deixe o assistente montar o relatório a partir dos seus dados. = modelo pronto | Abre na galeria de modelos
-click Fatura Emitente, cliente, itens (mestre-detalhe), totais e observações. | Abrir a fatura
-check Fatura · 1 linhas de dados · pt-BR · retrato = Fatura · 1 linhas de dados · pt-BR · retrato | A fatura está na prévia
+check Fatura · 1 linhas de dados · pt-BR · retrato = Fatura · 1 linhas de dados · pt-BR · retrato | A fatura está aberta
+click Visualizar                                                        | Ver a prévia
 check Página 1 de 1 = Página 1 de 1                                     | Com uma página
 click #tab:JSON                                                         | Ver o JSON
