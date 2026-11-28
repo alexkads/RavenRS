@@ -51,7 +51,7 @@ Measured from what RavenRS paints, in points. Colors are tokens; `token@N` is th
 
 ## API
 
-Builder methods: `disabled`, `label`, `new`, `placeholder`, `preset`, `range`, `read_only`, `today`, `width`.
+Builder methods: `blocked`, `disabled`, `label`, `new`, `placeholder`, `preset`, `range`, `read_only`, `today`, `width`.
 
 ## Example
 
