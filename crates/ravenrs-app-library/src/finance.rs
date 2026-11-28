@@ -633,3 +633,72 @@ pub fn forecast(space: &dyn ObjectSpace, month: DateTime, today: DateTime) -> Re
     }
     Ok(found)
 }
+
+/// Whether a category of this kind serves a movement of this kind: `income` and `receivable` go
+/// with income, `expense` and `payable` with expense, and `both` with either.
+fn serves(category: &str, movement: &str) -> bool {
+    let wants = if matches!(movement, "income" | "receivable") { "income" } else { "expense" };
+    category == "both" || category == wants
+}
+
+/// A watcher for a unit of work that keeps the categories right, by what `stored` reads: a bill or
+/// an entry with a category of the other kind is refused, and so is deleting a category in use or
+/// changing it to a kind its movements do not have. Put it on each space with `on_event`.
+pub fn category_guard(stored: ravenrs_app::SpaceMaker) -> ravenrs_app::SpaceWatcher {
+    use ravenrs_app::{Change, SpaceEvent};
+    Box::new(move |event| {
+        let SpaceEvent::Committing(changes) = event else { return Ok(()) };
+        let reader = stored();
+        let kind_of = |key: &Value| -> Option<String> {
+            let pending = changes.iter().rev().find_map(|change| match change {
+                Change::New(object) | Change::Updated(object)
+                    if object.entity() == FINANCE_CATEGORY && object.get("id") == *key =>
+                {
+                    Some(object.text("kind"))
+                }
+                _ => None,
+            });
+            pending
+                .or_else(|| reader.find(FINANCE_CATEGORY, key).ok().flatten().map(|found| found.text("kind")))
+        };
+        let in_use = |key: &Value| -> Vec<String> {
+            [COMMITMENT, LEDGER_ENTRY]
+                .iter()
+                .flat_map(|entity| reader.query(entity, &Query::all()).unwrap_or_default())
+                .filter(|record| record.key("category_id") == key_text(key))
+                .map(|record| record.text("kind"))
+                .collect()
+        };
+        for change in changes {
+            match change {
+                Change::New(object) | Change::Updated(object)
+                    if object.entity() == COMMITMENT || object.entity() == LEDGER_ENTRY =>
+                {
+                    let category = object.get("category_id");
+                    if matches!(category, Value::Null) {
+                        continue;
+                    }
+                    if let Some(kind) = kind_of(&category)
+                        && !serves(&kind, &object.text("kind"))
+                    {
+                        return Err(format!(
+                            "the category of {} is for the other kind",
+                            object.text("description")
+                        ));
+                    }
+                }
+                Change::Updated(object) if object.entity() == FINANCE_CATEGORY => {
+                    let kind = object.text("kind");
+                    if in_use(&object.get("id")).iter().any(|movement| !serves(&kind, movement)) {
+                        return Err(format!("{} has movements of the other kind", object.text("name")));
+                    }
+                }
+                Change::Deleted { entity, key } if entity == FINANCE_CATEGORY && !in_use(key).is_empty() => {
+                    return Err("a category in use is not deleted".to_owned());
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    })
+}

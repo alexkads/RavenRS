@@ -282,3 +282,47 @@ fn the_year_goes_by_month_and_the_month_says_what_falls_due() {
         assert!(forecast(&*maker(), day(2026, 12, 1), today()).expect("reads").due.is_empty());
     });
 }
+
+#[test]
+fn a_category_serves_its_kind_and_one_in_use_stays() {
+    use ravenrs_app_library::finance::category_guard;
+    both(|maker| {
+        let key = bill(maker, 10_000.0);
+        let guarded = |maker: &Maker| {
+            let mut space = maker();
+            let stored = maker.clone();
+            space.on_event(category_guard(Rc::new(move || stored())));
+            space
+        };
+        let mut space = guarded(maker);
+        let mut income = space.new_object(FINANCE_CATEGORY).expect("category");
+        income.set("name", "Doações");
+        income.set("kind", "income");
+        let income_key = income.get("id");
+        space.insert(income).expect("kept");
+        space.commit().expect("kept");
+        // A bill to pay with a category only for income.
+        let mut space = guarded(maker);
+        let mut payable = space.new_object(COMMITMENT).expect("bill");
+        payable.set("description", "Errada");
+        payable.set("kind", "payable");
+        payable.set("amount", 1_000.0);
+        payable.set("category_id", income_key.clone());
+        let refused = space.insert(payable).and_then(|()| space.commit());
+        assert!(matches!(refused, Err(SpaceError::Refused(_))), "{refused:?}");
+        // The category of the bill is in use: not deleted, and not turned into income.
+        let category = read(maker, COMMITMENT, &key).get("category_id");
+        let mut space = guarded(maker);
+        let refused = space.delete(FINANCE_CATEGORY, &category).and_then(|()| space.commit());
+        assert!(refused.is_err(), "a category in use was deleted");
+        let mut space = guarded(maker);
+        let mut changed = read(maker, FINANCE_CATEGORY, &category);
+        changed.set("kind", "income");
+        assert!(space.save(changed).and_then(|()| space.commit()).is_err(), "a category in use changed kind");
+        let mut space = guarded(maker);
+        assert!(
+            space.delete(FINANCE_CATEGORY, &income_key).and_then(|()| space.commit()).is_ok(),
+            "one not in use goes"
+        );
+    });
+}

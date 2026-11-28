@@ -193,7 +193,9 @@ The rules hold wherever records are kept: the status moves only by the declared 
 
 `annual(space, year)` gives the twelve months with what came in, went out and the balance by category; `forecast(space, month, today)` gives the open bills due in the month, what is left of them and how many are overdue.
 
-What waits (#859): the printed documents of the reports, the form actions, and the rule between category and kind. The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
+`category_guard(stored)` is a watcher for each unit of work: a bill or an entry with a category of the other kind is refused, and so are deleting a category in use and changing it to a kind its movements do not have.
+
+What waits (#859): the printed documents of the reports and the form actions. The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
 
 ## Scenarios
 
