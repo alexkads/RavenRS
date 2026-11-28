@@ -1,0 +1,114 @@
+# As camadas do RavenRS (#1080): cada seção é um workspace Cargo, na ordem de baixo para cima.
+# Um pacote só depende de pacotes da própria camada ou das que vêm antes neste arquivo. Vale para
+# [dependencies], [build-dependencies] e [dev-dependencies]: quem testa um widget não pode precisar
+# compilar a vitrine.
+#
+# Todo pacote do repositório aparece em exatamente uma camada. O passo
+# `scripts/check-camadas.py` confere as duas coisas, e o `cargo xtask` o roda em toda checagem.
+#
+# `pasta` é onde o workspace vai morar quando sair da raiz (fases F1 a F4 da #1080). Na camada
+# `apps`, cada pacote é um workspace próprio, na pasta dele.
+
+[nucleo]
+rotulo = "W1"
+pacotes = [
+    "ravenrs-core", "ravenrs-reactive", "ravenrs-style", "ravenrs-layout", "ravenrs-text",
+    "ravenrs-graphics", "ravenrs-animation", "ravenrs-lottie", "ravenrs-live", "ravenrs-live-derive",
+    "ravenrs-criteria", "ravenrs-app-i18n", "ravenrs-barcode", "ravenrs-process", "ravenrs-perifericos",
+]
+
+[widgets]
+rotulo = "W2"
+pacotes = [
+    "ravenrs-widgets-base", "ravenrs-widgets-kit", "ravenrs-widgets-charts", "ravenrs-widgets-chat",
+    "ravenrs-widgets-dock", "ravenrs-widgets-grid", "ravenrs-widgets-imaging", "ravenrs-widgets-lists",
+    "ravenrs-widgets-scheduler", "ravenrs-widgets", "ravenrs-e2e", "ravenrs-e2e-wire", "ravenrs-schedule",
+    "ravenrs-project",
+]
+
+[plataforma]
+rotulo = "W3"
+pacotes = [
+    "ravenrs-render", "ravenrs-wayland-gestures", "ravenrs-platform-native", "ravenrs-platform-web",
+    "ravenrs-movie", "ravenrs",
+]
+
+[documentos]
+rotulo = "W4"
+pacotes = [
+    "ravenrs-report", "ravenrs-report-export", "ravenrs-report-pdf", "ravenrs-report-xlsx",
+    "ravenrs-report-label", "ravenrs-pdf", "ravenrs-word", "ravenrs-deck", "ravenrs-sheet",
+    "ravenrs-grid-export",
+]
+
+[app]
+rotulo = "W5"
+pacotes = [
+    "ravenrs-app", "ravenrs-app-spec", "ravenrs-app-derive", "ravenrs-app-sql", "ravenrs-app-sqlite",
+    "ravenrs-app-testkit", "ravenrs-app-requests",
+]
+
+[servicos]
+rotulo = "W6"
+pacotes = [
+    "ravenrs-app-postgres", "ravenrs-app-postgrest", "ravenrs-app-server", "ravenrs-report-server",
+    "ravenrs-mail", "ravenrs-secrets", "ravenrs-metrics",
+]
+
+[telas]
+rotulo = "W7"
+pacotes = [
+    "ravenrs-report-viewer", "ravenrs-report-designer", "ravenrs-spreadsheet", "ravenrs-app-ui",
+    "ravenrs-app-a11y", "ravenrs-app-library", "ravenrs-app-update", "ravenrs-app-remote",
+    "ravenrs-app-report",
+]
+
+[fiscal]
+rotulo = "W8"
+pacotes = [
+    "ravenrs-dfe", "ravenrs-nfe", "ravenrs-nfse", "ravenrs-pagamento", "ravenrs-pos", "ravenrs-app-nfe",
+    "ravenrs-app-pos",
+]
+
+[automacao]
+rotulo = "W9"
+pacotes = [
+    "ravenrs-flows", "ravenrs-flows-runtime", "ravenrs-flow-bpmn", "ravenrs-flow-export", "ravenrs-git",
+    "ravenrs-ai", "ravenrs-movie-video",
+]
+
+[infra]
+rotulo = "W10"
+pacotes = [
+    "ravenrs-xcache", "ravenrs-e2e-runner", "ravenrs-junit", "ravenrs-lint", "ravenrs-mcp", "cargo-ravenrs",
+    "ravenrs-agent-cli", "xtask",
+]
+
+[vitrine]
+rotulo = "W11"
+pacotes = ["raven-feature-center", "component-gallery", "raven-component-book"]
+
+[raven-ci]
+rotulo = "W12"
+pasta = "tools/raven-ci"
+pacotes = [
+    "raven-ci", "raven-ci-agent", "raven-ci-core", "raven-ci-explicador", "raven-ci-painel",
+    "raven-ci-plugin-agent-local", "raven-ci-plugin-agent-remote", "raven-ci-plugin-api-trigger",
+    "raven-ci-plugin-api", "raven-ci-plugin-artifacts", "raven-ci-plugin-azure-devops",
+    "raven-ci-plugin-cargo", "raven-ci-plugin-credentials", "raven-ci-plugin-cron", "raven-ci-plugin-docker",
+    "raven-ci-plugin-email", "raven-ci-plugin-explain", "raven-ci-plugin-format-jenkinsfile",
+    "raven-ci-plugin-format-toml", "raven-ci-plugin-git", "raven-ci-plugin-github", "raven-ci-plugin-junit",
+    "raven-ci-plugin-kubernetes", "raven-ci-plugin-lock", "raven-ci-plugin-metrics", "raven-ci-plugin-shell",
+    "raven-ci-plugin-webhook-github", "raven-ci-plugin-webhook-out", "raven-ci-plugin-workspace",
+    "raven-ci-exemplo-rust",
+]
+
+[apps]
+rotulo = "A"
+um_workspace_por_pacote = true
+pacotes = [
+    "bpmn-editor", "calculator", "dock-workbench", "family-finance", "flow-chat-bot", "flow-design-board",
+    "flow-whiteboard", "grid-poc", "hello-world", "mini-pdv", "quick-app", "quick-plan",
+    "raven-channel-video", "raven-code", "raven-flows", "raven-movie-editor", "raven-report-designer",
+    "raven-test-studio", "site-home", "spreadsheet", "tasks-sqlite", "tutorial-tasks", "ravenrs-perf",
+]
