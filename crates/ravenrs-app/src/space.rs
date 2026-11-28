@@ -587,11 +587,14 @@ fn value_from_json(json: &serde_json::Value) -> Result<Value, String> {
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MemoryDatabase {
     /// A database with these entities and no records.
-    pub fn new(entities: Vec<EntityInfo>) -> Result<Self, ModelError> {
+    pub fn new(mut entities: Vec<EntityInfo>) -> Result<Self, ModelError> {
+        let versions = crate::missing_closing_entities(&entities);
+        entities.extend(versions);
         for entity in &entities {
             entity.check()?;
         }
         crate::check_amendment_model(&entities)?;
+        crate::check_closing_model(&entities)?;
         Ok(Self {
             entities: Rc::new(entities),
             tables: Rc::new(RefCell::new(Tables { next_key: 1, ..Tables::default() })),
@@ -829,7 +832,8 @@ impl MemoryObjectSpace {
             let found = key_text(key).and_then(|key| tables.rows.get(&entity.name)?.get(&key).cloned());
             Ok(found)
         };
-        crate::check_amendments(&self.database.entities, self.changes.list(), &mut stored)
+        crate::check_amendments(&self.database.entities, self.changes.list(), &mut stored)?;
+        crate::check_closing(&self.database.entities, self.changes.list(), &mut stored)
     }
 
     /// Writes a new amendment on its target before it waits, all or nothing.

@@ -105,6 +105,30 @@ The amendment is written on its target as it is inserted (`apply_amendment`, cal
 
 Permissions: creating an amendment needs `Create` on the amendment entity and `Read` on the target, not `Write` on the target. An `object_permission` that denies `Write` on closed records still holds for direct edits.
 
+### Period closing
+
+A period entity, such as a month, a term or a payroll, declares with `EntityInfo::period_closing` how it is approved:
+
+```rust
+EntityInfo::new("Term").period_closing(
+    PeriodClosing::new("TermClosing")                  // the entity of the versions
+        .freezes("Lesson", "[term_id]")                // a record and the reference to the period
+        .freezes("Presence", "[lesson_id.term_id]")    // the path may go through other records
+        .requires_none("Lesson", "[status] = 'draft'") // nothing of this to approve
+        .reopen_reason(10),                            // characters a reason to reopen needs
+)
+```
+
+`PeriodClosing::versions_entity` makes the entity of the versions: `period`, `version`, `approved_at`, `approved_by`, `digest` (sha256 in hexadecimal), `document` (the key in an `AttachmentStore`), `status` (`current` or `reopened`) and `reopen_reason`. Its key is the period's key and the version, as `7/2`, so two versions with the same number cannot be kept, and the commit finds the last one by key, without a query. `MemoryDatabase` adds it alone; a SQL database takes it with `managed`, like any entity.
+
+- `approve(space, files, period, key, document, approver)` refuses while a record meets a `requires_none`, keeps the document, and writes the next version, current, with the hash, in one commit. If the commit fails, the document is removed.
+- `reopen(space, period, key, reason)` turns the current version into reopened, with the reason.
+- `archived_document(space, files, versions, key)` reads the version through the space, so a `SecuredObjectSpace` denies it to whom cannot read, and gives the document only if it matches the hash; otherwise `ClosingError::Tampered`.
+
+The commit checks it all with `check_closing`, in every space here (memory, SQL and PostgREST), reading what storage has inside the transaction: a record of a period whose last version is current is not added, changed or deleted, by its new values or by those stored; a new version comes next in sequence, current, with its hash and document, while the period has none current; a version kept changes only from current to reopened, with the reason, and is never deleted. `check_closing_model` refuses, when the model is made, a path that does not lead to the period by references.
+
+What waits: the precondition runs in `approve`, not in the commit, so a record written as the period is approved can slip through it; the generated actions and screen (`ClosingModule`) and `PostgresAttachmentStore` come next (#855).
+
 ## Scenarios
 
 Each scenario has one owner issue, where its checklist lives. The text of the interface may change; the observable result is the contract. Sketches V01–V16 and diagrams D01–D03 are in the [visual appendix of #253](https://github.com/alexkads/RavenRS/issues/253#issuecomment-6828194062).

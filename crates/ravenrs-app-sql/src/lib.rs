@@ -648,6 +648,10 @@ impl<B: SqlBackend> SqlObjectSpace<B> {
             let mut stored = |entity: &EntityInfo, key: &Value| self.stored_record(entity, key);
             ravenrs_app::check_amendments(&entities, changes, &mut stored)?;
         }
+        if entities.iter().any(|entity| entity.period_closing.is_some()) {
+            let mut stored = |entity: &EntityInfo, key: &Value| self.stored_record(entity, key);
+            ravenrs_app::check_closing(&entities, changes, &mut stored)?;
+        }
         for change in changes {
             let name = match change {
                 Change::New(object) | Change::Updated(object) => object.entity(),

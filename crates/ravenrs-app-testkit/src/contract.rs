@@ -140,7 +140,7 @@ enum Outcome {
 }
 
 /// Every case, by name.
-const CASES: [(&str, Case); 16] = [
+const CASES: [(&str, Case); 17] = [
     ("types", types),
     ("filters_and_order", filters_and_order),
     ("pages_only_and_calculated", pages_only_and_calculated),
@@ -149,6 +149,7 @@ const CASES: [(&str, Case); 16] = [
     ("gone_record_conflicts", gone_record_conflicts),
     ("state_machine", state_machine),
     ("sealed_and_amendment", sealed_and_amendment),
+    ("period_closing", period_closing),
     ("rules_and_watchers", rules_and_watchers),
     ("audit_in_the_same_commit", audit_in_the_same_commit),
     ("permission_denied", permission_denied),
@@ -574,6 +575,106 @@ fn sealed_and_amendment(adapter: &dyn Adapter) -> Result<Outcome, String> {
     written.set("reason", "outro motivo qualquer");
     let refused = space.save(written).and_then(|()| space.commit());
     ensure!(refused.is_err(), "a kept correction was changed");
+    Ok(Outcome::Passed)
+}
+
+/// An approved period freezes its records until it is reopened with a reason; versions come in
+/// sequence and, once kept, change only to reopened (#855).
+fn period_closing(adapter: &dyn Adapter) -> Result<Outcome, String> {
+    use ravenrs_app::{MemoryAttachmentStore, PeriodClosing, approve, closing_key, reopen};
+    let closing = PeriodClosing::new("TermClosing")
+        .freezes("Lesson", "[term_id]")
+        .freezes("Presence", "[lesson_id.term_id]")
+        .requires_none("Lesson", "[status] = 'draft'")
+        .reopen_reason(10);
+    let term = EntityInfo::new("Term")
+        .field(FieldInfo::new("id", FieldKind::Integer).key())
+        .field(FieldInfo::new("name", FieldKind::Text))
+        .period_closing(closing.clone());
+    let lesson = EntityInfo::new("Lesson")
+        .field(FieldInfo::new("id", FieldKind::Integer).key())
+        .field(FieldInfo::new("term_id", FieldKind::Reference("Term".into())))
+        .field(FieldInfo::new("status", FieldKind::Text));
+    let presence = EntityInfo::new("Presence")
+        .field(FieldInfo::new("id", FieldKind::Integer).key())
+        .field(FieldInfo::new("lesson_id", FieldKind::Reference("Lesson".into())))
+        .field(FieldInfo::new("name", FieldKind::Text));
+    let versions = closing.versions_entity(&term);
+    let store = store(adapter, "closing", &[term, lesson, presence, versions])?;
+    let files = MemoryAttachmentStore::default();
+    let mut space = (store.space)();
+    let term_key = add(&mut *space, "Term", &[("name", "1º semestre".into())])?;
+    let lesson_key =
+        add(&mut *space, "Lesson", &[("term_id", term_key.clone()), ("status", "draft".into())])?;
+    add(&mut *space, "Presence", &[("lesson_id", lesson_key.clone()), ("name", "Ana".into())])?;
+    space.commit().map_err(wrong)?;
+
+    let mut space = (store.space)();
+    ensure!(
+        approve(&mut *space, &files, "Term", &term_key, b"pdf", "ana").is_err(),
+        "a term with a draft lesson was approved"
+    );
+    same!(count(&*(store.space)(), "TermClosing")?, 0, "a refused approval left a version");
+    let mut space = (store.space)();
+    let mut found = space.find("Lesson", &lesson_key).map_err(wrong)?.ok_or("the lesson")?;
+    found.set("status", "done");
+    space.save(found).map_err(wrong)?;
+    space.commit().map_err(wrong)?;
+
+    let mut space = (store.space)();
+    let first = approve(&mut *space, &files, "Term", &term_key, b"pdf da 1", "ana")
+        .map_err(|e| format!("approving a term with nothing open: {e}"))?;
+    same!(first.integer("version"), Some(1));
+    same!(first.text("digest").len(), 64, "the hash");
+
+    let child = |name: &str| -> Result<(), String> {
+        let mut space = (store.space)();
+        add(&mut *space, "Presence", &[("lesson_id", lesson_key.clone()), ("name", name.into())])?;
+        space.commit().map_err(wrong)
+    };
+    ensure!(child("Bia").is_err(), "a record was added through a reference to an approved term");
+    let mut space = (store.space)();
+    let mut found = space.find("Lesson", &lesson_key).map_err(wrong)?.ok_or("the lesson")?;
+    found.set("status", "draft");
+    let refused = space.save(found).and_then(|()| space.commit());
+    ensure!(refused.is_err(), "a record of an approved term was changed");
+    let mut space = (store.space)();
+    let refused = space.delete("Lesson", &lesson_key).and_then(|()| space.commit());
+    ensure!(refused.is_err(), "a record of an approved term was deleted");
+
+    let first_key = Value::Text(closing_key(&term_key, 1).ok_or("the key")?);
+    let mut space = (store.space)();
+    let mut kept = space.find("TermClosing", &first_key).map_err(wrong)?.ok_or("the version")?;
+    kept.set("digest", "0".repeat(64));
+    let refused = space.save(kept).and_then(|()| space.commit());
+    ensure!(refused.is_err(), "the hash of an approval was changed");
+    let mut space = (store.space)();
+    let refused = space.delete("TermClosing", &first_key).and_then(|()| space.commit());
+    ensure!(refused.is_err(), "an approval was deleted");
+
+    let mut space = (store.space)();
+    ensure!(reopen(&mut *space, "Term", &term_key, "curto").is_err(), "a short reason reopened it");
+    let mut space = (store.space)();
+    reopen(&mut *space, "Term", &term_key, "faltou uma presença")
+        .map_err(|e| format!("a justified reopening was refused: {e}"))?;
+    child("Bia").map_err(|e| format!("a reopened term still froze its records: {e}"))?;
+
+    let mut space = (store.space)();
+    let mut ahead = space.new_object("TermClosing").map_err(wrong)?;
+    ahead.set("id", Value::Text(closing_key(&term_key, 4).ok_or("the key")?));
+    ahead.set("period", term_key.clone());
+    ahead.set("version", 4.0);
+    ahead.set("digest", "a".repeat(64));
+    ahead.set("document", "1");
+    ahead.set("status", "current");
+    let refused = space.insert(ahead).and_then(|()| space.commit());
+    ensure!(refused.is_err(), "a version out of sequence was kept");
+
+    let mut space = (store.space)();
+    let second = approve(&mut *space, &files, "Term", &term_key, b"pdf da 2", "ana")
+        .map_err(|e| format!("approving again: {e}"))?;
+    same!(second.integer("version"), Some(2));
+    ensure!(child("Caio").is_err(), "the second approval did not freeze the term");
     Ok(Outcome::Passed)
 }
 
