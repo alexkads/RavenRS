@@ -326,3 +326,42 @@ fn a_category_serves_its_kind_and_one_in_use_stays() {
         );
     });
 }
+
+#[test]
+fn the_actions_settle_split_and_reverse_from_a_form() {
+    use ravenrs_app::{ActionInput, Application, FrameContext, ViewInfo, ViewKind};
+    use ravenrs_app_library::LibraryModule;
+    use ravenrs_app_library::finance::{REVERSE_SETTLEMENT, SETTLE_BILL, SPLIT_BILL};
+    use std::cell::RefCell;
+    let database = MemoryDatabase::new(finance::entities()).expect("entities fit");
+    let maker: Maker = {
+        let database = database.clone();
+        Rc::new(move || Box::new(database.space()) as Box<dyn ObjectSpace>)
+    };
+    let first = bill(&maker, 10_000.0);
+    let second = bill(&maker, 9_000.0);
+    let application =
+        Application::builder("Casa").module(LibraryModule::new().finance()).build().expect("valid");
+    let frame_on = |entity: &str, record: Object| {
+        let space: Rc<RefCell<dyn ObjectSpace>> = Rc::new(RefCell::new(database.space()));
+        let frame = application.new_frame(FrameContext::Main, space);
+        frame.set_view(Some(ViewInfo::new(format!("{entity}_DetailView"), ViewKind::Detail, Some(entity))));
+        frame.set_selected(vec![record]);
+        frame
+    };
+    let frame = frame_on(COMMITMENT, read(&maker, COMMITMENT, &first));
+    frame.execute(SETTLE_BILL, ActionInput::None).expect("settled");
+    assert_eq!(read(&maker, COMMITMENT, &first).text("status"), "paid");
+    let frame = frame_on(COMMITMENT, read(&maker, COMMITMENT, &first));
+    assert!(!frame.action(SETTLE_BILL).expect("there").is_enabled(), "a paid bill is not settled again");
+    let frame = frame_on(COMMITMENT, read(&maker, COMMITMENT, &second));
+    frame.execute(SPLIT_BILL, ActionInput::Parameter(Value::Number(3.0))).expect("split");
+    assert_eq!(read(&maker, COMMITMENT, &second).text("status"), "split");
+    let settlement = all(&maker, SETTLEMENT).remove(0);
+    let frame = frame_on(SETTLEMENT, settlement.clone());
+    assert!(frame.execute(REVERSE_SETTLEMENT, ActionInput::Parameter(Value::Text(String::new()))).is_err());
+    frame
+        .execute(REVERSE_SETTLEMENT, ActionInput::Parameter(Value::Text("pago em duplicidade".into())))
+        .expect("reversed");
+    assert_eq!(read(&maker, COMMITMENT, &first).text("status"), "open");
+}

@@ -282,6 +282,14 @@ impl Module for LibraryModule {
         "Library"
     }
 
+    fn view_controllers(&self) -> Vec<Box<dyn ravenrs_app::ViewController>> {
+        if self.entities.iter().any(|entity| entity.name == finance::COMMITMENT) {
+            vec![Box::new(finance::FinanceActions)]
+        } else {
+            Vec::new()
+        }
+    }
+
     fn entities(&self) -> Vec<EntityInfo> {
         let mut all: Vec<EntityInfo> = self
             .entities

@@ -85,7 +85,7 @@ replace the API statuses and adapter guarantees below.
 | Dashboards switched by variants | ✅ `DashboardInfo::variant` | |
 | Translating captions outside the code | ✅ `export_captions`, `import_captions`, as CSV | |
 | Ready-made records | ✅ `ravenrs-app-library`: person, organization, address, country, task, event, note and file | |
-| Bills to pay and to receive with the cash book | 🟡 `ravenrs_app_library::finance`: categories, cash book, bills and settlements; `settle` with interest, fine and discount, in part or in full, `reverse` by an entry of the opposite sign, `split` and `plan` to the cent, `cancel`, `position`, `statement`, `annual`, `forecast` and `category_guard`. Printed reports and form actions are not there yet | #859 |
+| Bills to pay and to receive with the cash book | 🟡 `ravenrs_app_library::finance`: categories, cash book, bills and settlements; `settle` with interest, fine and discount, in part or in full, `reverse` by an entry of the opposite sign, `split` and `plan` to the cent, `cancel`, `position`, `statement`, `annual`, `forecast` and `category_guard`, and the actions Settle, Split and Reverse (`FinanceActions`, each needing `Write`). Printed reports and the review screens of a settlement are not there yet | #859 |
 | Clone object | ✅ `CloneModule`: only what says it can be, with `non_cloneable` and `aggregated` | |
 | File attachments | ✅ `AttachmentStore`, out of the record, with a button to save the file | |
 | Deleted records kept in a recycle bin, restored or purged | ⬜ `delete` removes the record; the audit trail keeps what it held, and nothing brings it back | #613 |

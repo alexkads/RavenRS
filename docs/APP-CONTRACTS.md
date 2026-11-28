@@ -195,7 +195,9 @@ The rules hold wherever records are kept: the status moves only by the declared 
 
 `category_guard(stored)` is a watcher for each unit of work: a bill or an entry with a category of the other kind is refused, and so are deleting a category in use and changing it to a kind its movements do not have.
 
-What waits (#859): the printed documents of the reports and the form actions. The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
+`LibraryModule::finance()` brings `FinanceActions`: Settle (what is left, today), Split (in the installments typed) and Reverse (with the reason typed), each with its id and needing `Write`, enabled only on the records they fit.
+
+What waits (#859): the printed documents of the reports and the review screen of a settlement with interest, fine and discount. The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
 
 ## Scenarios
 

@@ -702,3 +702,84 @@ pub fn category_guard(stored: ravenrs_app::SpaceMaker) -> ravenrs_app::SpaceWatc
         Ok(())
     })
 }
+
+/// The id of the action that settles what is left of a bill, today.
+pub const SETTLE_BILL: &str = "SettleBill";
+/// The id of the action that splits a bill in the installments given.
+pub const SPLIT_BILL: &str = "SplitBill";
+/// The id of the action that reverses a settlement, with the reason given.
+pub const REVERSE_SETTLEMENT: &str = "ReverseSettlement";
+
+/// The actions on the forms and lists of bills and settlements, each needing `Write` and with an
+/// id of its own, for permissions by role.
+#[derive(Debug, Default)]
+pub struct FinanceActions;
+
+impl ravenrs_app::ViewController for FinanceActions {
+    fn id(&self) -> &str {
+        "Finance"
+    }
+
+    fn actions(&self) -> Vec<ravenrs_app::Action> {
+        use ravenrs_app::{Action, ActionCategory, ActionInput, CriteriaMode, Operation, Selection};
+        let open = "[status] = 'open' Or [status] = 'partial'";
+        let today = || {
+            let now = ravenrs_app::local_now();
+            DateTime { days: now.days, seconds: 0 }
+        };
+        vec![
+            Action::simple(SETTLE_BILL, "Settle")
+                .category(ActionCategory::Edit)
+                .target_entity(COMMITMENT)
+                .selection(Selection::RequireSingle)
+                .requires(Operation::Write)
+                .target_criteria(open, CriteriaMode::TrueForAll)
+                .icon("check")
+                .on_execute(move |cx| {
+                    let bill = cx.selected.first().ok_or("this action needs a bill")?;
+                    let left = cents(bill, "amount") - cents(bill, "settled");
+                    let mut space = cx.space.borrow_mut();
+                    settle(&mut *space, &bill.get("id"), SettleInput::new(today(), left), today())
+                        .map(|_| ())
+                        .map_err(|e| e.to_string())
+                }),
+            Action::parametrized(SPLIT_BILL, "Split", FieldKind::Integer)
+                .category(ActionCategory::Edit)
+                .target_entity(COMMITMENT)
+                .selection(Selection::RequireSingle)
+                .requires(Operation::Write)
+                .target_criteria("[status] = 'open' And [settled] = 0", CriteriaMode::TrueForAll)
+                .icon("split")
+                .on_execute(move |cx| {
+                    let bill = cx.selected.first().ok_or("this action needs a bill")?;
+                    let ActionInput::Parameter(Value::Number(parts)) = &cx.input else {
+                        return Err("say in how many installments".to_owned());
+                    };
+                    let first = match bill.get("due_on") {
+                        Value::Date(due) => due,
+                        _ => today(),
+                    };
+                    let mut space = cx.space.borrow_mut();
+                    split(&mut *space, &bill.get("id"), *parts as u32, first)
+                        .map(|_| ())
+                        .map_err(|e| e.to_string())
+                }),
+            Action::parametrized(REVERSE_SETTLEMENT, "Reverse", FieldKind::LongText)
+                .category(ActionCategory::Edit)
+                .target_entity(SETTLEMENT)
+                .selection(Selection::RequireSingle)
+                .requires(Operation::Write)
+                .target_criteria("IsNull([reversed_on])", CriteriaMode::TrueForAll)
+                .icon("undo")
+                .on_execute(move |cx| {
+                    let settlement = cx.selected.first().ok_or("this action needs a settlement")?;
+                    let reason = match &cx.input {
+                        ActionInput::Parameter(Value::Text(reason)) => reason.clone(),
+                        _ => String::new(),
+                    };
+                    let mut space = cx.space.borrow_mut();
+                    reverse(&mut *space, &settlement.get("id"), &reason, today()).map_err(|e| e.to_string())
+                }),
+        ]
+    }
+}
