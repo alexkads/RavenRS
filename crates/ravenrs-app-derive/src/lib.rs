@@ -66,8 +66,9 @@ pub fn derive_business_object(input: TokenStream) -> TokenStream {
     business_object(&input).unwrap_or_else(Error::into_compile_error).into()
 }
 
-/// Declares an enum with no data as the options of a field: `#[option(caption = "...", code = "...")]`
-/// on a variant. The first variant is what a new record starts with.
+/// Declares an enum with no data as the options of a field: `#[option(caption = "...", code = "...",
+/// tint = "success")]` on a variant, where `tint` (danger, warning, success, accent or muted) is the
+/// tone it shows in as a badge on a list. The first variant is what a new record starts with.
 #[proc_macro_derive(BusinessEnum, attributes(option))]
 pub fn derive_business_enum(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -419,7 +420,13 @@ fn business_enum(input: &DeriveInput) -> Result<Tokens> {
     let first = &first.ident;
     let options = spec.options.iter().map(|o| {
         let (code, caption) = (&o.code, &o.caption);
-        quote!(::ravenrs_app::EnumOption::new(#code, #caption))
+        match o.tint {
+            Some(color) => {
+                let color = tint(color);
+                quote!(::ravenrs_app::EnumOption::new(#code, #caption).tint(#color))
+            }
+            None => quote!(::ravenrs_app::EnumOption::new(#code, #caption)),
+        }
     });
     let codes = spec.options.iter().map(|o| {
         let (ident, code) = (&o.ident, &o.code);
