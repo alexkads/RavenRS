@@ -3,6 +3,7 @@
 //! a price has to cover.
 
 use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
 
 pub mod entrada;
@@ -188,32 +189,24 @@ impl Carrinho {
     }
 }
 
-/// Splits `valor` among `partes` by their weight, to the cent: each gets its share rounded down,
-/// and the cents left go to the largest part (the first of them). The result adds up to `valor`
-/// whenever `valor` is no more than their sum; with no weight at all, nothing is split.
+/// Splits `valor` among `partes` by their weight, to the cent, by the framework's one rule
+/// ([`ravenrs_criteria::allocate_by`]): each gets its share rounded down, and the cents left go one
+/// by one to the largest remainders (the first of them on a tie). The result adds up to `valor`, and
+/// no part gets more than it weighs, whenever `valor` is no more than their sum; with no weight at
+/// all, nothing is split.
 pub fn ratear(valor: Decimal, partes: &[Decimal]) -> Vec<Decimal> {
-    let soma: Decimal = partes.iter().sum();
-    if soma <= Decimal::ZERO || valor <= Decimal::ZERO {
+    let centavos = |quantia: Decimal| {
+        (quantia * Decimal::ONE_HUNDRED)
+            .round_dp_with_strategy(0, rust_decimal::RoundingStrategy::ToZero)
+            .to_i64()
+            .unwrap_or(0)
+    };
+    let pesos: Vec<i64> = partes.iter().map(|parte| centavos(*parte).max(0)).collect();
+    let total = centavos(valor);
+    if total <= 0 || pesos.iter().all(|peso| *peso == 0) {
         return vec![Decimal::ZERO; partes.len()];
     }
-    let mut cotas: Vec<Decimal> = partes
-        .iter()
-        .map(|parte| (valor * parte / soma).round_dp_with_strategy(2, rust_decimal::RoundingStrategy::ToZero))
-        .collect();
-    let sobra = valor - cotas.iter().sum::<Decimal>();
-    if sobra != Decimal::ZERO
-        && let Some(maior) = partes
-            .iter()
-            .enumerate()
-            .fold(None::<(usize, Decimal)>, |best, (i, p)| match best {
-                Some((_, b)) if *p <= b => best,
-                _ => Some((i, *p)),
-            })
-            .map(|(i, _)| i)
-    {
-        cotas[maior] += sobra;
-    }
-    cotas
+    ravenrs_criteria::allocate_by(total, &pesos).into_iter().map(|cota| Decimal::new(cota, 2)).collect()
 }
 
 /// How someone pays.
@@ -405,6 +398,8 @@ mod tests {
         let partes = carrinho.desconto_por_linha();
         assert_eq!(partes.iter().sum::<Decimal>(), Decimal::ONE, "{partes:?}");
         assert!(partes.iter().zip(&carrinho.linhas).all(|(p, l)| *p <= l.total()));
+        let cents = |text: &str| text.parse::<Decimal>().unwrap_or_default();
+        assert_eq!(partes, [cents("0.34"), cents("0.33"), cents("0.33")], "the cent left, by the framework's rule");
     }
 
     #[test]

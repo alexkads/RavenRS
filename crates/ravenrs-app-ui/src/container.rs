@@ -18,8 +18,9 @@ pub(crate) fn icon_named(name: &str) -> Option<IconName> {
     IconName::ALL.iter().copied().find(|icon| icon.name() == name)
 }
 
-/// What was typed, as what the action asks for, or the words of a person who cannot read it.
-fn parameter_of(kind: &FieldKind, text: &str) -> Result<Value, String> {
+/// What was typed, as what the action asks for, or the words of a person who cannot read it. Money
+/// is read as the application's culture reads it, and what is wrong with it is said in its words.
+fn parameter_of(kind: &FieldKind, text: &str, culture: &ravenrs_criteria::Culture) -> Result<Value, String> {
     let typed = text.trim();
     let bad = || format!("\u{201c}{typed}\u{201d}?");
     // Both ways of writing a number people use: 1.234,56 and 1234.56.
@@ -34,10 +35,10 @@ fn parameter_of(kind: &FieldKind, text: &str) -> Result<Value, String> {
         FieldKind::Decimal(_) => number().map(Value::Number),
         // The framework's reading of money, so "1.000" is a thousand here as in a form's field.
         #[allow(clippy::cast_precision_loss)]
-        FieldKind::Money => ravenrs_criteria::Culture::pt_br()
+        FieldKind::Money => culture
             .parse_signed_cents(typed)
             .map(|cents| Value::Number(cents as f64))
-            .map_err(|_| bad()),
+            .map_err(|error| error.message(culture)),
         FieldKind::Date | FieldKind::DateTime => {
             ravenrs_criteria::DateTime::parse(typed).map(Value::Date).ok_or_else(bad)
         }
@@ -142,11 +143,16 @@ impl ActionContainer {
                     },
                 );
                 let (run, kind) = (action.clone(), kind.clone());
+                let culture = if session.words().decimal == ',' {
+                    ravenrs_criteria::Culture::pt_br()
+                } else {
+                    ravenrs_criteria::Culture::en_us()
+                };
                 let field = TextField::new(draft)
                     .placeholder(action.caption().to_owned())
                     .compact()
                     .disabled(!action.is_enabled())
-                    .on_submit(move |text| match parameter_of(&kind, &text) {
+                    .on_submit(move |text| match parameter_of(&kind, &text, &culture) {
                         Ok(value) => session.run_action(&run, ActionInput::Parameter(value)),
                         Err(problem) => session.set_error(Some(problem)),
                     });
@@ -293,22 +299,32 @@ mod tests {
 
     #[test]
     fn what_is_typed_becomes_what_the_action_asks_for() {
-        assert_eq!(parameter_of(&FieldKind::Money, "1.234,56"), Ok(Value::Number(123_456.0)));
-        assert_eq!(
-            parameter_of(&FieldKind::Money, "1.000"),
-            Ok(Value::Number(100_000.0)),
-            "a thousand, as in a form"
-        );
-        assert_eq!(parameter_of(&FieldKind::Money, "-R$ 1,50"), Ok(Value::Number(-150.0)));
-        assert!(parameter_of(&FieldKind::Money, "99999999999999999999").is_err(), "too large, not saturated");
-        assert_eq!(parameter_of(&FieldKind::Integer, "12"), Ok(Value::Number(12.0)));
-        assert_eq!(parameter_of(&FieldKind::Boolean, "sim"), Ok(Value::Bool(true)));
-        assert_eq!(parameter_of(&FieldKind::Text, "  a "), Ok(Value::Text("a".into())));
-        assert_eq!(parameter_of(&FieldKind::Integer, ""), Ok(Value::Null));
-        assert!(parameter_of(&FieldKind::Integer, "doze").is_err());
-        assert!(parameter_of(&FieldKind::Date, "ontem").is_err());
+        let pt = ravenrs_criteria::Culture::pt_br();
+        let read = |kind: &FieldKind, text: &str| parameter_of(kind, text, &pt);
+        assert_eq!(read(&FieldKind::Money, "1.234,56"), Ok(Value::Number(123_456.0)));
+        assert_eq!(read(&FieldKind::Money, "1.000"), Ok(Value::Number(100_000.0)), "a thousand, as in a form");
+        assert_eq!(read(&FieldKind::Money, "-R$ 1,50"), Ok(Value::Number(-150.0)));
+        assert!(read(&FieldKind::Money, "99999999999999999999").is_err(), "too large, not saturated");
+        assert_eq!(read(&FieldKind::Integer, "12"), Ok(Value::Number(12.0)));
+        assert_eq!(read(&FieldKind::Boolean, "sim"), Ok(Value::Bool(true)));
+        assert_eq!(read(&FieldKind::Text, "  a "), Ok(Value::Text("a".into())));
+        assert_eq!(read(&FieldKind::Integer, ""), Ok(Value::Null));
+        assert!(read(&FieldKind::Integer, "doze").is_err());
+        assert!(read(&FieldKind::Date, "ontem").is_err());
         let kinds = FieldKind::Enum(vec![ravenrs_app::EnumOption::new("o", "Open")]);
-        assert_eq!(parameter_of(&kinds, "open"), Ok(Value::Text("o".into())));
+        assert_eq!(read(&kinds, "open"), Ok(Value::Text("o".into())));
+    }
+
+    #[test]
+    fn money_is_read_and_refused_in_the_words_of_the_culture() {
+        let (pt, en) = (ravenrs_criteria::Culture::pt_br(), ravenrs_criteria::Culture::en_us());
+        assert_eq!(parameter_of(&FieldKind::Money, "1,234.56", &en), Ok(Value::Number(123_456.0)));
+        let refused = parameter_of(&FieldKind::Money, "abc", &pt).expect_err("not an amount");
+        assert!(refused.contains("\"abc\"") && refused.contains("1.234,56"), "names it and gives an example: {refused}");
+        let refused = parameter_of(&FieldKind::Money, "abc", &en).expect_err("not an amount");
+        assert!(refused.contains("1,234.56"), "the example of the culture: {refused}");
+        let refused = parameter_of(&FieldKind::Money, "99999999999999999999", &pt).expect_err("too large");
+        assert!(!refused.contains('\u{201c}'), "the reason, not a question mark: {refused}");
     }
 
     #[test]
