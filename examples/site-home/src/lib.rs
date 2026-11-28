@@ -328,7 +328,7 @@ const CODE: [&str; 6] = [
     "// Flex and grid, solved once per change.\nHStack::new((sidebar, content.grow(1.0), inspector))\n    .spacing(16.0)\n    .padding(32.0)",
     "// Parley shapes and wraps; swash rasterizes into a GPU atlas.\nText::new(\"RavenRS\").style(TextStyle::Title)",
     "// Corners, borders, gradients and soft shadows.\nCard::new(body)\n    .corner_radius(24.0)\n    .shadow(Shadow::soft())",
-    "// Only the window and input glue differ.\nfn main() {\n    ravenrs::run(\"Counter\", app);   // desktop\n}\n// scripts/build-web.sh counter  → browser",
+    "// Only the window and input glue differ.\nfn main() {\n    ravenrs::run(\"Counter\", app);   // desktop\n}\n// cargo xtask web counter  → browser",
 ];
 
 /// The share of the scene each step holds, with a short cross-fade into the next.

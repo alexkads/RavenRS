@@ -33,7 +33,7 @@ The pointer over the first control, the focus brought to it with Tab and the but
 
 - **Events**: `on_connect`, `on_disconnect`, `on_join`.
 - **Keys** its first control handles once focused: `Enter`, `Space`, `Escape`.
-- **Accessibility**: role `Group` "Painel de tomadas".
+- **Accessibility**: role `Group` "Patch panel".
 - **Focus order** (Tab): Button "Left out" → Button "Right out" → Button "Tap" → Button "Input 1" → Button "Input 2" → Button "Pedal".
 
 ## Anatomy (Raven Dark, every story)

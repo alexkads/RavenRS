@@ -12,8 +12,7 @@ use crate::Session;
 /// turned it off, gets nothing; whom may not read the amount gets no amount.
 pub fn show_due_digests(session: &Session) {
     let today = ravenrs_app::local_today();
-    let words =
-        if session.words().decimal == ',' { DigestWords::portuguese() } else { DigestWords::english() };
+    let words = DigestWords::from_texts(&session.texts());
     let user = session.account().map(|account| account.name);
     for entity in session.every_entity() {
         let Some(digest) = &entity.due_digest else { continue };
@@ -43,9 +42,25 @@ pub fn show_due_digests(session: &Session) {
             continue;
         };
         let (opener, view) = (session.clone(), format!("{}_ListView", entity.name));
+        // The list opens on the records the notice is about, by their keys.
+        let narrowed = entity.key_field().and_then(|key| {
+            found
+                .keys
+                .iter()
+                .filter_map(|value| {
+                    ravenrs_app::Criteria::parse(&format!("[{}] = {}", key.name, literal(value))).ok()
+                })
+                .reduce(ravenrs_app::Criteria::or)
+        });
         let mut message = Message::new(format!("{} — {}", found.title, found.body), MessageKind::Warning);
         message.seconds = Some(12.0);
-        message.action = Some((session.words().open.clone(), Rc::new(move || opener.open_view(&view))));
+        message.action = Some((
+            session.words().open.clone(),
+            Rc::new(move || match &narrowed {
+                Some(filter) => opener.open_view_filtered(&view, filter.clone()),
+                None => opener.open_view(&view),
+            }),
+        ));
         session.show_message(message);
     }
 }
@@ -123,4 +138,12 @@ fn choices(session: &Session, entities: &[ravenrs_app::EntityInfo]) -> ravenrs_w
         })
         .collect();
     Box::new(VStack::new(rows).spacing(8.0).padding(16.0))
+}
+
+/// A key as the expressions write it: a number as is, anything else quoted.
+fn literal(value: &ravenrs_app::Value) -> String {
+    match value {
+        ravenrs_app::Value::Number(number) => number.to_string(),
+        other => format!("'{}'", ravenrs_app::key_text(other).unwrap_or_default().replace('\'', "''")),
+    }
 }

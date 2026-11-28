@@ -1654,6 +1654,7 @@ fn parse_mask(mask: &str, rules: &[MaskRule]) -> Mask {
     Mask { slots, rules: rules.to_vec() }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Mask {
     /// How many slots must be filled, and how many may be.
     fn counts(&self) -> (usize, usize) {

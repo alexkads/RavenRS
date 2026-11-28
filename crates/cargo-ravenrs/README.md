@@ -106,7 +106,7 @@ Validation:
 ```sh
 cargo test -p cargo-ravenrs -p ravenrs-mcp -p ravenrs-project
 cargo test -p cargo-ravenrs --test cli -- --ignored
-scripts/check.sh
+cargo xtask pr
 ```
 
 The compilation matrix checks every template/target with local workspace patches, sharing

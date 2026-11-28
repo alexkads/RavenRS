@@ -51,7 +51,7 @@ Rodar o conversor no commit do `NOTICE` reproduz `src/` e `tests/`, exceto:
   `src/formats/test_log.rs` só reexportam o do `doc`. Cada crate deles tinha o seu logger de
   teste; num binário só, o `log` aceita um logger e os outros nunca recebiam as linhas.
 - **zip 9**, como no `ravenrs-sheet`: o WordCraft está no zip 3, que tem avisos de segurança
-  (RUSTSEC-2026-0367, 0368, 0369 e 0429), e o `cargo deny` do `check.sh --full` recusa. No 9, o
+  (RUSTSEC-2026-0367, 0368, 0369 e 0429), e o `cargo deny` do `cargo xtask release` recusa. No 9, o
   nome de uma entrada é um `Result`: no código, a entrada de nome ilegível é pulada
   (`docx/package.rs`, `formats/odt/crypt.rs`, `formats/odt/import.rs`); nos testes, `unwrap`
   (os arquivos com a nota `RavenRS: zip 9` no topo). O teste
@@ -60,7 +60,7 @@ Rodar o conversor no commit do `NOTICE` reproduz `src/` e `tests/`, exceto:
   aplique o mesmo ajuste à linha nova deles.
 - `Cargo.toml`, `NOTICE`, `README.md`, `clippy.toml` (o deles sem as regras do egui), `rustfmt.toml`.
 - Links de documentação que a conversão deixa sem alcance, com o caminho escrito à mão porque o
-  `cargo doc -D warnings` do `--full` os recusa: `doc/fill.rs` (`MAX_STOPS`), `doc/parts.rs`
+  `cargo doc -D warnings` do `cargo xtask release` os recusa: `doc/fill.rs` (`MAX_STOPS`), `doc/parts.rs`
   (`InlineObject::note_separator`, `Document::text_box_chains`, `Document::perm_ranges`),
   `doc/settings.rs` (`Document::media`), `doc/para/float.rs` (`InlineObject::alt_text`),
   `doc/para/inline_kinds.rs` (`InlineObject::PositionalTab`), `doc/para/inline_object.rs`
@@ -103,7 +103,7 @@ CARGO_TARGET_DIR=<scratchpad>/target cargo test -p ravenrs-word
 cargo clippy -p ravenrs-word --all-targets -- -D warnings
 cargo check -p ravenrs-word --target wasm32-unknown-unknown
 cargo tree -p ravenrs-word | grep -c 'git+'   # tem de dar 0
-scripts/check.sh
+cargo xtask pr
 ```
 
 Os testes de origem (~1.880 no `fab8793`) têm de passar todos: unitários de cada módulo,

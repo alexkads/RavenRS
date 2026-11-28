@@ -11,7 +11,7 @@ cargo build -p ravenrs-xcache --release
 RUSTC_WRAPPER=$PWD/target/release/ravenrs-xcache CARGO_INCREMENTAL=0 cargo build
 ```
 
-`CARGO_INCREMENTAL=0` matters: an incremental compile depends on what the last one left in the build directory, so it cannot be kept, and Cargo compiles a workspace's own crates incrementally unless told otherwise. In this repository, `scripts/check.sh` does both by default, and cuts the cache down to 20 GB after each run (`RAVENRS_XCACHE_MAX` changes the size). `RAVENRS_XCACHE=0 scripts/check.sh` runs without it.
+`CARGO_INCREMENTAL=0` matters: an incremental compile depends on what the last one left in the build directory, so it cannot be kept, and Cargo compiles a workspace's own crates incrementally unless told otherwise. In this repository, `cargo xtask pr` does both by default, and cuts the cache down to 20 GB after each run (`RAVENRS_XCACHE_MAX` changes the size). `RAVENRS_XCACHE=0 cargo xtask pr` runs without it.
 
 There is no service to start and nothing is installed. The cache is `~/.cache/ravenrs/xcache`, or `RAVENRS_XCACHE_DIR`.
 
@@ -26,7 +26,7 @@ There is no service to start and nothing is installed. The cache is `~/.cache/ra
 
 ## Measured
 
-`scripts/check.sh --full` of this repository, on a Mac with 10 cores and 16 GB, on 14/11/2026, one run of each, every step passing:
+`cargo xtask release` of this repository, on a Mac with 10 cores and 16 GB, on 14/11/2026, one run of each, every step passing:
 
 | Scenario | Time |
 |---|---|
@@ -69,7 +69,7 @@ The 23m01s with an empty cache is not the cache: it is `CARGO_INCREMENTAL=0`, wh
 - A proc macro that reads a file or a variable without rustc knowing (no `include_str!`, no `env!`) can change a crate without changing its key. Cargo itself would not rebuild in that case either.
 - With the wrapper on, debug information names `/xcache/cwd` instead of the checkout. In lldb: `settings set target.source-map /xcache/cwd <checkout>`.
 - Nothing limits the size of the cache by itself: run `gc`.
-- Tested on macOS with rustc 1.99 and on Linux (Fedora, x86_64) with rustc 1.100: on 27/11/2026 a quick `scripts/check.sh` after a change to `ravenrs-widgets-base` took 17m04s from an empty build directory with the cache full, 1,018 of 1,018 libraries restored and no failure, where it took 42 to 60 minutes with the cache off. Windows was not run.
+- Tested on macOS with rustc 1.99 and on Linux (Fedora, x86_64) with rustc 1.100: on 27/11/2026 a quick `cargo xtask pr` after a change to `ravenrs-widgets-base` took 17m04s from an empty build directory with the cache full, 1,018 of 1,018 libraries restored and no failure, where it took 42 to 60 minutes with the cache off. Windows was not run.
 - No remote cache, no C or C++, no distributed compilation.
 
 ## Where it goes from here

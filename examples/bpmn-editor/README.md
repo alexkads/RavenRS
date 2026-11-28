@@ -40,7 +40,7 @@ cargo run -p bpmn-editor --release
 In the browser, the diagrams are kept in the browser's own storage:
 
 ```bash
-scripts/build-web.sh bpmn-editor
+cargo xtask web bpmn-editor
 python3 -m http.server -d examples/bpmn-editor/web 8080
 ```
 

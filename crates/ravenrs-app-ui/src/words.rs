@@ -83,6 +83,12 @@ pub struct Words {
     pub chart_count: String,
     /// Things to be reminded of.
     pub reminders: String,
+    /// The first item of the navigation, which opens the commands.
+    pub search_command: String,
+    /// Folds the navigation to its icons.
+    pub collapse_menu: String,
+    /// Opens the folded navigation.
+    pub open_menu: String,
     /// Background work that cannot say what it is doing.
     pub working: String,
     /// Background work asked to stop, until it does.
@@ -246,6 +252,9 @@ impl Words {
             no_resource: texts.get("ui.no_resource"),
             chart_count: texts.get("ui.chart_count"),
             reminders: texts.get("ui.reminders"),
+            search_command: texts.get("ui.search_command"),
+            collapse_menu: texts.get("ui.collapse_menu"),
+            open_menu: texts.get("ui.open_menu"),
             working: texts.get("ui.working"),
             stopping: texts.get("ui.stopping"),
             snooze: texts.get("ui.snooze"),

@@ -741,7 +741,14 @@ impl ObjectSpace for PostgrestObjectSpace {
             }
             if entities.iter().any(|entity| entity.period_closing.is_some()) {
                 let mut stored = |info: &EntityInfo, key: &Value| self.by_key(self.entity(&info.name)?, key);
-                ravenrs_app::check_closing(&entities, &changes, &mut stored)?;
+                let reader = PostgrestObjectSpace {
+                    shared: self.shared.clone(),
+                    environment: ravenrs_app::environment(),
+                    changes: ChangeSet::default(),
+                    watchers: Vec::new(),
+                };
+                let mut listed = |info: &EntityInfo, query: &Query| reader.query(&info.name, query);
+                ravenrs_app::check_closing(&entities, &changes, &mut stored, &mut listed)?;
             }
             let mut described = Vec::with_capacity(changes.len());
             for change in &changes {

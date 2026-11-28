@@ -17,6 +17,8 @@ categories = ["gui"]
 ravenrs-app-i18n.workspace = true
 ravenrs-app.workspace = true
 ravenrs-app-ui.workspace = true
+# The finance reports it prints: statement, year, position and forecast.
+ravenrs-app-library.workspace = true
 ravenrs-criteria.workspace = true
 ravenrs-grid-export.workspace = true
 ravenrs-layout.workspace = true

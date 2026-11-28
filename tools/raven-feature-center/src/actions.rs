@@ -48,6 +48,13 @@ impl ViewController for Showcase {
     fn actions(&self) -> Vec<Action> {
         let on_entity = |action: Action| action.target_entity(ENTITY).category(ActionCategory::Edit);
         vec![
+            // On each row of the list: lights up only on the open ones, and closes that row's record.
+            on_entity(Action::simple("DemoInRow", "Fechar"))
+                .category(ActionCategory::InRow)
+                .target_criteria("[state] = 'open'", CriteriaMode::TrueForAll)
+                .requires(ravenrs_app::Operation::Write)
+                .icon("check")
+                .on_execute(|cx| change(cx, "state", |_| Value::Text("closed".into()))),
             on_entity(Action::simple("DemoSimple", "Simples"))
                 .selection(Selection::RequireSingle)
                 .on_execute(|cx| {
