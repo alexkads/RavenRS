@@ -205,7 +205,9 @@ The rules hold wherever records are kept: the status moves only by the declared 
 
 Settle opens a window to review the settlement (`settle_review`, an entity no storage keeps), filled with today and what is open; the person changes the date, interest, fine and discount, sees the total that goes to the cash book, and OK settles what it says.
 
-What waits (#859): the printed documents of the reports. The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
+The reports print as documents, in `ravenrs-app-report`: `statement_document`, `annual_document`, `position_document` and `forecast_document` take what the services read through the person's space and write money and dates in a `Culture`, with the heads of the columns from the catalog (`report.finance_*`). Each gives a `Document` to show, print or keep as PDF.
+
+The tests run in memory, in SQLite and, with `RAVENRS_POSTGRES_URL`, in PostgreSQL.
 
 ## Scenarios
 
