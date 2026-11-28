@@ -1610,6 +1610,12 @@ impl Session {
                 }
             }
             Ok(ActionResult::RecordsChanged) => self.reread_after_action(),
+            Ok(ActionResult::OpenNew { entity, values }) => {
+                self.open_new(&entity);
+                for (field, value) in values {
+                    self.set_form_value(&field, value);
+                }
+            }
             Ok(_) => {}
             // The form already says what is wrong, on each field.
             Err(_) if *self.0.checking.peek() => {}

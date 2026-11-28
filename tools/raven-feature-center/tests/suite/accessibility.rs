@@ -133,6 +133,8 @@ demonstrations! {
     registro => "Registro",
     fechamento => "Fechamento de período",
     acesso_temporario => "Acesso temporário",
+    aulas_encerradas => "Aulas encerradas",
+    correcoes_de_aula => "Correções de aula",
     resumo_de_vencimentos => "Resumo de vencimentos",
     contas_a_pagar_e_receber => "Contas a pagar e receber",
     painel_com_niveis => "Painel com níveis",

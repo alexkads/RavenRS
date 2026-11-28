@@ -105,6 +105,8 @@ The amendment is written on its target as it is inserted (`apply_amendment`, cal
 
 Permissions: creating an amendment needs `Create` on the amendment entity and `Read` on the target, not `Write` on the target. An `object_permission` that denies `Write` on closed records still holds for direct edits.
 
+Each amendment gets an action on its target, by itself: `<Amendment>.Amend`, with the caption of the amendment entity, as "Correct the lesson". It is on for one record that can take it (sealed, for a correction; not sealed yet, for a closing), and only whoever can create the amendment sees it (`Action::requires_on`). It opens a new amendment on its form already pointing to the record (`ActionContext::open_new`), for the reason and the new values; saving it is what applies it.
+
 ### Period closing
 
 A period entity, such as a month, a term or a payroll, declares with `EntityInfo::period_closing` how it is approved:
